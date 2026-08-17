@@ -5,8 +5,8 @@ const ASSETS = [
   "/index.html",
   "/style.css",
   "/script.js",
-  "/templateicon1-192.png",
-  "/templateicon1-512.png",
+  "/HLC-192.png",
+  "/HLC-512.png",
   "/favicon.ico",
   "/manifest.json"
 ];

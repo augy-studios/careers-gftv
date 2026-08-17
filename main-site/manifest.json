@@ -3,12 +3,12 @@
     "short_name": "UwU Template",
     "description": "A simple template app; view live template at a glance!",
     "icons": [{
-            "src": "templateicon1-192.png",
+            "src": "HLC-192.png",
             "type": "image/png",
             "sizes": "192x192"
         },
         {
-            "src": "templateicon1-512.png",
+            "src": "HLC-512.png",
             "type": "image/png",
             "sizes": "512x512"
         }
