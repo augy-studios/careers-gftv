@@ -2,7 +2,7 @@
 
 The Careers@GFTV Telegram bot, `careersgftv_bot`.
 
-**Status: not built yet.** The bot ships in phase 9. This directory currently
+**Status: not built yet.** The bot ships in phase 11. This directory currently
 holds the scaffold only: this README, `.env.example`, and `.gitignore`. There
 is no code here to run. See [the build status page](https://careers.globalfurry.tv/status).
 
@@ -44,7 +44,7 @@ Nine, and only nine. There is no `help`; `start` carries that content.
 A command whose backing feature has not shipped replies with the same sentence
 the site uses, rather than failing or going quiet.
 
-## Build conventions, for phase 9
+## Build conventions, for phase 11
 
 - Telethon, Python. Not python-telegram-bot, not aiogram.
 - SQLite for anything bot local: scheduling, rate limits, dedupe, and the
@@ -85,6 +85,6 @@ nowhere else.
 
 ## BotFather setup
 
-See `setup.md`, which lands with the bot in phase 9. It covers creating the
+See `setup.md`, which lands with the bot in phase 11. It covers creating the
 bot, the about text, the description, and the command list to paste into
 BotFather.

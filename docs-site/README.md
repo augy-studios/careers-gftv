@@ -3,7 +3,7 @@
 The public documentation site for Careers@GFTV, served at
 `docs.careers.globalfurry.tv`.
 
-**Status: not built yet.** The docs site ships in phase 11, last, so that it
+**Status: not built yet.** The docs site ships in phase 13, so that it
 documents what was actually built rather than what was planned. This directory
 currently holds the scaffold only: this README and an empty `content/`. See
 [the build status page](https://careers.globalfurry.tv/status).
@@ -42,11 +42,11 @@ environment variables, and no Google Form URLs.
 
 ## Adding or editing a page
 
-Lands with the build in phase 11.
+Lands with the build in phase 13.
 
 ## Previewing locally
 
-Lands with the build in phase 11.
+Lands with the build in phase 13.
 
 ## Screenshots
 

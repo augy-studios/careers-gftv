@@ -5,7 +5,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <title>Page not found | Careers@GFTV</title>
+    <title data-i18n="notFound.pageTitle">Page not found | Careers@GFTV</title>
     <meta name="description" content="That page does not exist on Careers@GFTV.">
     <meta name="robots" content="noindex, follow">
 
@@ -15,8 +15,26 @@
             var k = "gftv-careers";
             var m = localStorage.getItem(k + ".mode") || "light";
             var c = localStorage.getItem(k + ".colorTheme") || "classic";
+            var l = localStorage.getItem(k + ".locale") || "en";
             document.documentElement.setAttribute("data-mode", m);
             document.documentElement.setAttribute("data-color-theme", c);
+            document.documentElement.setAttribute("data-locale", l);
+            document.documentElement.setAttribute("lang", l === "zh" ? "zh-Hans-SG" : "en");
+
+            // A non default language is rendered from a dictionary fetched
+            // after this runs, so the English in the markup would paint first
+            // and be replaced a moment later. Hide the page until the swap has
+            // happened. English readers never take this path.
+            //
+            // The timeout is not a nicety. If the dictionary fails to load, or
+            // i18n.js never runs, nothing else would ever reveal the page, and
+            // a blank site is a worse failure than a flash of English.
+            if (l !== "en") {
+                document.documentElement.setAttribute("data-i18n-pending", "true");
+                setTimeout(function () {
+                    document.documentElement.removeAttribute("data-i18n-pending");
+                }, 1200);
+            }
         })();
     </script>
 
@@ -33,33 +51,36 @@
 </head>
 
 <body>
-    <a class="skip-link" href="#main">Skip to content</a>
+    <a class="skip-link" href="#main" data-i18n="common.skipToContent">Skip to content</a>
 
     <main class="page" id="main">
         <div class="glass-card placeholder">
             <p class="eyebrow">
                 <span data-icon="info" data-icon-size="16"></span>
-                404
+                <span data-i18n="notFound.eyebrow">404</span>
             </p>
 
-            <h1>That page does not exist</h1>
+            <h1 data-i18n="notFound.heading">That page does not exist</h1>
 
-            <p class="sentence">
+            <p class="sentence" data-i18n="notFound.body">
                 The address you followed does not match anything on
                 Careers@GFTV. This is different from a part of the site that has
                 not been built yet, which says so plainly instead.
             </p>
 
-            <p class="covers">
+            <p class="covers" data-i18n="notFound.removed">
                 If you followed a link to a role, the posting may have been
                 removed. Postings that have merely closed stay readable, so a
                 closed role is not what caused this.
             </p>
 
             <div class="actions">
-                <a class="btn btn-primary" href="/search">Browse roles</a>
-                <a class="btn btn-secondary" href="/status">Build status</a>
-                <a class="btn btn-quiet" href="/">Back to the home page</a>
+                <a class="btn btn-primary" href="/search"
+                   data-i18n="common.browseRoles">Browse roles</a>
+                <a class="btn btn-secondary" href="/status"
+                   data-i18n="common.buildStatus">Build status</a>
+                <a class="btn btn-quiet" href="/"
+                   data-i18n="common.backHome">Back to the home page</a>
             </div>
         </div>
     </main>

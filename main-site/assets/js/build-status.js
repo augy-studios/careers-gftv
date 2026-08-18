@@ -7,16 +7,24 @@
 // The Telegram bot and the docs site read the same file, so the three stay in
 // step.
 //
-// The sentence below is fixed by the specification and must not be reworded.
+// Phase names and descriptions live in that JSON in both languages, as name
+// and name_zh, because they are content rather than interface strings and
+// three separate consumers read them. Everything else here comes from the
+// dictionaries in assets/i18n.
+//
+// Every render function is idempotent. The shell calls them again on a
+// language change, so a second call must replace what the first produced
+// rather than stack on top of it.
 
-import { iconMarkup, hydrateIcons } from './icons.js';
+import { hydrateIcons } from './icons.js';
+import { t, getLocale } from './i18n.js';
 
 const SOURCE = '/assets/build-status.json';
 const NOTICE_KEY = 'gftv-careers.phaseNoticeDismissed';
 
-/** Exact wording from section 0c. The phase number is interpolated. */
+/** The sentence section 0c fixes word for word, in the active language. */
 export function unavailableSentence(phase) {
-  return `Will be available in Phase ${phase}. Sorry for the inconvenience caused.`;
+  return t('feature.unavailable', { phase });
 }
 
 let cache = null;
@@ -50,6 +58,26 @@ export function loadBuildStatus() {
     });
 
   return inFlight;
+}
+
+/* -------------------------------------------------------------------------
+ * Reading a phase in the active language
+ * ---------------------------------------------------------------------- */
+
+/**
+ * A localised field from a phase entry. Falls back to English rather than
+ * showing nothing, on the same principle as the dictionary lookup: a phase
+ * added without a translation should read in English, not disappear.
+ * @param {object} phase
+ * @param {'name'|'description'|'shipped_note'} field
+ */
+export function phaseText(phase, field) {
+  if (!phase) return '';
+  if (getLocale() === 'zh') {
+    const translated = phase[`${field}_zh`];
+    if (typeof translated === 'string' && translated !== '') return translated;
+  }
+  return phase[field] ?? '';
 }
 
 /** The phase a feature belongs to, or null when the key is unknown. */
@@ -100,9 +128,15 @@ function shippedSignature(status) {
 /**
  * Insert the slim phase notice at the very top of the page. Quiet, one line,
  * no colour shouting. Removed entirely once every phase has shipped.
+ *
+ * Idempotent: any bar already on the page is removed first, so a language
+ * change redraws rather than stacking a second bar above the first.
+ *
  * @param {object} status
  */
 export function renderPhaseNotice(status) {
+  document.querySelector('.phase-notice')?.remove();
+
   if (allShipped(status)) return;
 
   const signature = shippedSignature(status);
@@ -117,11 +151,12 @@ export function renderPhaseNotice(status) {
   const bar = document.createElement('div');
   bar.className = 'phase-notice';
   bar.setAttribute('role', 'region');
-  bar.setAttribute('aria-label', 'Build progress');
+  bar.setAttribute('aria-label', t('notice.regionLabel'));
   bar.innerHTML = `
     <div class="phase-notice-inner">
-      <p>Careers@GFTV is being built and released in phases. <a href="/status">See what is live</a></p>
-      <button type="button" class="icon-btn small" data-dismiss-notice aria-label="Dismiss this notice">
+      <p>${escapeHtml(t('notice.text'))} <a href="/status">${escapeHtml(t('notice.link'))}</a></p>
+      <button type="button" class="icon-btn small" data-dismiss-notice
+              aria-label="${escapeHtml(t('notice.dismiss'))}">
         <span data-icon="close" data-icon-size="16"></span>
       </button>
     </div>
@@ -143,6 +178,11 @@ export function renderPhaseNotice(status) {
 /* -------------------------------------------------------------------------
  * The disabled control pattern
  * ---------------------------------------------------------------------- */
+
+// Controls whose explainer listener is already attached. A language change
+// re-runs the gating to update the wording, and without this the listener
+// would be added a second time and the explainer would fire twice per click.
+const wired = new WeakSet();
 
 /**
  * Apply the disabled state to every control belonging to a feature that has
@@ -189,20 +229,30 @@ export function applyFeatureGating(status, root = document) {
     }
 
     if (el.hasAttribute('data-feature-hint')) {
-      const hint = document.createElement('span');
-      hint.className = 'feature-hint';
-      hint.textContent = sentence;
-      el.after(hint);
+      // Replace rather than append, so a language change rewrites the hint.
+      const existing = el.nextElementSibling;
+      if (existing?.classList.contains('feature-hint')) {
+        existing.textContent = sentence;
+      } else {
+        const hint = document.createElement('span');
+        hint.className = 'feature-hint';
+        hint.textContent = sentence;
+        el.after(hint);
+      }
     }
 
+    if (wired.has(el)) return;
+    wired.add(el);
+
     // A disabled button fires no click event, so listen on the way down from a
-    // parent instead. This is what makes the explainer reachable at all.
+    // parent instead. This is what makes the explainer reachable at all. The
+    // phase is read again at click time so the wording follows the language.
     const holder = el.parentElement ?? document.body;
     holder.addEventListener(
       'pointerdown',
       (event) => {
         if (!el.contains(event.target) && event.target !== el) return;
-        showFeatureExplainer(sentence, phase, status);
+        showFeatureExplainer(unavailableSentence(phase), phase, status);
       },
       true
     );
@@ -225,10 +275,18 @@ export function showFeatureExplainer(sentence, phase, status) {
     document.body.append(explainer);
   }
 
+  const detail = info
+    ? t('feature.phaseCovers', {
+        number: info.number,
+        name: phaseText(info, 'name'),
+        description: phaseText(info, 'description'),
+      })
+    : '';
+
   explainer.innerHTML = `
     <p><strong>${escapeHtml(sentence)}</strong></p>
-    ${info ? `<p>Phase ${info.number}, ${escapeHtml(info.name)}. ${escapeHtml(info.description)}</p>` : ''}
-    <p><a href="/status">See the full build status</a></p>
+    ${detail ? `<p>${escapeHtml(detail)}</p>` : ''}
+    <p><a href="/status">${escapeHtml(t('feature.seeFullStatus'))}</a></p>
   `;
   explainer.hidden = false;
 
@@ -260,6 +318,7 @@ const ROUTE_FEATURES = [
   ['/account/settings', 'account_settings'],
   ['/account', 'account_settings'],
   ['/admin/docs', 'admin_docs'],
+  ['/admin/translations', 'admin_translations'],
   ['/admin', 'admin_dashboard'],
   ['/about', 'static_pages'],
   ['/faq', 'static_pages'],
@@ -306,22 +365,24 @@ export function renderPlaceholder(status) {
   const coversEl = holder.querySelector('[data-placeholder-covers]');
 
   if (phase === null || !info) {
-    if (sentenceEl) {
-      sentenceEl.textContent =
-        'This part of Careers@GFTV has not been built yet.';
-    }
+    if (titleEl) titleEl.textContent = t('placeholder.title');
+    if (sentenceEl) sentenceEl.textContent = t('placeholder.sentence');
+    if (coversEl) coversEl.textContent = '';
     return;
   }
 
-  // The markup carries a generic heading so the page still reads sensibly with
-  // no JavaScript. Once the phase is known it becomes specific.
-  if (titleEl) titleEl.textContent = `${info.name} is not built yet`;
+  const name = phaseText(info, 'name');
+
+  if (titleEl) titleEl.textContent = t('placeholder.titleForPhase', { name });
   if (sentenceEl) sentenceEl.textContent = unavailableSentence(phase);
   if (coversEl) {
-    coversEl.textContent = `Phase ${info.number} covers: ${info.description}`;
+    coversEl.textContent = t('placeholder.covers', {
+      number: info.number,
+      description: phaseText(info, 'description'),
+    });
   }
 
-  document.title = `${info.name} | Careers@GFTV`;
+  document.title = t('placeholder.pageTitle', { name });
 }
 
 function escapeHtml(value) {

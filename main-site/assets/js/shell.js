@@ -14,6 +14,7 @@
 // body scroll while open. The theme modal follows the same rules.
 
 import { initTheme, applyColorTheme, applyMode, getStoredColorTheme, getStoredMode, COLOR_THEMES } from './theme.js';
+import { initI18n, applyLocale, getLocale, t, LOCALES } from './i18n.js';
 import { hydrateIcons } from './icons.js';
 import {
   loadBuildStatus,
@@ -29,48 +30,50 @@ import {
 // Every entry is a real route. A route belonging to a later phase renders the
 // placeholder page rather than a dead link, per section 0c, so nothing here is
 // disabled or hidden.
+// Labels are dictionary keys rather than text. translateDom fills them in and
+// refills them whenever the language changes, so nothing here is written twice.
 const NAV = [
-  { href: '/search', label: 'Find a role', icon: 'search' },
-  { href: '/account/applications', label: 'My applications', icon: 'briefcase' },
-  { href: '/status', label: 'Build status', icon: 'build' },
-  { href: '/login', label: 'Sign in', icon: 'chevron-right' },
+  { href: '/search', key: 'nav.findRole', icon: 'search' },
+  { href: '/account/applications', key: 'nav.myApplications', icon: 'briefcase' },
+  { href: '/status', key: 'nav.buildStatus', icon: 'build' },
+  { href: '/login', key: 'nav.signIn', icon: 'chevron-right' },
 ];
 
 const FOOTER = [
   {
-    heading: 'Roles',
+    headingKey: 'footer.rolesHeading',
     links: [
-      { href: '/search', label: 'All openings' },
-      { href: '/search?closing_within_days=14', label: 'Closing soon' },
-      { href: '/search?no_deadline=true', label: 'Open until filled' },
+      { href: '/search', key: 'footer.allOpenings' },
+      { href: '/search?closing_within_days=14', key: 'footer.closingSoon' },
+      { href: '/search?no_deadline=true', key: 'footer.openUntilFilled' },
     ],
   },
   {
-    heading: 'Your account',
+    headingKey: 'footer.accountHeading',
     links: [
-      { href: '/login', label: 'Sign in' },
-      { href: '/register', label: 'Create an account' },
-      { href: '/account/tasks', label: 'Outstanding tasks' },
+      { href: '/login', key: 'footer.signIn' },
+      { href: '/register', key: 'footer.createAccount' },
+      { href: '/account/tasks', key: 'footer.outstandingTasks' },
     ],
   },
   {
-    heading: 'About',
+    headingKey: 'footer.aboutHeading',
     links: [
-      { href: '/about', label: 'About Careers@GFTV' },
-      { href: '/faq', label: 'Frequently asked questions' },
-      { href: '/status', label: 'Build status' },
+      { href: '/about', key: 'footer.about' },
+      { href: '/faq', key: 'footer.faq' },
+      { href: '/status', key: 'footer.buildStatus' },
       // The privacy notice and the terms are GFTV wide rather than specific to
       // this portal, so they live on the central policy site and open in a new
       // tab. /privacy and /terms still resolve, as redirects in vercel.json,
       // for anyone who types them or follows an older link.
       {
         href: 'https://policy.globalfurry.tv/legal/privacy',
-        label: 'Privacy notice',
+        key: 'footer.privacy',
         external: true,
       },
       {
         href: 'https://policy.globalfurry.tv/legal/terms',
-        label: 'Terms',
+        key: 'footer.terms',
         external: true,
       },
     ],
@@ -85,14 +88,14 @@ const FOOTER = [
  */
 function footerLink(link) {
   if (!link.external) {
-    return `<li><a href="${link.href}">${link.label}</a></li>`;
+    return `<li><a href="${link.href}" data-i18n="${link.key}"></a></li>`;
   }
 
   return (
     `<li><a class="external-link" href="${link.href}" target="_blank" rel="noopener noreferrer">` +
-    `${link.label}` +
+    `<span data-i18n="${link.key}"></span>` +
     `<span data-icon="external" data-icon-size="14"></span>` +
-    `<span class="visually-hidden">opens in a new tab</span>` +
+    `<span class="visually-hidden" data-i18n="common.opensNewTab"></span>` +
     `</a></li>`
   );
 }
@@ -110,29 +113,42 @@ function renderHeader() {
     <div class="site-header-inner">
       <a class="brand" href="/">
         <span class="brand-mark" data-icon="briefcase" data-icon-size="18"></span>
-        Careers@GFTV
+        <span data-i18n="brand.name"></span>
       </a>
 
       <button type="button" class="icon-btn nav-toggle" id="navToggle"
-              aria-expanded="false" aria-controls="siteNav" aria-label="Open menu">
+              aria-expanded="false" aria-controls="siteNav"
+              data-i18n-attr="aria-label:common.openMenu">
         <span data-icon="menu" data-icon-size="22"></span>
       </button>
 
+      <!-- The language control is its own button rather than a section inside
+           the theme modal. Someone who reads only Mandarin and lands on the
+           English site cannot be expected to find a switch labelled "Theme",
+           whereas a globe is legible without reading anything. -->
+      <button type="button" class="icon-btn" id="languageButton"
+              aria-haspopup="dialog"
+              data-i18n-attr="aria-label:common.language">
+        <span data-icon="globe" data-icon-size="22"></span>
+      </button>
+
       <button type="button" class="icon-btn" id="themeButton"
-              aria-haspopup="dialog" aria-label="Theme and appearance">
+              aria-haspopup="dialog"
+              data-i18n-attr="aria-label:common.appearance">
         <span data-icon="palette" data-icon-size="22"></span>
       </button>
 
-      <nav class="site-nav" id="siteNav" aria-label="Main" aria-hidden="true">
+      <nav class="site-nav" id="siteNav" data-i18n-attr="aria-label:nav.label" aria-hidden="true">
         <div class="site-nav-head">
-          <span class="modal-section-label">Menu</span>
-          <button type="button" class="icon-btn small" data-close-nav aria-label="Close menu">
+          <span class="modal-section-label" data-i18n="common.menu"></span>
+          <button type="button" class="icon-btn small" data-close-nav
+                  data-i18n-attr="aria-label:common.closeMenu">
             <span data-icon="close" data-icon-size="18"></span>
           </button>
         </div>
         ${NAV.map((item) => {
           const current = path === item.href.split('?')[0] ? ' aria-current="page"' : '';
-          return `<a href="${item.href}"${current}><span data-icon="${item.icon}" data-icon-size="18"></span>${item.label}</a>`;
+          return `<a href="${item.href}"${current}><span data-icon="${item.icon}" data-icon-size="18"></span><span data-i18n="${item.key}"></span></a>`;
         }).join('')}
       </nav>
     </div>
@@ -163,22 +179,21 @@ function renderFooter() {
   footer.innerHTML = `
     <div class="site-footer-inner">
       <div>
-        <h2>Careers@GFTV</h2>
-        <p>Volunteer and staff openings at Global Furry Television. Browsing and
-           reading a posting needs no account. Applying does.</p>
+        <h2 data-i18n="brand.name"></h2>
+        <p data-i18n="footer.tagline"></p>
       </div>
       ${FOOTER.map(
         (group) => `
         <div>
-          <h2>${group.heading}</h2>
+          <h2 data-i18n="${group.headingKey}"></h2>
           <ul>
             ${group.links.map(footerLink).join('')}
           </ul>
         </div>`
       ).join('')}
       <p class="site-footer-legal">
-        Careers@GFTV is being built and released in phases.
-        <a href="/status">See what is live</a>.
+        <span data-i18n="footer.legal"></span>
+        <a href="/status" data-i18n="footer.legalLink"></a>
       </p>
     </div>
   `;
@@ -193,22 +208,59 @@ function renderThemeModal() {
   wrap.innerHTML = `
     <div class="modal glass-card" role="dialog" aria-modal="true" aria-labelledby="themeModalTitle">
       <div class="modal-head">
-        <h2 id="themeModalTitle">Theme</h2>
-        <button class="icon-btn small" type="button" data-close-modal="themeModal" aria-label="Close">
+        <h2 id="themeModalTitle" data-i18n="theme.title"></h2>
+        <button class="icon-btn small" type="button" data-close-modal="themeModal"
+                data-i18n-attr="aria-label:common.close">
           <span data-icon="close" data-icon-size="18"></span>
         </button>
       </div>
-      <p class="modal-section-label">Mode</p>
+      <p class="modal-section-label" data-i18n="theme.mode"></p>
       <div class="mode-toggle" id="modeToggle">
         <button class="mode-btn" type="button" data-mode="light" aria-pressed="false">
-          <span data-icon="sun" data-icon-size="18"></span>Light
+          <span data-icon="sun" data-icon-size="18"></span><span data-i18n="theme.light"></span>
         </button>
         <button class="mode-btn" type="button" data-mode="dark" aria-pressed="false">
-          <span data-icon="moon" data-icon-size="18"></span>Dark
+          <span data-icon="moon" data-icon-size="18"></span><span data-i18n="theme.dark"></span>
         </button>
       </div>
-      <p class="modal-section-label">Colour theme</p>
+      <p class="modal-section-label" data-i18n="theme.colourTheme"></p>
       <div class="swatch-grid" id="swatchGrid"></div>
+    </div>
+  `;
+  document.body.append(wrap);
+  return wrap;
+}
+
+// Same structure and same behaviour as the theme modal, deliberately.
+//
+// Each language is named in its own script, never translated. A reader looking
+// for Chinese looks for the characters, not for the English word "Chinese",
+// so both options read the same whichever language the interface is currently
+// in. That is why these two labels are hardcoded rather than dictionary keys.
+function renderLanguageModal() {
+  const wrap = document.createElement('div');
+  wrap.className = 'modal-backdrop hidden';
+  wrap.id = 'languageModal';
+  wrap.innerHTML = `
+    <div class="modal glass-card" role="dialog" aria-modal="true" aria-labelledby="languageModalTitle">
+      <div class="modal-head">
+        <h2 id="languageModalTitle" data-i18n="language.title"></h2>
+        <button class="icon-btn small" type="button" data-close-modal="languageModal"
+                data-i18n-attr="aria-label:common.close">
+          <span data-icon="close" data-icon-size="18"></span>
+        </button>
+      </div>
+      <div class="locale-list" id="localeList">
+        ${LOCALES.map(
+          (locale) => `
+          <button class="locale-btn" type="button" data-locale="${locale.id}"
+                  lang="${locale.htmlLang}" aria-pressed="false">
+            <span class="locale-native">${locale.native}</span>
+            <span class="locale-check" data-icon="check" data-icon-size="18"></span>
+          </button>`
+        ).join('')}
+      </div>
+      <p class="locale-note" data-i18n="language.description"></p>
     </div>
   `;
   document.body.append(wrap);
@@ -328,11 +380,15 @@ function wireThemeModal(modal) {
   const panel = modal.querySelector('.modal');
   let lastFocus = null;
 
+  // The label is a dictionary key rather than theme.label, so the swatch names
+  // follow the language. translateDom refills them on every change, which is
+  // why the grid is built once here and never rebuilt.
   grid.innerHTML = COLOR_THEMES.map(
     (theme) => `
       <button type="button" class="swatch" data-color-theme="${theme.id}"
               style="--swatch-color: ${theme.hex}" aria-pressed="false">
-        <span class="swatch-dot" aria-hidden="true"></span>${theme.label}
+        <span class="swatch-dot" aria-hidden="true"></span>
+        <span data-i18n="theme.${theme.id}">${theme.label}</span>
       </button>`
   ).join('');
 
@@ -352,8 +408,14 @@ function wireThemeModal(modal) {
       el.setAttribute('aria-pressed', String(active));
     });
 
-    const themeIcon = button?.querySelector('svg');
-    if (themeIcon) button.setAttribute('aria-label', `Theme and appearance, currently ${mode} mode`);
+    if (button) {
+      button.setAttribute(
+        'aria-label',
+        t('common.appearanceWithMode', {
+          mode: t(mode === 'dark' ? 'common.modeDark' : 'common.modeLight'),
+        })
+      );
+    }
   }
 
   function open() {
@@ -407,26 +469,99 @@ function wireThemeModal(modal) {
   sync();
 }
 
+function wireLanguageModal(modal) {
+  const button = document.querySelector('#languageButton');
+  const panel = modal.querySelector('.modal');
+  const list = modal.querySelector('#localeList');
+  let lastFocus = null;
+
+  function sync() {
+    const current = getLocale();
+    list.querySelectorAll('.locale-btn').forEach((el) => {
+      const active = el.getAttribute('data-locale') === current;
+      el.classList.toggle('active', active);
+      el.setAttribute('aria-pressed', String(active));
+    });
+  }
+
+  function open() {
+    lastFocus = document.activeElement;
+    modal.classList.remove('hidden');
+    lockScroll(true);
+    panel.querySelector(FOCUSABLE)?.focus();
+  }
+
+  function close() {
+    modal.classList.add('hidden');
+    lockScroll(false);
+    if (lastFocus instanceof HTMLElement) lastFocus.focus();
+    lastFocus = null;
+  }
+
+  button?.addEventListener('click', open);
+
+  modal.addEventListener('click', (event) => {
+    if (event.target === modal) close();
+    if (event.target.closest('[data-close-modal]')) close();
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (modal.classList.contains('hidden')) return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      close();
+    } else if (event.key === 'Tab') {
+      trapFocus(panel, event);
+    }
+  });
+
+  // Choosing a language updates the modal in place and leaves it open, exactly
+  // as the theme modal does. Closing stays a separate, explicit action, so
+  // somebody who picked the wrong one can correct it without reopening.
+  list.addEventListener('click', (event) => {
+    const choice = event.target.closest('[data-locale]');
+    if (!choice) return;
+    applyLocale(choice.getAttribute('data-locale')).then(sync);
+  });
+
+  document.addEventListener('gftv:localechange', sync);
+  sync();
+}
+
 /* -------------------------------------------------------------------------
  * Boot
  * ---------------------------------------------------------------------- */
 
-function boot() {
+async function boot() {
   initTheme();
 
   const { header, backdrop } = renderHeader();
-  const modal = renderThemeModal();
+  const themeModal = renderThemeModal();
+  const languageModal = renderLanguageModal();
   renderFooter();
 
   hydrateIcons(document);
   wireNav(header, backdrop);
-  wireThemeModal(modal);
+  wireThemeModal(themeModal);
+  wireLanguageModal(languageModal);
 
-  loadBuildStatus().then((status) => {
+  // Language is applied after the chrome exists, so one pass translates the
+  // header, the footer, the modals, and the page's own markup together.
+  await initI18n();
+
+  const status = await loadBuildStatus();
+  const paint = () => {
     renderPhaseNotice(status);
     applyFeatureGating(status);
     renderPlaceholder(status);
-  });
+  };
+
+  paint();
+
+  // These three render their own strings rather than carrying data-i18n
+  // attributes, so they are redrawn on a language change rather than
+  // retranslated in place.
+  document.addEventListener('gftv:localechange', paint);
 }
 
 if (document.readyState === 'loading') {

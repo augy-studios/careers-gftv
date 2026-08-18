@@ -41,6 +41,13 @@ const PATHS = {
     '<path d="M14.8 2.6 L20.4 8.2 L17.2 11.4 L11.6 5.8 Z"/>' +
     '<path d="M14.4 8.6 L4 19"/>',
   bell: '<path d="M18 9a6 6 0 1 0-12 0c0 5-2 6-2 6h16s-2-1-2-6"/><path d="M13.7 20a2 2 0 0 1-3.4 0"/>',
+  // Globe, for the language switcher. A globe is read as "language" across
+  // scripts, which a text label cannot be: a reader who cannot read the
+  // interface language is exactly the person who needs to find this control.
+  globe:
+    '<circle cx="12" cy="12" r="9"/>' +
+    '<path d="M3 12h18"/>' +
+    '<path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18z"/>',
 };
 
 // A few names read better in markup with a hyphen.

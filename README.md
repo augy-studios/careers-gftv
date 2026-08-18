@@ -8,10 +8,10 @@ collected in Google Forms: the portal's job is to gate access, hand the
 applicant over, log the handoff, and track what happened next. It is a GFTV
 HelloApp and follows the same conventions as the other GFTV PWAs.
 
-**Current phase: 1, Foundations.** The database schema and the shared server
+**Current phase: 1 of 14, Foundations.** The database schema and the shared server
 side code are in place. The public surface is the shell, the home page,
 `/status`, and a placeholder page that every unbuilt route renders. The job
-board arrives in phase 3 and applying in phase 4. Live status:
+board arrives in phase 3 and applying in phase 5. Live status:
 [careers.globalfurry.tv/status](https://careers.globalfurry.tv/status).
 
 The site is built and released in public, one phase at a time. `main` is always
@@ -25,8 +25,8 @@ rather than being hidden.
 |---|---|
 | `main-site/` | The portal. Static HTML, CSS, and JavaScript with no build step, plus Vercel serverless functions in `main-site/api/`. This is the Vercel root directory for the portal project. |
 | `migrations/` | Every numbered SQL file, run by hand in the Supabase SQL editor. Nothing automated applies these. |
-| `telegram-bot/` | The `careersgftv_bot` Telegram bot. Scaffold only until phase 9. Runs on a Debian VPS under tmux. |
-| `docs-site/` | The public documentation site for `docs.careers.globalfurry.tv`. Scaffold only until phase 11. Its own Vercel project on the same repo. |
+| `telegram-bot/` | The `careersgftv_bot` Telegram bot. Scaffold only until phase 11. Runs on a Debian VPS under tmux. |
+| `docs-site/` | The public documentation site for `docs.careers.globalfurry.tv`. Scaffold only until phase 13. Its own Vercel project on the same repo. |
 
 Four READMEs, plus the one in `migrations/`, and no others. Each says what
 lives in its directory and how to work with it.
@@ -129,7 +129,7 @@ redeploy, then update `PORTAL_SECRET` in the Script Properties of every form's
 Apps Script. Submissions arriving between the two steps are rejected with a 401
 and are not retried usefully, so do it when nothing is being submitted, and
 confirm afterwards that a test submission lands in
-`gftvjobs_form_submissions`. This applies from phase 7, when the webhook ships.
+`gftvjobs_form_submissions`. This applies from phase 9, when the webhook ships.
 
 ## Deployment
 
@@ -138,7 +138,7 @@ Two Vercel projects, one repository.
 | Project | Root directory | Domain | From phase |
 |---|---|---|---|
 | Portal | `main-site` | `careers.globalfurry.tv` | 1 |
-| Documentation | `docs-site` | `docs.careers.globalfurry.tv` | 11 |
+| Documentation | `docs-site` | `docs.careers.globalfurry.tv` | 13 |
 
 Neither has a build step for its static files. The portal project installs
 `main-site/package.json` so the functions have their dependencies.
@@ -158,4 +158,7 @@ repository.
 - Database: Supabase Postgres, service role access from the functions only.
 - Passwords: bcrypt, matching the hash format already stored in
   `gftvhello_users` so existing accounts keep working.
+- Languages: English and Simplified Chinese, one shown at a time. The choice
+  lives in `localStorage` and is not in the URL. Interface strings are in
+  `main-site/assets/i18n/`, content carries `_zh` columns.
 - Bot: Telethon, Python, with SQLite for bot local state only.

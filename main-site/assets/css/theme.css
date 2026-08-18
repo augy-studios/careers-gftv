@@ -83,8 +83,51 @@
   --glass-blur: 16px;
   --radius: 14px;
   --radius-sm: 8px;
+
+  /* Proxima Nova carries no CJK glyphs, so every Han character falls past the
+     Latin families, none of which have them either, and lands on the reader's
+     own system default: PingFang SC on Apple platforms, Microsoft YaHei on
+     Windows, Noto Sans CJK SC on Android and Linux.
+
+     No CJK face is named here on purpose. Naming them buys nothing on any
+     current platform, since the system defaults are already the right faces,
+     and it overrides a reader who has deliberately chosen a different Chinese
+     font in their own settings.
+
+     What actually makes this work is the lang attribute, not the stack. Han
+     characters are shared between Chinese and Japanese, so a browser with no
+     language to go on may render Chinese text in a Japanese face, where a
+     number of shared characters are drawn differently. Every page sets
+     lang="zh-Hans-SG" from the pre-paint script, which is what tells the
+     browser to pick a Simplified Chinese face. If that attribute ever stops
+     being set, the Chinese will quietly render with the wrong glyph forms.
+
+     Latin text is unaffected: Proxima Nova is still first, and a font stack is
+     resolved per character, not per element. */
   --font: 'Proxima Nova', -apple-system, BlinkMacSystemFont, 'Segoe UI',
     Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Held blank until the dictionary has been applied, so a reader of a non
+   default language does not watch English repaint into their language on every
+   page load. Set by the pre-paint script, cleared by i18n.js, and cleared by a
+   timeout in that same script if anything goes wrong.
+
+   visibility rather than display, so layout is already computed when the page
+   appears and nothing jumps. The attribute is never set for the default
+   language, and never set at all without JavaScript, so neither path can leave
+   a reader looking at nothing. */
+:root[data-i18n-pending='true'] body {
+  visibility: hidden;
+}
+
+/* Han script sits on a slightly different optical baseline and reads tight at
+   the line height Latin copy wants, so the Chinese document gets a little more
+   room. Scoped to the locale attribute the pre-paint script sets, so it costs
+   English nothing. */
+:root[data-locale='zh'] body {
+  line-height: 1.75;
+  letter-spacing: 0.01em;
 }
 
 /* ---------------------------------------------------------------------------
@@ -661,6 +704,56 @@ a.chip:visited {
   border-radius: 50%;
   background: var(--swatch-color);
   border: 1px solid color-mix(in srgb, var(--text) 30%, transparent);
+}
+
+/* Language picker. Same modal shell as the theme picker, one row per language,
+   each naming itself in its own script. */
+.locale-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.locale-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 48px;
+  padding: 0.5rem 0.875rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 500;
+  text-align: left;
+}
+
+.locale-btn:hover {
+  background: var(--surface-hover);
+}
+
+.locale-btn.active {
+  background: var(--brand-dark);
+  color: var(--brand-on);
+  border-color: transparent;
+}
+
+/* The tick marks the active language. Hidden rather than removed, so the rows
+   do not change width when the choice moves and the list does not jump. */
+.locale-check {
+  visibility: hidden;
+}
+
+.locale-btn.active .locale-check {
+  visibility: visible;
+}
+
+.locale-note {
+  margin-top: 0.875rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
 }
 
 /* ---------------------------------------------------------------------------

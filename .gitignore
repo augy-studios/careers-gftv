@@ -10,6 +10,9 @@ next-steps.md
 careers-gftv-spec.md
 gftv-theme.md
 
+# Generated review sheet for the Chinese copy. Regenerate rather than commit.
+zh-review.html
+
 # Environment. .env.example is tracked on purpose, everything else is not.
 .env
 .env.*

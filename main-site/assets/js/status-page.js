@@ -6,14 +6,18 @@
 //
 // Everything on the page comes from /assets/build-status.json. Nothing here
 // hardcodes a phase number, a phase name, or a status.
+//
+// The page builds its own markup rather than carrying data-i18n attributes,
+// so it redraws on a language change instead of being retranslated in place.
 
-import { loadBuildStatus, currentPhase, allShipped } from './build-status.js';
+import { loadBuildStatus, currentPhase, allShipped, phaseText } from './build-status.js';
 import { hydrateIcons } from './icons.js';
+import { t } from './i18n.js';
 
-const STATUS_LABEL = {
-  shipped: 'Live',
-  building: 'Being built now',
-  planned: 'Planned',
+const STATUS_LABEL_KEY = {
+  shipped: 'status.live',
+  building: 'status.beingBuilt',
+  planned: 'status.planned',
 };
 
 const STATUS_ICON = {
@@ -30,10 +34,7 @@ function render(status) {
   const phases = status.phases ?? [];
 
   if (phases.length === 0) {
-    if (summary) {
-      summary.textContent =
-        'The status file could not be loaded. Try reloading the page.';
-    }
+    if (summary) summary.textContent = t('status.loadError');
     return;
   }
 
@@ -42,14 +43,19 @@ function render(status) {
 
   if (summary) {
     if (allShipped(status)) {
-      summary.textContent =
-        'Every phase has shipped. This page stays as the changelog.';
+      summary.textContent = t('status.summaryAllShipped');
     } else if (building) {
-      summary.textContent =
-        `${shipped} of ${phases.length} phases are live. ` +
-        `Phase ${building.number}, ${building.name}, is being built now.`;
+      summary.textContent = t('status.summaryBuilding', {
+        shipped,
+        total: phases.length,
+        number: building.number,
+        name: phaseText(building, 'name'),
+      });
     } else {
-      summary.textContent = `${shipped} of ${phases.length} phases are live.`;
+      summary.textContent = t('status.summaryPlain', {
+        shipped,
+        total: phases.length,
+      });
     }
   }
 
@@ -59,19 +65,23 @@ function render(status) {
       item.className = 'glass-card phase-item';
       if (phase.status === 'building') item.setAttribute('data-current', 'true');
 
+      const note = phaseText(phase, 'shipped_note');
+
       item.innerHTML = `
         <div class="phase-item-head">
-          <span class="phase-number tabular">Phase ${phase.number}</span>
-          <span class="phase-name">${escapeHtml(phase.name)}</span>
+          <span class="phase-number tabular">${escapeHtml(
+            t('status.phaseNumber', { number: phase.number })
+          )}</span>
+          <span class="phase-name">${escapeHtml(phaseText(phase, 'name'))}</span>
           <span class="status-pill" data-status="${escapeAttr(phase.status)}">
             <span data-icon="${STATUS_ICON[phase.status] ?? 'clock'}" data-icon-size="14"></span>
-            ${STATUS_LABEL[phase.status] ?? phase.status}
+            ${escapeHtml(t(STATUS_LABEL_KEY[phase.status] ?? 'status.planned'))}
           </span>
         </div>
-        <p>${escapeHtml(phase.description)}</p>
+        <p>${escapeHtml(phaseText(phase, 'description'))}</p>
         ${
-          phase.status === 'shipped' && phase.shipped_note
-            ? `<p class="shipped-note">${escapeHtml(phase.shipped_note)}</p>`
+          phase.status === 'shipped' && note
+            ? `<p class="shipped-note">${escapeHtml(note)}</p>`
             : ''
         }
       `;
@@ -83,11 +93,25 @@ function render(status) {
   hydrateIcons(list);
 
   document.title = building
-    ? `Build status, phase ${building.number} | Careers@GFTV`
-    : 'Build status | Careers@GFTV';
+    ? t('status.pageTitlePhase', { number: building.number })
+    : t('status.pageTitle');
 }
 
-loadBuildStatus().then(render);
+let loaded = null;
+
+function draw() {
+  if (!loaded) return;
+  render(loaded);
+}
+
+loadBuildStatus().then((status) => {
+  loaded = status;
+  draw();
+});
+
+// The shell applies the stored language after this module has already run, and
+// the language can change again at any time, so redraw on both.
+document.addEventListener('gftv:localechange', draw);
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (c) => {

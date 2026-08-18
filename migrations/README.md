@@ -61,6 +61,16 @@ foreign key but never created, altered, or dropped from this directory.
 | `011_telegram_and_notifications.sql` | `gftvjobs_telegram_links`, `gftvjobs_telegram_tokens`, and `gftvjobs_notifications`, the outbox the bot drains. |
 | `012_operations.sql` | `gftvjobs_audit_log`, `gftvjobs_settings`, `gftvjobs_cron_runs`, `gftvjobs_rate_limits`, `gftvjobs_admin_access`. |
 | `013_seed_reference_data.sql` | Starting departments and tags. Reference data only, no postings and no accounts. |
+| `014_locales_and_translations.sql` | `gftvjobs_locales` plus the job, department, and tag translation tables. Adding a language is an insert here, not a migration. Translates the seeded reference data into Chinese. |
+| `015_translation_reports.sql` | `gftvjobs_translation_reports`, where an applicant reports a translation that reads wrongly and an admin resolves it. |
+| `016_multilingual_search.sql` | Replaces `gftvjobs_search_jobs` and `gftvjobs_suggest` with multilingual versions. Both return the requested language in the ordinary field names. |
+| `017_embed_descriptions.sql` | `og_description`, the optional short line shown when a posting link is unfurled in Discord or Telegram. |
+| `018_bilingual_settings.sql` | Converts the portal title and hero copy in `gftvjobs_settings` from bare strings to per locale objects, and fills in the Chinese. |
+| `019_job_sections.sql` | `sections` on `gftvjobs_jobs`, so an admin can add custom sections to a posting without a migration. |
+| `020_applicant_locale.sql` | `locale` on `gftvjobs_users`, so the Telegram bot knows which language to write in. |
+| `021_commitment_types.sql` | Turns `commitment_type` into a controlled list of five keys, translated in the dictionary. |
+| `022_search_includes_sections.sql` | Rebuilds the English search vector so custom sections are searchable. Pairs with the same change on the translation side in `014`. |
+| `023_translation_helpers.sql` | `gftvjobs_translation_helpers`, the per language helper role, and the annotation columns that let a helper anchor a suggestion to the exact text that reads wrongly. |
 
 ## Things worth knowing before you run them
 
@@ -89,6 +99,28 @@ refreshes the counts for all of its tags.
 `gftvjobs_admin_access` in `012` exist because behaviour the spec requires had
 nowhere to live. The header comment in `012` names the section behind each
 one.
+
+**All Chinese in this directory is Singapore Mandarin**, 华文, not Mainland
+Putonghua: 义工 rather than 志愿者, 营运 rather than 运营, 摄影棚 rather than
+录影棚, 文件 rather than 文档. That applies to the seeded department and tag
+names in `014` and the hero copy in `018`, and to anything added later.
+
+**The site is multilingual, and the database enforces the rules.** English lives on the base rows as the
+source language; every other language is a row in the matching translation
+table. A translation is shown only when its `is_ready` flag is set, so an
+unreviewed one can sit in the table without going live. A posting may publish
+with no translation at all, and reads in English with a notice, but a
+translation cannot be shown without at least a title.
+
+**Non default languages are searched differently, and have to be.** Postgres
+cannot segment Han script: `to_tsvector` sees a run of Han characters as a
+single token, so searching for part of a word never matches. The extensions
+that fix this, `zhparser` and `pg_jieba`, are not on Supabase. English
+therefore keeps the weighted `tsvector` from `009`, and Mandarin is matched
+with `pg_trgm` against the generated `search_text` column on the translation row instead. English
+search ranks by relevance and highlights matched terms; Mandarin search finds
+everything containing what was typed and orders by title closeness. Both work,
+but only English ranks well, and only English gets a highlighted snippet.
 
 **Rollback blocks are commented out on purpose.** Uncomment, read what it
 drops, then run. Several of them will refuse while dependent rows exist, which

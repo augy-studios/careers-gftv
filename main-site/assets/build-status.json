@@ -1,84 +1,151 @@
 {
-  "$comment": "Single source of truth for the phased rollout, per section 0c of careers-gftv-spec.md. The site, the Telegram bot, and the docs site all read this one file, so the three stay in step. Flipping a phase to shipped is the only edit needed when it goes live. No copy anywhere hardcodes a phase number.",
-  "schema_version": 1,
-  "updated": "2026-08-18",
+  "$comment": "Single source of truth for the phased rollout, per section 0c of careers-gftv-spec.md. The site, the Telegram bot, and the docs site all read this one file, so the three stay in step. Flipping a phase to shipped is the only edit needed when it goes live. No copy anywhere hardcodes a phase number. Phase names and descriptions carry a translated variant per non default language, because three separate consumers render them and they are content rather than interface strings; everything else the site says comes from assets/i18n.",
+  "schema_version": 3,
+  "updated": "2026-08-19",
+  "locales": [
+    "en",
+    "zh"
+  ],
   "phases": [
     {
       "number": 1,
       "name": "Foundations",
+      "name_zh": "基础架构",
       "status": "shipped",
       "description": "Repo scaffold, the full database schema, the build status mechanism, and the shared server side helpers. Nothing to use yet, but everything after this sits on it.",
-      "shipped_note": "The status page you are reading, the phase notice, and the placeholder pages went live with this."
+      "description_zh": "代码仓库结构、完整的数据库架构、开发进度机制，以及共用的服务端代码。目前还没有可直接使用的功能，但后续所有内容都建立在此之上。",
+      "shipped_note": "The status page you are reading, the phase notice, and the placeholder pages went live with this, along with switching between English and Chinese.",
+      "shipped_note_zh": "您正在阅读的进度页面、阶段提示条和占位页面随此阶段上线，中英文切换功能也在此阶段上线。"
     },
     {
       "number": 2,
       "name": "Authentication",
+      "name_zh": "账户与登录",
       "status": "building",
       "description": "Creating an applicant account and signing in, with recovery codes, trusted devices, and the stay signed in choice. Staff sign in with an existing gftv.asia account and its second factor.",
-      "shipped_note": null
+      "description_zh": "注册申请人账户并登录，包含恢复码、受信任设备，以及保持登录状态的选项。员工使用现有的 gftv.asia 账户及其第二重验证登录。",
+      "shipped_note": null,
+      "shipped_note_zh": null
     },
     {
       "number": 3,
-      "name": "Public site",
+      "name": "Browsing roles",
+      "name_zh": "浏览职位",
       "status": "planned",
-      "description": "The home page, the job board at /search with full text search, filters, tags and suggestions, individual postings, and the static pages.",
-      "shipped_note": null
+      "description": "The home page and the job board at /search, with search, filters, tags, quick chips, and suggestions, plus the about and FAQ pages. Search works in both languages.",
+      "description_zh": "首页和位于 /search 的职位板，包含搜索、筛选、标签、快捷筛选和搜索建议，以及关于和常见问题页面。搜索支持中英双语。",
+      "shipped_note": null,
+      "shipped_note_zh": null
     },
     {
       "number": 4,
-      "name": "Apply flow",
+      "name": "Job postings",
+      "name_zh": "职位信息页",
       "status": "planned",
-      "description": "Applying to a role, the handoff to the application form, rating a posting, and the three month cooldown on reapplying.",
-      "shipped_note": null
+      "description": "The posting page itself, in either language, with the openings feed and shareable links that carry each role's own title and description. Includes reporting a translation that reads wrongly.",
+      "description_zh": "职位信息页本身，可以任一语言阅读，包含职位数据源，以及分享链接时会显示该职位自身标题和简介的预览。也包含报告翻译问题的功能。",
+      "shipped_note": null,
+      "shipped_note_zh": null
     },
     {
       "number": 5,
-      "name": "Applicant dashboard",
+      "name": "Apply flow",
+      "name_zh": "申请流程",
       "status": "planned",
-      "description": "My applications, saved jobs, outstanding tasks, and account settings including profile, password, and the danger zone.",
-      "shipped_note": null
+      "description": "Applying to a role, the handoff to the application form, rating a posting, and the three month cooldown on reapplying.",
+      "description_zh": "申请职位、跳转至申请表单、为职位信息评分，以及重新申请的三个月冷却期。",
+      "shipped_note": null,
+      "shipped_note_zh": null
     },
     {
       "number": 6,
-      "name": "Admin dashboard",
+      "name": "Applicant dashboard",
+      "name_zh": "申请人中心",
       "status": "planned",
-      "description": "The staff side: managing postings, tracking applicants, analytics, invites, departments, tags, and portal settings.",
-      "shipped_note": null
+      "description": "My applications, saved jobs, outstanding tasks, and account settings including profile, password, and the danger zone.",
+      "description_zh": "我的申请、收藏的职位、待办事项，以及账户设置，包括个人资料、密码和危险操作区。",
+      "shipped_note": null,
+      "shipped_note_zh": null
     },
     {
       "number": 7,
-      "name": "Automation",
+      "name": "Admin core",
+      "name_zh": "管理后台核心",
       "status": "planned",
-      "description": "Daily maintenance, automatic closing of postings past their date, and confirmed submissions coming back from the application forms.",
-      "shipped_note": null
+      "description": "The staff side of running the board: the overview, writing and publishing postings in every language with a tabbed editor, tracking applicants, and managing departments and tags.",
+      "description_zh": "员工端的日常运作：总览、以分页式编辑器撰写和发布多语言职位信息、跟进申请人，以及管理部门和标签。",
+      "shipped_note": null,
+      "shipped_note_zh": null
     },
     {
       "number": 8,
-      "name": "Offline",
+      "name": "Admin operations",
+      "name_zh": "管理后台进阶",
       "status": "planned",
-      "description": "Installing Careers@GFTV to a home screen, and browsing, reading, and rating postings with no connection.",
-      "shipped_note": null
+      "description": "The rest of the dashboard: analytics, invitations and shortlists, managing staff and applicant accounts, portal settings, and the translation review queue. Volunteers who speak a language can be given access to improve its wording, and can suggest a correction by selecting the text that reads wrongly.",
+      "description_zh": "后台的其余部分：数据分析、邀请与候选名单、管理员工和申请人账户、门户设置，以及翻译审核队列。会说某种语言的志愿者可以获得权限改进该语言的用词，并可以直接选中读起来不对的文字提出修改建议。",
+      "shipped_note": null,
+      "shipped_note_zh": null
     },
     {
       "number": 9,
-      "name": "Telegram bot",
+      "name": "Automation",
+      "name_zh": "自动化",
       "status": "planned",
-      "description": "Linking a Telegram account for notifications, invitations, one tap sign in, and two factor authentication.",
-      "shipped_note": null
+      "description": "Daily maintenance, automatic closing of postings past their date, and confirmed submissions coming back from the application forms.",
+      "description_zh": "每日维护、自动关闭已过截止日期的职位信息，以及从申请表单回传的提交确认。",
+      "shipped_note": null,
+      "shipped_note_zh": null
     },
     {
       "number": 10,
-      "name": "Polish",
+      "name": "Offline",
+      "name_zh": "离线使用",
       "status": "planned",
-      "description": "An accessibility and responsive pass across every page, theme, and screen size, plus the discovery files search engines read.",
-      "shipped_note": null
+      "description": "Installing the portal to a home screen, and browsing, reading, and rating postings with no connection.",
+      "description_zh": "将本网站添加到主屏幕，并在没有网络时浏览、阅读和评分职位信息。",
+      "shipped_note": null,
+      "shipped_note_zh": null
     },
     {
       "number": 11,
-      "name": "Documentation",
+      "name": "Telegram bot",
+      "name_zh": "Telegram 机器人",
       "status": "planned",
-      "description": "The public guides for the portal and the bot, and the admin guide inside the dashboard. Written last so they describe what was built rather than what was planned.",
-      "shipped_note": null
+      "description": "Linking a Telegram account for notifications, invitations, one tap sign in, and two factor authentication, in your chosen language.",
+      "description_zh": "关联 Telegram 账户以接收通知和邀请，并使用一键登录和双重验证，且使用您选择的语言。",
+      "shipped_note": null,
+      "shipped_note_zh": null
+    },
+    {
+      "number": 12,
+      "name": "Polish",
+      "name_zh": "打磨完善",
+      "status": "planned",
+      "description": "An accessibility and responsive pass across every page, theme, language, and screen size, plus the discovery files search engines read.",
+      "description_zh": "针对每个页面、主题、语言和屏幕尺寸进行无障碍与响应式检查，并加入供搜索引擎读取的站点文件。",
+      "shipped_note": null,
+      "shipped_note_zh": null
+    },
+    {
+      "number": 13,
+      "name": "Documentation",
+      "name_zh": "使用文档",
+      "status": "planned",
+      "description": "The public guides for the portal and the bot, in both languages, and the admin guide inside the dashboard. Written late so they describe what was built rather than what was planned.",
+      "description_zh": "面向公众的门户与机器人双语使用指南，以及后台内部的管理员指南。放在较后编写，以便如实描述已建成的功能，而非当初的计划。",
+      "shipped_note": null,
+      "shipped_note_zh": null
+    },
+    {
+      "number": 14,
+      "name": "More languages",
+      "name_zh": "更多语言",
+      "status": "planned",
+      "description": "Adding Malay and Tamil. The portal is already built to take them: a new language needs no database change, only its wording. Listed last because it depends on finding people to write and check it.",
+      "description_zh": "加入马来文和淡米尔文。本网站的架构已经支持：新增语言无需改动数据库，只需要撰写内容。列在最后，是因为这取决于能否找到人撰写和校对。",
+      "shipped_note": null,
+      "shipped_note_zh": null
     }
   ],
   "features": {
@@ -88,49 +155,45 @@
     "forgot_password": 2,
     "recovery_codes": 2,
     "trusted_devices": 2,
-
     "job_search": 3,
-    "job_detail": 3,
-    "jobs_feed": 3,
     "static_pages": 3,
-
-    "apply": 4,
-    "ratings": 4,
-    "apply_prompt": 4,
-
-    "my_applications": 5,
-    "saved_jobs": 5,
-    "outstanding_tasks": 5,
-    "account_settings": 5,
-    "danger_zone": 5,
-
-    "admin_dashboard": 6,
-    "admin_jobs": 6,
-    "admin_applications": 6,
-    "admin_analytics": 6,
-    "admin_invites": 6,
-    "admin_departments": 6,
-    "admin_tags": 6,
-    "admin_admins": 6,
-    "admin_applicants": 6,
-    "admin_settings": 6,
-    "admin_docs": 6,
-
-    "cron": 7,
-    "form_webhook": 7,
-
-    "offline": 8,
-    "install": 8,
-
-    "telegram_link": 9,
-    "telegram_2fa": 9,
-    "telegram_notifications": 9,
-    "invites": 9,
-
-    "sitemap": 10,
-    "seed": 10,
-
-    "docs_site": 11,
-    "admin_docs_content": 11
+    "job_detail": 4,
+    "jobs_feed": 4,
+    "translation_report": 4,
+    "apply": 5,
+    "ratings": 5,
+    "apply_prompt": 5,
+    "my_applications": 6,
+    "saved_jobs": 6,
+    "outstanding_tasks": 6,
+    "account_settings": 6,
+    "danger_zone": 6,
+    "admin_dashboard": 7,
+    "admin_jobs": 7,
+    "admin_applications": 7,
+    "admin_departments": 7,
+    "admin_tags": 7,
+    "admin_docs": 7,
+    "admin_analytics": 8,
+    "admin_invites": 8,
+    "admin_admins": 8,
+    "admin_applicants": 8,
+    "admin_settings": 8,
+    "admin_translations": 8,
+    "cron": 9,
+    "form_webhook": 9,
+    "offline": 10,
+    "install": 10,
+    "telegram_link": 11,
+    "telegram_2fa": 11,
+    "telegram_notifications": 11,
+    "invites": 11,
+    "sitemap": 12,
+    "seed": 12,
+    "docs_site": 13,
+    "admin_docs_content": 13,
+    "more_languages": 14,
+    "translation_helpers": 8,
+    "translation_annotations": 8
   }
 }
