@@ -204,6 +204,30 @@ no-cache`, or a stale service worker pins an old build indefinitely, and
 `build-status.json` gets a short `s-maxage` so a phase flipping to shipped
 reaches people quickly.
 
+## The service worker
+
+**Bump `VERSION` at the top of `sw.js` on every change to this site.** Not once
+per phase, and not only when `sw.js` itself changes. Any edit under
+`main-site/` is a new build, and a worker that has not been bumped keeps
+serving the previous one to everyone who has visited before, which means a
+shipped change is invisible to exactly the people who come back most.
+`vercel.json` serves `sw.js` with `Cache-Control: no-cache` so the browser
+always refetches it, but the file has to actually differ for that to do
+anything.
+
+Treat it as part of the change, alongside updating the affected README. The
+same rule applies to `docs-site` once it has a service worker of its own.
+
+Right now the worker is a deliberate pass through: it registers, takes control,
+deletes any cache an earlier worker left behind, and has no fetch handler at
+all. That is on purpose while the site changes shape every phase, since a cache
+first worker would pin an old build on returning visitors for the whole build.
+
+From phase 8, when section 14 lands and the worker gains a precache list and
+real strategies, keep that list in step with the files that exist as well. A
+precache entry naming a deleted file makes `cache.addAll` reject and the entire
+install fail silently.
+
 ## Offline test checklist
 
 The service worker is a deliberate pass through until phase 8, so there is

@@ -64,6 +64,14 @@ Rules that will not change:
   or Google Form URL.
 - Runs are deterministic: animations disabled, relative dates frozen or masked.
 
+## The service worker
+
+Once this site has a service worker of its own, **bump its `VERSION` on every
+change to this site**, the same rule the portal follows. Any edit under
+`docs-site/` is a new build, and a worker that has not been bumped keeps
+serving the previous one to returning readers. Treat it as part of the change
+rather than a separate step.
+
 ## Deployment
 
 Its own Vercel project with the root directory set to `docs-site`, since the

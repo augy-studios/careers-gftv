@@ -59,11 +59,43 @@ const FOOTER = [
       { href: '/about', label: 'About Careers@GFTV' },
       { href: '/faq', label: 'Frequently asked questions' },
       { href: '/status', label: 'Build status' },
-      { href: '/privacy', label: 'Privacy notice' },
-      { href: '/terms', label: 'Terms' },
+      // The privacy notice and the terms are GFTV wide rather than specific to
+      // this portal, so they live on the central policy site and open in a new
+      // tab. /privacy and /terms still resolve, as redirects in vercel.json,
+      // for anyone who types them or follows an older link.
+      {
+        href: 'https://policy.globalfurry.tv/legal/privacy',
+        label: 'Privacy notice',
+        external: true,
+      },
+      {
+        href: 'https://policy.globalfurry.tv/legal/terms',
+        label: 'Terms',
+        external: true,
+      },
     ],
   },
 ];
+
+/**
+ * One footer link. An external one opens in a new tab, carries rel="noopener"
+ * so the new tab cannot reach back through window.opener, and says out loud
+ * that it opens a new tab, since a link that moves you somewhere unexpected
+ * without warning is a WCAG 3.2.5 problem rather than a style choice.
+ */
+function footerLink(link) {
+  if (!link.external) {
+    return `<li><a href="${link.href}">${link.label}</a></li>`;
+  }
+
+  return (
+    `<li><a class="external-link" href="${link.href}" target="_blank" rel="noopener noreferrer">` +
+    `${link.label}` +
+    `<span data-icon="external" data-icon-size="14"></span>` +
+    `<span class="visually-hidden">opens in a new tab</span>` +
+    `</a></li>`
+  );
+}
 
 /* -------------------------------------------------------------------------
  * Render
@@ -106,12 +138,21 @@ function renderHeader() {
     </div>
   `;
 
+  // The backdrop goes inside the header, not on the body.
+  //
+  // .site-header is position: sticky with a z-index, and sticky always creates
+  // a stacking context. That means .site-nav's z-index is resolved inside the
+  // header and cannot rise above the header's own 50 at the root, so a
+  // backdrop sitting on the body at 80 would paint over the drawer as well as
+  // the page. Putting the backdrop in the same stacking context as the drawer
+  // makes their z-indexes comparable, so the page dims and the drawer does
+  // not.
   const backdrop = document.createElement('div');
   backdrop.className = 'nav-backdrop';
   backdrop.hidden = true;
   backdrop.setAttribute('data-close-nav', '');
+  header.append(backdrop);
 
-  document.body.prepend(backdrop);
   document.body.prepend(header);
   return { header, backdrop };
 }
@@ -131,7 +172,7 @@ function renderFooter() {
         <div>
           <h2>${group.heading}</h2>
           <ul>
-            ${group.links.map((l) => `<li><a href="${l.href}">${l.label}</a></li>`).join('')}
+            ${group.links.map(footerLink).join('')}
           </ul>
         </div>`
       ).join('')}

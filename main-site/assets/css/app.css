@@ -181,6 +181,13 @@ body {
   display: inline-flex;
 }
 
+/* The drawer and the backdrop are both children of .site-header, and their
+   z-indexes are resolved against each other inside the stacking context that
+   the sticky header creates. The drawer sits above the backdrop, so the page
+   and the header bar dim while the drawer itself stays at full contrast.
+   Do not move either of them onto the body: a backdrop outside the header's
+   stacking context paints over the drawer no matter what z-index it carries,
+   since the header itself is only at 50. */
 .site-nav {
   position: fixed;
   inset: 0 auto 0 0;
@@ -236,10 +243,12 @@ body {
   color: var(--brand-text);
 }
 
+/* Sits below .site-nav in the header's stacking context, so it dims the page
+   and the header bar but never the drawer. See the note on .site-nav. */
 .nav-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 80;
+  z-index: 85;
   background: color-mix(in srgb, #000 45%, transparent);
   opacity: 1;
   transition: opacity 0.2s ease;
@@ -317,6 +326,18 @@ body {
   min-height: 32px;
   padding: 0.25rem 0;
   color: var(--text);
+}
+
+/* A link that leaves the site carries the mark as well as the spoken warning
+   in shell.js, so the new tab is not a surprise either way. */
+.site-footer a.external-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.external-link svg {
+  color: var(--text-light);
 }
 
 .site-footer a:visited {

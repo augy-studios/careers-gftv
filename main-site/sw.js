@@ -16,11 +16,18 @@
 // an ordinary service worker update rather than a first install on browsers
 // that already have the template's worker from this domain.
 //
-// Bump VERSION to invalidate. vercel.json serves this file with
-// Cache-Control: no-cache, or a stale worker would pin an old build
-// indefinitely.
+// BUMP VERSION ON EVERY CHANGE TO THIS SITE. Not once per phase, and not only
+// when this file itself changes: any edit under main-site/ means a new build,
+// and a worker that is not bumped keeps serving the previous one to everybody
+// who has visited before. vercel.json serves this file with
+// Cache-Control: no-cache so the browser will always fetch it, but the file
+// has to actually differ for that to matter.
+//
+// From phase 8, when this gains a precache list, keep that list in step with
+// the files that exist as well. A precache entry naming a deleted file makes
+// cache.addAll reject and the whole install fail.
 
-const VERSION = 'careers-gftv-phase1-v1';
+const VERSION = 'careers-gftv-phase1-v2';
 
 self.addEventListener('install', () => {
   // Nothing to precache yet.

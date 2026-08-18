@@ -263,8 +263,9 @@ const ROUTE_FEATURES = [
   ['/admin', 'admin_dashboard'],
   ['/about', 'static_pages'],
   ['/faq', 'static_pages'],
-  ['/privacy', 'static_pages'],
-  ['/terms', 'static_pages'],
+  // /privacy and /terms are deliberately absent. They are not unbuilt routes
+  // waiting on a phase, they are redirects to the central GFTV policy site,
+  // handled in vercel.json and never reaching a page here.
 ];
 
 /** The feature key for a path, or null when nothing matches. */

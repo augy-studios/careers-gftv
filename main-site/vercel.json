@@ -10,6 +10,16 @@
       "source": "/jobs",
       "destination": "/search",
       "permanent": true
+    },
+    {
+      "source": "/privacy",
+      "destination": "https://policy.globalfurry.tv/legal/privacy",
+      "permanent": false
+    },
+    {
+      "source": "/terms",
+      "destination": "https://policy.globalfurry.tv/legal/terms",
+      "permanent": false
     }
   ],
 
@@ -56,14 +66,6 @@
     },
     {
       "source": "/faq",
-      "destination": "/placeholder.html"
-    },
-    {
-      "source": "/privacy",
-      "destination": "/placeholder.html"
-    },
-    {
-      "source": "/terms",
       "destination": "/placeholder.html"
     }
   ],
