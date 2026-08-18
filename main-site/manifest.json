@@ -1,14 +1,14 @@
 {
-    "name": "Template by UwU Apps",
-    "short_name": "UwU Template",
-    "description": "A simple template app; view live template at a glance!",
+    "name": "Careers@GFTV",
+    "short_name": "Careers@GFTV",
+    "description": "Volunteer and staff openings at Global Furry Television. Browse roles, read the full posting, and apply with a free account.",
     "icons": [{
-            "src": "HLC-192.png",
+            "src": "/HLC-192.png",
             "type": "image/png",
             "sizes": "192x192"
         },
         {
-            "src": "HLC-512.png",
+            "src": "/HLC-512.png",
             "type": "image/png",
             "sizes": "512x512"
         }
@@ -27,18 +27,17 @@
         }
     ],
     "start_url": "/",
-    "theme_color": "#cfc",
-    "background_color": "#cfc",
+    "theme_color": "#ffffff",
+    "background_color": "#ffffff",
     "display": "standalone",
-    "display_override": ["fullscreen", "minimal-ui", "window-controls-overlay"],
+    "display_override": ["standalone", "minimal-ui"],
     "orientation": "any",
-    "id": "template",
+    "id": "careersgftv",
     "dir": "ltr",
     "scope": "/",
     "lang": "en",
     "categories": [
-        "entertainment",
-        "lifestyle",
-        "utilities"
+        "business",
+        "productivity"
     ]
 }

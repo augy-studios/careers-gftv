@@ -2,60 +2,135 @@
 <html lang="en">
 
 <head>
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-FMCYFTFPEL"></script>
-    <script>
-        window.dataLayer = window.dataLayer || [];
+    <!-- This <head> is the template for every HTML file in this repo. Keep the
+         order and the contents consistent across pages, changing only the
+         title, the description, the canonical URL, and the Open Graph copy.
 
-        function gtag() {
-            dataLayer.push(arguments);
-        }
-        gtag('js', new Date());
-
-        gtag('config', 'G-FMCYFTFPEL');
-    </script>
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9715826188316382"
-        crossorigin="anonymous"></script>
-
-    <link rel="manifest" href="/manifest.json" />
+         Section 0.2 of the specification points at the root index.html as the
+         template. That file was the unmodified Augy PWA scaffold: Jua,
+         FontAwesome, AdSense, a Google Analytics tag belonging to another
+         property, and no theme initialisation script. Its structure is kept
+         here, its branding is not, and the theme script gftv-theme.md requires
+         has been added. -->
 
     <meta charset="utf-8">
-    <title>Template | UwU Apps</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="A simple template app; view live template at a glance!">
+
+    <title>Careers@GFTV</title>
+    <meta name="description"
+        content="Volunteer and staff openings at Global Furry Television. Browse roles, read the full posting, and apply with a free account.">
+
+    <!-- Theme, before the stylesheet. This runs before first paint and
+         guarantees both axes exist on <html>, which is what lets every colour
+         block in theme.css select on both without a fallback. Keep the key in
+         sync with APP_KEY in /assets/js/theme.js. -->
+    <meta name="theme-color" content="#ffffff">
+    <script>
+        (function () {
+            var k = "gftv-careers";
+            var m = localStorage.getItem(k + ".mode") || "light";
+            var c = localStorage.getItem(k + ".colorTheme") || "classic";
+            document.documentElement.setAttribute("data-mode", m);
+            document.documentElement.setAttribute("data-color-theme", c);
+        })();
+    </script>
+
+    <link rel="stylesheet" href="/assets/css/theme.css">
+    <link rel="stylesheet" href="/assets/css/app.css">
+
+    <link rel="manifest" href="/manifest.json">
+    <link rel="canonical" href="https://careers.globalfurry.tv/">
 
     <meta property="og:type" content="website">
-    <meta property="og:title" content="Template | UwU Apps" />
-    <meta property="og:site_name" content="UwU Apps" />
-    <meta property="og:description" content="A simple template app; view live template at a glance!" />
+    <meta property="og:site_name" content="Careers@GFTV">
+    <meta property="og:title" content="Careers@GFTV">
+    <meta property="og:description"
+        content="Volunteer and staff openings at Global Furry Television.">
+    <meta property="og:url" content="https://careers.globalfurry.tv/">
+    <meta property="og:image" content="/HLC-main.png">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:image:src" content="/HLC-main.png">
 
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Jua">
-    <link rel="stylesheet" href="/style.css">
-    <meta name="theme-color" content="#ccffcc" />
-
-    <!-- Embed Image -->
-    <link rel="apple-touch-icon" href="/HLC.png">
+    <link rel="apple-touch-icon" href="/HLC-192.png">
     <link rel="icon" href="/favicon.ico">
     <link rel="shortcut icon" href="/favicon.ico">
-    <meta name="twitter:card" content="summary">
-    <meta name="twitter:image:src" content="/HLC.png">
-    <meta property="og:image" content="/HLC.png" />
 
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-    <script defer="" src="https://use.fontawesome.com/releases/v6.5.2/js/all.js"></script>
+    <script type="module" src="/assets/js/shell.js"></script>
 </head>
 
 <body>
-    Template
+    <a class="skip-link" href="#main">Skip to content</a>
 
-    <script src="/script.js"></script>
+    <main class="page" id="main">
+        <div class="page-header">
+            <h1>Careers@GFTV</h1>
+            <p class="lede">
+                Volunteer and staff openings at Global Furry Television.
+            </p>
+        </div>
+
+        <div class="glass-card card stack">
+            <h2>The job board is not open yet</h2>
+            <p>
+                Careers@GFTV is being built and released in phases, in public.
+                The foundations are in place, which is the database, the shared
+                server side code, and the shell you are looking at. The job
+                board itself arrives in phase 3, and applying arrives in
+                phase 4.
+            </p>
+            <p>
+                Nothing here is a mock up. Every page that exists is real, and
+                every page that does not says so rather than pretending.
+            </p>
+            <p>
+                <a class="btn btn-primary" href="/status">See the build status</a>
+            </p>
+        </div>
+
+        <div class="card-grid" style="margin-top: 1.5rem;">
+            <div class="glass-card card">
+                <h2>Read before you sign up</h2>
+                <p>
+                    Every posting will be public in full. The description, the
+                    responsibilities, the requirements, the commitment, and the
+                    closing date. An account is only needed for the act of
+                    applying.
+                </p>
+            </div>
+            <div class="glass-card card">
+                <h2>No approval queue</h2>
+                <p>
+                    Applicant accounts are active immediately. There is no
+                    approval wait and no email verification, so registering
+                    takes a moment.
+                </p>
+            </div>
+            <div class="glass-card card">
+                <h2>Built to work offline</h2>
+                <p>
+                    Once the board is live, postings you have opened stay
+                    readable with no connection, and Careers@GFTV installs to a
+                    home screen like an app.
+                </p>
+            </div>
+        </div>
+
+        <noscript>
+            <div class="callout warn" style="margin-top: 1.5rem;">
+                <p>
+                    Careers@GFTV needs JavaScript for its navigation and for
+                    loading roles. You can still reach the
+                    <a href="/status">build status page</a> directly.
+                </p>
+            </div>
+        </noscript>
+    </main>
 
     <script>
         if ('serviceWorker' in navigator) {
-          navigator.serviceWorker.register('/sw.js');
+            navigator.serviceWorker.register('/sw.js');
         }
     </script>
-    
 </body>
 
 </html>

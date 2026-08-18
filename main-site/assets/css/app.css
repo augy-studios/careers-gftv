@@ -1,0 +1,586 @@
+/* Careers@GFTV shell.
+ *
+ * Layout, header, footer, navigation, and the three pieces of section 0c that
+ * every page needs: the phase notice bar, the disabled control pattern, and
+ * the placeholder page.
+ *
+ * Mobile first, per section 3. One column below 640px, a relaxed two column
+ * layout from 640 to 1024, the full layout above 1024. Nothing here is
+ * written desktop first and narrowed afterwards.
+ *
+ * Every colour comes from a token in theme.css. There are no hex values in
+ * this file.
+ */
+
+/* ---------------------------------------------------------------------------
+ * Page frame
+ * ------------------------------------------------------------------------ */
+
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  /* Notched phones. Applies to the frame so nothing has to repeat it. */
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+.page {
+  flex: 1 0 auto;
+  width: 100%;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+}
+
+.page-narrow {
+  max-width: 46rem;
+}
+
+.page-header {
+  margin-bottom: 1.5rem;
+}
+
+.page-header h1 {
+  font-size: 1.75rem;
+}
+
+.page-header .lede {
+  margin-top: 0.5rem;
+  color: var(--text-muted);
+  font-size: 1.0625rem;
+}
+
+.stack > * + * {
+  margin-top: 1rem;
+}
+
+.stack-lg > * + * {
+  margin-top: 2rem;
+}
+
+@media (min-width: 640px) {
+  .page {
+    padding: 2rem 1.5rem 4rem;
+  }
+
+  .page-header h1 {
+    font-size: 2rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .page {
+    padding: 2.5rem 2rem 5rem;
+  }
+
+  .page-header h1 {
+    font-size: 2.25rem;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Phase notice bar, section 0c
+ *
+ * Slim, dismissible, one line, no colour shouting. Dismissal is remembered
+ * locally against a key derived from which phases have shipped, so it comes
+ * back once by itself when a phase lands.
+ * ------------------------------------------------------------------------ */
+
+.phase-notice {
+  background: var(--bg-alt);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.phase-notice[hidden] {
+  display: none;
+}
+
+.phase-notice-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 0.5rem 1rem;
+  padding-top: max(0.5rem, env(safe-area-inset-top));
+}
+
+.phase-notice p {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.phase-notice a {
+  color: var(--brand-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.phase-notice a:visited {
+  color: var(--brand-text);
+}
+
+.phase-notice .icon-btn {
+  flex: none;
+  width: 32px;
+  height: 32px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Header and navigation
+ * ------------------------------------------------------------------------ */
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.site-header-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 0.5rem 1rem;
+  min-height: 60px;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-right: auto;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--text);
+  text-decoration: none;
+  letter-spacing: -0.01em;
+}
+
+.brand:visited {
+  color: var(--text);
+}
+
+.brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: var(--brand-dark);
+  color: var(--brand-on);
+}
+
+/* The primary navigation is off canvas below 1024px and inline above it. */
+.nav-toggle {
+  display: inline-flex;
+}
+
+.site-nav {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 90;
+  width: min(20rem, 86vw);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1rem;
+  padding-top: max(1rem, env(safe-area-inset-top));
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  background: var(--bg-alt);
+  border-right: 1px solid var(--border);
+  transform: translateX(-100%);
+  transition: transform 0.2s ease;
+  overflow-y: auto;
+}
+
+.site-nav[data-open='true'] {
+  transform: translateX(0);
+}
+
+.site-nav-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.site-nav a {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-height: 44px;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.site-nav a:visited {
+  color: var(--text);
+}
+
+.site-nav a:hover {
+  background: var(--surface-hover);
+}
+
+.site-nav a[aria-current='page'] {
+  background: var(--surface-active);
+  color: var(--brand-text);
+}
+
+.nav-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: color-mix(in srgb, #000 45%, transparent);
+  opacity: 1;
+  transition: opacity 0.2s ease;
+}
+
+.nav-backdrop[hidden] {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .nav-toggle,
+  .site-nav-head,
+  .nav-backdrop {
+    display: none;
+  }
+
+  .site-nav {
+    position: static;
+    width: auto;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0;
+    background: none;
+    border-right: 0;
+    transform: none;
+    overflow: visible;
+  }
+
+  .site-nav a {
+    min-height: 40px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Footer
+ * ------------------------------------------------------------------------ */
+
+.site-footer {
+  flex: none;
+  margin-top: auto;
+  background: var(--bg-alt);
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+}
+
+.site-footer-inner {
+  display: grid;
+  gap: 1.5rem;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+  padding-bottom: max(2rem, env(safe-area-inset-bottom));
+}
+
+.site-footer h2 {
+  margin-bottom: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.site-footer ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.site-footer a {
+  display: inline-block;
+  min-height: 32px;
+  padding: 0.25rem 0;
+  color: var(--text);
+}
+
+.site-footer a:visited {
+  color: var(--text);
+}
+
+.site-footer-legal {
+  grid-column: 1 / -1;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  color: var(--text-light);
+  font-size: 0.875rem;
+}
+
+@media (min-width: 640px) {
+  .site-footer-inner {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 2.5rem 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .site-footer-inner {
+    grid-template-columns: 1.5fr repeat(3, minmax(0, 1fr));
+    padding: 3rem 2rem;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Disabled control pattern, section 0c
+ *
+ * A control for a feature that has not shipped stays visible and disabled
+ * rather than hidden, with the reason on it. Hiding it teaches people the
+ * feature does not exist. Showing it disabled tells them it is coming.
+ *
+ * The reason is set by build-status.js as both the accessible name and a
+ * visible tooltip, and never hardcodes a phase number.
+ * ------------------------------------------------------------------------ */
+
+[data-feature][data-shipped='false'] {
+  cursor: not-allowed;
+}
+
+button[data-feature][data-shipped='false'],
+a[data-feature][data-shipped='false'] {
+  opacity: 0.6;
+  text-decoration: none;
+}
+
+.feature-hint {
+  display: block;
+  margin-top: 0.375rem;
+  color: var(--text-muted-strong);
+  font-size: 0.8125rem;
+  font-weight: 400;
+}
+
+/* The explanatory popover a disabled control opens. Its click handler does
+   nothing but explain, per section 0c. */
+.feature-explainer {
+  position: fixed;
+  left: 50%;
+  bottom: 1rem;
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  z-index: 120;
+  transform: translateX(-50%);
+  width: min(28rem, calc(100vw - 2rem));
+  padding: 0.875rem 1rem;
+  background: var(--bg-alt);
+  font-size: 0.9375rem;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.feature-explainer[hidden] {
+  display: none;
+}
+
+.feature-explainer p + p {
+  margin-top: 0.375rem;
+  color: var(--text-muted);
+}
+
+/* ---------------------------------------------------------------------------
+ * Placeholder page for an unbuilt route, section 0c
+ * ------------------------------------------------------------------------ */
+
+.placeholder {
+  max-width: 40rem;
+  margin: 2rem auto;
+  padding: 2rem 1.5rem;
+  text-align: left;
+}
+
+.placeholder .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.placeholder h1 {
+  font-size: 1.5rem;
+}
+
+.placeholder .sentence {
+  margin-top: 0.75rem;
+  font-size: 1.0625rem;
+}
+
+.placeholder .covers {
+  margin-top: 0.75rem;
+  color: var(--text-muted);
+}
+
+.placeholder .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+/* ---------------------------------------------------------------------------
+ * Status page, section 0c
+ * ------------------------------------------------------------------------ */
+
+.phase-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.phase-item {
+  padding: 1rem 1.125rem;
+}
+
+.phase-item[data-current='true'] {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow) 0 8px 24px, inset 0 1px 0 var(--glass-highlight),
+    0 0 0 2px var(--focus-ring);
+}
+
+.phase-item-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 0.75rem;
+}
+
+.phase-number {
+  color: var(--text-light);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.phase-name {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.phase-item p {
+  margin-top: 0.5rem;
+  color: var(--text-muted);
+}
+
+.phase-item .shipped-note {
+  margin-top: 0.5rem;
+  color: var(--text);
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.125rem 0.625rem;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.status-pill[data-status='shipped'] {
+  background: var(--callout-ok-bg);
+  color: var(--ok);
+}
+
+.status-pill[data-status='building'] {
+  background: var(--callout-warn-bg);
+  color: var(--warn);
+}
+
+.status-pill[data-status='planned'] {
+  background: var(--surface-active);
+  border-color: var(--border);
+  color: var(--text-muted-strong);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  border: 0;
+}
+
+/* ---------------------------------------------------------------------------
+ * Small pieces used by more than one page
+ * ------------------------------------------------------------------------ */
+
+.card {
+  padding: 1.25rem;
+}
+
+.card h2 {
+  font-size: 1.125rem;
+}
+
+.card p {
+  margin-top: 0.5rem;
+  color: var(--text-muted);
+}
+
+.card-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .card-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Body scroll lock while an off canvas panel or a modal is open. */
+body[data-scroll-locked='true'] {
+  overflow: hidden;
+}
+
+/* Any table anywhere scrolls inside its own container rather than pushing the
+   page sideways. Section 3 also requires admin tables to reflow to cards below
+   640px, which lands with the admin dashboard in phase 6. */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}

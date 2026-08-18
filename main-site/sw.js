@@ -1,105 +1,50 @@
-const CACHE = "template-offline-v1";
+// Careers@GFTV service worker, phase 1 version.
+//
+// This is deliberately a pass through. The real offline behaviour is section
+// 14 of the specification and lands in phase 8: precached shell, cache first
+// static assets, stale while revalidate public job data, network only for
+// anything authenticated, IndexedDB for the applicant's own data, and a queue
+// for the rating and the apply answer.
+//
+// Shipping a caching service worker now would be worse than shipping none.
+// Pages change on every phase, and a cache first worker would pin an old build
+// on returning visitors for as long as it survived. So this version registers,
+// takes control, clears any cache left by an earlier worker, and then stays out
+// of the way entirely.
+//
+// It is registered rather than left out so that the update path in phase 8 is
+// an ordinary service worker update rather than a first install on browsers
+// that already have the template's worker from this domain.
+//
+// Bump VERSION to invalidate. vercel.json serves this file with
+// Cache-Control: no-cache, or a stale worker would pin an old build
+// indefinitely.
 
-const ASSETS = [
-  "/",
-  "/index.html",
-  "/style.css",
-  "/script.js",
-  "/HLC-192.png",
-  "/HLC-512.png",
-  "/favicon.ico",
-  "/manifest.json"
-];
+const VERSION = 'careers-gftv-phase1-v1';
 
-/* -- Install: cache shell -- */
+self.addEventListener('install', () => {
+  // Nothing to precache yet.
+  self.skipWaiting();
+});
 
-self.addEventListener('install', event => {
+self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.open(CACHE)
-    .then(cache => cache.addAll(ASSETS))
-    .then(() => self.skipWaiting())
+    (async () => {
+      // Remove everything, including caches written by the PWA template this
+      // repo started from.
+      const keys = await caches.keys();
+      await Promise.all(keys.map((key) => caches.delete(key)));
+      await self.clients.claim();
+    })()
   );
 });
 
-/* -- Activate: clean old caches -- */
+// No fetch handler. Every request goes to the network exactly as it would with
+// no service worker installed. Phase 8 adds the strategies from section 14
+// here.
 
-self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys()
-    .then(keys =>
-      Promise.all(
-        keys
-        .filter(k => k !== CACHE)
-        .map(k => caches.delete(k))
-      )
-    )
-    .then(() => self.clients.claim())
-  );
+self.addEventListener('message', (event) => {
+  if (event.data === 'version') {
+    event.source?.postMessage({ version: VERSION });
+  }
 });
-
-/* -- Fetch: strategy per route -- */
-
-self.addEventListener('fetch', event => {
-  const {
-    request
-  } = event;
-  const url = new URL(request.url);
-
-  // API - network-first
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(networkFirst(request));
-    return;
-  }
-
-  // Google Fonts - cache-first (immutable)
-  if (url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com') {
-    event.respondWith(cacheFirst(request));
-    return;
-  }
-
-  // static assets - cache-first
-  event.respondWith(cacheFirst(request));
-});
-
-/* -- Strategies -- */
-
-async function networkFirst(request) {
-  try {
-    const response = await fetch(request);
-    return response;
-  } catch {
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: 'You appear to be offline.'
-      }), {
-        status: 503,
-        headers: {
-          'Content-Type': 'application/json'
-        },
-      }
-    );
-  }
-}
-
-async function cacheFirst(request) {
-  const cached = await caches.match(request);
-  if (cached) return cached;
-
-  try {
-    const response = await fetch(request);
-    if (response.ok) {
-      const cache = await caches.open(CACHE);
-      cache.put(request, response.clone());
-    }
-    return response;
-  } catch {
-    // offline - fallback for navigation
-    if (request.mode === 'navigate') {
-      return caches.match('/index.html');
-    }
-    return new Response('Offline', {
-      status: 503
-    });
-  }
-}

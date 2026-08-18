@@ -5,8 +5,13 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <title>Page not found | Careers@GFTV</title>
-    <meta name="description" content="That page does not exist on Careers@GFTV.">
+    <title>Not built yet | Careers@GFTV</title>
+    <meta name="description"
+        content="This part of Careers@GFTV has not been built yet. See the build status page for what is live.">
+
+    <!-- Section 0c: placeholder routes are marked noindex. They are real pages
+         in the normal layout rather than a 404 or a blank screen, but there is
+         nothing here worth a search result. -->
     <meta name="robots" content="noindex, follow">
 
     <meta name="theme-color" content="#ffffff">
@@ -36,29 +41,33 @@
     <a class="skip-link" href="#main">Skip to content</a>
 
     <main class="page" id="main">
-        <div class="glass-card placeholder">
+        <!-- data-placeholder-for="auto" makes the page work out which feature
+             it is standing in for from the path, so one file serves every
+             unbuilt route and no phase number is written into any markup.
+             build-status.js fills in the three slots below. -->
+        <div class="glass-card placeholder" data-placeholder-for="auto">
             <p class="eyebrow">
-                <span data-icon="info" data-icon-size="16"></span>
-                404
+                <span data-icon="build" data-icon-size="16"></span>
+                Not built yet
             </p>
 
-            <h1>That page does not exist</h1>
+            <h1 data-placeholder-title>This part is not built yet</h1>
 
-            <p class="sentence">
-                The address you followed does not match anything on
-                Careers@GFTV. This is different from a part of the site that has
-                not been built yet, which says so plainly instead.
+            <p class="sentence" data-placeholder-sentence>
+                This part of Careers@GFTV has not been built yet.
             </p>
+
+            <p class="covers" data-placeholder-covers></p>
 
             <p class="covers">
-                If you followed a link to a role, the posting may have been
-                removed. Postings that have merely closed stay readable, so a
-                closed role is not what caused this.
+                Careers@GFTV is being released in phases, and the interface is
+                meant to be honest about what is not there yet. Nothing has gone
+                wrong and there is nothing to retry.
             </p>
 
             <div class="actions">
-                <a class="btn btn-primary" href="/search">Browse roles</a>
-                <a class="btn btn-secondary" href="/status">Build status</a>
+                <a class="btn btn-primary" href="/status">See the build status</a>
+                <a class="btn btn-secondary" href="/search">Browse roles</a>
                 <a class="btn btn-quiet" href="/">Back to the home page</a>
             </div>
         </div>

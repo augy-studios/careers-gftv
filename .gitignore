@@ -1,0 +1,61 @@
+# Working references, not part of the deliverable. They live at the repo root
+# on the maintainer's machine only. Source comments cite them by name and by
+# section number, and the root README explains where they went, so a fresh
+# clone is not left wondering. The theme is implemented in full in
+# main-site/assets/css/theme.css, which is committed.
+#   next-steps.md         the phase memo, rewritten at each phase boundary
+#   careers-gftv-spec.md  the brief for the whole project
+#   gftv-theme.md         the GFTV theme system, shared across the GFTV apps
+next-steps.md
+careers-gftv-spec.md
+gftv-theme.md
+
+# Environment. .env.example is tracked on purpose, everything else is not.
+.env
+.env.*
+!.env.example
+!**/.env.example
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.npm/
+.pnpm-store/
+
+# Vercel
+.vercel/
+.vercel_build_output/
+
+# Python, for telegram-bot/
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Bot local state. Supabase is the shared source of truth, SQLite is not.
+telegram-bot/*.session
+telegram-bot/*.session-journal
+telegram-bot/*.sqlite
+telegram-bot/*.sqlite3
+telegram-bot/*.db
+
+# Playwright, docs-site/scripts/
+playwright-report/
+test-results/
+.playwright/
+
+# Editors and OS
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+*.swp

@@ -1,0 +1,14 @@
+{
+  "name": "careers-gftv-main-site",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Careers@GFTV portal. Static frontend with no build step, plus Vercel serverless functions under api/.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "bcryptjs": "^2.4.3"
+  }
+}

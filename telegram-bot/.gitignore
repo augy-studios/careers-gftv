@@ -1,0 +1,22 @@
+# Bot local state. Supabase is the shared source of truth for accounts, links,
+# tokens, invites, and the notification outbox. SQLite holds only scheduling,
+# rate limits, dedupe, and the registry of active interaction buttons, and none
+# of that belongs in version control.
+*.session
+*.session-journal
+*.sqlite
+*.sqlite3
+*.db
+
+.env
+.env.*
+!.env.example
+
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

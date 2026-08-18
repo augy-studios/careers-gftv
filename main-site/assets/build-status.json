@@ -1,0 +1,136 @@
+{
+  "$comment": "Single source of truth for the phased rollout, per section 0c of careers-gftv-spec.md. The site, the Telegram bot, and the docs site all read this one file, so the three stay in step. Flipping a phase to shipped is the only edit needed when it goes live. No copy anywhere hardcodes a phase number.",
+  "schema_version": 1,
+  "updated": "2026-08-18",
+  "phases": [
+    {
+      "number": 1,
+      "name": "Foundations",
+      "status": "shipped",
+      "description": "Repo scaffold, the full database schema, the build status mechanism, and the shared server side helpers. Nothing to use yet, but everything after this sits on it.",
+      "shipped_note": "The status page you are reading, the phase notice, and the placeholder pages went live with this."
+    },
+    {
+      "number": 2,
+      "name": "Authentication",
+      "status": "building",
+      "description": "Creating an applicant account and signing in, with recovery codes, trusted devices, and the stay signed in choice. Staff sign in with an existing gftv.asia account and its second factor.",
+      "shipped_note": null
+    },
+    {
+      "number": 3,
+      "name": "Public site",
+      "status": "planned",
+      "description": "The home page, the job board at /search with full text search, filters, tags and suggestions, individual postings, and the static pages.",
+      "shipped_note": null
+    },
+    {
+      "number": 4,
+      "name": "Apply flow",
+      "status": "planned",
+      "description": "Applying to a role, the handoff to the application form, rating a posting, and the three month cooldown on reapplying.",
+      "shipped_note": null
+    },
+    {
+      "number": 5,
+      "name": "Applicant dashboard",
+      "status": "planned",
+      "description": "My applications, saved jobs, outstanding tasks, and account settings including profile, password, and the danger zone.",
+      "shipped_note": null
+    },
+    {
+      "number": 6,
+      "name": "Admin dashboard",
+      "status": "planned",
+      "description": "The staff side: managing postings, tracking applicants, analytics, invites, departments, tags, and portal settings.",
+      "shipped_note": null
+    },
+    {
+      "number": 7,
+      "name": "Automation",
+      "status": "planned",
+      "description": "Daily maintenance, automatic closing of postings past their date, and confirmed submissions coming back from the application forms.",
+      "shipped_note": null
+    },
+    {
+      "number": 8,
+      "name": "Offline",
+      "status": "planned",
+      "description": "Installing Careers@GFTV to a home screen, and browsing, reading, and rating postings with no connection.",
+      "shipped_note": null
+    },
+    {
+      "number": 9,
+      "name": "Telegram bot",
+      "status": "planned",
+      "description": "Linking a Telegram account for notifications, invitations, one tap sign in, and two factor authentication.",
+      "shipped_note": null
+    },
+    {
+      "number": 10,
+      "name": "Polish",
+      "status": "planned",
+      "description": "An accessibility and responsive pass across every page, theme, and screen size, plus the discovery files search engines read.",
+      "shipped_note": null
+    },
+    {
+      "number": 11,
+      "name": "Documentation",
+      "status": "planned",
+      "description": "The public guides for the portal and the bot, and the admin guide inside the dashboard. Written last so they describe what was built rather than what was planned.",
+      "shipped_note": null
+    }
+  ],
+  "features": {
+    "staff_login": 2,
+    "applicant_register": 2,
+    "applicant_login": 2,
+    "forgot_password": 2,
+    "recovery_codes": 2,
+    "trusted_devices": 2,
+
+    "job_search": 3,
+    "job_detail": 3,
+    "jobs_feed": 3,
+    "static_pages": 3,
+
+    "apply": 4,
+    "ratings": 4,
+    "apply_prompt": 4,
+
+    "my_applications": 5,
+    "saved_jobs": 5,
+    "outstanding_tasks": 5,
+    "account_settings": 5,
+    "danger_zone": 5,
+
+    "admin_dashboard": 6,
+    "admin_jobs": 6,
+    "admin_applications": 6,
+    "admin_analytics": 6,
+    "admin_invites": 6,
+    "admin_departments": 6,
+    "admin_tags": 6,
+    "admin_admins": 6,
+    "admin_applicants": 6,
+    "admin_settings": 6,
+    "admin_docs": 6,
+
+    "cron": 7,
+    "form_webhook": 7,
+
+    "offline": 8,
+    "install": 8,
+
+    "telegram_link": 9,
+    "telegram_2fa": 9,
+    "telegram_notifications": 9,
+    "invites": 9,
+
+    "sitemap": 10,
+    "seed": 10,
+
+    "docs_site": 11,
+    "admin_docs_content": 11
+  }
+}

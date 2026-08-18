@@ -1,0 +1,657 @@
+/* Careers@GFTV theme system.
+ *
+ * Implements gftv-theme.md exactly. Two independent axes on <html>:
+ * data-color-theme (classic, hello) and data-mode (light, dark). Both
+ * attributes are always present, set by the pre-paint script in every <head>,
+ * so every colour block can select on both without a fallback.
+ *
+ * Rules that are not negotiable, from that file:
+ *   - No gradients, orbs, or blobs. Flat tints and glass surfaces only.
+ *   - Never hardcode a colour in component CSS. Reference a token.
+ *   - Light mode is the default. prefers-color-scheme is not read on load.
+ *   - --brand-dark is a fill, never body sized text. Accent text is
+ *     --brand-text.
+ *   - --text-light never carries meaning on a nested control. Use
+ *     --text-muted-strong on --surface-active.
+ *   - Everything that opens, closes, or switches state animates, 150 to 220ms,
+ *     and honours prefers-reduced-motion.
+ *
+ * One documented departure from gftv-theme.md: the font is Proxima Nova, the
+ * GFTV branding font, rather than Inter. --font is still the single point of
+ * control and no component sets font-family of its own, so the rule that
+ * mattered is unchanged.
+ */
+
+/* ---------------------------------------------------------------------------
+ * Font
+ *
+ * Proxima Nova is licensed and is not on Google Fonts, so it is self hosted
+ * rather than pulled from a CDN. That is also what the offline requirement in
+ * section 14 needs: a font from a third party host cannot be precached by the
+ * service worker and would leave installed copies of the site unstyled.
+ *
+ * Only the regular weight has been supplied so far, so it is the only face
+ * declared. Weights 500, 600, and 700 are used by headings, buttons, and the
+ * brand, and the browser synthesises those from the 400 face until the real
+ * files arrive. Faux bold is a fair approximation and is much better than
+ * declaring a face that 404s.
+ *
+ * When the other weights are supplied, drop them into
+ * main-site/assets/fonts/ under the names in the commented blocks below and
+ * uncomment each one. Nothing else needs to change.
+ * ------------------------------------------------------------------------ */
+
+@font-face {
+  font-family: 'Proxima Nova';
+  src: url('/assets/fonts/ProximaNova-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/*
+@font-face {
+  font-family: 'Proxima Nova';
+  src: url('/assets/fonts/ProximaNova-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Proxima Nova';
+  src: url('/assets/fonts/ProximaNova-Semibold.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Proxima Nova';
+  src: url('/assets/fonts/ProximaNova-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+*/
+
+/* ---------------------------------------------------------------------------
+ * Structural tokens. No colour, no axis.
+ * ------------------------------------------------------------------------ */
+
+:root {
+  --glass-blur: 16px;
+  --radius: 14px;
+  --radius-sm: 8px;
+  --font: 'Proxima Nova', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* ---------------------------------------------------------------------------
+ * classic, light
+ * ------------------------------------------------------------------------ */
+
+:root[data-color-theme='classic'][data-mode='light'] {
+  --brand: #ffffff;
+  --brand-dark: #4a6a8a;
+  --brand-text: #1a3a5a;
+  --brand-on: #ffffff;
+  --bg: #ffffff;
+  --bg-alt: #f5f5f5;
+  --surface: rgba(255, 255, 255, 0.6);
+  --surface-hover: rgba(245, 245, 245, 0.8);
+  --surface-active: rgba(235, 235, 235, 0.95);
+  --border: rgba(180, 190, 200, 0.4);
+  --border-strong: rgba(140, 155, 170, 0.6);
+  --text: #1a1a2e;
+  --text-muted: #4a5568;
+  --text-light: #6b7280;
+  --shadow: rgba(100, 120, 140, 0.12);
+  --glass-highlight: rgba(255, 255, 255, 0.6);
+  --link: #ef3340;
+  --link-visited: #4b4bd6;
+  --danger: #b03325;
+  --danger-hover: #8a2a2a;
+  --danger-on: #ffffff;
+  --ok: #177038;
+  --warn: #8a5200;
+}
+
+/* ---------------------------------------------------------------------------
+ * hello, light
+ * ------------------------------------------------------------------------ */
+
+:root[data-color-theme='hello'][data-mode='light'] {
+  --brand: #fedc00;
+  --brand-dark: #9e8800;
+  --brand-text: #3a3000;
+  --brand-on: #ffffff;
+  --bg: #fffde0;
+  --bg-alt: #fff9c4;
+  --surface: rgba(254, 220, 0, 0.35);
+  --surface-hover: rgba(254, 220, 0, 0.55);
+  --surface-active: rgba(254, 220, 0, 0.7);
+  --border: rgba(200, 170, 0, 0.3);
+  --border-strong: rgba(160, 130, 0, 0.5);
+  --text: #2e2800;
+  --text-muted: #5a4e00;
+  --text-light: #7a6c00;
+  --shadow: rgba(160, 130, 0, 0.15);
+  --glass-highlight: rgba(255, 255, 255, 0.5);
+  --link: #ef3340;
+  --link-visited: #4b4bd6;
+  --danger: #b03325;
+  --danger-hover: #8a2a2a;
+  --danger-on: #ffffff;
+  --ok: #177038;
+  --warn: #8a5200;
+}
+
+/* ---------------------------------------------------------------------------
+ * classic, dark
+ * ------------------------------------------------------------------------ */
+
+:root[data-color-theme='classic'][data-mode='dark'] {
+  --brand: #ffffff;
+  --brand-dark: #8fb0cf;
+  --brand-text: #cfe0f0;
+  --brand-on: #10161d;
+  --bg: #0f1317;
+  --bg-alt: #161b21;
+  --surface: rgba(255, 255, 255, 0.06);
+  --surface-hover: rgba(255, 255, 255, 0.1);
+  --surface-active: rgba(255, 255, 255, 0.14);
+  --border: rgba(160, 180, 200, 0.18);
+  --border-strong: rgba(160, 180, 200, 0.32);
+  --text: #eceff3;
+  --text-muted: #a7b2be;
+  --text-light: #7d8794;
+  --shadow: rgba(0, 0, 0, 0.5);
+  --glass-highlight: rgba(255, 255, 255, 0.08);
+  --link: #ff6b74;
+  --link-visited: #a9a9ff;
+  --danger: #ff8a80;
+  --danger-hover: #ffb3ac;
+  --danger-on: #1a0f0e;
+  --ok: #6ee7a0;
+  --warn: #fbbf24;
+}
+
+/* ---------------------------------------------------------------------------
+ * hello, dark
+ * ------------------------------------------------------------------------ */
+
+:root[data-color-theme='hello'][data-mode='dark'] {
+  --brand: #fedc00;
+  --brand-dark: #fedc00;
+  --brand-text: #ffe873;
+  --brand-on: #2e2800;
+  --bg: #14120a;
+  --bg-alt: #1c1a0e;
+  --surface: rgba(254, 220, 0, 0.1);
+  --surface-hover: rgba(254, 220, 0, 0.16);
+  --surface-active: rgba(254, 220, 0, 0.22);
+  --border: rgba(254, 220, 0, 0.2);
+  --border-strong: rgba(254, 220, 0, 0.36);
+  --text: #f5f0dc;
+  --text-muted: #c4ba8e;
+  --text-light: #9a9270;
+  --shadow: rgba(0, 0, 0, 0.55);
+  --glass-highlight: rgba(255, 255, 255, 0.06);
+  --link: #ff6b74;
+  --link-visited: #a9a9ff;
+  --danger: #ff8a80;
+  --danger-hover: #ffb3ac;
+  --danger-on: #1a0f0e;
+  --ok: #6ee7a0;
+  --warn: #fbbf24;
+}
+
+/* ---------------------------------------------------------------------------
+ * Derived tokens. These resolve against whichever block above is active, so
+ * they stay correct in all four combinations without being restated.
+ * ------------------------------------------------------------------------ */
+
+:root {
+  /* Hover step above --brand-dark, both modes. */
+  --brand-dark-hover: color-mix(in srgb, var(--brand-dark) 85%, var(--text));
+  /* Secondary text on --surface-active, where --text-light fails AA in dark. */
+  --text-muted-strong: color-mix(in srgb, var(--text) 70%, transparent);
+  /* Callout tints, 14% of the status colour. */
+  --callout-danger-bg: color-mix(in srgb, var(--danger) 14%, transparent);
+  --callout-ok-bg: color-mix(in srgb, var(--ok) 14%, transparent);
+  --callout-warn-bg: color-mix(in srgb, var(--warn) 14%, transparent);
+  /* Focus indicator. Every border token is under 3:1, --brand-dark is not. */
+  --focus-ring: var(--brand-dark);
+}
+
+/* ---------------------------------------------------------------------------
+ * Base
+ * ------------------------------------------------------------------------ */
+
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: var(--font);
+}
+
+html {
+  /* iOS does not zoom on focus when inputs are at least 16px, and inheriting
+     from here keeps that true without a font-size on every input. */
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  transition: background-color 0.25s ease, color 0.25s ease;
+  /* Nothing may scroll the page sideways at any width down to 320px. */
+  overflow-x: hidden;
+}
+
+:link {
+  color: var(--link);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+:visited {
+  color: var(--link-visited);
+}
+
+a:hover {
+  text-decoration: none;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+img,
+svg,
+video {
+  max-width: 100%;
+  height: auto;
+}
+
+svg {
+  /* Icons are inline SVG coloured with currentColor. Never emoji. */
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: none;
+}
+
+/* Long words, uuids, and tag names wrap rather than pushing the layout. */
+h1,
+h2,
+h3,
+h4,
+p,
+li,
+td,
+th,
+dd,
+dt {
+  overflow-wrap: anywhere;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  line-height: 1.25;
+  font-weight: 600;
+}
+
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--text) 45%, transparent);
+}
+
+::selection {
+  background: color-mix(in srgb, var(--brand-dark) 35%, transparent);
+  color: var(--text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Primitives
+ * ------------------------------------------------------------------------ */
+
+.glass-card {
+  background: var(--surface);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow) 0 8px 24px, inset 0 1px 0 var(--glass-highlight);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  /* Touch targets are at least 44 by 44 CSS pixels, per section 3. */
+  min-height: 44px;
+  padding: 0.625rem 1.125rem;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  font-size: 1rem;
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: background-color 0.18s ease, border-color 0.18s ease,
+    color 0.18s ease;
+}
+
+a.btn,
+a.btn:visited {
+  text-decoration: none;
+}
+
+.btn-primary,
+a.btn-primary,
+a.btn-primary:visited {
+  background: var(--brand-dark);
+  color: var(--brand-on);
+}
+
+.btn-primary:hover {
+  background: var(--brand-dark-hover);
+}
+
+.btn-secondary,
+a.btn-secondary,
+a.btn-secondary:visited {
+  background: var(--surface-active);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.btn-secondary:hover {
+  background: var(--surface-hover);
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: var(--danger-on);
+}
+
+.btn-danger:hover {
+  background: var(--danger-hover);
+}
+
+.btn-quiet {
+  background: none;
+  color: var(--text-muted);
+  border-color: transparent;
+}
+
+.btn-quiet:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.icon-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.icon-btn.small {
+  width: 32px;
+  height: 32px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 32px;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  background: var(--surface-active);
+  border: 1px solid var(--border);
+  color: var(--text-muted-strong);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+a.chip,
+a.chip:visited {
+  color: var(--text-muted-strong);
+  text-decoration: none;
+}
+
+.callout {
+  padding: 0.875rem 1rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid currentColor;
+  font-size: 0.9375rem;
+}
+
+.callout.note {
+  background: var(--surface-active);
+  border-color: var(--border);
+  color: var(--text-muted-strong);
+}
+
+.callout.ok {
+  background: var(--callout-ok-bg);
+  color: var(--ok);
+}
+
+.callout.warn {
+  background: var(--callout-warn-bg);
+  color: var(--warn);
+}
+
+.callout.danger {
+  background: var(--callout-danger-bg);
+  color: var(--danger);
+}
+
+/* ---------------------------------------------------------------------------
+ * Theme modal, per gftv-theme.md
+ * ------------------------------------------------------------------------ */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: color-mix(in srgb, #000 55%, transparent);
+  opacity: 1;
+  transition: opacity 0.18s ease;
+}
+
+.modal-backdrop.hidden {
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.modal {
+  width: min(24rem, 100%);
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  padding: 1.25rem;
+  background: var(--bg-alt);
+  transform: translateY(0);
+  transition: transform 0.18s ease;
+}
+
+.modal-backdrop.hidden .modal {
+  transform: translateY(0.75rem);
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.modal-head h2 {
+  font-size: 1.125rem;
+}
+
+.modal-section-label {
+  margin: 1rem 0 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.modal-section-label:first-of-type {
+  margin-top: 0;
+}
+
+.mode-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.mode-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 500;
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.mode-btn.active {
+  background: var(--brand-dark);
+  color: var(--brand-on);
+  border-color: transparent;
+}
+
+.swatch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  gap: 0.5rem;
+}
+
+.swatch {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-weight: 500;
+}
+
+/* The classic swatch is #ffffff and would vanish on a light modal, so the
+   active state carries a containment ring as well as a border. */
+.swatch.active {
+  border-color: var(--swatch-color);
+  box-shadow: 0 0 0 2px var(--swatch-color),
+    0 0 0 3px color-mix(in srgb, var(--text) 50%, transparent);
+}
+
+.swatch-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--swatch-color);
+  border: 1px solid color-mix(in srgb, var(--text) 30%, transparent);
+}
+
+/* ---------------------------------------------------------------------------
+ * Utilities
+ * ------------------------------------------------------------------------ */
+
+.hidden {
+  display: none !important;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  left: 0.5rem;
+  top: -3rem;
+  z-index: 200;
+  padding: 0.625rem 1rem;
+  border-radius: var(--radius-sm);
+  background: var(--brand-dark);
+  color: var(--brand-on);
+  text-decoration: none;
+  transition: top 0.18s ease;
+}
+
+.skip-link:focus {
+  top: 0.5rem;
+}

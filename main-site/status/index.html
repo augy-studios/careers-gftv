@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Build status | Careers@GFTV</title>
+    <meta name="description"
+        content="What is live on Careers@GFTV, what is being built now, and what is still to come. Also the changelog for the portal.">
+
+    <meta name="theme-color" content="#ffffff">
+    <script>
+        (function () {
+            var k = "gftv-careers";
+            var m = localStorage.getItem(k + ".mode") || "light";
+            var c = localStorage.getItem(k + ".colorTheme") || "classic";
+            document.documentElement.setAttribute("data-mode", m);
+            document.documentElement.setAttribute("data-color-theme", c);
+        })();
+    </script>
+
+    <link rel="stylesheet" href="/assets/css/theme.css">
+    <link rel="stylesheet" href="/assets/css/app.css">
+
+    <link rel="manifest" href="/manifest.json">
+    <link rel="canonical" href="https://careers.globalfurry.tv/status">
+
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Careers@GFTV">
+    <meta property="og:title" content="Build status | Careers@GFTV">
+    <meta property="og:description"
+        content="What is live on Careers@GFTV, what is being built now, and what is still to come.">
+    <meta property="og:url" content="https://careers.globalfurry.tv/status">
+    <meta property="og:image" content="/HLC-main.png">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:image:src" content="/HLC-main.png">
+
+    <link rel="apple-touch-icon" href="/HLC-192.png">
+    <link rel="icon" href="/favicon.ico">
+    <link rel="shortcut icon" href="/favicon.ico">
+
+    <script type="module" src="/assets/js/shell.js"></script>
+    <script type="module" src="/assets/js/status-page.js"></script>
+</head>
+
+<body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <main class="page page-narrow" id="main">
+        <div class="page-header">
+            <h1>Build status</h1>
+            <p class="lede">
+                Careers@GFTV is being built and released in phases, in public.
+                This page lists every phase, what it covers, and whether it is
+                live yet. It doubles as the changelog.
+            </p>
+        </div>
+
+        <div class="callout note" id="statusSummary">
+            Loading the current status.
+        </div>
+
+        <ol class="phase-list stack" id="phaseList" style="margin-top: 1.5rem;"></ol>
+
+        <div class="glass-card card" style="margin-top: 2rem;">
+            <h2>About the dates</h2>
+            <p>
+                There are none, and none are promised. A phase ships when it
+                works, not on a date announced in advance. What this page does
+                promise is that nothing is shown as available before it is, and
+                that a feature which has not shipped says so on the control
+                itself rather than quietly failing.
+            </p>
+        </div>
+
+        <noscript>
+            <div class="callout warn" style="margin-top: 1.5rem;">
+                This page reads the live status file, so it needs JavaScript.
+                The raw file is at
+                <a href="/assets/build-status.json">/assets/build-status.json</a>.
+            </div>
+        </noscript>
+    </main>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js');
+        }
+    </script>
+</body>
+
+</html>
