@@ -34,6 +34,10 @@ function render(status) {
   const phases = status.phases ?? [];
 
   if (phases.length === 0) {
+    // The file did not load. Drop the skeletons rather than leaving them
+    // pulsing forever, which would suggest something is still on its way.
+    list.replaceChildren();
+    list.removeAttribute('aria-busy');
     if (summary) summary.textContent = t('status.loadError');
     return;
   }
@@ -90,6 +94,7 @@ function render(status) {
     })
   );
 
+  list.removeAttribute('aria-busy');
   hydrateIcons(list);
 
   document.title = building

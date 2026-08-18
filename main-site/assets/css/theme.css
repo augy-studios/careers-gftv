@@ -436,6 +436,158 @@ h4 {
 }
 
 /* ---------------------------------------------------------------------------
+ * Loading
+ *
+ * Three pieces, because loading is not one situation.
+ *
+ *   .spinner    an action is in flight and the result has no shape yet
+ *   .skeleton   content is coming whose shape is already known
+ *   .delayed    wraps either, and shows nothing for the first 250ms
+ *
+ * The delay is the part worth keeping. A spinner that appears for 80ms and
+ * vanishes reads as a flicker, and most same origin fetches finish inside
+ * that. Showing nothing until 250ms means a fast response never flashes, and
+ * a slow one is still acknowledged well before anyone wonders.
+ *
+ * No gradients anywhere here. gftv-theme.md forbids them, which rules out the
+ * usual shimmer sweep across a skeleton, so these use a flat tint and an
+ * opacity pulse instead. It reads calmer and it obeys the rule.
+ *
+ * Every one of these carries text for a screen reader. An animation on its own
+ * announces nothing.
+ * ------------------------------------------------------------------------ */
+
+@keyframes gftv-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes gftv-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@keyframes gftv-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.spinner {
+  --spinner-size: 1.25rem;
+  --spinner-weight: 2px;
+  display: inline-block;
+  flex: none;
+  width: var(--spinner-size);
+  height: var(--spinner-size);
+  border-radius: 50%;
+  border: var(--spinner-weight) solid
+    color-mix(in srgb, var(--text) 16%, transparent);
+  border-top-color: var(--brand-dark);
+  animation: gftv-spin 700ms linear infinite;
+}
+
+.spinner.small {
+  --spinner-size: 1rem;
+  --spinner-weight: 2px;
+}
+
+.spinner.large {
+  --spinner-size: 2.25rem;
+  --spinner-weight: 3px;
+}
+
+/* On a --brand-dark fill, where the accent border would vanish. */
+.btn-primary .spinner {
+  border-color: color-mix(in srgb, var(--brand-on) 30%, transparent);
+  border-top-color: var(--brand-on);
+}
+
+.skeleton {
+  background: var(--surface-active);
+  border-radius: var(--radius-sm);
+  animation: gftv-pulse 1.4s ease-in-out infinite;
+}
+
+.skeleton-line {
+  height: 0.75rem;
+  margin: 0.5rem 0;
+}
+
+.skeleton-line.title {
+  height: 1.125rem;
+  width: 40%;
+}
+
+.skeleton-line.short {
+  width: 30%;
+}
+
+.skeleton-line.long {
+  width: 85%;
+}
+
+/* Nothing for 250ms, then a fade. `both` holds opacity 0 through the delay. */
+.delayed {
+  animation: gftv-fade-in 180ms ease 250ms both;
+}
+
+.loading-row {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  color: var(--text-muted);
+}
+
+/* The page is held hidden while a non default language loads its dictionary.
+   This is the one thing allowed to show through, so that hold is not a blank
+   screen. visibility is not blocked by an ancestor: a descendant may set
+   visible and be seen. */
+.boot-loader {
+  display: none;
+}
+
+:root[data-i18n-pending='true'] .boot-loader {
+  visibility: visible;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: var(--bg);
+  color: var(--text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* One deliberate exception to the blanket rule further down, which stops
+     every animation. A loading indicator that does not move indicates nothing,
+     so these slow down rather than stopping. Both are small, localised, and
+     constant, which is not what the reduced motion guidance is aimed at: that
+     targets large sweeps, parallax, and anything that moves the page under a
+     reader. */
+  .spinner {
+    animation-duration: 2s !important;
+    animation-iteration-count: infinite !important;
+  }
+
+  .skeleton {
+    animation-duration: 2.4s !important;
+    animation-iteration-count: infinite !important;
+  }
+
+  .delayed {
+    animation: none !important;
+  }
+}
+
+/* ---------------------------------------------------------------------------
  * Primitives
  * ------------------------------------------------------------------------ */
 

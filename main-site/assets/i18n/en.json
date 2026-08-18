@@ -115,5 +115,7 @@
   "commitment.contract": "Contract",
   "commitment.internship": "Internship",
   "job.untranslatedBadge": "English only",
-  "job.untranslatedNotice": "This role has not been translated yet, so it is shown in English. If you would like it translated, tell us and we will prioritise it."
+  "job.untranslatedNotice": "This role has not been translated yet, so it is shown in English. If you would like it translated, tell us and we will prioritise it.",
+  "common.loading": "Loading",
+  "status.loadingPhases": "Loading the phases"
 }

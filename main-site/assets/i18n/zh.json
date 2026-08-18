@@ -115,5 +115,7 @@
   "commitment.contract": "合约",
   "commitment.internship": "实习",
   "job.untranslatedBadge": "仅有英文版",
-  "job.untranslatedNotice": "此职位尚未翻译，以下内容为英文原文。如果您希望我们提供华文版本，请告诉我们，我们会优先处理。"
+  "job.untranslatedNotice": "此职位尚未翻译，以下内容为英文原文。如果您希望我们提供华文版本，请告诉我们，我们会优先处理。",
+  "common.loading": "加载中",
+  "status.loadingPhases": "正在加载各阶段"
 }

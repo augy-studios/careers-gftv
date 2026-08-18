@@ -51,6 +51,13 @@
 </head>
 
 <body>
+    <!-- Shown only while a non default language is loading its dictionary, and
+         only then. The body is held hidden during that window so nothing
+         paints in English first; this is what shows instead of a blank page.
+         Delayed by 250ms, so a fast dictionary is never seen to load. -->
+    <div class="boot-loader" aria-hidden="true">
+        <span class="spinner delayed"></span>
+    </div>
     <a class="skip-link" href="#main" data-i18n="common.skipToContent">Skip to content</a>
 
     <main class="page" id="main">

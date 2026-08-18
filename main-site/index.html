@@ -77,6 +77,13 @@
 </head>
 
 <body>
+    <!-- Shown only while a non default language is loading its dictionary, and
+         only then. The body is held hidden during that window so nothing
+         paints in English first; this is what shows instead of a blank page.
+         Delayed by 250ms, so a fast dictionary is never seen to load. -->
+    <div class="boot-loader" aria-hidden="true">
+        <span class="spinner delayed"></span>
+    </div>
     <!-- The English text is left in the markup rather than emptied, so the
          page reads correctly with no JavaScript and before the dictionary
          resolves. data-i18n replaces it when the stored language is Chinese. -->

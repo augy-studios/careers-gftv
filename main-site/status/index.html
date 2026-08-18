@@ -63,6 +63,13 @@
 </head>
 
 <body>
+    <!-- Shown only while a non default language is loading its dictionary, and
+         only then. The body is held hidden during that window so nothing
+         paints in English first; this is what shows instead of a blank page.
+         Delayed by 250ms, so a fast dictionary is never seen to load. -->
+    <div class="boot-loader" aria-hidden="true">
+        <span class="spinner delayed"></span>
+    </div>
     <a class="skip-link" href="#main" data-i18n="common.skipToContent">Skip to content</a>
 
     <main class="page page-narrow" id="main">
@@ -75,12 +82,34 @@
             </p>
         </div>
 
-        <!-- Filled by status-page.js, which redraws it on a language change. -->
-        <div class="callout note" id="statusSummary" data-i18n="status.loading">
+        <!-- Filled by status-page.js, which redraws it on a language change.
+             role=status announces the summary when it lands, without stealing
+             focus from whatever the reader is doing. -->
+        <div class="callout note" id="statusSummary" role="status" data-i18n="status.loading">
             Loading the current status.
         </div>
 
-        <ol class="phase-list stack" id="phaseList" style="margin-top: 1.5rem;"></ol>
+        <!-- Skeleton placeholders, replaced by the real phases. The count is
+             arbitrary but the shape is not: matching the real card stops the
+             page jumping when the data arrives. aria-busy tells a screen
+             reader this is not the content yet. -->
+        <ol class="phase-list stack" id="phaseList" aria-busy="true"
+            style="margin-top: 1.5rem;">
+            <li class="glass-card phase-item delayed" aria-hidden="true">
+                <div class="skeleton skeleton-line title"></div>
+                <div class="skeleton skeleton-line long"></div>
+                <div class="skeleton skeleton-line short"></div>
+            </li>
+            <li class="glass-card phase-item delayed" aria-hidden="true">
+                <div class="skeleton skeleton-line title"></div>
+                <div class="skeleton skeleton-line long"></div>
+            </li>
+            <li class="glass-card phase-item delayed" aria-hidden="true">
+                <div class="skeleton skeleton-line title"></div>
+                <div class="skeleton skeleton-line long"></div>
+                <div class="skeleton skeleton-line short"></div>
+            </li>
+        </ol>
 
         <div class="glass-card card" style="margin-top: 2rem;">
             <h2 data-i18n="status.datesHeading">About the dates</h2>
