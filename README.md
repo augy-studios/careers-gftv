@@ -41,7 +41,7 @@ lives in its directory and how to work with it.
 
 ## Working references, not in this repository
 
-Three files sit at the repo root on the maintainer's machine and are
+Four files sit at the repo root on the maintainer's machine and are
 deliberately gitignored. If you have cloned this repository you will not find
 them, and nothing in the build depends on reading them at runtime. They are
 listed here because the source comments refer to them by name.
@@ -55,6 +55,10 @@ listed here because the source comments refer to them by name.
   [`main-site/assets/css/theme.css`](main-site/assets/css/theme.css), which is
   committed, so the theme itself is readable here even though its
   specification is not.
+- **`gftv-official.md`** specifies the official site banner that replaces the
+  build notice once every phase has shipped: a permanent, collapsible bar
+  stating that this is an official GFTV site and teaching a reader how to check
+  that themselves. Portable across GFTV projects, like the theme file.
 - **`next-steps.md`** is the working memo alongside the specification,
   rewritten at the start and end of every phase.
 

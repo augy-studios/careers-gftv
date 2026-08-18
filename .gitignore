@@ -6,9 +6,11 @@
 #   next-steps.md         the phase memo, rewritten at each phase boundary
 #   careers-gftv-spec.md  the brief for the whole project
 #   gftv-theme.md         the GFTV theme system, shared across the GFTV apps
+#   gftv-official.md      the official site banner, shared across the GFTV apps
 next-steps.md
 careers-gftv-spec.md
 gftv-theme.md
+gftv-official.md
 
 # Generated review sheet for the Chinese copy. Regenerate rather than commit.
 zh-review.html
