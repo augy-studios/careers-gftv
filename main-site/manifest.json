@@ -28,7 +28,7 @@
     ],
     "start_url": "/",
     "theme_color": "#ffffff",
-    "background_color": "#ffffff",
+    "background_color": "#fedc00",
     "display": "standalone",
     "display_override": ["standalone", "minimal-ui"],
     "orientation": "any",

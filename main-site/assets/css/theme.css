@@ -270,12 +270,9 @@ body {
  * classic dark and 2.42:1 in hello dark, which do not. Visited links are worse
  * again, between 1.86:1 and 2.66:1.
  *
- * Recorded here rather than argued: it is a deliberate look. If the dark mode
- * case needs addressing without bringing the underline back, a font-weight
- * step on in-content links is the non-colour distinction that costs least.
- *
- * The states are listed out so that no component rule and no user agent
- * default can reintroduce an underline.
+ * The fix for that is the weight step below, not the underline. The states are
+ * listed out so that no component rule and no user agent default can
+ * reintroduce an underline.
  */
 a,
 a:link,
@@ -292,6 +289,33 @@ a:active {
 
 :visited {
   color: var(--link-visited);
+}
+
+/* A link inside body copy is heavier than the text around it.
+ *
+ * This is the non-colour distinction WCAG 1.4.1 asks for, and it is what
+ * replaces the underline. It works in all four theme combinations, including
+ * the two dark ones where colour alone reaches only 2.39:1 and 2.42:1 against
+ * --text, and it applies to visited links too, which are worse again.
+ *
+ * Only prose containers are targeted. Navigation, footer lists, buttons, and
+ * chips already read as controls and set their own weight.
+ *
+ * :where() keeps the specificity at (0,0,1), so any component rule that names
+ * a class wins without needing !important or a longer selector.
+ *
+ * Note while only ProximaNova-Regular is present: the browser synthesises this
+ * weight from the 400 face. The difference is still clearly visible, and it
+ * becomes a real cut once the Semibold file is supplied.
+ */
+:where(p, li, dd, dt, td, th, blockquote, figcaption, .lede) a {
+  font-weight: 600;
+}
+
+/* The footer link lists are navigation rather than prose, even though they are
+   marked up as lists. */
+.site-footer ul a {
+  font-weight: 400;
 }
 
 button {
