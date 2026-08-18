@@ -32,7 +32,14 @@ const PATHS = {
   chevronRight: '<path d="M9 5l7 7-7 7"/>',
   arrowLeft: '<path d="M19 12H5M11 6l-6 6 6 6"/>',
   external: '<path d="M14 4h6v6M20 4l-8 8M18 14v4.5A1.5 1.5 0 0 1 16.5 20h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10"/>',
-  build: '<path d="M14.5 6.5a3.5 3.5 0 0 0 4.6 4.6L21 13l-8 8-2-2 8-8-1.9-1.9a3.5 3.5 0 0 0-4.6-4.6L14.5 6.5z"/><path d="M9 9L4 4"/>',
+  // Hammer. Used by the Build status navigation item, the "Being built now"
+  // status pill on /status, and the placeholder page eyebrow. All three read
+  // from this one entry, so they cannot drift apart.
+  // The head is a rectangle rotated to sit square on the handle, drawn as an
+  // explicit quad rather than with a transform so it scales with the viewBox.
+  build:
+    '<path d="M14.8 2.6 L20.4 8.2 L17.2 11.4 L11.6 5.8 Z"/>' +
+    '<path d="M14.4 8.6 L4 19"/>',
   bell: '<path d="M18 9a6 6 0 1 0-12 0c0 5-2 6-2 6h16s-2-1-2-6"/><path d="M13.7 20a2 2 0 0 1-3.4 0"/>',
 };
 

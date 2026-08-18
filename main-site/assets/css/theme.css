@@ -259,18 +259,39 @@ body {
   overflow-x: hidden;
 }
 
+/* Links carry no underline, in any state.
+ *
+ * This overrides the mitigation gftv-theme.md attached to the --link contrast
+ * exception, which was "keep the underline on in-content links, since the
+ * underline is the affordance rather than the colour". Without it, a link
+ * inside a paragraph is told apart from body text by colour alone. Measured
+ * against --text, that is 4.24:1 in classic light and 3.68:1 in hello light,
+ * both of which clear the 3:1 that WCAG 1.4.1 asks for, but only 2.39:1 in
+ * classic dark and 2.42:1 in hello dark, which do not. Visited links are worse
+ * again, between 1.86:1 and 2.66:1.
+ *
+ * Recorded here rather than argued: it is a deliberate look. If the dark mode
+ * case needs addressing without bringing the underline back, a font-weight
+ * step on in-content links is the non-colour distinction that costs least.
+ *
+ * The states are listed out so that no component rule and no user agent
+ * default can reintroduce an underline.
+ */
+a,
+a:link,
+a:visited,
+a:hover,
+a:focus,
+a:active {
+  text-decoration: none;
+}
+
 :link {
   color: var(--link);
-  text-decoration: underline;
-  text-underline-offset: 2px;
 }
 
 :visited {
   color: var(--link-visited);
-}
-
-a:hover {
-  text-decoration: none;
 }
 
 button {

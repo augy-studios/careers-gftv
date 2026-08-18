@@ -115,8 +115,6 @@ body {
 
 .phase-notice a {
   color: var(--brand-text);
-  text-decoration: underline;
-  text-underline-offset: 2px;
 }
 
 .phase-notice a:visited {
