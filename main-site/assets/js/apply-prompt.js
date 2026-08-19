@@ -89,6 +89,7 @@ function alreadyShown(id) {
 }
 
 function markShown(id) {
+  if (!id) return;
   try {
     const seen = JSON.parse(sessionStorage.getItem(SHOWN_KEY) ?? '[]') ?? [];
     if (!seen.includes(id)) seen.push(id);
@@ -205,7 +206,8 @@ export async function resumePendingPrompt() {
     jobId && cached && cached.jobId === jobId && !alreadyShown(cached.id)
       ? loadModal().then((dialog) => {
           if (dialog.applyDialogOpen()) return;
-          markShown(cached.id);
+          // No markShown here. The modal announces what it has shown, whoever
+          // opened it, and the listener at the foot of this file records it.
           dialog.openApplyDialog({
             mode: 'resume',
             jobId: cached.jobId,
@@ -274,7 +276,6 @@ export async function resumePendingPrompt() {
     document.querySelector('#applyDialog')?.close();
   }
 
-  markShown(chosen.id);
   dialog.openApplyDialog({
     mode: 'resume',
     jobId: chosen.job_id,
@@ -287,3 +288,12 @@ export async function resumePendingPrompt() {
 // Answering clears the prompt this module is holding, whichever page it
 // happened on.
 document.addEventListener('gftv:applychange', () => writeCache(null));
+
+// And the modal says when it has put a prompt on screen, whoever opened it.
+// This module is not the only thing that opens one: a handoff opens it from
+// apply.js and never comes through here, and the phase 5 live run found that a
+// prompt dismissed after applying came straight back on the next page, because
+// nothing had recorded it as seen.
+document.addEventListener('gftv:applypromptshown', (event) => {
+  markShown(event.detail?.analyticsId);
+});

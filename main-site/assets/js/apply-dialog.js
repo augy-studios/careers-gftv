@@ -188,6 +188,10 @@ export function openApplyDialog(options) {
   render();
   dialog.showModal();
 
+  // A resumed prompt knows its row from the start. A handoff learns it when the
+  // start call lands, and announces there instead.
+  announceShown(state.analyticsId);
+
   armBeforeUnload();
   watchForReturn();
 
@@ -199,6 +203,27 @@ export function openApplyDialog(options) {
 /** Whether the modal is on screen. Used to keep the page from opening a second. */
 export function applyDialogOpen() {
   return Boolean(dialog?.open);
+}
+
+/**
+ * Say that a prompt has been put in front of the applicant.
+ *
+ * apply-prompt.js keeps the once-a-visit ledger and listens for this. It
+ * announces rather than writing to that ledger directly for two reasons: this
+ * module is imported on demand and that one is on every page, so the dependency
+ * only runs in the direction that already exists, and the modal opened by a
+ * handoff is not opened by apply-prompt.js at all. Leaving the handoff out was
+ * the bug the phase 5 live run found: dismiss the modal after applying and it
+ * came straight back on the next page, because nothing had recorded it as seen.
+ *
+ * Fired when the row id becomes known, which is at open time for a resumed
+ * prompt and when the start call lands for a handoff.
+ */
+function announceShown(analyticsId) {
+  if (!analyticsId) return;
+  document.dispatchEvent(
+    new CustomEvent('gftv:applypromptshown', { detail: { analyticsId } })
+  );
 }
 
 /**
@@ -250,6 +275,7 @@ async function handOff(ready) {
 
   state.analyticsId = result.analyticsId;
   state.formUrl = result.formUrl;
+  announceShown(state.analyticsId);
   render();
 
   // After a paint and after 800ms from opening, whichever is later. Two frames
@@ -267,7 +293,28 @@ async function handOff(ready) {
 
   let tab = null;
   try {
-    tab = window.open(state.formUrl, '_blank', 'noopener');
+    // **No 'noopener' in the feature string, and this is not an oversight.**
+    // 7c step 3 says to open with it and step 5 says to treat a null return as
+    // a blocked tab. Those two cannot both hold: window.open is specified to
+    // return null whenever noopener is set, precisely because the caller is
+    // meant to get no handle on the new window. Written literally, every single
+    // handoff reports itself blocked and every applicant is told their browser
+    // stopped a tab that in fact opened. The live run in phase 5 found exactly
+    // that.
+    //
+    // So the reference is severed a line later instead, which is what the
+    // whole web did before noopener existed and gives the protection that
+    // actually matters here: the form cannot navigate this tab out from under
+    // the applicant through window.opener.
+    tab = window.open(state.formUrl, '_blank');
+    if (tab) {
+      try {
+        tab.opener = null;
+      } catch {
+        // Some engines refuse the assignment across origins. The tab is open,
+        // which is the thing this branch is deciding about.
+      }
+    }
   } catch {
     tab = null;
   }
