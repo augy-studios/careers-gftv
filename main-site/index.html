@@ -85,6 +85,7 @@
     <link rel="shortcut icon" href="/favicon.ico">
 
     <script type="module" src="/assets/js/shell.js"></script>
+    <script type="module" src="/assets/js/home-page.js"></script>
 </head>
 
 <body>
@@ -101,12 +102,41 @@
     <a class="skip-link" href="#main" data-i18n="common.skipToContent">Skip to content</a>
 
     <main class="page" id="main">
-        <div class="page-header">
-            <h1 data-i18n="home.heading">Careers@GFTV</h1>
-            <p class="lede" data-i18n="home.lede">
-                Voluntary, unpaid openings at Global Furry Television.
+
+        <!-- Hero. The search box submits into /search rather than searching
+             here: section 4 has one browse surface, and this is not it. -->
+        <section class="hero">
+            <h1 data-i18n="home.heroHeading">Find your place at GFTV</h1>
+            <p class="lede" data-i18n="home.heroLede">
+                Global Furry Television is made by volunteers. These are the
+                roles we are looking for people to fill.
             </p>
-        </div>
+
+            <form class="hero-search" id="heroSearchForm" role="search">
+                <div class="hero-search-row">
+                    <div class="hero-field">
+                        <label for="heroSearchInput" class="visually-hidden"
+                               data-i18n="home.heroSearchLabel">What are you looking for</label>
+                        <input type="search" id="heroSearchInput" name="q" autocomplete="off"
+                               data-i18n-attr="placeholder:home.heroSearchPlaceholder">
+                    </div>
+
+                    <div class="hero-field">
+                        <label for="heroDepartment" class="visually-hidden"
+                               data-i18n="home.heroDepartmentLabel">Department</label>
+                        <!-- Filled by home-page.js from the live facets, so it
+                             can only ever offer a department that has
+                             something in it. -->
+                        <select id="heroDepartment">
+                            <option value="" data-i18n="home.heroDepartmentAny">Any department</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary"
+                            data-i18n="home.heroSubmit">Search roles</button>
+                </div>
+            </form>
+        </section>
 
         <!-- Above everything else on the page, and not dismissible. Somebody
              who sees the word Careers and assumes a salary should find out in
@@ -114,7 +144,7 @@
              statement about the postings that exist rather than a promise
              about the future: gftvjobs_jobs.is_paid is what lets a paid
              posting say otherwise for itself. -->
-        <div class="callout warn" style="margin-bottom: 1.5rem;">
+        <div class="callout warn home-notice">
             <p data-i18n="common.unpaidNotice">
                 Every role currently listed at GFTV is voluntary and unpaid,
                 unless a posting says otherwise. Nobody here is paid today,
@@ -122,74 +152,162 @@
             </p>
         </div>
 
-        <div class="glass-card card stack">
-            <h2 data-i18n="home.notOpenHeading">The job board is not open yet</h2>
-            <p data-i18n="home.notOpenBody1">
-                Careers@GFTV is being built and released in phases, in public.
-                The foundations are in place, which is the database, the shared
-                server side code, and the shell you are looking at. The job
-                board itself arrives in phase 3, and applying arrives in
-                phase 4.
-            </p>
-            <p data-i18n="home.notOpenBody2">
-                Nothing here is a mock up. Every page that exists is real, and
-                every page that does not says so rather than pretending.
-            </p>
-            <p>
-                <a class="btn btn-primary" href="/status"
-                   data-i18n="common.seeBuildStatus">See the build status</a>
-            </p>
-        </div>
+        <!-- Latest openings, live from the API. -->
+        <section class="home-section">
+            <div class="section-head">
+                <h2 data-i18n="home.latestHeading">Latest openings</h2>
+                <a class="btn btn-quiet" href="/search" data-i18n="home.viewAll">View all openings</a>
+            </div>
 
-        <div class="card-grid" style="margin-top: 1.5rem;">
-            <div class="glass-card card">
-                <h2 data-i18n="home.bilingualHeading">English and Chinese</h2>
-                <p data-i18n="home.bilingualBody">
-                    Every posting will be published in both English and
-                    Simplified Chinese, and you can switch at any time with the
-                    globe in the header. If a translation reads wrongly, you
-                    will be able to tell us from the posting itself.
-                </p>
+            <div id="latestNote" hidden></div>
+
+            <div class="job-list job-list-grid" id="latestOpenings" aria-busy="true">
+                <article class="glass-card job-card delayed" aria-hidden="true">
+                    <div class="skeleton skeleton-line title"></div>
+                    <div class="skeleton skeleton-line long"></div>
+                    <div class="skeleton skeleton-line short"></div>
+                </article>
+                <article class="glass-card job-card delayed" aria-hidden="true">
+                    <div class="skeleton skeleton-line title"></div>
+                    <div class="skeleton skeleton-line long"></div>
+                    <div class="skeleton skeleton-line short"></div>
+                </article>
+                <article class="glass-card job-card delayed" aria-hidden="true">
+                    <div class="skeleton skeleton-line title"></div>
+                    <div class="skeleton skeleton-line long"></div>
+                    <div class="skeleton skeleton-line short"></div>
+                </article>
             </div>
-            <div class="glass-card card">
-                <h2 data-i18n="home.unpaidHeading">Every role listed today is unpaid</h2>
-                <p data-i18n="home.unpaidBody">
-                    GFTV is run by volunteers, and every posting on this site
-                    right now is voluntary and unpaid. That includes the staff
-                    and admin roles. We call this Careers@GFTV because it is
-                    where the openings are, not because they come with a salary.
-                    If a paid role is ever posted, that posting will say so on
-                    itself, and roles are labelled by how much time they take,
-                    so a full time posting can still be a full time volunteer
-                    one.
-                </p>
+        </section>
+
+        <!-- Browse by department. Live, and only departments that have
+             something published in them. -->
+        <section class="home-section">
+            <div class="section-head">
+                <h2 data-i18n="home.departmentsHeading">Browse by team</h2>
             </div>
-            <div class="glass-card card">
-                <h2 data-i18n="home.readFirstHeading">Read before you sign up</h2>
-                <p data-i18n="home.readFirstBody">
-                    Every posting will be public in full. The description, the
-                    responsibilities, the requirements, the commitment, and the
-                    closing date. An account is only needed for the act of
-                    applying.
-                </p>
+            <p class="section-lede" data-i18n="home.departmentsLede">
+                Every posting belongs to one team. If you know roughly where you
+                would fit, start here.
+            </p>
+            <ul class="department-grid" id="departmentList" aria-busy="true"></ul>
+        </section>
+
+        <!-- Why volunteer. Copy rather than data, so ordinary markup with
+             data-i18n and no JavaScript involved. -->
+        <section class="home-section">
+            <div class="section-head">
+                <h2 data-i18n="home.whyHeading">Why volunteer with GFTV</h2>
             </div>
-            <div class="glass-card card">
-                <h2 data-i18n="home.noQueueHeading">No approval queue</h2>
-                <p data-i18n="home.noQueueBody">
-                    Applicant accounts are active immediately. There is no
-                    approval wait and no email verification, so registering
-                    takes a moment.
-                </p>
+
+            <div class="card-grid">
+                <div class="glass-card card">
+                    <h3 data-i18n="home.unpaidHeading">Every role listed today is unpaid</h3>
+                    <p data-i18n="home.unpaidBody">
+                        GFTV is run by volunteers, and every posting on this site
+                        right now is voluntary and unpaid. That includes the staff
+                        and admin roles. We call this Careers@GFTV because it is
+                        where the openings are, not because they come with a salary.
+                        If a paid role is ever posted, that posting will say so on
+                        itself, and roles are labelled by how much time they take,
+                        so a full time posting can still be a full time volunteer
+                        one.
+                    </p>
+                </div>
+                <div class="glass-card card">
+                    <h3 data-i18n="home.learnHeading">Learn on real broadcasts</h3>
+                    <p data-i18n="home.learnBody">
+                        Several of our roles are marked beginner welcome, and they
+                        mean it. You would be shown how, on real shoots, by people
+                        who learned the same way. Nobody here started out knowing
+                        this.
+                    </p>
+                </div>
+                <div class="glass-card card">
+                    <h3 data-i18n="home.bilingualHeading">English and Chinese</h3>
+                    <p data-i18n="home.bilingualBody">
+                        Every posting will be published in both English and
+                        Simplified Chinese, and you can switch at any time with the
+                        globe in the header. If a translation reads wrongly, you
+                        will be able to tell us from the posting itself.
+                    </p>
+                </div>
+                <div class="glass-card card">
+                    <h3 data-i18n="home.readFirstHeading">Read before you sign up</h3>
+                    <p data-i18n="home.readFirstBody">
+                        Every posting will be public in full. The description, the
+                        responsibilities, the requirements, the commitment, and the
+                        closing date. An account is only needed for the act of
+                        applying.
+                    </p>
+                </div>
+                <div class="glass-card card">
+                    <h3 data-i18n="home.noQueueHeading">No approval queue</h3>
+                    <p data-i18n="home.noQueueBody">
+                        Applicant accounts are active immediately. There is no
+                        approval wait and no email verification, so registering
+                        takes a moment.
+                    </p>
+                </div>
+                <div class="glass-card card">
+                    <h3 data-i18n="home.offlineHeading">Built to work offline</h3>
+                    <p data-i18n="home.offlineBody">
+                        Once the board is live, postings you have opened stay
+                        readable with no connection, and Careers@GFTV installs to a
+                        home screen like an app.
+                    </p>
+                </div>
             </div>
-            <div class="glass-card card">
-                <h2 data-i18n="home.offlineHeading">Built to work offline</h2>
-                <p data-i18n="home.offlineBody">
-                    Once the board is live, postings you have opened stay
-                    readable with no connection, and Careers@GFTV installs to a
-                    home screen like an app.
-                </p>
+        </section>
+
+        <!-- How applying works. Numbered, because it is a sequence and an
+             ordered list says so to a screen reader as well as on screen. -->
+        <section class="home-section">
+            <div class="section-head">
+                <h2 data-i18n="home.howHeading">How applying works</h2>
             </div>
-        </div>
+
+            <ol class="step-list">
+                <li class="glass-card step">
+                    <h3 data-i18n="home.howStep1Heading">Read the whole posting</h3>
+                    <p data-i18n="home.howStep1Body">
+                        Nothing is hidden behind an account. Read the description,
+                        the responsibilities, and the commitment first, and decide
+                        whether it is for you before signing up for anything.
+                    </p>
+                </li>
+                <li class="glass-card step">
+                    <h3 data-i18n="home.howStep2Heading">Create an account</h3>
+                    <p data-i18n="home.howStep2Body">
+                        Only needed for the act of applying. It takes a moment,
+                        there is no approval queue, and we do not use email, so
+                        you will be given recovery codes instead of a reset link.
+                        Keep them.
+                    </p>
+                </li>
+                <li class="glass-card step">
+                    <h3 data-i18n="home.howStep3Heading">Fill in the application form</h3>
+                    <p data-i18n="home.howStep3Body">
+                        Applications are handled in Google Forms, which opens in a
+                        new tab with your details already filled in. We do not
+                        store your answers or your files.
+                    </p>
+                </li>
+                <li class="glass-card step">
+                    <h3 data-i18n="home.howStep4Heading">We come back to you here</h3>
+                    <p data-i18n="home.howStep4Body">
+                        Your applications, any tasks we ask you for, and any
+                        invitations all appear in your account on this site. Link
+                        Telegram later if you would rather be told there too.
+                    </p>
+                </li>
+            </ol>
+
+            <p class="section-foot">
+                <a class="btn btn-primary" href="/search" data-i18n="common.browseRoles">Browse roles</a>
+                <a class="btn btn-secondary" href="/faq" data-i18n="footer.faq">Frequently asked questions</a>
+            </p>
+        </section>
 
         <noscript>
             <div class="callout warn" style="margin-top: 1.5rem;">

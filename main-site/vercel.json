@@ -26,7 +26,7 @@
   "rewrites": [
     {
       "source": "/search",
-      "destination": "/placeholder.html"
+      "destination": "/search/index.html"
     },
     {
       "source": "/jobs/:id",
@@ -62,11 +62,11 @@
     },
     {
       "source": "/about",
-      "destination": "/placeholder.html"
+      "destination": "/about/index.html"
     },
     {
       "source": "/faq",
-      "destination": "/placeholder.html"
+      "destination": "/faq/index.html"
     }
   ],
 
@@ -122,11 +122,12 @@
       ]
     },
     {
+      "source": "/api/auth/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "no-store" }]
+    },
+    {
       "source": "/api/(.*)",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-store" },
-        { "key": "X-Robots-Tag", "value": "noindex" }
-      ]
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex" }]
     },
     {
       "source": "/manifest.json",

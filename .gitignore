@@ -15,6 +15,12 @@ gftv-official.md
 # Generated review sheet for the Chinese copy. Regenerate rather than commit.
 zh-review.html
 
+# Throwaway postings so the job board has something to render during
+# development. Not a migration: unnumbered, never recorded in
+# gftvjobs_migrations, and it carries its own delete block. The real seed
+# script is phase 12's and is part of the deliverable.
+migrations/dev-seed-jobs.sql
+
 # Environment. .env.example is tracked on purpose, everything else is not.
 .env
 .env.*

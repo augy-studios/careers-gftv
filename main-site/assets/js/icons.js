@@ -65,11 +65,26 @@ const PATHS = {
   key: '<circle cx="8" cy="12" r="4"/><path d="M12 12h9M18 12v3M15.5 12v2.5"/>',
   shield: '<path d="M12 3l7 3v5.5c0 4-3 7.5-7 9-4-1.5-7-5-7-9V6z"/>',
   laptop: '<rect x="4" y="5" width="16" height="11" rx="1.5"/><path d="M2 19h20"/>',
+  // Phase 3, the job board.
+  //
+  // A pin rather than the globe for a posting's location. The globe already
+  // means "language" everywhere else on this site, and one shape cannot carry
+  // two meanings on the same page.
+  pin: '<path d="M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>',
+  // Funnel, for the filter panel button.
+  filter: '<path d="M3 5h18l-7 8v6l-4 2v-8z"/>',
+  tag: '<path d="M3 12.5V4a1 1 0 0 1 1-1h8.5L21 11.5 12.5 20z"/><circle cx="7.5" cy="7.5" r="1.25"/>',
+  chevronDown: '<path d="M5 9l7 7 7-7"/>',
+  chevronLeft: '<path d="M15 5l-7 7 7 7"/>',
+  // Two arrows, for the sort control.
+  sort: '<path d="M7 4v16M7 20l-3-3M7 20l3-3"/><path d="M17 20V4M17 4l-3 3M17 4l3 3"/>',
 };
 
 // A few names read better in markup with a hyphen.
 const ALIASES = {
   'chevron-right': 'chevronRight',
+  'chevron-down': 'chevronDown',
+  'chevron-left': 'chevronLeft',
   'arrow-left': 'arrowLeft',
 };
 

@@ -31,11 +31,11 @@
       "number": 3,
       "name": "Browsing roles",
       "name_zh": "浏览职位",
-      "status": "planned",
+      "status": "shipped",
       "description": "The home page and the job board at /search, with search, filters, tags, quick chips, and suggestions, plus the about and FAQ pages. Search works in both languages.",
       "description_zh": "首页和位于 /search 的职位板，包含搜索、筛选、标签、快捷筛选和搜索建议，以及关于和常见问题页面。搜索支持中英双语。",
-      "shipped_note": null,
-      "shipped_note_zh": null
+      "shipped_note": "The job board went live with this. Search, filter by team, tag, and commitment, and the four quick filters for what is new and what is closing soon. Every filter lives in the address bar, so a link you share opens exactly what you were looking at. Each card states whether the role is paid, read from the posting itself. Opening a posting to read it in full arrives in the next phase.",
+      "shipped_note_zh": "职位板随此阶段上线。可以搜索，按团队、标签和投入时间筛选，并有四个快捷筛选查看最新发布和即将截止的职位。所有筛选条件都记录在网址中，因此您分享的链接打开后，正是您当时看到的内容。每张职位卡都会说明该职位是否有薪水，这是读取职位本身的记录，而非笼统的说法。完整阅读职位信息将在下一阶段上线。"
     },
     {
       "number": 4,
@@ -52,8 +52,8 @@
       "name": "Apply flow",
       "name_zh": "申请流程",
       "status": "planned",
-      "description": "Applying to a role, the handoff to the application form, rating a posting, and the three month cooldown on reapplying.",
-      "description_zh": "申请职位、跳转至申请表单、为职位信息评分，以及重新申请的三个月冷却期。",
+      "description": "Applying to a role, the handoff to the application form, rating a posting, and the waiting period before you can apply to the same role again.",
+      "description_zh": "申请职位、跳转至申请表单、为职位信息评分，以及再次申请同一职位前的等待期。",
       "shipped_note": null,
       "shipped_note_zh": null
     },

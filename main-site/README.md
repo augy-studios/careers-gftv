@@ -26,6 +26,9 @@ thing here.
 ```
 main-site/
   index.html          home page
+  search/index.html   the job board, which is the listing and the results page
+  about/index.html    what Careers@GFTV is, and why every role is unpaid
+  faq/index.html      frequently asked questions
   status/index.html   the public build status page and changelog
   login/index.html    applicant sign in
   register/index.html applicant registration
@@ -41,12 +44,16 @@ main-site/
   assets/
     build-status.json the source of truth for the phased rollout
     css/theme.css     the GFTV token system, all four theme combinations
-    css/app.css       shell layout, header, footer, notice bar, placeholder
+    css/app.css       shell layout, header, footer, notice bar, the board
     js/theme.js       the two axis theme module
     js/icons.js       inline SVG icons
     js/shell.js       header, nav, footer, theme modal, the single entry point
     js/build-status.js the notice bar, the disabled control pattern, placeholders
     js/status-page.js the /status page
+    js/format.js      dates, counts, and the open until filled rule
+    js/job-card.js    one card renderer, shared by the home page and the board
+    js/search-page.js the board: URL state, filters, chips, suggestions
+    js/home-page.js   the hero dropdown, latest openings, browse by team
     js/i18n.js        language switching and the string dictionaries
     js/api.js         the one place that knows the API response shape
     js/forms.js       field errors, busy states, password reveal
@@ -63,6 +70,8 @@ main-site/
     auth/applicant/   register, login, logout, session, profile,
                       change-password, forgot-password, reset-password,
                       recovery-codes, trusted-devices, locale
+    public/           search, suggest, facets. No session is read in any of
+                      them: the board is public, filters and tags included.
 ```
 
 ## Local development
@@ -149,15 +158,17 @@ into one checkbox:
 
 ## API route map
 
-Phase 2 is built. The rest is the shape phases 3 to 11 fill in, from section 9
-of the specification.
+Phases 2 and 3 are built. The rest is the shape phases 4 to 11 fill in, from
+section 9 of the specification.
 
 | Group | Routes | Phase |
 |---|---|---|
 | `api/auth/staff/*` | login, verify-2fa, logout, session, trusted-devices, passkeys | 2 |
 | | Listing is GET. Revoking a device and removing a passkey are POST with an `action`, not DELETE: the password travels in the body, and a body on DELETE is legal but is known to be dropped by proxies, which would fail silently. | |
 | `api/auth/applicant/*` | register, login, logout, session, verify-2fa, profile, change-password, forgot-password, reset-password, recovery-codes, trusted-devices, passkeys, locale | 2 |
-| `api/public/*` | search, suggest, departments, tags, locales | 3 |
+| `api/public/*` | search, suggest, facets | 3 |
+| | Section 9 lists departments and tags as separate routes. They are one `facets` route, because the filter panel needs both plus the chip counts plus the commitment types in use before it can draw at all, and three requests to draw one panel is three chances for it to appear in pieces. | |
+| | All three are GET, session free, and cacheable. `vercel.json` scopes its `no-store` rule to `/api/auth` so they can set their own `s-maxage`. | |
 | `api/public/jobs*` | job by uuid, slug lookup, jobs.json feed | 4 |
 | `api/applications/*` | start, respond, pending, list mine, withdraw | 5 |
 | `api/ratings/*` | upsert a rating | 5 |
@@ -190,6 +201,8 @@ Shared helpers live in `api/_lib/`:
 | `webauthn.js` | Passkeys, both realms, both ceremonies. |
 | `rate-limit.js` | The table backed limiter and every limit in one place. |
 | `validate.js` | Input validation, returning codes rather than English so the client renders them in either language. |
+| `jobs.js` | The board's query string parameter names, parsed defensively, and the public shape of a posting. Also the `ts_headline` sanitiser: that string is the one field the browser assigns as markup, and everything except `<mark>` is escaped here rather than in the client. |
+| `settings.js` | Reading `gftvjobs_settings`, cached for a minute. A settings read never fails a request and never falls back to the permissive value: if the reapply cooldown cannot be read the answer is 90 days, not zero. |
 
 Every endpoint returning human readable content takes a locale, `en` or `zh`,
 and returns that language in the ordinary field names. A caller sending no
@@ -199,6 +212,84 @@ locale gets English.
 either that or in-memory. Table backed was chosen because each Vercel function
 instance has its own memory, so an in-memory limiter resets constantly and
 cannot hold the one hour lockouts that sections 5c and 7g require.
+
+## The reapply cooldown
+
+Section 7f fixes it at three months. Migration `029` makes it the
+`reapply_cooldown_days` setting instead, defaulting to 90, editable from the
+admin settings page in phase 8, and enforced by `api/_lib/settings.js`.
+
+Days rather than months, because zero has to be expressible and so does a
+fortnight. The cost, stated plainly: 90 days is not exactly three months, so an
+application on 4 March reopens on 2 June rather than 4 June. The interface never
+shows the number, only the date it produced, so nobody sees the unit.
+
+**Zero switches the cooldown off**, and what that means precisely matters:
+
+- No `cooldown_until` is written when a new application is confirmed. The column
+  stays null. Never `now()`: a cooldown in the past would have the posting card
+  offer to tell somebody the date they may reapply, which would be today.
+- Existing `cooldown_until` values are **ignored, not cleared**. `isInCooldown()`
+  answers false while the setting is zero, so turning it off takes effect at
+  once, and setting it back to 90 restores every cooldown that was running
+  rather than having silently destroyed them.
+
+Phase 5's apply endpoint should ask `isInCooldown()` rather than comparing
+`cooldown_until` to the clock itself, since that comparison alone misses the
+disabled case.
+
+Raising the setting does not extend a cooldown somebody is already serving.
+`cooldown_until` stays stored rather than computed on read, exactly as migration
+`006` says, so a policy change applies to the next application and not
+retroactively. Admins can still waive a single row, per 7f.
+
+The database constrains the value to a whole number from 0 to 3650. Ten years is
+the ceiling because without one a typo is indistinguishable from a permanent ban
+nobody meant to impose.
+
+## The board's query string
+
+`/search` is one surface, not two. With no parameters it is the full listing,
+newest first; with any parameter it is the results page. Every piece of state
+lives in the query string and nowhere else, so a shared link always reproduces
+what the sender was looking at. `assets/js/search-page.js` reads the URL and
+`api/_lib/jobs.js` parses the same names on the server.
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `q` | free text | Capped at 120 characters. |
+| `dept` | slugs | Comma separated, or repeat the parameter. Both forms work. |
+| `tags` | slugs | Same. OR matching by default. |
+| `match` | `all` | AND matching across the selected tags. Ignored below two tags. |
+| `commitment` | keys | One or more of the five keys from migration `021`. Underscores, not slugs. |
+| `location` | free text | Case insensitive substring. |
+| `remote` | `true`, `false` | Absent means do not filter on it at all, which is not the same as `false`. |
+| `posted_within_days` | integer | Behind the "posted today" and "posted this week" chips. |
+| `closing_within_days` | integer | "Closing soon". Never matches a posting with no deadline. |
+| `no_deadline` | `true` | Only postings with a null `closes_at`. |
+| `sort` | `relevance`, `newest`, `closing` | Relevance is the default whenever `q` is present, newest when it is not. |
+| `page` | integer | 20 per page. |
+
+Two of these have been live since phase 1: the footer links to
+`?closing_within_days=14` and `?no_deadline=true`, so those two names cannot be
+changed without breaking links that already exist.
+
+`statuses` is deliberately not readable from the query string. The search
+function defaults to published on its own, and never mentioning the parameter is
+what stops a caller asking this endpoint for drafts.
+
+State is written back with `history.replaceState`, per section 4. One
+consequence worth knowing rather than discovering: `replaceState` creates no
+history entry, so pressing back after applying four filters leaves the board
+rather than undoing one filter. That is the specified behaviour.
+
+**Search works differently per language, and has to.** English keeps the
+weighted `tsvector`, ranked with `ts_rank_cd` and highlighted with
+`ts_headline`. Chinese is matched by substring against the translation row's
+generated `search_text`, because Postgres cannot segment Han script and a
+`tsvector` would hold one token per run of characters. Both find what is there;
+only English orders it by relevance. The FAQ says so in both languages rather
+than leaving a reader to conclude Chinese search is broken.
 
 ## Passkeys
 

@@ -75,6 +75,8 @@ foreign key but never created, altered, or dropped from this directory.
 | `025_passkeys.sql` | `gftvjobs_passkeys`, `gftvjobs_staff_passkeys`, `gftvjobs_passkey_challenges`, and `gftvjobs_login_challenges`. Passkeys as the second factor in both realms, and the applicant equivalent of `gftvhello_totp_challenges`. |
 | `026_job_compensation.sql` | `gftvjobs_jobs.is_paid`. Every posting today is unpaid, and this is what lets a paid one say otherwise for itself instead of the site promising in its copy. |
 | `027_reset_second_factor.sql` | `gftvjobs_password_resets.second_factor_at`, so a recovery code no longer walks past the passkey it was written before. |
+| `028_search_returns_is_paid.sql` | Widens `gftvjobs_search_jobs` to return `is_paid`, so the board reads each posting's own answer on pay rather than assuming. A drop and a create, for the reason `016` documents. |
+| `029_configurable_reapply_cooldown.sql` | Turns 7f's fixed three month reapply cooldown into the `reapply_cooldown_days` setting, with a check constraint. Zero is legal and switches the cooldown off. |
 
 ## Things worth knowing before you run them
 

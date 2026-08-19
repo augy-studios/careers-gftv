@@ -26,7 +26,11 @@ export const LOCALES = [
   { id: 'zh', label: 'Chinese', native: '华文', htmlLang: 'zh-Hans-SG' },
 ];
 
-const DEFAULT_LOCALE = 'en';
+// The language postings themselves are written in, and the fallback layer for
+// every dictionary lookup. Exported because the board needs it: the
+// "English only" badge is meaningless to a reader already in English, since a
+// posting has no translation row for the default language by definition.
+export const DEFAULT_LOCALE = 'en';
 const KEY_LOCALE = `${APP_KEY}.locale`;
 
 const dictionaries = new Map();

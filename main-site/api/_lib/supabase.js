@@ -54,6 +54,14 @@ export const T = Object.freeze({
   jobs: 'gftvjobs_jobs',
   jobTags: 'gftvjobs_job_tags',
 
+  // Translations, per 3a and migration 014. The base row holds the default
+  // language and every other language is a row here. Only a row with is_ready
+  // set is ever shown, and a blank field falls back to the base row.
+  locales: 'gftvjobs_locales',
+  jobTranslations: 'gftvjobs_job_translations',
+  departmentTranslations: 'gftvjobs_department_translations',
+  tagTranslations: 'gftvjobs_tag_translations',
+
   // Pipeline
   applications: 'gftvjobs_applications',
   applicationEvents: 'gftvjobs_application_events',

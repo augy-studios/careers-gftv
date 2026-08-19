@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title data-i18n="about.pageTitle">About Careers@GFTV</title>
+    <meta name="description"
+        content="What Careers@GFTV is, who Global Furry Television is, why every role listed is unpaid, and what happens after you apply.">
+
+    <meta name="theme-color" content="#ffffff">
+    <script>
+        (function () {
+            var k = "gftv-careers";
+            var m = localStorage.getItem(k + ".mode") || "light";
+
+            // Time based mode, per gftv-theme.md. Resolved here rather than
+            // in theme.js because theme.js runs after first paint, and an
+            // evening reader would otherwise watch a white page turn dark.
+            // Keep the two hours in step with LIGHT_FROM_HOUR and
+            // LIGHT_UNTIL_HOUR in theme.js.
+            if (m === "time") {
+                var h = new Date().getHours();
+                m = h >= 9 && h < 18 ? "light" : "dark";
+                document.documentElement.setAttribute("data-mode-preference", "time");
+            }
+            var c = localStorage.getItem(k + ".colorTheme") || "classic";
+            var l = localStorage.getItem(k + ".locale") || "en";
+            document.documentElement.setAttribute("data-mode", m);
+            document.documentElement.setAttribute("data-color-theme", c);
+            document.documentElement.setAttribute("data-locale", l);
+            document.documentElement.setAttribute("lang", l === "zh" ? "zh-Hans-SG" : "en");
+
+            // A non default language is rendered from a dictionary fetched
+            // after this runs, so the English in the markup would paint first
+            // and be replaced a moment later. Hide the page until the swap has
+            // happened. English readers never take this path.
+            //
+            // The timeout is not a nicety. If the dictionary fails to load, or
+            // i18n.js never runs, nothing else would ever reveal the page, and
+            // a blank site is a worse failure than a flash of English.
+            if (l !== "en") {
+                document.documentElement.setAttribute("data-i18n-pending", "true");
+                setTimeout(function () {
+                    document.documentElement.removeAttribute("data-i18n-pending");
+                }, 1200);
+            }
+        })();
+    </script>
+
+    <link rel="stylesheet" href="/assets/css/theme.css">
+    <link rel="stylesheet" href="/assets/css/app.css">
+
+    <link rel="manifest" href="/manifest.json">
+    <link rel="canonical" href="https://careers.globalfurry.tv/about">
+
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Careers@GFTV">
+    <meta property="og:title" content="About Careers@GFTV">
+    <meta property="og:description"
+        content="What Careers@GFTV is, and why every role listed on it is unpaid.">
+    <meta property="og:url" content="https://careers.globalfurry.tv/about">
+    <meta property="og:image" content="/HLC-main.png">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:image:src" content="/HLC-main.png">
+
+    <link rel="apple-touch-icon" href="/HLC-main.png">
+    <link rel="icon" href="/favicon.ico">
+    <link rel="shortcut icon" href="/favicon.ico">
+
+    <script type="module" src="/assets/js/shell.js"></script>
+</head>
+
+<body>
+    <!-- Shown only while a non default language is loading its dictionary, and
+         only then. The body is held hidden during that window so nothing
+         paints in English first; this is what shows instead of a blank page.
+         Delayed by 250ms, so a fast dictionary is never seen to load. -->
+    <div class="boot-loader" aria-hidden="true">
+        <span class="spinner delayed"></span>
+    </div>
+    <a class="skip-link" href="#main" data-i18n="common.skipToContent">Skip to content</a>
+
+    <!-- Every string on this page is markup with a data-i18n attribute rather
+         than something JavaScript writes. That is deliberate: the page reads
+         correctly with no JavaScript and before the dictionary resolves, and
+         the shell's ordinary retranslation handles a language change with no
+         code of its own. -->
+    <main class="page page-narrow prose" id="main">
+        <div class="page-header">
+            <h1 data-i18n="about.heading">About Careers@GFTV</h1>
+            <p class="lede" data-i18n="about.lede">
+                Careers@GFTV is where Global Furry Television lists the roles it
+                is looking for people to fill, and where you apply for them.
+            </p>
+        </div>
+
+        <h2 data-i18n="about.whoHeading">Who GFTV is</h2>
+        <p data-i18n="about.whoBody">
+            Global Furry Television is a furry television channel based in
+            Singapore. We produce studio shows, live broadcasts, and convention
+            coverage, and everything we make is made by volunteers. In Mandarin
+            we are 国际兽视, and this portal is 国际兽视 Careers.
+        </p>
+
+        <h2 data-i18n="about.unpaidHeading">Every role listed here is unpaid</h2>
+        <p data-i18n="about.unpaidBody1">
+            This is the most important thing on this page, so it is near the
+            top. Every posting currently on this site is voluntary and unpaid.
+            That includes the senior roles, the staff roles, and the people who
+            built this website. Nobody at GFTV is paid today.
+        </p>
+        <p data-i18n="about.unpaidBody2">
+            We call it Careers@GFTV because it is where the openings are, not
+            because the openings come with a salary. Roles are labelled by how
+            much time they take, so a posting can honestly say full time and
+            still be a full time volunteer role.
+        </p>
+        <p data-i18n="about.unpaidBody3">
+            If a paid role is ever posted, that posting will say so on itself
+            rather than us quietly changing the wording here. That is a fact
+            stored against each posting, not a sentence somebody remembered to
+            update.
+        </p>
+
+        <h2 data-i18n="about.applyingHeading">What applying involves</h2>
+        <p data-i18n="about.applyingBody1">
+            Reading a posting needs no account. The description, the
+            responsibilities, the requirements, the commitment, and the closing
+            date are all public, in full, with nothing blurred out. An account
+            is only needed for the act of applying.
+        </p>
+        <p data-i18n="about.applyingBody2">
+            Applications themselves are handled in Google Forms. When you apply,
+            the form opens in a new tab with the details you have already given
+            us filled in. We do not store your answers, and we do not accept
+            file uploads anywhere on this site.
+        </p>
+
+        <h2 data-i18n="about.languagesHeading">English and 华文</h2>
+        <p data-i18n="about.languagesBody">
+            The whole site exists in both English and Chinese, including the
+            postings themselves, and you can switch at any time with the globe
+            in the header. Your choice is remembered in your browser. A posting
+            that has not been translated yet is still shown rather than hidden,
+            with a note saying it is in English only, because hiding a real
+            opening from the people the translation exists to serve would be the
+            worse failure.
+        </p>
+
+        <h2 data-i18n="about.buildHeading">This site is still being built</h2>
+        <p data-i18n="about.buildBody">
+            Careers@GFTV is being released in phases, in public. Anything that
+            has not been built yet says so plainly on the control itself rather
+            than failing quietly or pretending, and the build status page lists
+            every phase and what it covers.
+        </p>
+        <p>
+            <a class="btn btn-secondary" href="/status"
+               data-i18n="common.seeBuildStatus">See the build status</a>
+        </p>
+
+        <h2 data-i18n="about.contactHeading">Questions</h2>
+        <p data-i18n="about.contactBody">
+            The frequently asked questions page covers most of them, including
+            what happens after you apply and how to get back into your account
+            if you lose your password.
+        </p>
+        <p>
+            <a class="btn btn-secondary" href="/faq" data-i18n="footer.faq">Frequently asked questions</a>
+            <a class="btn btn-primary" href="/search" data-i18n="common.browseRoles">Browse roles</a>
+        </p>
+    </main>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js');
+        }
+    </script>
+</body>
+
+</html>
