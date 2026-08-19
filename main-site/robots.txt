@@ -1,5 +1,29 @@
 # www.robotstxt.org/
+#
+# TEMPORARY. Careers@GFTV is being built and released in public, and until it
+# is finished it should not appear in search results.
+#
+# Two reasons, and the second outlives the first:
+#
+#   1. The board currently holds seeded sample postings, every one of them
+#      marked SAMPLE POSTING in its title and body. One of them is a paid
+#      contract. None of them is a real opening, and none should be indexed.
+#
+#   2. Most of the site is still unbuilt. Half the routes render a "not built
+#      yet" placeholder, and a search result leading someone to one of those is
+#      worse than no search result at all.
+#
+# Phase 12 replaces this file with the real one, per section 4 of the
+# specification: allow the public pages, disallow /admin, /account, and /api,
+# and point at the generated sitemap. Do not write that version until the pages
+# it describes actually exist and the seeded postings are gone.
+#
+# This file is only half the job. A URL disallowed here is not crawled, but one
+# that is linked from elsewhere can still be listed as a bare address, because a
+# crawler that may not fetch the page also cannot read a noindex tag on it. The
+# other half is the X-Robots-Tag: noindex header in vercel.json, which covers
+# anything already discovered and any crawler that ignores this file but honours
+# the header. Both go together, and both come out together in phase 12.
 
-# Allow crawling of all content, including search engine robots
 User-agent: *
-Allow: /
+Disallow: /
