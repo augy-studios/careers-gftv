@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title data-i18n="auth.staffPageTitle">Staff sign in | Careers@GFTV</title>
+    <meta name="description" content="Staff and admin sign in for Careers@GFTV.">
+    <meta name="robots" content="noindex">
+
+    <meta name="theme-color" content="#ffffff">
+    <script>
+        (function () {
+            var k = "gftv-careers";
+            var m = localStorage.getItem(k + ".mode") || "light";
+
+            // The time based mode, an experiment for this app and not part of
+            // gftv-theme.md. Resolved here rather than in theme.js because
+            // theme.js runs after first paint, and an evening reader would
+            // otherwise watch a white page turn dark. Keep the two hours in
+            // step with LIGHT_FROM_HOUR and LIGHT_UNTIL_HOUR in theme.js.
+            if (m === "time") {
+                var h = new Date().getHours();
+                m = h >= 9 && h < 18 ? "light" : "dark";
+                document.documentElement.setAttribute("data-mode-preference", "time");
+            }
+            var c = localStorage.getItem(k + ".colorTheme") || "classic";
+            var l = localStorage.getItem(k + ".locale") || "en";
+            document.documentElement.setAttribute("data-mode", m);
+            document.documentElement.setAttribute("data-color-theme", c);
+            document.documentElement.setAttribute("data-locale", l);
+            document.documentElement.setAttribute("lang", l === "zh" ? "zh-Hans-SG" : "en");
+
+            if (l !== "en") {
+                document.documentElement.setAttribute("data-i18n-pending", "true");
+                setTimeout(function () {
+                    document.documentElement.removeAttribute("data-i18n-pending");
+                }, 1200);
+            }
+        })();
+    </script>
+
+    <link rel="stylesheet" href="/assets/css/theme.css">
+    <link rel="stylesheet" href="/assets/css/app.css">
+
+    <link rel="manifest" href="/manifest.json">
+    <link rel="canonical" href="https://careers.globalfurry.tv/admin/login">
+
+    <link rel="apple-touch-icon" href="/HLC-main.png">
+    <link rel="icon" href="/favicon.ico">
+    <link rel="shortcut icon" href="/favicon.ico">
+
+    <script type="module" src="/assets/js/shell.js"></script>
+    <script type="module" src="/assets/js/admin-login-page.js"></script>
+</head>
+
+<body>
+    <div class="boot-loader" aria-hidden="true">
+        <span class="spinner delayed"></span>
+    </div>
+    <a class="skip-link" href="#main" data-i18n="common.skipToContent">Skip to content</a>
+
+    <main class="page page-narrow" id="main">
+        <div class="page-header">
+            <h1 data-i18n="auth.staffHeading">Staff sign in</h1>
+            <p class="lede" data-i18n="auth.staffLede">
+                Use your existing gftv.asia account. This is not the applicant
+                sign in, and the two are entirely separate.
+            </p>
+        </div>
+
+        <div class="callout note" id="alreadySignedIn" hidden>
+            <p>
+                <span data-i18n="auth.alreadySignedInStaff">You are already signed in as</span>
+                <strong data-name></strong>
+            </p>
+            <p>
+                <a href="/admin" data-i18n="auth.goToDashboard">Go to the dashboard</a>
+            </p>
+            <p>
+                <a href="/admin/security" data-i18n="auth.manageSecurity">
+                    Passkeys and trusted devices
+                </a>
+            </p>
+        </div>
+
+        <!-- Step 1, the password. It issues no session when a second factor is
+             required, per 5a, and offers no "trust this device", per 5d. -->
+        <section id="staffStep1">
+            <form class="glass-card card form" id="staffLoginForm" novalidate>
+                <div class="callout danger form-message" data-form-message role="alert" hidden></div>
+
+                <div class="field">
+                    <label for="username" data-i18n="auth.usernameLabel">Username</label>
+                    <input id="username" name="username" type="text" autocomplete="username"
+                           autocapitalize="none" spellcheck="false" required>
+                    <p class="field-error" data-error-for="username" hidden></p>
+                </div>
+
+                <div class="field">
+                    <label for="password" data-i18n="auth.passwordLabel">Password</label>
+                    <div class="input-with-button">
+                        <input id="password" name="password" type="password"
+                               autocomplete="current-password" required>
+                        <button type="button" class="icon-btn small" data-toggle-password="password">
+                            <span data-icon="eye" data-icon-size="18"></span>
+                        </button>
+                    </div>
+                    <p class="field-error" data-error-for="password" hidden></p>
+                </div>
+
+                <label class="check-row">
+                    <input type="checkbox" name="stay_signed_in">
+                    <span data-i18n="auth.staySignedIn">
+                        Stay signed in for 30 days on this device
+                    </span>
+                </label>
+
+                <button class="btn btn-primary" type="submit" data-i18n="auth.continueButton">
+                    Continue
+                </button>
+            </form>
+        </section>
+
+        <!-- Step 2, the second factor. "Trust this device" appears here and
+             only here, which is what 5d requires. -->
+        <section id="staffStep2" hidden>
+            <!-- The passkey path, offered only to an account that has one. -->
+            <div class="glass-card card stack" id="staffPasskeyCard" hidden>
+                <h2 data-i18n="auth.secondStepHeading">One more step</h2>
+                <p data-i18n="auth.staffPasskeyBody">
+                    Use the passkey registered on this device. Your password was
+                    still required, and always is.
+                </p>
+                <p class="callout danger" id="staffPasskeyError" role="alert" hidden></p>
+                <button type="button" class="btn btn-primary" id="staffUsePasskey">
+                    <span data-icon="key" data-icon-size="18"></span>
+                    <span data-i18n="auth.usePasskey">Use your passkey</span>
+                </button>
+            </div>
+
+            <form class="glass-card card form" id="staffCodeForm" novalidate
+                  style="margin-top: 1.5rem;">
+                <div class="callout danger form-message" data-form-message role="alert" hidden></div>
+
+                <h2 data-i18n="auth.secondFactorHeading">Two factor code</h2>
+                <p data-i18n="auth.secondFactorBody">
+                    Enter the six digit code from your authenticator app, or one
+                    of your backup codes. A backup code works once and is then
+                    gone.
+                </p>
+
+                <div class="field">
+                    <label for="code" data-i18n="auth.codeLabel">Code</label>
+                    <input id="code" name="code" type="text" inputmode="numeric"
+                           autocomplete="one-time-code" autocapitalize="none"
+                           spellcheck="false" required>
+                    <p class="field-error" data-error-for="code" hidden></p>
+                </div>
+
+                <label class="check-row">
+                    <input type="checkbox" name="trust_device">
+                    <span data-i18n="auth.trustDevice">
+                        Trust this device for 30 days
+                    </span>
+                </label>
+                <p class="field-hint" data-i18n="auth.trustDeviceHint">
+                    Skips this step on this browser for 30 days. The password is
+                    still asked for every time. Do not tick this on a shared or
+                    public computer.
+                </p>
+
+                <button class="btn btn-primary" type="submit" data-i18n="auth.verify">
+                    Verify
+                </button>
+            </form>
+        </section>
+
+        <p class="auth-links">
+            <a href="/login" data-i18n="auth.applicantSignIn">
+                Applicant sign in instead
+            </a>
+        </p>
+
+        <noscript>
+            <div class="callout warn" style="margin-top: 1.5rem;">
+                <p>Signing in needs JavaScript.</p>
+            </div>
+        </noscript>
+    </main>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js');
+        }
+    </script>
+</body>
+
+</html>

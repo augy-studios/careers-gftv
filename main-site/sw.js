@@ -1,7 +1,7 @@
 // Careers@GFTV service worker, phase 1 version.
 //
 // This is deliberately a pass through. The real offline behaviour is section
-// 14 of the specification and lands in phase 8: precached shell, cache first
+// 14 of the specification and lands in phase 10: precached shell, cache first
 // static assets, stale while revalidate public job data, network only for
 // anything authenticated, IndexedDB for the applicant's own data, and a queue
 // for the rating and the apply answer.
@@ -12,7 +12,7 @@
 // takes control, clears any cache left by an earlier worker, and then stays out
 // of the way entirely.
 //
-// It is registered rather than left out so that the update path in phase 8 is
+// It is registered rather than left out so that the update path in phase 10 is
 // an ordinary service worker update rather than a first install on browsers
 // that already have the template's worker from this domain.
 //
@@ -23,11 +23,11 @@
 // Cache-Control: no-cache so the browser will always fetch it, but the file
 // has to actually differ for that to matter.
 //
-// From phase 8, when this gains a precache list, keep that list in step with
+// From phase 10, when this gains a precache list, keep that list in step with
 // the files that exist as well. A precache entry naming a deleted file makes
 // cache.addAll reject and the whole install fail.
 
-const VERSION = 'careers-gftv-phase1-v16';
+const VERSION = 'careers-gftv-phase2-v18';
 
 self.addEventListener('install', () => {
   // Nothing to precache yet.
@@ -47,7 +47,7 @@ self.addEventListener('activate', (event) => {
 });
 
 // No fetch handler. Every request goes to the network exactly as it would with
-// no service worker installed. Phase 8 adds the strategies from section 14
+// no service worker installed. Phase 10 adds the strategies from section 14
 // here.
 
 self.addEventListener('message', (event) => {

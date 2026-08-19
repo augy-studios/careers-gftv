@@ -218,7 +218,11 @@ body {
   margin-bottom: 0.75rem;
 }
 
-.site-nav a {
+/* Signing out is a POST with a side effect, so it is a button rather than a
+   link. It sits in the same list as the links and is styled with them, since
+   the difference is in what it does, not in where it is. */
+.site-nav a,
+.site-nav .nav-signout {
   display: flex;
   align-items: center;
   gap: 0.625rem;
@@ -230,11 +234,21 @@ body {
   text-decoration: none;
 }
 
+.site-nav .nav-signout {
+  width: 100%;
+  justify-content: flex-start;
+  background: none;
+  border: 0;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
 .site-nav a:visited {
   color: var(--text);
 }
 
-.site-nav a:hover {
+.site-nav a:hover,
+.site-nav .nav-signout:hover {
   background: var(--surface-hover);
 }
 
@@ -602,4 +616,322 @@ body[data-scroll-locked='true'] {
 .table-scroll {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+}
+
+/* ---------------------------------------------------------------------------
+ * Forms, phase 2
+ *
+ * Mobile first and single column at every width. An authentication form has
+ * nothing to gain from two columns and a great deal to lose: a password and
+ * its confirmation side by side is how people confirm a typo.
+ *
+ * Inputs inherit the 16px root size rather than setting their own. Anything
+ * smaller makes iOS Safari zoom the page on focus, which is jarring and leaves
+ * the layout scrolled sideways.
+ * ------------------------------------------------------------------------ */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.field label,
+.form > label:not(.check-row) {
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+
+input[type='text'],
+input[type='email'],
+input[type='password'],
+input[type='tel'],
+input[type='url'],
+textarea,
+select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.625rem 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-alt);
+  color: var(--text);
+  font-size: 1rem;
+  transition: border-color 0.18s ease, background-color 0.18s ease;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-muted);
+}
+
+input:hover:not(:disabled),
+textarea:hover:not(:disabled) {
+  border-color: var(--text-muted);
+}
+
+input[aria-invalid='true'],
+textarea[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+
+input:disabled,
+textarea:disabled,
+select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* The show and hide control sits inside the field rather than beside it, so
+   the input keeps its full width on a 320px screen. */
+.input-with-button {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-with-button input {
+  padding-right: 3rem;
+}
+
+.input-with-button .icon-btn {
+  position: absolute;
+  right: 0.25rem;
+}
+
+.field-hint {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+/* The error is red text and an outline on the field, never colour alone: the
+   message itself is what carries the meaning, per section 3. */
+.field-error {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--danger);
+}
+
+.form-message {
+  margin-bottom: 0.25rem;
+}
+
+/* A checkbox and its label as one target. align-items: start rather than
+   center, so a label that wraps to two lines keeps the box beside its first
+   line instead of floating in the middle. */
+.check-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.check-row input[type='checkbox'] {
+  width: 20px;
+  height: 20px;
+  margin-top: 0.125rem;
+  flex: none;
+  accent-color: var(--brand-dark);
+  cursor: pointer;
+}
+
+.check-row input[type='checkbox']:disabled {
+  cursor: not-allowed;
+}
+
+.check-row:has(input:disabled) {
+  cursor: not-allowed;
+  color: var(--text-muted);
+}
+
+.auth-links {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-size: 0.9375rem;
+}
+
+/* Sections stack down the security page with the same rhythm as the cards
+   elsewhere, without every page having to repeat a margin. */
+#securityPage > section {
+  margin-top: 1.5rem;
+}
+
+#securityPage h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ---------------------------------------------------------------------------
+ * Recovery codes, 5c
+ * ------------------------------------------------------------------------ */
+
+.code-dialog {
+  width: min(28rem, 100%);
+}
+
+/* Monospace, wide letter spacing, and a numbered list. These are read off a
+   screen and typed back in, so the shape of each character matters more than
+   the look of the block. */
+.code-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.375rem 1rem;
+  margin: 1rem 0;
+  padding: 0.875rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-active);
+  list-style-position: inside;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 1rem;
+  letter-spacing: 0.06em;
+}
+
+.code-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.code-action-note {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+.code-count {
+  font-weight: 600;
+}
+
+.code-count[data-low='true'] {
+  color: var(--warn);
+}
+
+/* ---------------------------------------------------------------------------
+ * Trusted devices, 5d
+ * ------------------------------------------------------------------------ */
+
+.device-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.device-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.device-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.device-label {
+  font-weight: 600;
+}
+
+.device-meta {
+  font-size: 0.875rem;
+}
+
+/* ---------------------------------------------------------------------------
+ * Time based mode, this app only
+ *
+ * Deliberately not in theme.css. That file is the implementation of
+ * gftv-theme.md, which is shared across the GFTV apps and describes a two
+ * option mode switch. This is a third option for this app alone, so it
+ * overrides from the app layer and leaves the shared system as written.
+ *
+ * Light and dark stay side by side and the third spans the row beneath them.
+ * Three equal columns would put "Time-based" in a box too narrow to read at
+ * 320px, and the full width row also says visually that this one is a
+ * different kind of choice: not a mode, but a rule for picking one.
+ * ------------------------------------------------------------------------ */
+
+.mode-btn-wide {
+  grid-column: 1 / -1;
+}
+
+.mode-note {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+/* ---------------------------------------------------------------------------
+ * The three step danger confirmation, section 7g
+ *
+ * Built in phase 2 for removing a passkey. Phase 6 uses the same component for
+ * deleting an account and the rest of the danger zone, so nothing here is
+ * specific to passkeys.
+ *
+ * The cancel is not quieter than the confirm. 7g asks for a cancel at least as
+ * prominent as the continue, and it comes first in the source as well, so it
+ * is also the first of the two a screen reader reaches.
+ * ------------------------------------------------------------------------ */
+
+.danger-dialog {
+  width: min(30rem, 100%);
+}
+
+.danger-step {
+  flex: none;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.danger-consequences {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+  padding-left: 1.25rem;
+  color: var(--text-muted-strong);
+  font-size: 0.9375rem;
+}
+
+.danger-consequences li {
+  padding-left: 0.25rem;
+}
+
+.danger-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
+
+.danger-actions .btn {
+  flex: 1 1 10rem;
 }

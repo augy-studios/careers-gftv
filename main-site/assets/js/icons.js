@@ -48,6 +48,23 @@ const PATHS = {
     '<circle cx="12" cy="12" r="9"/>' +
     '<path d="M3 12h18"/>' +
     '<path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18z"/>',
+  // Phase 2, the authentication pages.
+  //
+  // The eye is the show and hide control on a password field. There is one
+  // shape rather than an eye and a crossed out eye, because the button carries
+  // aria-pressed and a visible label change already, and two shapes that
+  // differ by a single stroke read as noise at 18 pixels.
+  eye: '<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="3"/>',
+  copy:
+    '<rect x="9" y="9" width="11" height="11" rx="2"/>' +
+    '<path d="M5 15V5.5A1.5 1.5 0 0 1 6.5 4H15"/>',
+  download: '<path d="M12 4v11M7.5 10.5 12 15l4.5-4.5"/><path d="M4 19h16"/>',
+  // A key, for recovery and backup codes. Both sets use it, and the page copy
+  // is what distinguishes them, since 5c is emphatic that they are not
+  // interchangeable and an icon cannot carry that.
+  key: '<circle cx="8" cy="12" r="4"/><path d="M12 12h9M18 12v3M15.5 12v2.5"/>',
+  shield: '<path d="M12 3l7 3v5.5c0 4-3 7.5-7 9-4-1.5-7-5-7-9V6z"/>',
+  laptop: '<rect x="4" y="5" width="16" height="11" rx="1.5"/><path d="M2 19h20"/>',
 };
 
 // A few names read better in markup with a hyphen.

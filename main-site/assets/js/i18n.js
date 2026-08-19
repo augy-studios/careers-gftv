@@ -164,6 +164,17 @@ export async function applyLocale(id) {
 
   translateDom(document);
 
+  // Section 3a, and the reason gftvjobs_users.locale exists. localStorage is
+  // the source of truth for rendering, and the server cannot read it. The
+  // Telegram bot in phase 11 has to start conversations with people who are
+  // not looking at the site, so the choice is mirrored onto the account
+  // whenever there is one to mirror it onto.
+  //
+  // Deliberately not awaited: the language has already been applied, and a
+  // slow or failed write must not hold up the page. Signed out callers get a
+  // 200 saying nothing was stored.
+  storeLocaleOnAccount(locale);
+
   // The page is held blank until this point for a non default language, so
   // nothing paints in English first. See the pre-paint script in every head.
   document.documentElement.removeAttribute('data-i18n-pending');
@@ -175,6 +186,36 @@ export async function applyLocale(id) {
   );
 
   return locale;
+}
+
+/**
+ * Mirror the language choice onto the signed in account, if there is one.
+ *
+ * Skipped on the first application of the stored preference, which happens on
+ * every page load: that is not somebody changing language, and a request per
+ * page view to record a value that has not changed is waste. Only an actual
+ * change is written.
+ */
+let lastStoredLocale = null;
+
+function storeLocaleOnAccount(locale) {
+  if (lastStoredLocale === null) {
+    lastStoredLocale = locale;
+    return;
+  }
+  if (lastStoredLocale === locale) return;
+  lastStoredLocale = locale;
+
+  fetch('/api/auth/applicant/locale', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ locale }),
+    keepalive: true,
+  }).catch(() => {
+    // Offline, or signed out with the network refusing. The choice is stored
+    // in this browser either way, which is what rendering depends on.
+  });
 }
 
 /** Load and apply the stored preference. Called once by shell.js. */

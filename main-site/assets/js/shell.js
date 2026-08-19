@@ -13,7 +13,15 @@
 // sets aria-expanded on the trigger and aria-hidden on the panel, and locks
 // body scroll while open. The theme modal follows the same rules.
 
-import { initTheme, applyColorTheme, applyMode, getStoredColorTheme, getStoredMode, COLOR_THEMES } from './theme.js';
+import {
+  initTheme,
+  applyColorTheme,
+  applyMode,
+  getStoredColorTheme,
+  getStoredMode,
+  getModePreference,
+  COLOR_THEMES,
+} from './theme.js';
 import { initI18n, applyLocale, getLocale, t, LOCALES } from './i18n.js';
 import { hydrateIcons } from './icons.js';
 import {
@@ -22,6 +30,7 @@ import {
   applyFeatureGating,
   renderPlaceholder,
 } from './build-status.js';
+import { api, applicantSession } from './api.js';
 
 /* -------------------------------------------------------------------------
  * Navigation
@@ -215,6 +224,10 @@ function renderThemeModal() {
         </button>
       </div>
       <p class="modal-section-label" data-i18n="theme.mode"></p>
+      <!-- Three options, not two. The third is a preference rather than a
+           mode: it resolves to light or dark from the device clock, and
+           data-mode is still only ever one of those two. An experiment for
+           this app, deliberately not added to gftv-theme.md. -->
       <div class="mode-toggle" id="modeToggle">
         <button class="mode-btn" type="button" data-mode="light" aria-pressed="false">
           <span data-icon="sun" data-icon-size="18"></span><span data-i18n="theme.light"></span>
@@ -222,7 +235,11 @@ function renderThemeModal() {
         <button class="mode-btn" type="button" data-mode="dark" aria-pressed="false">
           <span data-icon="moon" data-icon-size="18"></span><span data-i18n="theme.dark"></span>
         </button>
+        <button class="mode-btn mode-btn-wide" type="button" data-mode="time" aria-pressed="false">
+          <span data-icon="clock" data-icon-size="18"></span><span data-i18n="theme.timeBased"></span>
+        </button>
       </div>
+      <p class="mode-note" id="modeNote" hidden></p>
       <p class="modal-section-label" data-i18n="theme.colourTheme"></p>
       <div class="swatch-grid" id="swatchGrid"></div>
     </div>
@@ -394,6 +411,10 @@ function wireThemeModal(modal) {
 
   function sync() {
     const colour = getStoredColorTheme();
+    // The preference decides which button is pressed; the resolved mode
+    // decides what the label says the page is currently in. On "time" those
+    // two are different, which is the whole point of the option.
+    const preference = getModePreference();
     const mode = getStoredMode();
 
     grid.querySelectorAll('.swatch').forEach((el) => {
@@ -403,10 +424,20 @@ function wireThemeModal(modal) {
     });
 
     modeButtons.forEach((el) => {
-      const active = el.getAttribute('data-mode') === mode;
+      const active = el.getAttribute('data-mode') === preference;
       el.classList.toggle('active', active);
       el.setAttribute('aria-pressed', String(active));
     });
+
+    const note = modal.querySelector('#modeNote');
+    if (note) {
+      note.hidden = preference !== 'time';
+      if (preference === 'time') {
+        note.textContent = t('theme.timeBasedNote', {
+          mode: t(mode === 'dark' ? 'common.modeDark' : 'common.modeLight'),
+        });
+      }
+    }
 
     if (button) {
       button.setAttribute(
@@ -467,6 +498,11 @@ function wireThemeModal(modal) {
   });
 
   sync();
+
+  // The clock can move the mode under a tab that is just sitting open. When it
+  // does, theme.js says so and the modal redraws rather than showing yesterday
+  // evening's answer.
+  document.addEventListener('gftv:modechange', sync);
 }
 
 function wireLanguageModal(modal) {
@@ -529,6 +565,70 @@ function wireLanguageModal(modal) {
 }
 
 /* -------------------------------------------------------------------------
+ * Who is signed in
+ * ---------------------------------------------------------------------- */
+
+/**
+ * Swap the Sign in item for the account once there is a session.
+ *
+ * Only the applicant realm appears in this header. The staff realm has its own
+ * sign in at /admin/login and its own dashboard chrome from phase 7, and the
+ * two are never merged into one "current user" anywhere in this build.
+ *
+ * The nav is drawn before the session is known, so the signed out state is
+ * what paints first and this quietly replaces it. That way a slow session
+ * check never delays the page, and somebody signed out sees the right thing
+ * immediately rather than a flicker.
+ */
+async function reflectApplicantSession() {
+  const nav = document.querySelector('#siteNav');
+  if (!nav) return;
+
+  const signIn = nav.querySelector('a[href="/login"]');
+  if (!signIn) return;
+
+  const session = await applicantSession();
+  if (!session?.user) return;
+
+  const account = document.createElement('a');
+  account.href = '/account/security';
+  account.innerHTML =
+    '<span data-icon="shield" data-icon-size="18"></span>' +
+    `<span></span>`;
+  // The display name is data, not a dictionary string, so it is set as text
+  // rather than through data-i18n and is never passed through innerHTML.
+  account.lastElementChild.textContent = session.user.display_name;
+
+  const signOut = document.createElement('button');
+  signOut.type = 'button';
+  signOut.className = 'nav-signout';
+  signOut.innerHTML =
+    '<span data-icon="arrow-left" data-icon-size="18"></span>' +
+    '<span data-i18n="nav.signOut"></span>';
+
+  signOut.addEventListener('click', async () => {
+    signOut.disabled = true;
+    await api('/api/auth/applicant/logout', { method: 'POST', locale: false });
+    // A reload rather than a redirect, so somebody signing out from a posting
+    // stays on it, signed out.
+    window.location.reload();
+  });
+
+  signIn.replaceWith(account, signOut);
+  hydrateIcons(nav);
+  translateNewChrome(nav);
+}
+
+// The nav item added above carries a data-i18n key that was never present when
+// the language was first applied, so it needs one pass of its own. Later
+// language changes reach it through the shell's ordinary retranslation.
+function translateNewChrome(root) {
+  root.querySelectorAll('[data-i18n]').forEach((el) => {
+    el.textContent = t(el.getAttribute('data-i18n'));
+  });
+}
+
+/* -------------------------------------------------------------------------
  * Boot
  * ---------------------------------------------------------------------- */
 
@@ -562,6 +662,11 @@ async function boot() {
   // attributes, so they are redrawn on a language change rather than
   // retranslated in place.
   document.addEventListener('gftv:localechange', paint);
+
+  // Last, and not awaited by anything above it. Whether somebody is signed in
+  // changes one item in the navigation and nothing else, so it must never be
+  // on the path that gets the page drawn.
+  reflectApplicantSession();
 }
 
 if (document.readyState === 'loading') {

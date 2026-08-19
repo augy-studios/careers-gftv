@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title data-i18n="auth.signInPageTitle">Sign in | Careers@GFTV</title>
+    <meta name="description"
+        content="Sign in to your Careers@GFTV applicant account to apply for a voluntary role and track your applications.">
+    <!-- Section 4 excludes the account pages from the sitemap. This says the
+         same thing to anything that arrives without reading it. -->
+    <meta name="robots" content="noindex">
+
+    <meta name="theme-color" content="#ffffff">
+    <script>
+        (function () {
+            var k = "gftv-careers";
+            var m = localStorage.getItem(k + ".mode") || "light";
+
+            // The time based mode, an experiment for this app and not part of
+            // gftv-theme.md. Resolved here rather than in theme.js because
+            // theme.js runs after first paint, and an evening reader would
+            // otherwise watch a white page turn dark. Keep the two hours in
+            // step with LIGHT_FROM_HOUR and LIGHT_UNTIL_HOUR in theme.js.
+            if (m === "time") {
+                var h = new Date().getHours();
+                m = h >= 9 && h < 18 ? "light" : "dark";
+                document.documentElement.setAttribute("data-mode-preference", "time");
+            }
+            var c = localStorage.getItem(k + ".colorTheme") || "classic";
+            var l = localStorage.getItem(k + ".locale") || "en";
+            document.documentElement.setAttribute("data-mode", m);
+            document.documentElement.setAttribute("data-color-theme", c);
+            document.documentElement.setAttribute("data-locale", l);
+            document.documentElement.setAttribute("lang", l === "zh" ? "zh-Hans-SG" : "en");
+
+            if (l !== "en") {
+                document.documentElement.setAttribute("data-i18n-pending", "true");
+                setTimeout(function () {
+                    document.documentElement.removeAttribute("data-i18n-pending");
+                }, 1200);
+            }
+        })();
+    </script>
+
+    <link rel="stylesheet" href="/assets/css/theme.css">
+    <link rel="stylesheet" href="/assets/css/app.css">
+
+    <link rel="manifest" href="/manifest.json">
+    <link rel="canonical" href="https://careers.globalfurry.tv/login">
+
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Careers@GFTV">
+    <meta property="og:title" content="Sign in | Careers@GFTV">
+    <meta property="og:description" content="Sign in to your Careers@GFTV applicant account.">
+    <meta property="og:url" content="https://careers.globalfurry.tv/login">
+    <meta property="og:image" content="/HLC-main.png">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:image:src" content="/HLC-main.png">
+
+    <link rel="apple-touch-icon" href="/HLC-main.png">
+    <link rel="icon" href="/favicon.ico">
+    <link rel="shortcut icon" href="/favicon.ico">
+
+    <script type="module" src="/assets/js/shell.js"></script>
+    <script type="module" src="/assets/js/login-page.js"></script>
+</head>
+
+<body>
+    <div class="boot-loader" aria-hidden="true">
+        <span class="spinner delayed"></span>
+    </div>
+    <a class="skip-link" href="#main" data-i18n="common.skipToContent">Skip to content</a>
+
+    <main class="page page-narrow" id="main">
+        <div class="page-header">
+            <h1 data-i18n="auth.signInHeading">Sign in</h1>
+            <p class="lede" data-i18n="auth.signInLede">
+                Reading a posting needs no account. Applying does, and so does
+                keeping track of what you have applied for.
+            </p>
+        </div>
+
+        <div class="callout note" id="alreadySignedIn" hidden>
+            <p>
+                <span data-i18n="auth.alreadySignedIn">You are already signed in as</span>
+                <strong data-name></strong>
+            </p>
+            <p>
+                <a data-continue href="/account/security" data-i18n="auth.continue">Continue</a>
+            </p>
+        </div>
+
+        <form class="glass-card card form" id="loginForm" novalidate>
+            <div class="callout danger form-message" data-form-message role="alert" hidden></div>
+
+            <div class="field">
+                <label for="identifier" data-i18n="auth.identifierLabel">Username or email</label>
+                <input id="identifier" name="identifier" type="text" autocomplete="username"
+                       autocapitalize="none" spellcheck="false" required>
+                <p class="field-error" data-error-for="identifier" hidden></p>
+            </div>
+
+            <div class="field">
+                <label for="password" data-i18n="auth.passwordLabel">Password</label>
+                <div class="input-with-button">
+                    <input id="password" name="password" type="password"
+                           autocomplete="current-password" required>
+                    <button type="button" class="icon-btn small" data-toggle-password="password">
+                        <span data-icon="eye" data-icon-size="18"></span>
+                    </button>
+                </div>
+                <p class="field-error" data-error-for="password" hidden></p>
+            </div>
+
+            <!-- 5d. This control is about the session and nothing else. There is no
+                 "trust this device" on this page, and there never will be:
+                 that control belongs after a second factor has been satisfied. -->
+            <label class="check-row">
+                <input type="checkbox" name="stay_signed_in">
+                <span data-i18n="auth.staySignedIn">Stay signed in for 30 days on this device</span>
+            </label>
+            <p class="field-hint" data-i18n="auth.staySignedInHint">
+                Leave this off on a shared or public computer. Signed out, a
+                session lasts 12 hours.
+            </p>
+
+            <button class="btn btn-primary" type="submit" data-i18n="auth.signIn">Sign in</button>
+        </form>
+
+        <!-- The second step, shown only for an account with a passkey. An
+             account without one signs in in a single step and never sees this.
+             "Trust this device" lives here and only here, per 5d. -->
+        <section id="step2" hidden>
+            <div class="glass-card card stack">
+                <h2 data-i18n="auth.secondStepHeading">One more step</h2>
+                <p data-i18n="auth.secondStepBody">
+                    Use the passkey on this device, or one of your two factor
+                    backup codes.
+                </p>
+
+                <p class="callout danger" id="secondStepError" role="alert" hidden></p>
+
+                <button type="button" class="btn btn-primary" id="usePasskeyButton">
+                    <span data-icon="key" data-icon-size="18"></span>
+                    <span data-i18n="auth.usePasskey">Use your passkey</span>
+                </button>
+
+                <label class="check-row">
+                    <input type="checkbox" id="trustDevice">
+                    <span data-i18n="auth.trustDevice">Trust this device for 30 days</span>
+                </label>
+                <p class="field-hint" data-i18n="auth.trustDeviceHint">
+                    Skips this step on this browser for 30 days. The password is
+                    still asked for every time. Do not tick this on a shared or
+                    public computer.
+                </p>
+            </div>
+
+            <form class="glass-card card form" id="backupCodeForm" novalidate
+                  style="margin-top: 1.5rem;">
+                <div class="callout danger form-message" data-form-message role="alert" hidden></div>
+
+                <h2 data-i18n="auth.backupCodeHeading">Cannot reach your passkey</h2>
+                <div class="field">
+                    <label for="backupCode" data-i18n="auth.backupCodeLabel">
+                        Two factor backup code
+                    </label>
+                    <input id="backupCode" name="code" type="text" autocomplete="one-time-code"
+                           autocapitalize="none" spellcheck="false" placeholder="k7m2-9xqp">
+                    <p class="field-hint" data-i18n="auth.backupCodeHint">
+                        One of the ten codes from your security page. Each one
+                        works once. An account recovery code is a different set
+                        and is not accepted here.
+                    </p>
+                    <p class="field-error" data-error-for="code" hidden></p>
+                </div>
+                <button class="btn btn-secondary" type="submit" data-i18n="auth.verify">Verify</button>
+            </form>
+        </section>
+
+        <p class="auth-links">
+            <a id="forgotLink" href="/forgot-password" data-i18n="auth.forgotPassword">
+                Forgotten your password
+            </a>
+        </p>
+
+        <div class="glass-card card" id="registerCard" style="margin-top: 1.5rem;">
+            <h2 data-i18n="auth.noAccountHeading">No account yet</h2>
+            <p data-i18n="auth.noAccountBody">
+                Applicant accounts are active immediately. There is no approval
+                wait and no email verification, so it takes a moment.
+            </p>
+            <p>
+                <a class="btn btn-secondary" id="registerLink" href="/register"
+                   data-i18n="auth.createAccount">Create an account</a>
+            </p>
+        </div>
+
+        <p class="muted" style="margin-top: 1.5rem;">
+            <a href="/admin/login" data-i18n="auth.staffSignIn">
+                Staff and admin sign in
+            </a>
+        </p>
+
+        <noscript>
+            <div class="callout warn" style="margin-top: 1.5rem;">
+                <p>Signing in needs JavaScript. Reading postings does not.</p>
+            </div>
+        </noscript>
+    </main>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js');
+        }
+    </script>
+</body>
+
+</html>

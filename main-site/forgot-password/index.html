@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title data-i18n="auth.forgotPageTitle">Recover your account | Careers@GFTV</title>
+    <meta name="description"
+        content="Use one of your Careers@GFTV account recovery codes to set a new password.">
+    <meta name="robots" content="noindex">
+
+    <meta name="theme-color" content="#ffffff">
+    <script>
+        (function () {
+            var k = "gftv-careers";
+            var m = localStorage.getItem(k + ".mode") || "light";
+
+            // The time based mode, an experiment for this app and not part of
+            // gftv-theme.md. Resolved here rather than in theme.js because
+            // theme.js runs after first paint, and an evening reader would
+            // otherwise watch a white page turn dark. Keep the two hours in
+            // step with LIGHT_FROM_HOUR and LIGHT_UNTIL_HOUR in theme.js.
+            if (m === "time") {
+                var h = new Date().getHours();
+                m = h >= 9 && h < 18 ? "light" : "dark";
+                document.documentElement.setAttribute("data-mode-preference", "time");
+            }
+            var c = localStorage.getItem(k + ".colorTheme") || "classic";
+            var l = localStorage.getItem(k + ".locale") || "en";
+            document.documentElement.setAttribute("data-mode", m);
+            document.documentElement.setAttribute("data-color-theme", c);
+            document.documentElement.setAttribute("data-locale", l);
+            document.documentElement.setAttribute("lang", l === "zh" ? "zh-Hans-SG" : "en");
+
+            if (l !== "en") {
+                document.documentElement.setAttribute("data-i18n-pending", "true");
+                setTimeout(function () {
+                    document.documentElement.removeAttribute("data-i18n-pending");
+                }, 1200);
+            }
+        })();
+    </script>
+
+    <link rel="stylesheet" href="/assets/css/theme.css">
+    <link rel="stylesheet" href="/assets/css/app.css">
+
+    <link rel="manifest" href="/manifest.json">
+    <link rel="canonical" href="https://careers.globalfurry.tv/forgot-password">
+
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Careers@GFTV">
+    <meta property="og:title" content="Recover your account | Careers@GFTV">
+    <meta property="og:description" content="Use a recovery code to set a new password.">
+    <meta property="og:url" content="https://careers.globalfurry.tv/forgot-password">
+    <meta property="og:image" content="/HLC-main.png">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:image:src" content="/HLC-main.png">
+
+    <link rel="apple-touch-icon" href="/HLC-main.png">
+    <link rel="icon" href="/favicon.ico">
+    <link rel="shortcut icon" href="/favicon.ico">
+
+    <script type="module" src="/assets/js/shell.js"></script>
+    <script type="module" src="/assets/js/forgot-password-page.js"></script>
+</head>
+
+<body>
+    <div class="boot-loader" aria-hidden="true">
+        <span class="spinner delayed"></span>
+    </div>
+    <a class="skip-link" href="#main" data-i18n="common.skipToContent">Skip to content</a>
+
+    <main class="page page-narrow" id="main">
+        <div class="page-header">
+            <h1 data-i18n="auth.forgotHeading">Recover your account</h1>
+            <p class="lede" data-i18n="auth.forgotLede">
+                One account recovery code sets a new password. There is no email
+                on this site, so this is the only way back in on your own. If
+                the account has a passkey, that is asked for too.
+            </p>
+        </div>
+
+        <!-- Step 1. Verifying the code and setting the password are two
+             separate requests, per 5c, and this page never collapses them. -->
+        <section id="step1">
+            <form class="glass-card card form" id="codeForm" novalidate>
+                <div class="callout danger form-message" data-form-message role="alert" hidden></div>
+
+                <div class="field">
+                    <label for="identifier" data-i18n="auth.identifierLabel">Username or email</label>
+                    <input id="identifier" name="identifier" type="text" autocomplete="username"
+                           autocapitalize="none" spellcheck="false" required>
+                    <p class="field-error" data-error-for="identifier" hidden></p>
+                </div>
+
+                <div class="field">
+                    <label for="code" data-i18n="auth.recoveryCodeLabel">Account recovery code</label>
+                    <input id="code" name="code" type="text" inputmode="text"
+                           autocapitalize="none" spellcheck="false" autocomplete="off"
+                           placeholder="k7m2-9xqp" required>
+                    <p class="field-hint" data-i18n="auth.recoveryCodeHint">
+                        One of the ten codes you were shown when you registered.
+                        Each one works once. A two factor backup code is a
+                        different set and is not accepted here.
+                    </p>
+                    <p class="field-error" data-error-for="code" hidden></p>
+                </div>
+
+                <button class="btn btn-primary" type="submit" data-i18n="auth.checkCode">
+                    Check the code
+                </button>
+            </form>
+
+            <div class="glass-card card" style="margin-top: 1.5rem;">
+                <h2 data-i18n="auth.noCodesHeading">No codes left</h2>
+                <p data-i18n="auth.noCodesBody">
+                    Somebody with no recovery codes cannot get back in alone.
+                    An admin can reset the password for you once they are
+                    satisfied you are who you say you are. Ask in the GFTV
+                    Telegram group or wherever you normally reach the team.
+                </p>
+            </div>
+        </section>
+
+        <!-- The second factor, shown only for an account that has a passkey.
+             A recovery code proves you hold a code; on an account with a
+             passkey it is not on its own enough to take the account. An
+             account without a passkey never sees this section. -->
+        <section id="stepFactor" hidden>
+            <div class="glass-card card stack">
+                <h2 data-i18n="auth.resetSecondFactorHeading">One more check</h2>
+                <p data-i18n="auth.resetSecondFactorBody">
+                    This account has a passkey. Use it, or one of your two
+                    factor backup codes, before setting a new password.
+                </p>
+
+                <p class="callout danger" id="resetFactorError" role="alert" hidden></p>
+
+                <button type="button" class="btn btn-primary" id="resetUsePasskey">
+                    <span data-icon="key" data-icon-size="18"></span>
+                    <span data-i18n="auth.usePasskey">Use your passkey</span>
+                </button>
+            </div>
+
+            <form class="glass-card card form" id="resetBackupForm" novalidate
+                  style="margin-top: 1.5rem;">
+                <div class="callout danger form-message" data-form-message role="alert" hidden></div>
+
+                <h2 data-i18n="auth.backupCodeHeading">Cannot reach your passkey</h2>
+                <div class="field">
+                    <label for="resetBackupCode" data-i18n="auth.backupCodeLabel">
+                        Two factor backup code
+                    </label>
+                    <input id="resetBackupCode" name="code" type="text" autocomplete="one-time-code"
+                           autocapitalize="none" spellcheck="false" placeholder="k7m2-9xqp">
+                    <p class="field-hint" data-i18n="auth.resetBackupHint">
+                        A code from the two factor set, not the account recovery
+                        set. The recovery code you just used was the other one.
+                    </p>
+                    <p class="field-error" data-error-for="code" hidden></p>
+                </div>
+                <button class="btn btn-secondary" type="submit" data-i18n="auth.verify">Verify</button>
+            </form>
+        </section>
+
+        <!-- The new password. Shown only once every factor has been satisfied. -->
+        <section id="step2" hidden>
+            <form class="glass-card card form" id="passwordForm" novalidate>
+                <div class="callout danger form-message" data-form-message role="alert" hidden></div>
+
+                <p class="lede" id="resetForWhom"></p>
+
+                <div class="field">
+                    <label for="password" data-i18n="auth.newPasswordLabel">New password</label>
+                    <div class="input-with-button">
+                        <input id="password" name="password" type="password"
+                               autocomplete="new-password" required minlength="10">
+                        <button type="button" class="icon-btn small" data-toggle-password="password">
+                            <span data-icon="eye" data-icon-size="18"></span>
+                        </button>
+                    </div>
+                    <p class="field-hint" data-i18n="auth.passwordHint">
+                        At least 10 characters. Length is what makes a password
+                        strong, so a short phrase beats a short scramble.
+                    </p>
+                    <p class="field-error" data-error-for="password" hidden></p>
+                </div>
+
+                <div class="field">
+                    <label for="password_confirm" data-i18n="auth.passwordConfirmLabel">
+                        Confirm password
+                    </label>
+                    <div class="input-with-button">
+                        <input id="password_confirm" name="password_confirm" type="password"
+                               autocomplete="new-password" required>
+                        <button type="button" class="icon-btn small"
+                                data-toggle-password="password_confirm">
+                            <span data-icon="eye" data-icon-size="18"></span>
+                        </button>
+                    </div>
+                    <p class="field-error" data-error-for="password_confirm" hidden></p>
+                </div>
+
+                <div class="callout warn">
+                    <p data-i18n="auth.resetConsequences">
+                        Setting a new password uses up that recovery code, signs
+                        out every other browser, and removes every trusted
+                        device on the account.
+                    </p>
+                </div>
+
+                <button class="btn btn-primary" type="submit" data-i18n="auth.setPassword">
+                    Set the new password
+                </button>
+            </form>
+        </section>
+
+        <p class="auth-links">
+            <a href="/login" data-i18n="auth.backToSignIn">Back to sign in</a>
+        </p>
+
+        <noscript>
+            <div class="callout warn" style="margin-top: 1.5rem;">
+                <p>Account recovery needs JavaScript.</p>
+            </div>
+        </noscript>
+    </main>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js');
+        }
+    </script>
+</body>
+
+</html>

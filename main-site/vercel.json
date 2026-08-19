@@ -33,16 +33,8 @@
       "destination": "/placeholder.html"
     },
     {
-      "source": "/login",
-      "destination": "/placeholder.html"
-    },
-    {
-      "source": "/register",
-      "destination": "/placeholder.html"
-    },
-    {
-      "source": "/forgot-password",
-      "destination": "/placeholder.html"
+      "source": "/account/security",
+      "destination": "/account/security/index.html"
     },
     {
       "source": "/account",
@@ -51,6 +43,14 @@
     {
       "source": "/account/:path*",
       "destination": "/placeholder.html"
+    },
+    {
+      "source": "/admin/login",
+      "destination": "/admin/login/index.html"
+    },
+    {
+      "source": "/admin/security",
+      "destination": "/admin/security/index.html"
     },
     {
       "source": "/admin",

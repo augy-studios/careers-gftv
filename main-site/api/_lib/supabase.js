@@ -44,6 +44,9 @@ export const T = Object.freeze({
   recoveryCodes: 'gftvjobs_recovery_codes',
   passwordResets: 'gftvjobs_password_resets',
   trustedDevices: 'gftvjobs_trusted_devices',
+  passkeys: 'gftvjobs_passkeys',
+  passkeyChallenges: 'gftvjobs_passkey_challenges',
+  loginChallenges: 'gftvjobs_login_challenges',
 
   // Content
   departments: 'gftvjobs_departments',
@@ -72,6 +75,11 @@ export const T = Object.freeze({
   cronRuns: 'gftvjobs_cron_runs',
   rateLimits: 'gftvjobs_rate_limits',
   adminAccess: 'gftvjobs_admin_access',
+
+  // Staff passkeys live in a gftvjobs_ table on purpose. Section 2 forbids
+  // adding to the gftvhello_ namespace, so this mirrors gftvjobs_admin_access:
+  // gftvhello_users is referenced, never written to. See migration 025.
+  staffPasskeys: 'gftvjobs_staff_passkeys',
 
   // Staff realm. Read only, apart from the session, challenge, trusted device,
   // and backup code rows the login flow legitimately owns. Never insert,

@@ -6,9 +6,19 @@ Vercel serverless functions under `api/`.
 Vercel's root directory for this project is set to `main-site`, which is why
 `api/` lives inside this directory rather than at the repo root.
 
-**Current phase: 1 of 14, Foundations.** The public surface is the shell, the home
-page, `/status`, and the placeholder page. Everything else renders the
+**Current phase: 2 of 14, Authentication.** Built and not yet flipped to
+shipped: signing in and registering, passkeys, recovery codes, account
+recovery, trusted devices, and `/account/security`. Everything else renders the
 placeholder. See [/status](https://careers.globalfurry.tv/status).
+
+**Every role listed on this site is voluntary and unpaid**, and the interface
+says so on the home page, the registration page, the footer, the manifest, and
+in every link embed. Written as a statement about the postings that exist
+rather than a promise about the future: `gftvjobs_jobs.is_paid` exists so a
+paid posting can say otherwise for itself, and the commitment types
+(`full_time`, `part_time`, `contract`, `internship`, `volunteer`) describe how
+much time a role takes, not whether it pays. A full time volunteer is a real
+thing here.
 
 ## Layout
 
@@ -16,6 +26,12 @@ placeholder. See [/status](https://careers.globalfurry.tv/status).
 main-site/
   index.html          home page
   status/index.html   the public build status page and changelog
+  login/index.html    applicant sign in
+  register/index.html applicant registration
+  forgot-password/    account recovery with a recovery code
+  account/security/   recovery codes, password, trusted devices
+  admin/login/        staff sign in, with the second factor step
+  admin/security/     staff passkeys and trusted devices
   placeholder.html    served for every route belonging to a later phase
   404.html            genuinely unknown paths
   manifest.json       PWA manifest, rewritten properly in phase 10
@@ -31,11 +47,21 @@ main-site/
     js/build-status.js the notice bar, the disabled control pattern, placeholders
     js/status-page.js the /status page
     js/i18n.js        language switching and the string dictionaries
+    js/api.js         the one place that knows the API response shape
+    js/forms.js       field errors, busy states, password reveal
+    js/recovery-codes.js  the shown once code dialog
+    js/login-page.js, register-page.js, forgot-password-page.js,
+    js/admin-login-page.js, security-page.js, staff-security-page.js
+    js/passkeys.js    WebAuthn in the browser, hand written
     i18n/en.json      English interface strings
     i18n/zh.json      Simplified Chinese interface strings
     fonts/            self hosted Proxima Nova, see below
   api/
-    _lib/             shared server side helpers, no routes yet
+    _lib/             shared server side helpers
+    auth/staff/       login, verify-2fa, logout, session, trusted-devices
+    auth/applicant/   register, login, logout, session, profile,
+                      change-password, forgot-password, reset-password,
+                      recovery-codes, trusted-devices, locale
 ```
 
 ## Local development
@@ -86,7 +112,7 @@ no shared "current user".
 | Sessions | `gftvhello_sessions` | `gftvjobs_sessions` |
 | Session cookie | `gftv_staff_session` | `gftv_applicant_session` |
 | Device cookie | `gftv_staff_device` | `gftv_applicant_device` |
-| Second factor | TOTP, with backup codes | Telegram, with its own backup codes |
+| Second factor | A passkey, or the existing TOTP app, with backup codes | A passkey, with backup codes. Telegram joins them in phase 11 |
 | Access rule | `is_approved`, then the `gftvjobs_admin_access` overlay if a row exists, otherwise `is_admin or is_editor` | none, accounts are active immediately |
 
 The `gftvhello_*` tables are read only from this portal, apart from the session,
@@ -104,13 +130,13 @@ into one checkbox:
 
 ## API route map
 
-Nothing is built yet. This is the shape phases 2 to 11 fill in, from section 9
+Phase 2 is built. The rest is the shape phases 3 to 11 fill in, from section 9
 of the specification.
 
 | Group | Routes | Phase |
 |---|---|---|
-| `api/auth/staff/*` | login, verify-2fa, logout, session, trusted-devices | 2 |
-| `api/auth/applicant/*` | register, login, logout, session, profile, change-password, forgot-password, reset-password, recovery-codes, trusted-devices | 2 |
+| `api/auth/staff/*` | login, verify-2fa, logout, session, trusted-devices, passkeys | 2 |
+| `api/auth/applicant/*` | register, login, logout, session, verify-2fa, profile, change-password, forgot-password, reset-password, recovery-codes, trusted-devices, passkeys, locale | 2 |
 | `api/public/*` | search, suggest, departments, tags, locales | 3 |
 | `api/public/jobs*` | job by uuid, slug lookup, jobs.json feed | 4 |
 | `api/applications/*` | start, respond, pending, list mine, withdraw | 5 |
@@ -136,8 +162,14 @@ Shared helpers live in `api/_lib/`:
 | `respond.js` | The single JSON success and error shape, the status codes, and the body reader with its size cap. |
 | `cookies.js` | Cookie names, parsing, and serialising. |
 | `tokens.js` | Random tokens, recovery code formatting, SHA-256, constant time comparison. |
-| `session.js` | Reading a session in either realm, the session length rules, and the admin access check. |
+| `session.js` | Sessions in either realm, creating and ending them, trusted devices, the session length rules, and the admin access check. Also `HELLO`, the one place the assumed `gftvhello_*` column names live. |
 | `redirects.js` | The `?redirect=` allowlist, so the parameter cannot become an open redirect. |
+| `accounts.js` | Account lookup by username or email, uniqueness checks, and the two code sets. |
+| `password.js` | bcrypt for passwords and codes, the password rule, and the constant time comparisons that keep an unknown account from answering faster than a wrong password. |
+| `totp.js` | RFC 6238, for the staff realm's existing authenticator app. |
+| `webauthn.js` | Passkeys, both realms, both ceremonies. |
+| `rate-limit.js` | The table backed limiter and every limit in one place. |
+| `validate.js` | Input validation, returning codes rather than English so the client renders them in either language. |
 
 Every endpoint returning human readable content takes a locale, `en` or `zh`,
 and returns that language in the ordinary field names. A caller sending no
@@ -147,6 +179,110 @@ locale gets English.
 either that or in-memory. Table backed was chosen because each Vercel function
 instance has its own memory, so an in-memory limiter resets constantly and
 cannot hold the one hour lockouts that sections 5c and 7g require.
+
+## Passkeys
+
+Passkeys are the second factor in **both** realms, added in phase 2. They are
+what gives the applicant realm a second factor at all: the Telegram code from
+section 15 does not arrive until phase 11.
+
+Not passwordless. The password is always required first, and the passkey is the
+second step. The credentials are registered with `residentKey: "preferred"`, so
+a passwordless sign in could be added later without anybody re-enrolling.
+
+| Piece | Where it lives |
+|---|---|
+| Applicant credentials | `gftvjobs_passkeys` |
+| Staff credentials | `gftvjobs_staff_passkeys`, referencing `gftvhello_users` |
+| Challenges | `gftvjobs_passkey_challenges`, single use, deleted as they are read |
+| Waiting sign ins | `gftvjobs_login_challenges` for applicants, `gftvhello_totp_challenges` for staff |
+| Server | `api/_lib/webauthn.js`, wrapping `@simplewebauthn/server` |
+| Browser | `assets/js/passkeys.js`, hand written, no bundler |
+
+**Staff passkeys are in a `gftvjobs_` table on purpose.** Section 2 forbids
+adding to the `gftvhello_` namespace, so this follows `gftvjobs_admin_access`:
+`gftvhello_users` is referenced and never written to.
+
+Three consequences worth knowing before somebody reports them as bugs:
+
+- **A passkey registered here does not work at gftv.asia.** A passkey belongs to
+  the domain that created it, and the relying party id is derived from
+  `SITE_URL`. The accounts are shared between the two sites; the passkeys are
+  not.
+- **A passkey registered on a preview deployment does not work in production**,
+  because the host differs. That is the same rule doing its job.
+- **A lost passkey is not a lost account.** The two factor backup codes get past
+  the second step, which is why passkeys needed no new recovery mechanism and
+  no third set of codes. The security page says so when somebody adds a passkey
+  without having any codes.
+- **A recovery code alone does not reset the password on an account with a
+  passkey.** Section 5c made one recovery code a full account credential when
+  there was no second factor to protect. Now there is, so the forgot password
+  flow asks for the passkey or a 2FA backup code as well, enforced by
+  `gftvjobs_password_resets.second_factor_at` rather than by the screen order.
+  An account with no passkey is unaffected. Somebody who has lost both goes to
+  the admin reset path 5c item 5 requires, which is phase 8.
+
+The server verification is `@simplewebauthn/server`, the only dependency in
+this repo besides the Supabase client and bcrypt. Verifying an assertion means
+parsing CBOR, decoding COSE keys, and checking signatures across three
+algorithm families, which is not something to hand roll in an auth path. The
+browser half is hand written, because it is base64url conversion around
+`navigator.credentials` and adding a build step for it would cost more than it
+saves.
+
+## The mode switcher, and the time based option
+
+The two axes are unchanged: `data-color-theme` and `data-mode` on `<html>`,
+exactly as `gftv-theme.md` describes. **`data-mode` is still only ever `light`
+or `dark`**, so no stylesheet knows the third option exists.
+
+What is new, for this app only and deliberately **not** added to
+`gftv-theme.md`, is a third *preference*:
+
+| Stored in `gftv-careers.mode` | `data-mode` becomes |
+|---|---|
+| `light` | `light` |
+| `dark` | `dark` |
+| `time` | `light` from 09:00 up to 18:00 on the device clock, `dark` otherwise |
+
+The split that makes this work is preference versus mode. `getModePreference()`
+returns what the person chose and decides which button is pressed;
+`getStoredMode()` resolves it and is what the meta `theme-color`, the "currently
+light mode" label, and `withLightMode` use.
+
+Three things worth knowing before changing it:
+
+- **The hours are duplicated in the pre-paint script in every `<head>`.** They
+  have to be: `theme.js` runs after first paint, so resolving there would show
+  an evening reader a white page that turns dark a moment later. Change
+  `LIGHT_FROM_HOUR` and `LIGHT_UNTIL_HOUR` in `theme.js` and the two numbers in
+  every head together.
+- **A tab left open across a boundary re-resolves itself.** `theme.js` schedules
+  one timer to the next 09:00 or 18:00 rather than polling, and re-checks on
+  `visibilitychange` because a sleeping laptop fires its timer late. The theme
+  modal listens for `gftv:modechange` and redraws.
+- **The device clock is the only input.** No timezone is asked for, sent, or
+  stored, and there is no sunrise or sunset lookup, which would need a location.
+
+If `theme.js` is ever re-synced from the shared version, this has to be
+re-applied by hand.
+
+## The danger zone confirmation
+
+`assets/js/danger-confirm.js` implements the three steps section 7g fixes, in
+order, with no way to skip ahead:
+
+1. **Consequences**, with a cancel at least as prominent as the continue.
+2. **Typed confirmation** of the person's own username. Not a checkbox, not
+   "type DELETE". Compared case sensitively, whitespace trimmed only.
+3. **Password**, handed to the caller and verified server side. Reaching step 3
+   proves nothing: 7g is explicit that a client side "password was correct"
+   signal is never accepted.
+
+Built in phase 2 for removing a passkey, which turns part of the second factor
+off and is the same kind of action 7g already lists. **Phase 6 should use this
+component for the danger zone proper** rather than writing a second one.
 
 ## Language
 

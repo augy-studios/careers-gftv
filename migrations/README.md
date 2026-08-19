@@ -71,6 +71,10 @@ foreign key but never created, altered, or dropped from this directory.
 | `021_commitment_types.sql` | Turns `commitment_type` into a controlled list of five keys, translated in the dictionary. |
 | `022_search_includes_sections.sql` | Rebuilds the English search vector so custom sections are searchable. Pairs with the same change on the translation side in `014`. |
 | `023_translation_helpers.sql` | `gftvjobs_translation_helpers`, the per language helper role, and the annotation columns that let a helper anchor a suggestion to the exact text that reads wrongly. |
+| `024_password_reset_code_reference.sql` | `gftvjobs_password_resets.recovery_code_id`, so 5c can verify a recovery code at step 2 and consume it at step 3 rather than burning it on a reset somebody abandoned. |
+| `025_passkeys.sql` | `gftvjobs_passkeys`, `gftvjobs_staff_passkeys`, `gftvjobs_passkey_challenges`, and `gftvjobs_login_challenges`. Passkeys as the second factor in both realms, and the applicant equivalent of `gftvhello_totp_challenges`. |
+| `026_job_compensation.sql` | `gftvjobs_jobs.is_paid`. Every posting today is unpaid, and this is what lets a paid one say otherwise for itself instead of the site promising in its copy. |
+| `027_reset_second_factor.sql` | `gftvjobs_password_resets.second_factor_at`, so a recovery code no longer walks past the passkey it was written before. |
 
 ## Things worth knowing before you run them
 

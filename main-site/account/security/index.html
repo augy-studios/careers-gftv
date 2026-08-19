@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title data-i18n="security.pageTitle">Sign in and security | Careers@GFTV</title>
+    <meta name="description"
+        content="Recovery codes, password, and trusted devices for your Careers@GFTV account.">
+    <meta name="robots" content="noindex">
+
+    <meta name="theme-color" content="#ffffff">
+    <script>
+        (function () {
+            var k = "gftv-careers";
+            var m = localStorage.getItem(k + ".mode") || "light";
+
+            // The time based mode, an experiment for this app and not part of
+            // gftv-theme.md. Resolved here rather than in theme.js because
+            // theme.js runs after first paint, and an evening reader would
+            // otherwise watch a white page turn dark. Keep the two hours in
+            // step with LIGHT_FROM_HOUR and LIGHT_UNTIL_HOUR in theme.js.
+            if (m === "time") {
+                var h = new Date().getHours();
+                m = h >= 9 && h < 18 ? "light" : "dark";
+                document.documentElement.setAttribute("data-mode-preference", "time");
+            }
+            var c = localStorage.getItem(k + ".colorTheme") || "classic";
+            var l = localStorage.getItem(k + ".locale") || "en";
+            document.documentElement.setAttribute("data-mode", m);
+            document.documentElement.setAttribute("data-color-theme", c);
+            document.documentElement.setAttribute("data-locale", l);
+            document.documentElement.setAttribute("lang", l === "zh" ? "zh-Hans-SG" : "en");
+
+            if (l !== "en") {
+                document.documentElement.setAttribute("data-i18n-pending", "true");
+                setTimeout(function () {
+                    document.documentElement.removeAttribute("data-i18n-pending");
+                }, 1200);
+            }
+        })();
+    </script>
+
+    <link rel="stylesheet" href="/assets/css/theme.css">
+    <link rel="stylesheet" href="/assets/css/app.css">
+
+    <link rel="manifest" href="/manifest.json">
+    <link rel="canonical" href="https://careers.globalfurry.tv/account/security">
+
+    <link rel="apple-touch-icon" href="/HLC-main.png">
+    <link rel="icon" href="/favicon.ico">
+    <link rel="shortcut icon" href="/favicon.ico">
+
+    <script type="module" src="/assets/js/shell.js"></script>
+    <script type="module" src="/assets/js/security-page.js"></script>
+</head>
+
+<body>
+    <div class="boot-loader" aria-hidden="true">
+        <span class="spinner delayed"></span>
+    </div>
+    <a class="skip-link" href="#main" data-i18n="common.skipToContent">Skip to content</a>
+
+    <main class="page page-narrow" id="main">
+        <!-- Replaced by the page once the session has been checked. Somebody
+             signed out never sees it: they are sent to sign in and back. -->
+        <div class="loading-row" id="loadingSecurity">
+            <span class="spinner delayed"></span>
+            <span data-i18n="common.loading">Loading</span>
+        </div>
+
+        <div id="securityPage" hidden>
+            <div class="page-header">
+                <h1 data-i18n="security.heading">Sign in and security</h1>
+                <p class="lede">
+                    <strong id="accountName"></strong>
+                    <span class="muted" id="accountUsername"></span>
+                </p>
+            </div>
+
+            <div class="callout danger" id="noCodesBanner" hidden>
+                <p data-i18n="security.noCodesBanner">
+                    You have no account recovery codes left. There is no email on
+                    this site, so without a code nobody can get you back into
+                    this account on their own. Generate a new set now.
+                </p>
+            </div>
+
+            <!-- Recovery codes, 5c. Two sets, two tables, and they never do
+                 each other's job. The copy on this page is what makes that
+                 difference visible, since neither set looks any different. -->
+            <section class="glass-card card stack" id="recoveryCodesSection">
+                <h2>
+                    <span data-icon="key" data-icon-size="18"></span>
+                    <span data-i18n="security.recoveryHeading">Account recovery codes</span>
+                </h2>
+                <p data-i18n="security.recoveryBody">
+                    Ten codes, each usable once, that set a new password when you
+                    have forgotten yours. Treat one like your password: anybody
+                    holding a code can take the account.
+                </p>
+                <p class="code-count" data-count-for="recovery"></p>
+                <p class="callout warn" data-warning-for="recovery" hidden></p>
+
+                <form class="form" data-generate-form="recovery" novalidate>
+                    <div class="callout danger form-message" data-form-message role="alert" hidden></div>
+                    <div class="field">
+                        <label for="recoveryPassword" data-i18n="security.currentPasswordLabel">
+                            Current password
+                        </label>
+                        <div class="input-with-button">
+                            <input id="recoveryPassword" name="current_password" type="password"
+                                   autocomplete="current-password">
+                            <button type="button" class="icon-btn small"
+                                    data-toggle-password="current_password">
+                                <span data-icon="eye" data-icon-size="18"></span>
+                            </button>
+                        </div>
+                        <p class="field-error" data-error-for="current_password" hidden></p>
+                    </div>
+                    <button class="btn btn-secondary" type="submit"
+                            data-i18n="security.generateRecovery">
+                        Generate a new set
+                    </button>
+                    <p class="field-hint" data-i18n="security.generateWarning">
+                        Generating a new set immediately cancels every code in
+                        that set. The other set is untouched.
+                    </p>
+                </form>
+            </section>
+
+            <!-- Two factor backup codes, the other set. Disabled controls are
+                 not used here: generating them works today, and what does not
+                 work yet is the second factor itself, below. -->
+            <section class="glass-card card stack">
+                <h2>
+                    <span data-icon="shield" data-icon-size="18"></span>
+                    <span data-i18n="security.backupHeading">Two factor backup codes</span>
+                </h2>
+                <p data-i18n="security.backupBody">
+                    A different set of ten, for getting past the second step of
+                    signing in when you cannot reach Telegram. They never set a
+                    password and they are never accepted on the recovery page.
+                </p>
+                <p class="code-count" data-count-for="backup"></p>
+                <p class="callout warn" data-warning-for="backup" hidden></p>
+
+                <form class="form" data-generate-form="backup" novalidate>
+                    <div class="callout danger form-message" data-form-message role="alert" hidden></div>
+                    <div class="field">
+                        <label for="backupPassword" data-i18n="security.currentPasswordLabel">
+                            Current password
+                        </label>
+                        <input id="backupPassword" name="current_password" type="password"
+                               autocomplete="current-password">
+                        <p class="field-error" data-error-for="current_password" hidden></p>
+                    </div>
+                    <button class="btn btn-secondary" type="submit"
+                            data-i18n="security.generateBackup">
+                        Generate a new set
+                    </button>
+                </form>
+            </section>
+
+            <!-- Passkeys. The second factor that actually works today, which
+                 is why it sits above the Telegram one rather than below it. -->
+            <section class="glass-card card stack" id="passkeySection">
+                <h2>
+                    <span data-icon="shield" data-icon-size="18"></span>
+                    <span data-i18n="security.passkeyHeading">Passkeys</span>
+                </h2>
+                <p data-i18n="security.passkeyBody">
+                    A passkey is your fingerprint, your face, or a security key,
+                    used as the second step of signing in. There is no code to
+                    type and nothing to copy, and a passkey cannot be phished:
+                    your device will only use it on this site.
+                </p>
+                <p data-i18n="security.passkeySecondStep">
+                    Your password is still asked for every time. Once you add a
+                    passkey, signing in becomes two steps.
+                </p>
+
+                <ul class="device-list" id="passkeyList"></ul>
+                <p class="muted" id="passkeyEmpty" hidden></p>
+
+                <div class="callout note" id="passkeyUnsupported" hidden>
+                    <p data-i18n="security.passkeyUnsupported">
+                        This browser cannot use passkeys. Try a current version
+                        of Chrome, Safari, Edge, or Firefox.
+                    </p>
+                </div>
+
+                <p class="callout danger" id="passkeyError" role="alert" hidden></p>
+
+                <div class="field">
+                    <label for="passkeyPassword" data-i18n="security.currentPasswordLabel">
+                        Current password
+                    </label>
+                    <input id="passkeyPassword" type="password" autocomplete="current-password">
+                    <p class="field-hint" data-i18n="security.passwordForChanges">
+                        Asked for because this changes how signing in works. A
+                        session on its own is not enough.
+                    </p>
+                </div>
+
+                <button type="button" class="btn btn-secondary" id="addPasskey">
+                    <span data-icon="key" data-icon-size="18"></span>
+                    <span data-i18n="security.addPasskey">Add a passkey</span>
+                </button>
+
+                <p class="field-hint" data-i18n="security.passkeyDomainNote">
+                    A passkey belongs to the site that created it, so this one
+                    works on Careers@GFTV and nowhere else. If you lose the
+                    device it is on, a two factor backup code gets you past this
+                    step.
+                </p>
+            </section>
+
+            <!-- Telegram 2FA. Section 0c's disabled control pattern: visible,
+                 disabled, and saying which phase it arrives in. Hiding it would
+                 teach people it does not exist. -->
+            <section class="glass-card card stack">
+                <h2>
+                    <span data-icon="bell" data-icon-size="18"></span>
+                    <span data-i18n="security.twoFactorHeading">Two factor authentication</span>
+                </h2>
+                <p data-i18n="security.twoFactorBody">
+                    A code from the Careers@GFTV Telegram bot at every sign in.
+                    The bot itself is a later phase, so the switch is here and
+                    turned off rather than missing.
+                </p>
+                <label class="check-row">
+                    <input type="checkbox" data-feature="telegram_2fa" data-feature-hint>
+                    <span data-i18n="security.twoFactorToggle">
+                        Ask for a Telegram code when I sign in
+                    </span>
+                </label>
+            </section>
+
+            <!-- Password, with the two consequences stated before the button
+                 rather than discovered after it. -->
+            <section class="glass-card card stack">
+                <h2 data-i18n="security.passwordHeading">Change your password</h2>
+                <form class="form" id="changePasswordForm" novalidate>
+                    <div class="callout danger form-message" data-form-message role="alert" hidden></div>
+
+                    <div class="field">
+                        <label for="currentPassword" data-i18n="security.currentPasswordLabel">
+                            Current password
+                        </label>
+                        <input id="currentPassword" name="current_password" type="password"
+                               autocomplete="current-password" required>
+                        <p class="field-error" data-error-for="current_password" hidden></p>
+                    </div>
+
+                    <div class="field">
+                        <label for="newPassword" data-i18n="auth.newPasswordLabel">New password</label>
+                        <div class="input-with-button">
+                            <input id="newPassword" name="new_password" type="password"
+                                   autocomplete="new-password" required minlength="10">
+                            <button type="button" class="icon-btn small"
+                                    data-toggle-password="new_password">
+                                <span data-icon="eye" data-icon-size="18"></span>
+                            </button>
+                        </div>
+                        <p class="field-hint" data-i18n="auth.passwordHint">
+                            At least 10 characters. Length is what makes a
+                            password strong, so a short phrase beats a short
+                            scramble.
+                        </p>
+                        <p class="field-error" data-error-for="new_password" hidden></p>
+                    </div>
+
+                    <div class="field">
+                        <label for="newPasswordConfirm" data-i18n="auth.passwordConfirmLabel">
+                            Confirm password
+                        </label>
+                        <input id="newPasswordConfirm" name="new_password_confirm" type="password"
+                               autocomplete="new-password" required>
+                        <p class="field-error" data-error-for="new_password_confirm" hidden></p>
+                    </div>
+
+                    <p class="field-hint" data-i18n="security.passwordConsequences">
+                        Changing your password signs out every other browser and
+                        removes every trusted device.
+                    </p>
+
+                    <button class="btn btn-primary" type="submit"
+                            data-i18n="security.changePassword">
+                        Change password
+                    </button>
+                </form>
+            </section>
+
+            <!-- Trusted devices, 5d. -->
+            <section class="glass-card card stack">
+                <h2>
+                    <span data-icon="laptop" data-icon-size="18"></span>
+                    <span data-i18n="security.devicesHeading">Trusted devices</span>
+                </h2>
+                <p data-i18n="security.devicesBody">
+                    A trusted device skips the second step of signing in for 30
+                    days. It never skips your password, and it never gets past
+                    anything in the danger zone.
+                </p>
+
+                <ul class="device-list" id="deviceList" aria-busy="true"></ul>
+                <p class="muted" id="deviceEmpty" hidden></p>
+
+                <p class="callout danger" id="deviceError" role="alert" hidden></p>
+
+                <div class="field">
+                    <label for="devicePassword" data-i18n="security.currentPasswordLabel">
+                        Current password
+                    </label>
+                    <input id="devicePassword" type="password" autocomplete="current-password">
+                    <p class="field-hint" data-i18n="security.passwordForChanges">
+                        Asked for because this changes how signing in works. A
+                        session on its own is not enough.
+                    </p>
+                </div>
+
+                <button type="button" class="btn btn-quiet" id="revokeAllDevices" hidden
+                        data-i18n="devices.revokeAll">
+                    Revoke every device
+                </button>
+            </section>
+
+            <p class="muted">
+                <a href="/account" data-i18n="security.moreSettings">
+                    The rest of your account settings
+                </a>
+            </p>
+        </div>
+
+        <noscript>
+            <div class="callout warn">
+                <p>This page needs JavaScript.</p>
+            </div>
+        </noscript>
+    </main>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js');
+        }
+    </script>
+</body>
+
+</html>

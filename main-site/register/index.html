@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title data-i18n="auth.registerPageTitle">Create an account | Careers@GFTV</title>
+    <meta name="description"
+        content="Create a Careers@GFTV applicant account to apply for voluntary, unpaid roles. Active immediately, with no approval wait and no email verification.">
+    <meta name="robots" content="noindex">
+
+    <meta name="theme-color" content="#ffffff">
+    <script>
+        (function () {
+            var k = "gftv-careers";
+            var m = localStorage.getItem(k + ".mode") || "light";
+
+            // The time based mode, an experiment for this app and not part of
+            // gftv-theme.md. Resolved here rather than in theme.js because
+            // theme.js runs after first paint, and an evening reader would
+            // otherwise watch a white page turn dark. Keep the two hours in
+            // step with LIGHT_FROM_HOUR and LIGHT_UNTIL_HOUR in theme.js.
+            if (m === "time") {
+                var h = new Date().getHours();
+                m = h >= 9 && h < 18 ? "light" : "dark";
+                document.documentElement.setAttribute("data-mode-preference", "time");
+            }
+            var c = localStorage.getItem(k + ".colorTheme") || "classic";
+            var l = localStorage.getItem(k + ".locale") || "en";
+            document.documentElement.setAttribute("data-mode", m);
+            document.documentElement.setAttribute("data-color-theme", c);
+            document.documentElement.setAttribute("data-locale", l);
+            document.documentElement.setAttribute("lang", l === "zh" ? "zh-Hans-SG" : "en");
+
+            if (l !== "en") {
+                document.documentElement.setAttribute("data-i18n-pending", "true");
+                setTimeout(function () {
+                    document.documentElement.removeAttribute("data-i18n-pending");
+                }, 1200);
+            }
+        })();
+    </script>
+
+    <link rel="stylesheet" href="/assets/css/theme.css">
+    <link rel="stylesheet" href="/assets/css/app.css">
+
+    <link rel="manifest" href="/manifest.json">
+    <link rel="canonical" href="https://careers.globalfurry.tv/register">
+
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Careers@GFTV">
+    <meta property="og:title" content="Create an account | Careers@GFTV">
+    <meta property="og:description" content="Create a Careers@GFTV applicant account. Every role currently listed is voluntary and unpaid.">
+    <meta property="og:url" content="https://careers.globalfurry.tv/register">
+    <meta property="og:image" content="/HLC-main.png">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:image:src" content="/HLC-main.png">
+
+    <link rel="apple-touch-icon" href="/HLC-main.png">
+    <link rel="icon" href="/favicon.ico">
+    <link rel="shortcut icon" href="/favicon.ico">
+
+    <script type="module" src="/assets/js/shell.js"></script>
+    <script type="module" src="/assets/js/register-page.js"></script>
+</head>
+
+<body>
+    <div class="boot-loader" aria-hidden="true">
+        <span class="spinner delayed"></span>
+    </div>
+    <a class="skip-link" href="#main" data-i18n="common.skipToContent">Skip to content</a>
+
+    <main class="page page-narrow" id="main">
+        <div class="page-header">
+            <h1 data-i18n="auth.registerHeading">Create an account</h1>
+            <p class="lede" data-i18n="auth.registerLede">
+                Active immediately. No approval wait, and no email to confirm.
+            </p>
+        </div>
+
+        <!-- Said before the form rather than after it, and in the strongest
+             callout on the page. Somebody who reads the word Careers and
+             assumes a salary should find out here, not after an interview. -->
+        <div class="callout warn">
+            <p data-i18n="auth.unpaidReminder">
+                Before you sign up: every role listed on this site at present is
+                voluntary and unpaid. No salary, no stipend, no expenses. If a
+                paid role is ever posted it will say so on the posting itself,
+                but do not sign up expecting one.
+            </p>
+        </div>
+
+        <!-- 5c asks for this to be said more than once, and the first time is
+             before the account exists rather than after. -->
+        <div class="callout note" style="margin-top: 1rem;">
+            <p data-i18n="auth.noEmailNotice">
+                There is no email on this site, which means there is no
+                "email me a reset link". Recovery codes are the only way back
+                into your account if you forget your password, and you will be
+                shown them once, straight after this form.
+            </p>
+        </div>
+
+        <form class="glass-card card form" id="registerForm" novalidate>
+            <div class="callout danger form-message" data-form-message role="alert" hidden></div>
+
+            <div class="field">
+                <label for="username" data-i18n="auth.usernameLabel">Username</label>
+                <input id="username" name="username" type="text" autocomplete="username"
+                       autocapitalize="none" spellcheck="false" required minlength="3" maxlength="32">
+                <p class="field-hint" data-i18n="auth.usernameHint">
+                    Letters, numbers, and . _ - between 3 and 32 characters.
+                </p>
+                <p class="field-error" data-error-for="username" hidden></p>
+            </div>
+
+            <div class="field">
+                <label for="display_name" data-i18n="auth.displayNameLabel">Display name</label>
+                <input id="display_name" name="display_name" type="text" autocomplete="nickname"
+                       required maxlength="60">
+                <p class="field-hint" data-i18n="auth.displayNameHint">
+                    What we call you. This is what an admin sees beside your
+                    applications.
+                </p>
+                <p class="field-error" data-error-for="display_name" hidden></p>
+            </div>
+
+            <div class="field">
+                <label for="email" data-i18n="auth.emailLabel">Email</label>
+                <input id="email" name="email" type="email" autocomplete="email"
+                       autocapitalize="none" spellcheck="false" required maxlength="254">
+                <p class="field-hint" data-i18n="auth.emailHint">
+                    Used to sign in and to prefill the application form. Nothing
+                    is ever sent to it.
+                </p>
+                <p class="field-error" data-error-for="email" hidden></p>
+            </div>
+
+            <div class="field">
+                <label for="password" data-i18n="auth.passwordLabel">Password</label>
+                <div class="input-with-button">
+                    <input id="password" name="password" type="password"
+                           autocomplete="new-password" required minlength="10">
+                    <button type="button" class="icon-btn small" data-toggle-password="password">
+                        <span data-icon="eye" data-icon-size="18"></span>
+                    </button>
+                </div>
+                <p class="field-hint" data-i18n="auth.passwordHint">
+                    At least 10 characters. Length is what makes a password
+                    strong, so a short phrase beats a short scramble.
+                </p>
+                <p class="field-error" data-error-for="password" hidden></p>
+            </div>
+
+            <div class="field">
+                <label for="password_confirm" data-i18n="auth.passwordConfirmLabel">
+                    Confirm password
+                </label>
+                <div class="input-with-button">
+                    <input id="password_confirm" name="password_confirm" type="password"
+                           autocomplete="new-password" required>
+                    <button type="button" class="icon-btn small"
+                            data-toggle-password="password_confirm">
+                        <span data-icon="eye" data-icon-size="18"></span>
+                    </button>
+                </div>
+                <p class="field-error" data-error-for="password_confirm" hidden></p>
+            </div>
+
+            <label class="check-row">
+                <input type="checkbox" name="stay_signed_in">
+                <span data-i18n="auth.staySignedIn">Stay signed in for 30 days on this device</span>
+            </label>
+
+            <button class="btn btn-primary" type="submit" data-i18n="auth.createAccount">
+                Create an account
+            </button>
+        </form>
+
+        <p class="auth-links">
+            <span data-i18n="auth.haveAccount">Already have an account</span>
+            <a id="signInLink" href="/login" data-i18n="auth.signIn">Sign in</a>
+        </p>
+
+        <noscript>
+            <div class="callout warn" style="margin-top: 1.5rem;">
+                <p>Creating an account needs JavaScript. Reading postings does not.</p>
+            </div>
+        </noscript>
+    </main>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js');
+        }
+    </script>
+</body>
+
+</html>
