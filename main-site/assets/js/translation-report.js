@@ -119,7 +119,13 @@ function buildDialog() {
     titleKey: 'report.title',
     className: 'report-dialog',
     bodyHtml: `
-      <form id="reportForm" novalidate>
+      <!-- method="post" for the same reason every credential form on the site
+           carries it: a form with no method defaults to GET, so a submit that
+           happens before its handler is attached puts every field in the query
+           string. This one is built and wired in the same tick and has no such
+           window, but a form on this site that is not a search form is a POST,
+           and an exception nobody can explain is how the rule gets dropped. -->
+      <form method="post" id="reportForm" novalidate>
         <p class="report-intro" data-i18n="report.intro"></p>
 
         <div class="field">

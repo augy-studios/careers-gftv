@@ -92,7 +92,21 @@
             </p>
         </div>
 
-        <form class="glass-card card form" id="loginForm" novalidate>
+        <!-- method="post" is load bearing, and the reason is not obvious.
+             login-page.js intercepts this submit and prevents the default, so
+             the method is never used once the page has hydrated. It matters in
+             the window before that, and in the case where the module never
+             loads at all: a form with no method defaults to GET, and a native
+             submit would then navigate to this same URL carrying the username
+             and the password in the query string, where they reach browser
+             history, the Referer header on the next request, and any proxy log
+             in between. A POST that goes nowhere useful is the right failure.
+
+             Every credential form on the site carries this. The two search
+             forms deliberately do not: there a native GET lands on
+             /search?q=..., which is exactly right, and is the one place the
+             fallback is a feature. -->
+        <form method="post" class="glass-card card form" id="loginForm" novalidate>
             <div class="callout danger form-message" data-form-message role="alert" hidden></div>
 
             <div class="field">
@@ -158,7 +172,7 @@
                 </p>
             </div>
 
-            <form class="glass-card card form" id="backupCodeForm" novalidate
+            <form method="post" class="glass-card card form" id="backupCodeForm" novalidate
                   style="margin-top: 1.5rem;">
                 <div class="callout danger form-message" data-form-message role="alert" hidden></div>
 

@@ -88,7 +88,7 @@
         <!-- Step 1, the password. It issues no session when a second factor is
              required, per 5a, and offers no "trust this device", per 5d. -->
         <section id="staffStep1">
-            <form class="glass-card card form" id="staffLoginForm" novalidate>
+            <form method="post" class="glass-card card form" id="staffLoginForm" novalidate>
                 <div class="callout danger form-message" data-form-message role="alert" hidden></div>
 
                 <div class="field">
@@ -140,7 +140,7 @@
                 </button>
             </div>
 
-            <form class="glass-card card form" id="staffCodeForm" novalidate
+            <form method="post" class="glass-card card form" id="staffCodeForm" novalidate
                   style="margin-top: 1.5rem;">
                 <div class="callout danger form-message" data-form-message role="alert" hidden></div>
 

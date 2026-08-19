@@ -84,7 +84,7 @@
         <!-- Step 1. Verifying the code and setting the password are two
              separate requests, per 5c, and this page never collapses them. -->
         <section id="step1">
-            <form class="glass-card card form" id="codeForm" novalidate>
+            <form method="post" class="glass-card card form" id="codeForm" novalidate>
                 <div class="callout danger form-message" data-form-message role="alert" hidden></div>
 
                 <div class="field">
@@ -143,7 +143,7 @@
                 </button>
             </div>
 
-            <form class="glass-card card form" id="resetBackupForm" novalidate
+            <form method="post" class="glass-card card form" id="resetBackupForm" novalidate
                   style="margin-top: 1.5rem;">
                 <div class="callout danger form-message" data-form-message role="alert" hidden></div>
 
@@ -166,7 +166,7 @@
 
         <!-- The new password. Shown only once every factor has been satisfied. -->
         <section id="step2" hidden>
-            <form class="glass-card card form" id="passwordForm" novalidate>
+            <form method="post" class="glass-card card form" id="passwordForm" novalidate>
                 <div class="callout danger form-message" data-form-message role="alert" hidden></div>
 
                 <p class="lede" id="resetForWhom"></p>

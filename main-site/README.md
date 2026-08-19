@@ -142,6 +142,23 @@ bytes go through a function using the service key, which is also why the
 browser has to compress first: a Vercel function takes at most 4.5 MB of
 request body.
 
+## Forms
+
+**Every form carrying a credential declares `method="post"`. The two search
+forms deliberately do not.**
+
+Each page's module intercepts its own submit and prevents the default, so the
+method is unused once the page has hydrated. It matters before that, and in the
+case where the module never loads: a form with no method defaults to GET, and a
+native submit then navigates to the same URL with every field in the query
+string. On `/login` that is a username and a password reaching browser history,
+the `Referer` header on the next request, and any proxy log in between. A POST
+that goes nowhere useful is the right failure.
+
+The search forms on `/` and `/search` are the exception, and it is a feature
+rather than an oversight: with JavaScript off, a native GET there lands on
+`/search?q=...`, which is exactly the right page. That fallback is checked.
+
 ## The two auth realms
 
 They are fully separate: separate tables, separate cookies, separate helpers.
