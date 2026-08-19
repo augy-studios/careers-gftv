@@ -292,9 +292,38 @@ body {
     overflow: visible;
   }
 
-  .site-nav a {
+  .site-nav a,
+  .site-nav .nav-signout {
     min-height: 40px;
+    /* A row of nav items must not wrap its labels. Without this the anchors
+       shrink to their longest word and "Find a role" stacks three lines high,
+       which is what the drawer's vertical layout hides. */
+    white-space: nowrap;
   }
+
+  /* The drawer gives this width: 100% so it fills a column. On a row that makes
+     it demand the whole nav and crush everything beside it, and because the
+     button only exists once somebody is signed in, the signed out header looks
+     perfectly fine. Reset it here rather than scoping the rule above, so the
+     two layouts stay readable side by side. */
+  .site-nav .nav-signout {
+    width: auto;
+  }
+}
+
+/* An applicant's display name is arbitrary text of arbitrary length sitting in
+   a fixed width bar, so it is the one nav item allowed to be cut short. Capped
+   rather than wrapped: a name that wraps takes the row with it. */
+.nav-account-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 12ch;
+}
+
+/* The brand is the last thing that should give way when the bar is crowded. */
+.brand {
+  white-space: nowrap;
 }
 
 /* ---------------------------------------------------------------------------
@@ -2178,6 +2207,13 @@ input[type='search']::-webkit-search-cancel-button {
   background: none;
   color: var(--text);
   overflow: visible;
+  /* A browser centres a modal dialog with margin: auto against the inset: 0 it
+     gives dialog:modal. The reset at the top of theme.css sets margin: 0 on
+     everything, which beats the UA stylesheet and pins the dialog to the top
+     left corner. Restating it here is the whole fix, and it is needed only by
+     this modal: the other three are flex centred backdrops and never touch the
+     UA layout at all. */
+  margin: auto;
 }
 
 .apply-dialog::backdrop {
@@ -2376,6 +2412,8 @@ input[type='search']::-webkit-search-cancel-button {
     max-height: 90dvh;
     top: auto;
     bottom: 0;
+    /* Bottom rather than centred, so margin: auto above is deliberately undone
+       on this axis. It still fills the width, so there is nothing to centre. */
     margin: 0;
     border-radius: var(--radius) var(--radius) 0 0;
   }

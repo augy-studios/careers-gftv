@@ -611,7 +611,10 @@ async function reflectApplicantSession() {
   account.href = '/account/security';
   account.innerHTML =
     '<span data-icon="shield" data-icon-size="18"></span>' +
-    `<span></span>`;
+    // Classed so app.css can cap it. A display name is arbitrary text of
+    // arbitrary length dropped into a fixed width bar, and it is the one nav
+    // item that may be cut short rather than allowed to push the row around.
+    `<span class="nav-account-name"></span>`;
   // The display name is data, not a dictionary string, so it is set as text
   // rather than through data-i18n and is never passed through innerHTML.
   account.lastElementChild.textContent = session.user.display_name;
