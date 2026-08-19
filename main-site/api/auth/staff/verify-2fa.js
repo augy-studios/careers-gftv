@@ -62,7 +62,7 @@ export default async function handler(req, res) {
     const { data: row, error } = await supabase
       .from(T.staffTotpChallenges)
       .select(
-        `${HELLO.challenges.id}, ${HELLO.challenges.userId}, ${HELLO.challenges.expiresAt},
+        `${HELLO.challenges.userId}, ${HELLO.challenges.expiresAt},
          user:${T.staffUsers} ( id, username, is_approved, is_admin, is_editor, totp_secret )`
       )
       .eq(HELLO.challenges.token, challenge)
@@ -79,7 +79,7 @@ export default async function handler(req, res) {
         await supabase
           .from(T.staffTotpChallenges)
           .delete()
-          .eq(HELLO.challenges.id, row[HELLO.challenges.id]);
+          .eq(HELLO.challenges.token, challenge);
       }
       await verifyAgainstNothing(code);
       await recordFailures('staff_2fa', subjects, LIMITS.twoFactor);
@@ -99,7 +99,7 @@ export default async function handler(req, res) {
       await supabase
         .from(T.staffTotpChallenges)
         .delete()
-        .eq(HELLO.challenges.id, row[HELLO.challenges.id]);
+        .eq(HELLO.challenges.token, challenge);
       return fail(res, ERR.UNAUTHORISED, GENERIC);
     }
 
@@ -186,7 +186,7 @@ export default async function handler(req, res) {
     await supabase
       .from(T.staffTotpChallenges)
       .delete()
-      .eq(HELLO.challenges.id, row[HELLO.challenges.id]);
+      .eq(HELLO.challenges.token, challenge);
 
     await clearAll('staff_2fa', subjects);
 

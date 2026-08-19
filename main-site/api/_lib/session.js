@@ -11,10 +11,12 @@
 // wholesale invalidation, and the trusted device handling from 5d.
 //
 // About the gftvhello column names, and why they are collected in one object
-// below: this repo does not own the gftvhello namespace and cannot migrate it.
-// Every column name used against a gftvhello table is an assumption taken from
-// section 5a of the specification. HELLO exists so that a mismatch is one edit
-// here rather than a search across the staff routes.
+// below: this repo does not own the gftvhello namespace and cannot migrate it,
+// so every name it uses against those tables started as an assumption from
+// section 5a. One of them was wrong, and a staff sign in failed on the live
+// site because of it. HELLO is where a mismatch is one edit rather than a
+// search across the staff routes, and the sign in path no longer names a
+// primary key at all: see the note on HELLO.
 
 import { supabase, T } from './supabase.js';
 import { COOKIE, readCookie, setCookie, clearCookie } from './cookies.js';
@@ -26,22 +28,38 @@ import { randomToken, sha256 } from './tokens.js';
  *
  * Only the session, challenge, trusted device, and backup code rows are ever
  * written, per section 2. gftvhello_users is read only, always.
+ *
+ * These names are no longer assumptions. They were, until a staff sign in
+ * failed on the live site with 42703, and the four real schemas were then read
+ * off the database. Two of them did not match what section 5a implied:
+ *
+ *   gftvhello_totp_challenges   token is the primary key. There is no id.
+ *   gftvhello_trusted_devices   the token column is device_token, and there is
+ *                               no last_used_at and no label at all.
+ *
+ * The other two were as expected: gftvhello_sessions and gftvhello_backup_codes
+ * both carry a uuid id, plus the columns below.
+ *
+ * Confirmed, 19 August 2026:
+ *
+ *   sessions      id, user_id, token (unique), expires_at, created_at
+ *   challenges    token (pk), user_id, expires_at
+ *   devices       id, user_id, device_token (unique), expires_at
+ *   backupCodes   id, user_id, code_hash, created_at
+ *
+ * If any of these changes on the gftv.asia side, this object is the one edit.
  */
 export const HELLO = Object.freeze({
   sessions: { id: 'id', userId: 'user_id', token: 'token', expiresAt: 'expires_at' },
-  challenges: {
-    id: 'id',
-    userId: 'user_id',
-    token: 'token',
-    expiresAt: 'expires_at',
-  },
+  // No id on this one. The token is the primary key.
+  challenges: { userId: 'user_id', token: 'token', expiresAt: 'expires_at' },
+  // device_token, not token. No last_used_at, and no label: see
+  // listTrustedDevices for what that costs and how it is handled.
   devices: {
     id: 'id',
     userId: 'user_id',
-    token: 'token',
+    token: 'device_token',
     expiresAt: 'expires_at',
-    lastUsedAt: 'last_used_at',
-    label: 'label',
   },
   backupCodes: { id: 'id', userId: 'user_id', codeHash: 'code_hash' },
 });
@@ -150,9 +168,8 @@ export async function getStaffSession(req) {
   const expiresAt = data[HELLO.sessions.expiresAt];
 
   if (new Date(expiresAt).getTime() <= Date.now()) {
-    // The session row belongs to the login flow, so deleting an expired one is
-    // within the narrow set of gftvhello writes this portal is allowed. See
-    // section 2.
+    // Deleting an expired session row is within the narrow set of gftvhello
+    // writes section 2 allows.
     await supabase.from(T.staffSessions).delete().eq(HELLO.sessions.id, sessionId);
     return null;
   }
@@ -405,7 +422,7 @@ export async function useStaffTrustedDevice(req, res, userId) {
 
   const { data, error } = await supabase
     .from(T.staffTrustedDevices)
-    .select(`${HELLO.devices.id}, ${HELLO.devices.expiresAt}`)
+    .select(`${HELLO.devices.expiresAt}`)
     .eq(HELLO.devices.userId, userId)
     .eq(HELLO.devices.token, token)
     .maybeSingle();
@@ -422,14 +439,19 @@ export async function useStaffTrustedDevice(req, res, userId) {
   const next = randomToken(32);
   const nextExpiry = deviceExpiry();
 
+  // No last_used_at to write: the column does not exist on this table and
+  // section 2 forbids adding one. Pushing expires_at out is the only trace a
+  // use leaves, which is also what makes it recoverable in listTrustedDevices.
   const { error: updateError } = await supabase
     .from(T.staffTrustedDevices)
     .update({
       [HELLO.devices.token]: next,
-      [HELLO.devices.lastUsedAt]: new Date().toISOString(),
       [HELLO.devices.expiresAt]: nextExpiry.toISOString(),
     })
-    .eq(HELLO.devices.id, data[HELLO.devices.id]);
+    // By the token this portal issued, not by an assumed primary key. The
+    // filter on user is what makes it exactly one row.
+    .eq(HELLO.devices.userId, userId)
+    .eq(HELLO.devices.token, token);
 
   if (updateError) {
     console.error('[careers-gftv] useStaffTrustedDevice rotate:', updateError);
@@ -450,15 +472,16 @@ export async function trustStaffDevice(res, userId, label = null) {
   const token = randomToken(32);
   const expiresAt = deviceExpiry();
 
-  const row = {
+  // The label is accepted and dropped. gftvhello_trusted_devices has no column
+  // for it, and section 2 forbids adding one. The parameter stays so the two
+  // realms have the same shape and the applicant side can still use it.
+  void label;
+
+  const { error } = await supabase.from(T.staffTrustedDevices).insert({
     [HELLO.devices.userId]: userId,
     [HELLO.devices.token]: token,
     [HELLO.devices.expiresAt]: expiresAt.toISOString(),
-    [HELLO.devices.lastUsedAt]: new Date().toISOString(),
-  };
-  if (label) row[HELLO.devices.label] = label;
-
-  const { error } = await supabase.from(T.staffTrustedDevices).insert(row);
+  });
 
   if (error) {
     console.error('[careers-gftv] trustStaffDevice:', error);
@@ -522,8 +545,19 @@ export async function listTrustedDevices(realm, userId) {
 
   // The token itself is never selected, in either realm. The gftvhello table
   // holds it in the clear and it must not leave the server.
+  //
+  // The staff table has neither a label nor a last_used_at, so the staff list
+  // is thinner than 5d describes and there is nowhere to put the missing
+  // columns without altering a table section 2 says not to touch.
+  //
+  // Last used is recovered rather than stored. Every successful use rotates the
+  // token and sets expires_at to exactly 30 days out, so expires_at minus 30
+  // days is when the device was last used, to the second. That holds because
+  // this portal is the only thing that writes the column that way; if
+  // gftv.asia ever writes it differently the value becomes an approximation,
+  // which is why it is derived here and not presented as a stored fact.
   const columns = isStaff
-    ? `${HELLO.devices.id}, ${HELLO.devices.label}, ${HELLO.devices.lastUsedAt}, ${HELLO.devices.expiresAt}`
+    ? `${HELLO.devices.id}, ${HELLO.devices.expiresAt}`
     : 'id, label, last_used_at, created_at, expires_at';
 
   const { data, error } = await supabase
@@ -537,12 +571,30 @@ export async function listTrustedDevices(realm, userId) {
     return [];
   }
 
-  return (data ?? []).map((row) => ({
-    id: row[isStaff ? HELLO.devices.id : 'id'],
-    label: row[isStaff ? HELLO.devices.label : 'label'] ?? null,
-    last_used_at: row[isStaff ? HELLO.devices.lastUsedAt : 'last_used_at'] ?? null,
-    expires_at: row[isStaff ? HELLO.devices.expiresAt : 'expires_at'] ?? null,
-  }));
+  return (data ?? []).map((row) => {
+    if (!isStaff) {
+      return {
+        id: row.id,
+        label: row.label ?? null,
+        last_used_at: row.last_used_at ?? null,
+        expires_at: row.expires_at ?? null,
+      };
+    }
+
+    const expiresAt = row[HELLO.devices.expiresAt] ?? null;
+    const lastUsed = expiresAt
+      ? new Date(
+          new Date(expiresAt).getTime() - TRUSTED_DEVICE_DAYS * 24 * 60 * 60 * 1000
+        ).toISOString()
+      : null;
+
+    return {
+      id: row[HELLO.devices.id],
+      label: null,
+      last_used_at: lastUsed,
+      expires_at: expiresAt,
+    };
+  });
 }
 
 /**
