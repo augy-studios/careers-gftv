@@ -11,14 +11,28 @@
 // cleared, or on a page that is not the posting. The prompt is state, not a
 // page, so the server has to be the one that knows.
 //
-// Four rules, three of which are about not being annoying:
+// Five rules, four of which are about not being annoying:
+//
+//   **The check runs on every page. The modal opens once a visit.** 7c says
+//   both of these and they are easy to read as one thing: the script "calls
+//   that endpoint once per page load and opens the modal if anything comes
+//   back", and, a few lines later, "the modal reopens on their next visit, so
+//   nothing is lost by closing it." A *visit*, not a page load. Opening on
+//   every page load is the literal reading of the first sentence and it makes
+//   the second one untrue: somebody who closes the modal and then reads four
+//   postings gets it thrown at them five times, which is nagging, and 7c is
+//   explicit that this is "a light tap on the shoulder, not an ambush".
+//
+//   So the check stays on every page, because that is what finds the prompt
+//   wherever the applicant happens to be, and SHOWN below stops it opening a
+//   second time in the same tab session. Their next visit asks again.
 //
 //   **The server is the source of truth.** localStorage holds the same row id
 //   purely as a fast path. Treat it as a cache that can be wrong: if the server
 //   says nothing is pending, clear it and show nothing.
 //
 //   **Only ever one at a time.** If several prompts are pending, take the most
-//   recent and leave the rest for later page loads.
+//   recent and leave the rest for a later visit.
 //
 //   **Nothing is gated on answering.** Asking again is about recovering a
 //   possible Yes, not about withholding anything, so a dismissal costs the
@@ -27,6 +41,14 @@
 //   **There is no route for it.** /jobs/{uuid}?prompt={id} is the only linkable
 //   form, per 7c, and the parameter is stripped with history.replaceState once
 //   the modal is open so it does not linger in a shared link.
+//
+// Where a dismissed prompt goes instead of coming back at you: the posting it
+// belongs to replaces its Apply button with "You have an unanswered question
+// about this application", which reopens it, and phase 6 builds
+// /account/tasks, which 7g calls "the canonical place for it", with a count in
+// the account navigation so it is discoverable without being pushed. Until
+// that page exists the posting is the only standing affordance, and a visit
+// that opens the modal once is what covers the gap.
 
 import { api, applicantSession } from './api.js';
 
@@ -48,6 +70,33 @@ function loadModal() {
 // Alongside the theme, locale, and intent keys, in the same namespace, so
 // everything this site stores in a browser is findable in one place.
 const CACHE_KEY = 'gftv-careers.pendingPrompt';
+
+// Which prompts this tab has already put on screen. sessionStorage rather than
+// localStorage, deliberately: "next visit" is the unit 7c uses, and a new tab
+// or a browser reopened tomorrow is a new visit. localStorage would mean a
+// prompt dismissed once was never shown again on that device, which loses the
+// recoverable Yes the whole mechanism exists for.
+const SHOWN_KEY = 'gftv-careers.promptShown';
+
+function alreadyShown(id) {
+  try {
+    return (JSON.parse(sessionStorage.getItem(SHOWN_KEY) ?? '[]') ?? []).includes(id);
+  } catch {
+    // Storage blocked. Falling back to showing it is the safe direction: the
+    // prompt is easy to close and losing it is worse than seeing it twice.
+    return false;
+  }
+}
+
+function markShown(id) {
+  try {
+    const seen = JSON.parse(sessionStorage.getItem(SHOWN_KEY) ?? '[]') ?? [];
+    if (!seen.includes(id)) seen.push(id);
+    sessionStorage.setItem(SHOWN_KEY, JSON.stringify(seen.slice(-20)));
+  } catch {
+    // Nothing to do. Worst case it opens again on the next page.
+  }
+}
 
 /** The posting this page is, or null if it is not a posting page. */
 function currentJobId() {
@@ -153,9 +202,10 @@ export async function resumePendingPrompt() {
   // Started here and awaited below, so the pending request and the module
   // fetch run alongside each other rather than one after the other.
   const fastPath =
-    jobId && cached && cached.jobId === jobId
+    jobId && cached && cached.jobId === jobId && !alreadyShown(cached.id)
       ? loadModal().then((dialog) => {
           if (dialog.applyDialogOpen()) return;
+          markShown(cached.id);
           dialog.openApplyDialog({
             mode: 'resume',
             jobId: cached.jobId,
@@ -194,7 +244,17 @@ export async function resumePendingPrompt() {
     prompts[0];
 
   writeCache(chosen);
+
+  // A deep link is somebody deliberately asking for this prompt, from
+  // /account/tasks in phase 6 or from a link they kept. That is a request, not
+  // an interruption, so it opens whether or not this visit has already shown
+  // it. Read before the parameter is stripped.
+  const requested = linkedPromptId() === chosen.id;
   stripPromptParam();
+
+  // Once a visit. The check above still ran, and the posting's own Apply slot
+  // still shows the standing prompt, so nothing is lost by not opening here.
+  if (!requested && alreadyShown(chosen.id)) return;
 
   const dialog = await loadModal();
 
@@ -214,6 +274,7 @@ export async function resumePendingPrompt() {
     document.querySelector('#applyDialog')?.close();
   }
 
+  markShown(chosen.id);
   dialog.openApplyDialog({
     mode: 'resume',
     jobId: chosen.job_id,

@@ -99,6 +99,14 @@ const PATHS = {
   // chosen ones and leaves the rest as outlines.
   star:
     '<path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.15 1 5.85L12 16.95 6.75 19.7l1-5.85L3.5 9.7l5.9-.9z"/>',
+  // Four panes. The dashboard glyph, for the staff link in the header. The
+  // hammer would read better as "tools" but it is already the Build status
+  // item, and two hammers in one menu is worse than a duller icon.
+  grid:
+    '<rect x="4" y="4" width="7" height="7" rx="1.5"/>' +
+    '<rect x="13" y="4" width="7" height="7" rx="1.5"/>' +
+    '<rect x="4" y="13" width="7" height="7" rx="1.5"/>' +
+    '<rect x="13" y="13" width="7" height="7" rx="1.5"/>',
 };
 
 // A few names read better in markup with a hyphen.

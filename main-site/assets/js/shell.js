@@ -30,7 +30,7 @@ import {
   applyFeatureGating,
   renderPlaceholder,
 } from './build-status.js';
-import { api, applicantSession } from './api.js';
+import { api, applicantSession, staffSession, hasStaffHint } from './api.js';
 import { resumePendingPrompt } from './apply-prompt.js';
 
 /* -------------------------------------------------------------------------
@@ -639,6 +639,51 @@ async function reflectApplicantSession() {
   translateNewChrome(nav);
 }
 
+/**
+ * Offer staff a way back to the dashboard.
+ *
+ * The two realms stay separate: this is its own cookie, its own request, and
+ * its own nav item, and nothing here merges a staff account and an applicant
+ * account into one "current user". Somebody who is both gets two items, which
+ * is the honest rendering of being signed into two things.
+ *
+ * **Gated on a hint, so it costs nothing for almost everybody.** Asking the
+ * server about a staff session on every page load, for every reader, to serve
+ * the handful of people who have one, is the reason this was left out until
+ * now. api.js records a flag once a staff session has actually been seen in
+ * this browser, and only then is the question asked. The flag decides whether
+ * to ask, never what the answer is: the server re-checks the session and the
+ * access flags on every admin route regardless, per section 8.
+ *
+ * The link points at /admin, which renders the phase 7 placeholder today. That
+ * is section 0c working as intended rather than a dead link, and phase 7 turns
+ * it into the real dashboard without touching this.
+ */
+async function reflectStaffSession() {
+  if (!hasStaffHint()) return;
+
+  const nav = document.querySelector('#siteNav');
+  if (!nav) return;
+
+  const session = await staffSession();
+  if (!session?.user) return;
+  if (nav.querySelector('#navAdmin')) return;
+
+  const link = document.createElement('a');
+  link.href = '/admin';
+  link.id = 'navAdmin';
+  link.innerHTML =
+    '<span data-icon="grid" data-icon-size="18"></span>' +
+    '<span data-i18n="nav.adminDashboard"></span>';
+
+  // First in the list. Somebody signed in as staff and looking at the public
+  // site is on their way to the dashboard more often than not.
+  nav.querySelector('a')?.before(link);
+
+  hydrateIcons(nav);
+  translateNewChrome(nav);
+}
+
 // The nav item added above carries a data-i18n key that was never present when
 // the language was first applied, so it needs one pass of its own. Later
 // language changes reach it through the shell's ordinary retranslation.
@@ -687,6 +732,7 @@ async function boot() {
   // changes one item in the navigation and nothing else, so it must never be
   // on the path that gets the page drawn.
   reflectApplicantSession();
+  reflectStaffSession();
 
   // 7c: the outstanding apply prompt follows the applicant across the portal
   // rather than living on the posting they started from, so the check runs on

@@ -129,9 +129,54 @@ export function applicantSession({ refresh = false } = {}) {
   return sessionPromise;
 }
 
-/** The staff session. Separate call, separate cookie, separate realm. */
+/**
+ * Whether this browser has ever held a staff session.
+ *
+ * A hint, not an authority, and the distinction is the whole of its safety: it
+ * decides whether shell.js bothers *asking* the server who is signed in, and
+ * nothing else. Every admin route re-checks the real session and the access
+ * flags on every request, per section 8, so a forged value here buys a link to
+ * a page that will refuse the caller.
+ *
+ * It exists because the header cannot otherwise offer staff a way back to
+ * /admin without asking about a staff session on every page load for every
+ * reader, almost none of whom have one. With the hint, the cost falls only on
+ * browsers that have actually signed in.
+ */
+const STAFF_HINT_KEY = 'gftv-careers.staffSeen';
+
+export function hasStaffHint() {
+  try {
+    return localStorage.getItem(STAFF_HINT_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function setStaffHint(value) {
+  try {
+    if (value) localStorage.setItem(STAFF_HINT_KEY, 'true');
+    else localStorage.removeItem(STAFF_HINT_KEY);
+  } catch {
+    // Storage blocked. The header simply never offers the admin link, and
+    // /admin still works by typing it.
+  }
+}
+
+/**
+ * The staff session. Separate call, separate cookie, separate realm.
+ *
+ * The two realms are never merged into one "current user" anywhere in this
+ * build, and this does not change that: it answers a different question with a
+ * different cookie, and the header renders the two as separate items.
+ */
 export function staffSession() {
-  return api('/api/auth/staff/session', { locale: false }).then((result) =>
-    result.ok ? result.data : { user: null }
-  );
+  return api('/api/auth/staff/session', { locale: false }).then((result) => {
+    const data = result.ok ? result.data : { user: null };
+    // Maintained here rather than at the login page, so it is corrected by
+    // whichever page next asks. A session that has lapsed clears the hint on
+    // the next check and the link stops being offered.
+    setStaffHint(Boolean(data?.user));
+    return data;
+  });
 }

@@ -533,5 +533,6 @@
   "apply.refused_cooldown": "You have already applied for this role recently.",
   "apply.refused_pending": "You have an unanswered question about your last application to this role.",
   "faq.reapplyQ": "Can I apply for the same role twice?",
-  "faq.reapplyA": "Not straight away. Once you have told us you applied, that role is closed to you for three months, and both the posting and the job board show the date it reopens rather than letting you find out by clicking. Closing the question without answering it does not start that period, because we only count an application you have confirmed. A role that closes and is later reposted is a new posting, so it carries no waiting period at all."
+  "faq.reapplyA": "Not straight away. Once you have told us you applied, that role is closed to you for three months, and both the posting and the job board show the date it reopens rather than letting you find out by clicking. Closing the question without answering it does not start that period, because we only count an application you have confirmed. A role that closes and is later reposted is a new posting, so it carries no waiting period at all.",
+  "nav.adminDashboard": "Admin"
 }
