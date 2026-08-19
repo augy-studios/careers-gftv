@@ -30,7 +30,7 @@
     },
     {
       "source": "/jobs/:id",
-      "destination": "/placeholder.html"
+      "destination": "/placeholder"
     },
     {
       "source": "/account/security",
@@ -38,11 +38,11 @@
     },
     {
       "source": "/account",
-      "destination": "/placeholder.html"
+      "destination": "/placeholder"
     },
     {
       "source": "/account/:path*",
-      "destination": "/placeholder.html"
+      "destination": "/placeholder"
     },
     {
       "source": "/admin/login",
@@ -54,11 +54,11 @@
     },
     {
       "source": "/admin",
-      "destination": "/placeholder.html"
+      "destination": "/placeholder"
     },
     {
       "source": "/admin/:path*",
-      "destination": "/placeholder.html"
+      "destination": "/placeholder"
     },
     {
       "source": "/about",
