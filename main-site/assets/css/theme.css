@@ -130,6 +130,33 @@
   letter-spacing: 0.01em;
 }
 
+/* The hidden attribute always wins.
+ *
+ * A browser hides [hidden] with display: none from its own stylesheet, and any
+ * author rule that sets display beats it, including an ordinary one like
+ * `.field { display: flex }`. So `el.hidden = true` quietly does nothing, but
+ * only when the element happens to carry a class with a display rule on it,
+ * which is what makes it so hard to spot: the same line works everywhere else.
+ *
+ * This stylesheet had already fallen into it three times and patched it three
+ * times per component, in .phase-notice, .nav-backdrop, and .feature-explainer.
+ * It fell in again on the translation report form, where submitting a report
+ * left the form on screen under its own thank you. Those three rules are now
+ * redundant and are phase 12's to remove.
+ *
+ * !important is right here rather than heavy handed: hidden is a statement
+ * about whether the element exists for the reader at all, and nothing about how
+ * a component lays out should be able to overrule it.
+ *
+ * **Do not "simplify" this away on the theory that the UA stylesheet already
+ * marks it important.** It does not in every engine, and it was removed once on
+ * exactly that theory. The probe that appeared to confirm it was run against a
+ * deployment that still had this rule in it, so it was measuring this rule. If
+ * you want to check, remove it locally and read a hidden .field in devtools. */
+[hidden] {
+  display: none !important;
+}
+
 /* ---------------------------------------------------------------------------
  * classic, light
  * ------------------------------------------------------------------------ */
