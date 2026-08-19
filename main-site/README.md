@@ -6,10 +6,11 @@ Vercel serverless functions under `api/`.
 Vercel's root directory for this project is set to `main-site`, which is why
 `api/` lives inside this directory rather than at the repo root.
 
-**Current phase: 2 of 14, Authentication.** Built and not yet flipped to
-shipped: signing in and registering, passkeys, recovery codes, account
-recovery, trusted devices, and `/account/security`. Everything else renders the
-placeholder. See [/status](https://careers.globalfurry.tv/status).
+**Current phase: 3 of 14, Browsing roles.** Live: the shell, the home page,
+`/status`, registering and signing in, passkeys, recovery codes, account
+recovery, trusted devices, `/account/security`, and `/admin/security`.
+Everything else renders the placeholder. See
+[/status](https://careers.globalfurry.tv/status).
 
 **Every role listed on this site is voluntary and unpaid**, and the interface
 says so on the home page, the registration page, the footer, the manifest, and
@@ -136,6 +137,7 @@ of the specification.
 | Group | Routes | Phase |
 |---|---|---|
 | `api/auth/staff/*` | login, verify-2fa, logout, session, trusted-devices, passkeys | 2 |
+| | Listing is GET. Revoking a device and removing a passkey are POST with an `action`, not DELETE: the password travels in the body, and a body on DELETE is legal but is known to be dropped by proxies, which would fail silently. | |
 | `api/auth/applicant/*` | register, login, logout, session, verify-2fa, profile, change-password, forgot-password, reset-password, recovery-codes, trusted-devices, passkeys, locale | 2 |
 | `api/public/*` | search, suggest, departments, tags, locales | 3 |
 | `api/public/jobs*` | job by uuid, slug lookup, jobs.json feed | 4 |

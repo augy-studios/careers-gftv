@@ -21,11 +21,11 @@
       "number": 2,
       "name": "Authentication",
       "name_zh": "账户与登录",
-      "status": "building",
+      "status": "shipped",
       "description": "Creating an applicant account and signing in, with passkeys as a second factor, recovery codes, trusted devices, and the stay signed in choice. Staff sign in with an existing gftv.asia account and its second factor.",
       "description_zh": "注册申请人账户并登录，包含作为第二重验证的通行密钥、恢复码、受信任设备，以及保持登录状态的选项。员工使用现有的 gftv.asia 账户及其第二重验证登录。",
-      "shipped_note": null,
-      "shipped_note_zh": null
+      "shipped_note": "Creating an account, signing in, and getting back in went live with this. Passkeys are the second factor in both realms, so a fingerprint or a security key replaces typing a code. Recovery codes are the way back in if you forget your password, since this site has no email to send a reset link to.",
+      "shipped_note_zh": "注册账户、登录，以及找回账户的功能随此阶段上线。通行密钥是申请人和员工两边的第二重验证，因此可以用指纹或实体安全密钥代替输入验证码。由于本网站不使用电邮，无法寄送重设链接，恢复码是您忘记密码时回到账户的途径。"
     },
     {
       "number": 3,

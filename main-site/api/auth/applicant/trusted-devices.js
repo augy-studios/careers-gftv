@@ -1,6 +1,5 @@
-// GET    /api/auth/applicant/trusted-devices          list them
-// DELETE /api/auth/applicant/trusted-devices?id=...    revoke one
-// DELETE /api/auth/applicant/trusted-devices?all=true  revoke every one
+// GET  /api/auth/applicant/trusted-devices   list them
+// POST /api/auth/applicant/trusted-devices   { action } revoke or revoke_all
 //
 // Section 5d: "Account settings lists trusted devices with when each was added
 // and last used, a revoke button per device, and a revoke all."
@@ -40,7 +39,7 @@ import {
 } from '../../_lib/session.js';
 
 export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'DELETE'])) return;
+  if (methodNotAllowed(req, res, ['GET', 'POST'])) return;
 
   const session = await requireApplicant(req, res);
   if (!session) return;
@@ -73,11 +72,8 @@ export default async function handler(req, res) {
       });
     }
 
-    const url = new URL(req.url ?? '/', 'https://careers.invalid');
-    const all = url.searchParams.get('all') === 'true';
-    const id = url.searchParams.get('id');
 
-    if (all) {
+    if (body.action === 'revoke_all') {
       await revokeAllTrustedDevices('applicant', session.user.id);
       await auditApplicant(session.user, AUDIT.TRUSTED_DEVICES_REVOKED_ALL, {}, {
         targetTable: 'gftvjobs_trusted_devices',
@@ -86,6 +82,11 @@ export default async function handler(req, res) {
       return ok(res, { revoked_all: true });
     }
 
+    if (!id) {
+      return fail(res, ERR.BAD_REQUEST, 'Say which device to revoke, or ask for all of them.');
+    }
+
+    const id = typeof body.id === 'string' ? body.id : '';
     if (!id) {
       return fail(res, ERR.BAD_REQUEST, 'Say which device to revoke, or ask for all of them.');
     }

@@ -1,6 +1,5 @@
-// GET    /api/auth/staff/passkeys        list them
-// POST   /api/auth/staff/passkeys        start or finish registering one
-// DELETE /api/auth/staff/passkeys?id=...  remove one
+// GET  /api/auth/staff/passkeys   list them
+// POST /api/auth/staff/passkeys   { action } start, finish, or remove
 //
 // The staff half of passkeys. Same two step ceremony as the applicant side,
 // against gftvjobs_staff_passkeys.
@@ -19,6 +18,12 @@
 // cannot change what it takes to get a session. Verifying that password is a
 // read of gftvhello_users.password_hash, which section 2 permits: the
 // prohibition is on writing.
+//
+// Removing is a POST with an action rather than a DELETE, because the password
+// travels in the body. A body on DELETE is legal and Node reads it, but it is
+// unusual enough that proxies and CDNs are known to drop it, and the failure
+// mode is silent: the password never arrives, the request is refused, and
+// nothing anywhere says why. POST costs nothing and removes the question.
 
 import { ok, fail, ERR, methodNotAllowed, readJson, failInternal } from '../../_lib/respond.js';
 import { requireStaff } from '../../_lib/session.js';
@@ -43,7 +48,7 @@ import {
 } from '../../_lib/rate-limit.js';
 
 export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'POST', 'DELETE'])) return;
+  if (methodNotAllowed(req, res, ['GET', 'POST'])) return;
 
   const session = await requireStaff(req, res);
   if (!session) return;
@@ -61,16 +66,15 @@ export default async function handler(req, res) {
       });
     }
 
-    if (req.method === 'DELETE') {
-      const url = new URL(req.url ?? '/', 'https://careers.invalid');
-      const id = url.searchParams.get('id');
+    const body = await readJson(req, res);
+    if (!body) return;
+
+    const subjects = [subjectForIp(req), subjectForUser('staff', userId)];
+    if (await limited(res, 'passkey', subjects)) return;
+
+    if (body.action === 'remove') {
+      const id = typeof body.id === 'string' ? body.id : '';
       if (!id) return fail(res, ERR.BAD_REQUEST, 'Say which passkey to remove.');
-
-      const body = await readJson(req, res);
-      if (!body) return;
-
-      const subjects = [subjectForIp(req), subjectForUser('staff', userId)];
-      if (await limited(res, 'passkey', subjects)) return;
 
       const correct = await verifyRealmPassword('staff', userId, body.current_password);
       if (!correct) {
@@ -95,12 +99,6 @@ export default async function handler(req, res) {
           remaining.length === 0 && !hasTotp(session.user.totp_secret),
       });
     }
-
-    const body = await readJson(req, res);
-    if (!body) return;
-
-    const subjects = [subjectForIp(req), subjectForUser('staff', userId)];
-    if (await limited(res, 'passkey', subjects)) return;
 
     if (body.action === 'start') {
       const correct = await verifyRealmPassword('staff', userId, body.current_password);

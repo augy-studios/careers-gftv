@@ -100,7 +100,7 @@ function note(map, key, where) {
 for (const file of files) {
   const raw = readFileSync(file, 'utf8');
   const source = file.endsWith('.js') ? stripComments(raw) : raw;
-  const where = relative('.', file).replace(/\\/g, '/');
+  const where = relative(HERE, file).replace(/\\/g, '/');
 
   for (const m of source.matchAll(/data-i18n(?:-html)?=["']([^"']+)["']/g)) {
     if (isKey(m[1])) note(used, m[1], where);
@@ -113,9 +113,21 @@ for (const file of files) {
     }
   }
 
-  // t('key') and t("key"), with or without a second argument.
-  for (const m of source.matchAll(/\bt\(\s*['"]([^'"]+)['"]/g)) {
-    if (isKey(m[1])) note(used, m[1], where);
+  // Every key shaped string literal inside a t( ... ) call, which covers
+  // t('key'), t('key', vars), and t(cond ? 'a' : 'b'). That last form is not
+  // exotic: common.modeLight and common.modeDark are only ever reached through
+  // one, and were reported as dead because of it.
+  //
+  // Scoped to the call rather than to the whole file on purpose. Matching every
+  // dotted string anywhere would pick up things like careers.globalfurry.tv and
+  // report those as missing keys.
+  for (const call of source.matchAll(/\bt\(/g)) {
+    const region = source.slice(call.index, call.index + 240);
+    const end = region.indexOf(')');
+    const args = region.slice(0, end === -1 ? region.length : end);
+    for (const literal of args.matchAll(/['"]([^'"]+)['"]/g)) {
+      if (isKey(literal[1])) note(used, literal[1], where);
+    }
   }
 
   // The NAV and FOOTER tables in shell.js, which name their labels by key.

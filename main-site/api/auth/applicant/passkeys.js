@@ -1,6 +1,5 @@
-// GET    /api/auth/applicant/passkeys        list them
-// POST   /api/auth/applicant/passkeys        start or finish registering one
-// DELETE /api/auth/applicant/passkeys?id=...  remove one
+// GET  /api/auth/applicant/passkeys   list them
+// POST /api/auth/applicant/passkeys   { action } start, finish, or remove
 //
 // Passkeys are the applicant realm's second factor. Before this, the realm had
 // none and was not due one until the Telegram bot in phase 11.
@@ -21,6 +20,12 @@
 // this, a borrowed unlocked laptop could turn the second factor off, or add a
 // passkey of its own that survives the password change afterwards. It is the
 // same rule 5c already applies to generating codes.
+//
+// Removing is a POST with an action rather than a DELETE, because the password
+// travels in the body. A body on DELETE is legal and Node reads it, but it is
+// unusual enough that proxies and CDNs are known to drop it, and the failure
+// mode is silent: the password never arrives, the request is refused, and
+// nothing anywhere says why. POST costs nothing and removes the question.
 
 import { ok, fail, ERR, methodNotAllowed, readJson, failInternal } from '../../_lib/respond.js';
 import { requireApplicant } from '../../_lib/session.js';
@@ -44,7 +49,7 @@ import {
 } from '../../_lib/rate-limit.js';
 
 export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'POST', 'DELETE'])) return;
+  if (methodNotAllowed(req, res, ['GET', 'POST'])) return;
 
   const session = await requireApplicant(req, res);
   if (!session) return;
@@ -65,16 +70,15 @@ export default async function handler(req, res) {
       });
     }
 
-    if (req.method === 'DELETE') {
-      const url = new URL(req.url ?? '/', 'https://careers.invalid');
-      const id = url.searchParams.get('id');
+    const body = await readJson(req, res);
+    if (!body) return;
+
+    const subjects = [subjectForIp(req), subjectForUser('applicant', userId)];
+    if (await limited(res, 'passkey', subjects)) return;
+
+    if (body.action === 'remove') {
+      const id = typeof body.id === 'string' ? body.id : '';
       if (!id) return fail(res, ERR.BAD_REQUEST, 'Say which passkey to remove.');
-
-      const body = await readJson(req, res);
-      if (!body) return;
-
-      const subjects = [subjectForIp(req), subjectForUser('applicant', userId)];
-      if (await limited(res, 'passkey', subjects)) return;
 
       const correct = await verifyRealmPassword('applicant', userId, body.current_password);
       if (!correct) {
@@ -100,12 +104,6 @@ export default async function handler(req, res) {
         second_factor_off: remaining.length === 0,
       });
     }
-
-    const body = await readJson(req, res);
-    if (!body) return;
-
-    const subjects = [subjectForIp(req), subjectForUser('applicant', userId)];
-    if (await limited(res, 'passkey', subjects)) return;
 
     // Asked for once, at the start of the ceremony. The finish step is
     // authorised by the challenge that this one issued.

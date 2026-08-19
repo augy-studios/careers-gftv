@@ -54,10 +54,10 @@ async function boot() {
 
     showDeviceError(null);
     button.disabled = true;
-    const result = await api('/api/auth/staff/trusted-devices?all=true', {
-      method: 'DELETE',
+    const result = await api('/api/auth/staff/trusted-devices', {
+      method: 'POST',
       locale: false,
-      body: { current_password: password },
+      body: { action: 'revoke_all', current_password: password },
     });
     button.disabled = false;
     if (!result.ok) {
@@ -167,10 +167,10 @@ async function loadPasskeys() {
 
       button.disabled = true;
       const id = button.getAttribute('data-remove-passkey');
-      const removed = await api(`/api/auth/staff/passkeys?id=${encodeURIComponent(id)}`, {
-        method: 'DELETE',
+      const removed = await api('/api/auth/staff/passkeys', {
+        method: 'POST',
         locale: false,
-        body: { current_password: confirmed.password },
+        body: { action: 'remove', id, current_password: confirmed.password },
       });
       if (!removed.ok) {
         button.disabled = false;
@@ -319,10 +319,11 @@ async function loadDevices() {
       showDeviceError(null);
       button.disabled = true;
       const id = button.getAttribute('data-revoke');
-      const result = await api(
-        `/api/auth/staff/trusted-devices?id=${encodeURIComponent(id)}`,
-        { method: 'DELETE', locale: false, body: { current_password: password } }
-      );
+      const result = await api('/api/auth/staff/trusted-devices', {
+        method: 'POST',
+        locale: false,
+        body: { action: 'revoke', id, current_password: password },
+      });
       if (!result.ok) {
         button.disabled = false;
         showDeviceError(result.error.message);
