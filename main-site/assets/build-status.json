@@ -129,16 +129,26 @@
     },
     {
       "number": 13,
-      "name": "Documentation",
-      "name_zh": "使用文档",
+      "name": "Docs site foundations",
+      "name_zh": "文档站基础",
       "status": "planned",
-      "description": "The public guides for the portal and the bot, in both languages, and the admin guide inside the dashboard. Written late so they describe what was built rather than what was planned.",
-      "description_zh": "面向公众的门户与机器人双语使用指南，以及后台内部的管理员指南。放在较后编写，以便如实描述已建成的功能，而非当初的计划。",
+      "description": "The documentation site itself, with a staff sign in on it. What a reader sees depends on their role: applicants read the public guides, job posters also read the dashboard guide, and admins also read the admin and developer guides.",
+      "description_zh": "文档网站本身，并附有员工登录功能。读者看到的内容取决于其身份：申请人可阅读公开指南，职位发布者另可阅读后台使用指南，管理员另可阅读管理与开发文档。",
       "shipped_note": null,
       "shipped_note_zh": null
     },
     {
       "number": 14,
+      "name": "Documentation",
+      "name_zh": "文档内容",
+      "status": "planned",
+      "description": "The guides themselves: how to use the portal and the bot in every language, how to help with translations, and the staff guides. Written late so they describe what was built rather than what was planned.",
+      "description_zh": "指南内容本身：各语言版本的求职门户与电报机器人使用说明、如何协助翻译，以及员工指南。刻意安排在后期撰写，以便描述实际建成的功能而非当初的计划。",
+      "shipped_note": null,
+      "shipped_note_zh": null
+    },
+    {
+      "number": 15,
       "name": "More languages",
       "name_zh": "更多语言",
       "status": "planned",
@@ -174,7 +184,7 @@
     "admin_applications": 7,
     "admin_departments": 7,
     "admin_tags": 7,
-    "admin_docs": 7,
+    "admin_docs": 14,
     "admin_analytics": 8,
     "admin_invites": 8,
     "admin_admins": 8,
@@ -193,8 +203,11 @@
     "seed": 12,
     "docs_site": 13,
     "admin_docs_content": 13,
-    "more_languages": 14,
+    "more_languages": 15,
     "translation_helpers": 8,
-    "translation_annotations": 8
+    "translation_annotations": 8,
+    "docs_staff_login": 13,
+    "staff_recovery_codes": 13,
+    "translation_helper_guide": 14
   }
 }
