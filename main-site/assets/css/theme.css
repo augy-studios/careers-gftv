@@ -823,6 +823,24 @@ a.chip:visited {
   border-color: transparent;
 }
 
+/* The time based option, per gftv-theme.md. Light and dark stay side by side
+   and the third spans the row beneath them: three equal columns put the longer
+   label in a box too narrow to read at 320px, and the full width row also says
+   visually that this one is a different kind of choice, a rule for picking a
+   mode rather than a mode.
+
+   Lives here rather than in app.css because it is part of the shared theme
+   system now, and theme.css is what implements that. */
+.mode-btn-wide {
+  grid-column: 1 / -1;
+}
+
+.mode-note {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
 .swatch-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));

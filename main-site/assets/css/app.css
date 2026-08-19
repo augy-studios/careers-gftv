@@ -862,29 +862,6 @@ select:disabled {
   font-size: 0.875rem;
 }
 
-/* ---------------------------------------------------------------------------
- * Time based mode, this app only
- *
- * Deliberately not in theme.css. That file is the implementation of
- * gftv-theme.md, which is shared across the GFTV apps and describes a two
- * option mode switch. This is a third option for this app alone, so it
- * overrides from the app layer and leaves the shared system as written.
- *
- * Light and dark stay side by side and the third spans the row beneath them.
- * Three equal columns would put "Time-based" in a box too narrow to read at
- * 320px, and the full width row also says visually that this one is a
- * different kind of choice: not a mode, but a rule for picking one.
- * ------------------------------------------------------------------------ */
-
-.mode-btn-wide {
-  grid-column: 1 / -1;
-}
-
-.mode-note {
-  margin-top: 0.5rem;
-  font-size: 0.875rem;
-  color: var(--text-muted);
-}
 
 /* ---------------------------------------------------------------------------
  * The three step danger confirmation, section 7g

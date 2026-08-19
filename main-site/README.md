@@ -237,8 +237,10 @@ The two axes are unchanged: `data-color-theme` and `data-mode` on `<html>`,
 exactly as `gftv-theme.md` describes. **`data-mode` is still only ever `light`
 or `dark`**, so no stylesheet knows the third option exists.
 
-What is new, for this app only and deliberately **not** added to
-`gftv-theme.md`, is a third *preference*:
+What is new is a third *preference*. It started as an experiment for this app
+and is now part of `gftv-theme.md`, so the other GFTV apps can take it; the
+shared file marks which pieces an app may leave out if it wants the two button
+toggle instead.
 
 | Stored in `gftv-careers.mode` | `data-mode` becomes |
 |---|---|
@@ -265,8 +267,8 @@ Three things worth knowing before changing it:
 - **The device clock is the only input.** No timezone is asked for, sent, or
   stored, and there is no sunrise or sunset lookup, which would need a location.
 
-If `theme.js` is ever re-synced from the shared version, this has to be
-re-applied by hand.
+A re-sync of `theme.js` from the canonical version now carries this, since the
+canonical version has it.
 
 ## The danger zone confirmation
 

@@ -6,12 +6,13 @@
 // two localStorage keys before first paint so both attributes exist on <html>
 // before any colour block is evaluated.
 //
-// One thing here is NOT from gftv-theme.md and must not be copied back into
-// it: the "time" mode, an experiment for this app only. If this module is ever
-// re-synced from the shared version, the time handling has to be re-applied by
-// hand rather than assumed to survive.
+// The "time" mode started here as an experiment for this app and has since
+// been adopted into gftv-theme.md, so it is part of the shared system and a
+// re-sync from the canonical version will carry it. It is optional per app:
+// the shared file marks the pieces an app can leave out if it ships the two
+// button toggle.
 //
-// It works by separating two things the original conflated:
+// It works by separating two things the original design conflated:
 //
 //   the preference   what the person chose. light, dark, or time.
 //   the mode         what the document is actually in. Only ever light or

@@ -226,8 +226,9 @@ function renderThemeModal() {
       <p class="modal-section-label" data-i18n="theme.mode"></p>
       <!-- Three options, not two. The third is a preference rather than a
            mode: it resolves to light or dark from the device clock, and
-           data-mode is still only ever one of those two. An experiment for
-           this app, deliberately not added to gftv-theme.md. -->
+           data-mode is still only ever one of those two. Part of
+           gftv-theme.md, and optional for an app that wants the two button
+           toggle instead. -->
       <div class="mode-toggle" id="modeToggle">
         <button class="mode-btn" type="button" data-mode="light" aria-pressed="false">
           <span data-icon="sun" data-icon-size="18"></span><span data-i18n="theme.light"></span>
