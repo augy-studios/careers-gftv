@@ -27,6 +27,8 @@ thing here.
 main-site/
   index.html          home page
   search/index.html   the job board, which is the listing and the results page
+                      /jobs/{uuid} has no file. It is rendered by
+                      api/job-page.js, per section 4
   about/index.html    what Careers@GFTV is, and why every role is unpaid
   faq/index.html      frequently asked questions
   status/index.html   the public build status page and changelog
@@ -54,6 +56,14 @@ main-site/
     js/job-card.js    one card renderer, shared by the home page and the board
     js/search-page.js the board: URL state, filters, chips, suggestions
     js/home-page.js   the hero dropdown, latest openings, browse by team
+    js/job-page.js    the posting page, drawn from the payload the function
+                      inlined. There is no fetch on that page.
+    js/markdown.js    the small markdown subset a posting body is written in.
+                      Escapes first, then formats, so no tag ever reaches it
+    js/dialog.js      a modal in a function, for the two below
+    js/signin-prompt.js  section 4's prompt for a logged out visitor, and the
+                      intent that survives the round trip
+    js/translation-report.js  7h's report form
     js/i18n.js        language switching and the string dictionaries
     js/api.js         the one place that knows the API response shape
     js/forms.js       field errors, busy states, password reveal
@@ -70,8 +80,12 @@ main-site/
     auth/applicant/   register, login, logout, session, profile,
                       change-password, forgot-password, reset-password,
                       recovery-codes, trusted-devices, locale
-    public/           search, suggest, facets. No session is read in any of
-                      them: the board is public, filters and tags included.
+    public/           search, suggest, facets, job, jobs-feed. No session is
+                      read in any of them except for an archived posting,
+                      which 7g shows only to an applicant with history.
+    translations/     report a translation problem, per 7h
+    job-page.js       the server rendered posting page. The one route in this
+                      portal that returns HTML rather than JSON.
 ```
 
 ## Local development
@@ -158,8 +172,14 @@ into one checkbox:
 
 ## API route map
 
-Phases 2 and 3 are built. The rest is the shape phases 4 to 11 fill in, from
-section 9 of the specification.
+Phases 2, 3, and 4 are built. The rest is the shape phases 5 to 11 fill in,
+from section 9 of the specification.
+
+One route in this table is not under `api/` as far as a reader is concerned.
+`vercel.json` rewrites `/jobs/:id` to `api/job-page.js`, which renders the
+posting page as HTML rather than JSON. It is the only server rendered page in
+the portal, per section 4, and the reason is link embeds: an unfurler reads the
+markup as delivered and does not run JavaScript.
 
 | Group | Routes | Phase |
 |---|---|---|
@@ -169,11 +189,16 @@ section 9 of the specification.
 | `api/public/*` | search, suggest, facets | 3 |
 | | Section 9 lists departments and tags as separate routes. They are one `facets` route, because the filter panel needs both plus the chip counts plus the commitment types in use before it can draw at all, and three requests to draw one panel is three chances for it to appear in pieces. | |
 | | All three are GET, session free, and cacheable. `vercel.json` scopes its `no-store` rule to `/api/auth` so they can set their own `s-maxage`. | |
-| `api/public/jobs*` | job by uuid, slug lookup, jobs.json feed | 4 |
+| `api/public/job` | one posting by uuid or by slug, in one language | 4 |
+| | The slug form is section 9's "slug to uuid lookup for the redirect". It is the same route because the only difference is the shape the caller passed. `application_form_url` is not selected from the database by any of this, so it cannot reach a public payload. | |
+| `api/public/jobs.json` | the openings feed, rewritten to `api/public/jobs-feed.js` | 4 |
+| | The one endpoint with no `{ ok, data }` envelope. Its callers are strangers rather than this site, and somebody pointing a script at a URL ending in `.json` expects the openings at the top level. Errors still use the envelope. | |
+| `/jobs/:id` | the posting page, rewritten to `api/job-page.js`. HTML, not JSON | 4 |
+| `api/translations/report` | report a translation problem | 4 |
+| `api/translations/*` | list my own reports | 6 |
+| `api/translations/*` | helper drafting, annotations, suggestion queue | 8 |
 | `api/applications/*` | start, respond, pending, list mine, withdraw | 5 |
 | `api/ratings/*` | upsert a rating | 5 |
-| `api/translations/*` | report a translation problem, list my own reports | 4 |
-| `api/translations/*` | helper drafting, annotations, suggestion queue | 8 |
 | `api/saved/*` | save, unsave, list mine | 6 |
 | `api/tasks/*` | list mine, get one, reply, dismiss, unread count | 6 |
 | `api/account/danger/*` | verify password, then each destructive action | 6 |
@@ -203,6 +228,8 @@ Shared helpers live in `api/_lib/`:
 | `validate.js` | Input validation, returning codes rather than English so the client renders them in either language. |
 | `jobs.js` | The board's query string parameter names, parsed defensively, and the public shape of a posting. Also the `ts_headline` sanitiser: that string is the one field the browser assigns as markup, and everything except `<mark>` is escaped here rather than in the client. |
 | `settings.js` | Reading `gftvjobs_settings`, cached for a minute. A settings read never fails a request and never falls back to the permissive value: if the reapply cooldown cannot be read the answer is 90 days, not zero. |
+| `job-detail.js` | One posting, read and resolved into a language, and the visibility rules from 7g. The public column list lives here as an allowlist, so `application_form_url` is never selected at all. Also the embed line: the admin's own `og_description`, or the first sentence of the description, with sentence detection that knows Han script ends a sentence with `。` and English does not. |
+| `page-shell.js` | The HTML document a serverless function sends. The only copy of the `<head>` in this repo that is not an HTML file, so **when `index.html`'s head changes, change this too.** |
 
 Every endpoint returning human readable content takes a locale, `en` or `zh`,
 and returns that language in the ordinary field names. A caller sending no

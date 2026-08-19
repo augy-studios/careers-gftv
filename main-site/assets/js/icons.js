@@ -78,6 +78,20 @@ const PATHS = {
   chevronLeft: '<path d="M15 5l-7 7 7 7"/>',
   // Two arrows, for the sort control.
   sort: '<path d="M7 4v16M7 20l-3-3M7 20l3-3"/><path d="M17 20V4M17 4l-3 3M17 4l3 3"/>',
+  // Phase 4, the posting page.
+  //
+  // Two people, for the number of openings on a posting. Not the briefcase,
+  // which already means "department" on the same list of facts, and one shape
+  // cannot carry two meanings on the same page.
+  users:
+    '<circle cx="9" cy="8" r="3.5"/>' +
+    '<path d="M2.5 20a6.5 6.5 0 0 1 13 0"/>' +
+    '<path d="M16 5.2a3.5 3.5 0 0 1 0 6.6"/><path d="M17.5 14.4a6.5 6.5 0 0 1 4 5.6"/>',
+  // A calendar, for the posted and closing dates. The clock is the commitment,
+  // which is a duration rather than a date, and the two sit next to each other.
+  calendar:
+    '<rect x="3.5" y="5" width="17" height="15" rx="2"/>' +
+    '<path d="M3.5 10h17M8 3v4M16 3v4"/>',
 };
 
 // A few names read better in markup with a hyphen.

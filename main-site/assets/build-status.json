@@ -1,7 +1,7 @@
 {
   "$comment": "Single source of truth for the phased rollout, per section 0c of careers-gftv-spec.md. The site, the Telegram bot, and the docs site all read this one file, so the three stay in step. Flipping a phase to shipped is the only edit needed when it goes live. No copy anywhere hardcodes a phase number. Phase names and descriptions carry a translated variant per non default language, because three separate consumers render them and they are content rather than interface strings; everything else the site says comes from assets/i18n.",
   "schema_version": 3,
-  "updated": "2026-08-19",
+  "updated": "2026-08-20",
   "locales": [
     "en",
     "zh"
@@ -41,11 +41,11 @@
       "number": 4,
       "name": "Job postings",
       "name_zh": "职位信息页",
-      "status": "planned",
+      "status": "shipped",
       "description": "The posting page itself, in either language, with the openings feed and shareable links that carry each role's own title and description. Includes reporting a translation that reads wrongly.",
       "description_zh": "职位信息页本身，可以任一语言阅读，包含职位数据源，以及分享链接时会显示该职位自身标题和简介的预览。也包含报告翻译问题的功能。",
-      "shipped_note": null,
-      "shipped_note_zh": null
+      "shipped_note": "Reading a posting in full went live with this. Every role now has its own page: the whole description, what you would do, what we need from you, the commitment, and the closing date, with nothing behind an account. Sharing a posting into Discord or Telegram shows that role's own title and summary rather than a generic site card. Switching language redraws the posting instantly, and a role we have not translated yet says so rather than hiding. Every posting also carries a link at the foot to report a translation that reads wrongly. Applying to a role arrives in the next phase.",
+      "shipped_note_zh": "完整阅读职位信息的功能随此阶段上线。每个职位现在都有自己的页面：完整说明、您会做些什么、我们的要求、投入时间和截止日期，全部无需账户即可阅读。把职位链接分享到 Discord 或 Telegram 时，显示的是该职位自身的标题和简介，而不是笼统的网站介绍。切换语言时职位信息会即时重新显示，尚未翻译的职位会明确标示，而不是被隐藏。每则职位信息底部也都有链接，可以报告读起来不对的译文。申请职位的功能将在下一阶段上线。"
     },
     {
       "number": 5,

@@ -61,6 +61,9 @@ export const T = Object.freeze({
   jobTranslations: 'gftvjobs_job_translations',
   departmentTranslations: 'gftvjobs_department_translations',
   tagTranslations: 'gftvjobs_tag_translations',
+  // 7h's correction loop. Reports are not tasks and never reach
+  // gftvjobs_tasks, per migration 015 and the note in api/translations/.
+  translationReports: 'gftvjobs_translation_reports',
 
   // Pipeline
   applications: 'gftvjobs_applications',

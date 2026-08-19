@@ -30,7 +30,11 @@
     },
     {
       "source": "/jobs/:id",
-      "destination": "/placeholder"
+      "destination": "/api/job-page?id=:id"
+    },
+    {
+      "source": "/api/public/jobs.json",
+      "destination": "/api/public/jobs-feed"
     },
     {
       "source": "/account/security",

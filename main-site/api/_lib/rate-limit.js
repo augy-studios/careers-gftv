@@ -46,6 +46,17 @@ export const LIMITS = Object.freeze({
   // Generating a set of codes is not an attack surface in itself, but it does
   // ten bcrypt hashes, so it is worth a ceiling.
   codeGeneration: { limit: 10, windowMs: 60 * 60 * 1000, lockMs: 15 * 60 * 1000 },
+  // Reporting a translation problem, per 7h: "Rate limit it per account and
+  // per IP, like every other write."
+  //
+  // This is the one bucket counted on success rather than on failure, and the
+  // difference matters. Every other limit here guards a guess at a secret, so
+  // a correct answer costs nothing; this one guards a table a signed in
+  // applicant can write to freely, so the thing worth bounding is how many
+  // rows one account can add in an hour. Twelve is more reports than anybody
+  // reading a posting will legitimately file and few enough that a script
+  // filling the admin queue stops quickly.
+  report: { limit: 12, windowMs: 60 * 60 * 1000, lockMs: 60 * 60 * 1000 },
   // Passkey ceremonies. A failure here is usually somebody cancelling the
   // system prompt, so the ceiling is generous: it is there to stop a script
   // opening challenges in a loop, not to punish a person who changed their

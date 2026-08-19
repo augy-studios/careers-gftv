@@ -1750,3 +1750,323 @@ input[type='search']::-webkit-search-cancel-button {
   -webkit-appearance: none;
   appearance: none;
 }
+
+/* ---------------------------------------------------------------------------
+ * Phase 4: the job posting page
+ *
+ * One column at every width. A posting is prose, and prose in two columns on a
+ * wide screen is harder to read rather than easier, so the page stays a single
+ * measure and the width is capped rather than filled.
+ *
+ * The page arrives from a serverless function, per section 4, but nothing here
+ * knows that: the markup it renders carries the same classes the rest of the
+ * site uses, and every colour is a token from theme.css.
+ * ------------------------------------------------------------------------ */
+
+.job-page {
+  /* Wider than the reading measure below, so the meta list and the tag row
+     have room while the body copy stays comfortable. */
+  max-width: 56rem;
+}
+
+.back-link {
+  margin-bottom: 0.75rem;
+  font-size: 0.9375rem;
+}
+
+.back-link a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 44px;
+}
+
+.job-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.job-detail-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.job-detail-head h1 {
+  margin: 0;
+  font-size: 1.75rem;
+  line-height: 1.25;
+}
+
+@media (min-width: 640px) {
+  .job-detail-head h1 {
+    font-size: 2.125rem;
+  }
+}
+
+/* The one line version of the unpaid notice, per section 4's rule that the
+   fact is stated where it is read rather than once at the top of the site. The
+   full paragraph is further down, immediately above the Apply button. */
+.job-unpaid-short {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+}
+
+/* Every fact about the posting, one per row. A row rather than a wrapped inline
+   list, because each carries a label as well as a value and a label separated
+   from its value by a line wrap is worse than a taller list. */
+.job-detail-meta {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 640px) {
+  .job-detail-meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 1.5rem;
+  }
+}
+
+.job-detail-meta li {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 0.9375rem;
+}
+
+.job-detail-meta svg {
+  align-self: center;
+  color: var(--text-light);
+}
+
+.job-meta-label {
+  color: var(--text-light);
+}
+
+.job-meta-value {
+  color: var(--text);
+  font-weight: 600;
+  /* A location or a team name can be long, and a uuid never appears here, but
+     section 3 forbids horizontal scrolling at 320px either way. */
+  overflow-wrap: anywhere;
+}
+
+/* Closing within a fortnight, the same window the board's card uses and the
+   same window the closing soon chip is built from. The three agreeing is
+   deliberate. */
+.job-detail-meta li.urgent .job-meta-value {
+  color: var(--warn);
+}
+
+.job-detail-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Archived is a state rather than a warning: the posting is being kept for the
+   applicant who asked for it, not flagged at them. */
+.badge-archived {
+  background: var(--surface-active);
+  border-color: var(--border-strong);
+  color: var(--text-muted);
+}
+
+.job-notice,
+.job-unpaid-notice {
+  margin: 0;
+}
+
+.job-summary {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+}
+
+.job-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.job-section h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.job-section p {
+  margin: 0;
+  /* Capped rather than filled. Beyond about seventy characters a line is hard
+     to track back from, and this page can be much wider than that. */
+  max-width: 42rem;
+  color: var(--text-muted-strong);
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.job-section ul {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 42rem;
+  margin: 0;
+  padding-left: 1.25rem;
+  color: var(--text-muted-strong);
+  line-height: 1.7;
+}
+
+.job-section li {
+  overflow-wrap: anywhere;
+}
+
+/* ---------------------------------------------------------------------------
+ * The actions on a posting
+ *
+ * Apply and Save belong to phases that have not shipped, so they are drawn and
+ * then disabled by the data-feature mechanism in build-status.js with the
+ * sentence section 0c fixes. They are not hidden: hiding a control teaches
+ * people the feature does not exist.
+ * ------------------------------------------------------------------------ */
+
+.job-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.25rem 0;
+}
+
+.job-actions .btn {
+  /* Thumb reach on a phone, per section 3. Full width below 480px so the two
+     primary actions are not two small targets side by side. */
+  min-height: 44px;
+}
+
+@media (max-width: 479px) {
+  .job-actions .btn {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+}
+
+.share-note {
+  margin: 0;
+  flex-basis: 100%;
+  color: var(--ok);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------------------
+ * The foot of a posting
+ *
+ * Where the back link and the translation report control sit, per 7h: quiet,
+ * beside the share and back links, never a banner and never a modal that opens
+ * by itself.
+ * ------------------------------------------------------------------------ */
+
+.job-detail-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  align-items: center;
+  margin-top: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+/* A button and an anchor sitting on one row have to look like one another, so
+   the button gives up every default a browser gives it. */
+.job-foot-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--link);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.job-foot-link:hover,
+.job-foot-link:focus-visible {
+  color: var(--link-visited);
+}
+
+.job-foot-link svg {
+  color: var(--text-light);
+}
+
+/* ---------------------------------------------------------------------------
+ * The sign in prompt, and the translation report form
+ *
+ * Both use the modal shell from theme.css, the same one the theme and language
+ * pickers use, so a reader who has opened one has already learned how to leave
+ * the others.
+ * ------------------------------------------------------------------------ */
+
+.signin-message {
+  margin: 0 0 1rem;
+  color: var(--text-muted-strong);
+  line-height: 1.6;
+}
+
+/* Two equal options, per section 4. Log in and create an account are the same
+   size and the same weight, because somebody who has never been here before is
+   not a lesser case than somebody returning. */
+.signin-actions {
+  display: grid;
+  gap: 0.625rem;
+}
+
+@media (min-width: 480px) {
+  .signin-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.signin-actions .btn {
+  min-height: 44px;
+  justify-content: center;
+}
+
+.signin-note {
+  margin: 1rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.report-dialog .modal {
+  max-width: 34rem;
+}
+
+.report-dialog .report-intro {
+  margin: 0 0 1rem;
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+.report-dialog form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.report-dialog textarea {
+  resize: vertical;
+}

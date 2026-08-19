@@ -8,14 +8,19 @@ collected in Google Forms: the portal's job is to gate access, hand the
 applicant over, log the handoff, and track what happened next. It is a GFTV
 HelloApp and follows the same conventions as the other GFTV PWAs.
 
-**Phases 1 to 3 of 15 have shipped.** The database schema and the shared server
-side code, then signing in, and now the job board itself. The public surface is
-the home page, `/search` with its filters and suggestions, a posting's tags and
-dates on every card, `/about`, `/faq`, `/status`, creating an account and
-signing in, and a placeholder page that every route belonging to a later phase
-renders. Opening an individual posting arrives in phase 4 and applying in phase
-5. Live status:
+**Phases 1 to 4 of 15 have shipped.** The database schema and the shared server
+side code, then signing in, then the job board, and now the postings
+themselves. The public surface is the home page, `/search` with its filters and
+suggestions, `/jobs/{uuid}` for a posting in full, the `jobs.json` feed,
+`/about`, `/faq`, `/status`, creating an account and signing in, and a
+placeholder page that every route belonging to a later phase renders. Applying
+to a role arrives in phase 5. Live status:
 [careers.globalfurry.tv/status](https://careers.globalfurry.tv/status).
+
+`/jobs/{uuid}` is the one server rendered route in the portal, and deliberately
+so: unfurlers read the markup as delivered and none of them run JavaScript, so
+a posting's own title and description are injected into the document before it
+is sent. Everything else stays a static page with a client side fetch.
 
 The site is built and released in public, one phase at a time. `main` is always
 deployable, and the interface is honest about what is not there yet: a control
