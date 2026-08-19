@@ -25,7 +25,7 @@ import { localeFromRequest } from '../_lib/validate.js';
 import { parseSearchParams, publicJob, PAGE_SIZE } from '../_lib/jobs.js';
 
 export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET'])) return;
+  if (methodNotAllowed(req, res, ['GET', 'HEAD'])) return;
 
   const locale = localeFromRequest(req);
   const { q, filters, sort, page, limit, offset } = parseSearchParams(req, locale);

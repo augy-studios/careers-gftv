@@ -130,6 +130,24 @@
   letter-spacing: 0.01em;
 }
 
+/* The hidden attribute always wins.
+ *
+ * A browser hides [hidden] with display: none from its own stylesheet, which
+ * any author rule setting display beats, including an ordinary one like
+ * `.field { display: flex }`. So an element hidden in JavaScript with
+ * `el.hidden = true` quietly stays on screen, and only if it happens to carry a
+ * class with a display rule on it. That is a trap this stylesheet had already
+ * fallen into three times, patched three times per component, and fell into
+ * again on the translation report form, where submitting left the form sitting
+ * under its own thank you.
+ *
+ * !important is right here rather than heavy handed: hidden is a statement
+ * about whether the element exists for the reader, and nothing about how a
+ * component lays out should be able to overrule it. */
+[hidden] {
+  display: none !important;
+}
+
 /* ---------------------------------------------------------------------------
  * classic, light
  * ------------------------------------------------------------------------ */

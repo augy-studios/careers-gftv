@@ -90,6 +90,16 @@ export function failInternal(res, cause, where) {
 
 /**
  * Guard the HTTP method. Returns true when the request should stop here.
+ *
+ * **List HEAD alongside GET on anything a stranger may fetch.** RFC 9110 says a
+ * server supporting GET on a resource should support HEAD on it, and the things
+ * that actually send one are monitors, link checkers, and some unfurlers
+ * deciding whether to follow a URL at all. Node discards the body of a HEAD
+ * response by itself, so allowing it costs nothing and the handler needs no
+ * branch. The phase 3 public routes answered 405 to HEAD until the phase 4 test
+ * run noticed, which is also why `curl -I` against them looked like a caching
+ * bug: it was reading the headers of a 405.
+ *
  * @param {import('http').IncomingMessage} req
  * @param {import('http').ServerResponse} res
  * @param {string[]} allowed

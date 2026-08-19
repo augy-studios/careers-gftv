@@ -39,7 +39,7 @@ const PAGE_SIZE = 100;
 const MAX_PAGE = 50;
 
 export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET'])) return;
+  if (methodNotAllowed(req, res, ['GET', 'HEAD'])) return;
 
   const locale = localeFromRequest(req);
   const params = searchParams(req);

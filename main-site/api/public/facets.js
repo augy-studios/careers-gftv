@@ -48,7 +48,7 @@ const CHIP_DAYS = Object.freeze({
 });
 
 export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET'])) return;
+  if (methodNotAllowed(req, res, ['GET', 'HEAD'])) return;
 
   const locale = localeFromRequest(req);
 

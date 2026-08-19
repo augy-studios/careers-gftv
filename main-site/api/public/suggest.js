@@ -29,7 +29,7 @@ import { searchParams } from '../_lib/jobs.js';
 const MAX_QUERY = 80;
 
 export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET'])) return;
+  if (methodNotAllowed(req, res, ['GET', 'HEAD'])) return;
 
   const locale = localeFromRequest(req);
   const raw = searchParams(req).get('q');

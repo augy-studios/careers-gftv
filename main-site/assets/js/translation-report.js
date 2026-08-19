@@ -147,8 +147,6 @@ function buildDialog() {
           <p class="field-hint" data-i18n="report.suggestionOptional"></p>
         </div>
 
-        <p class="form-message" id="reportMessage" role="status" hidden></p>
-
         <div class="modal-foot">
           <button type="button" class="btn btn-secondary" data-close-dialog
                   data-i18n="report.cancel"></button>
@@ -156,6 +154,12 @@ function buildDialog() {
                   data-i18n="report.submit"></button>
         </div>
       </form>
+
+      <!-- Outside the form, not inside it. On success the form is hidden and
+           this is the only thing left on screen, so a confirmation living
+           inside the form would be hidden along with it and the reader would
+           watch the dialog empty itself. -->
+      <p class="form-message" id="reportMessage" role="status" hidden></p>
     `,
   });
 

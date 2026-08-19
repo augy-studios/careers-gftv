@@ -32,7 +32,7 @@ import {
 } from '../_lib/job-detail.js';
 
 export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET'])) return;
+  if (methodNotAllowed(req, res, ['GET', 'HEAD'])) return;
 
   const locale = localeFromRequest(req);
   const params = searchParams(req);
