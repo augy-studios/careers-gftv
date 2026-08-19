@@ -74,6 +74,10 @@ async function loadDictionary(locale) {
   }
 }
 
+// Keys already reported, so one missing string in a redraw loop does not
+// print a thousand times.
+const warnedKeys = new Set();
+
 /**
  * Translate one key.
  *
@@ -90,7 +94,21 @@ export function t(key, vars) {
 
   let value = active[key];
   if (typeof value !== 'string') value = fallback[key];
-  if (typeof value !== 'string') return key;
+
+  if (typeof value !== 'string') {
+    // Falling back to the key is deliberate and stays. What was missing is any
+    // sign that it happened: footer.buildStatus rendered its own name in the
+    // footer from phase 1 and nothing said so.
+    //
+    // Only warned once the English dictionary has actually loaded. Before that
+    // every key is legitimately absent, and warning then would bury the real
+    // ones under the noise of ordinary start up.
+    if (dictionaries.has(DEFAULT_LOCALE) && !warnedKeys.has(key)) {
+      warnedKeys.add(key);
+      console.warn(`[careers-gftv] no dictionary entry for "${key}"`);
+    }
+    return key;
+  }
 
   if (!vars) return value;
 

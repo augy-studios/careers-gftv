@@ -312,5 +312,6 @@
   "danger.removePasskeyConsequence2": "If it is your only one, signing in goes back to one step and your account is protected by your password alone.",
   "danger.removePasskeyConsequence3": "Your device may still list the passkey afterwards. Remove it there too if you want it gone entirely.",
   "danger.removePasskeyIrreversible": "This cannot be undone. Adding a passkey back creates a new one rather than restoring this one.",
-  "danger.removePasskeyConfirm": "Remove the passkey"
+  "danger.removePasskeyConfirm": "Remove the passkey",
+  "footer.buildStatus": "Build status"
 }

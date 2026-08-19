@@ -312,5 +312,6 @@
   "danger.removePasskeyConsequence2": "如果这是您唯一的通行密钥，登录将恢复为一个步骤，您的账户将只由密码保护。",
   "danger.removePasskeyConsequence3": "您的设备之后可能仍会列出这个通行密钥。如需彻底清除，请一并在设备上删除。",
   "danger.removePasskeyIrreversible": "此操作无法撤销。重新添加会生成一个新的通行密钥，而不是恢复这一个。",
-  "danger.removePasskeyConfirm": "移除通行密钥"
+  "danger.removePasskeyConfirm": "移除通行密钥",
+  "footer.buildStatus": "开发进度"
 }

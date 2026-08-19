@@ -330,6 +330,26 @@ Adding or changing a string:
 3. Leave the English text in the markup as the element's own content. It is the
    no-JavaScript fallback and it is what shows before the dictionary resolves.
 4. `{placeholders}` must match between the two files.
+5. Run `npm run check-i18n` before shipping.
+
+**A missing key renders as its own name on screen**, in both languages, and
+nothing used to say so. `t()` falls back to the key deliberately, so a missing
+string degrades to something searchable rather than to a blank element, but
+that kindness is also why `footer.buildStatus` sat in the footer from phase 1
+reading "footer.buildStatus". Two things catch it now:
+
+- **`node check-i18n.js`** at the repo root reads every `data-i18n` attribute,
+  every literal `t('...')`, and the `key:` entries in the NAV and FOOTER
+  tables, and exits non-zero on anything not in `en.json`. It also lists keys
+  built at runtime, which it cannot check, and keys nothing references, which
+  is information rather than an error.
+- **`t()` warns to the console** once per key when a key is missing and the
+  English dictionary has already loaded.
+
+Neither catches the other failure: a string written by JavaScript rather than
+carried on a `data-i18n` attribute, rendered before the dictionary loads. That
+is what put `theme.timeBasedNote` on screen. Anything that calls `t()` outside
+`translateDom` has to re-run on `gftv:localechange`, and both modals now do.
 
 **Names.** GFTV is 国际兽视 in Mandarin, and the portal is 国际兽视 Careers.
 A space goes between Latin and Han characters and never between Han and Han,

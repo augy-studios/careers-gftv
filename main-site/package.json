@@ -11,5 +11,8 @@
     "@simplewebauthn/server": "^13.3.2",
     "@supabase/supabase-js": "^2.45.0",
     "bcryptjs": "^2.4.3"
+  },
+  "scripts": {
+    "check-i18n": "node ../check-i18n.js"
   }
 }

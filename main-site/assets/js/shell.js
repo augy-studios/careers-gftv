@@ -334,7 +334,9 @@ function wireNav(header, backdrop) {
     nav.setAttribute('data-open', 'true');
     nav.setAttribute('aria-hidden', 'false');
     toggle.setAttribute('aria-expanded', 'true');
-    toggle.setAttribute('aria-label', 'Close menu');
+    // Through the dictionary, not hardcoded. This read "Close menu" in English
+    // to a Mandarin reader until the same pass that found theme.timeBasedNote.
+    toggle.setAttribute('aria-label', t('common.closeMenu'));
     backdrop.hidden = false;
     lockScroll(true);
     nav.querySelector(FOCUSABLE)?.focus();
@@ -344,7 +346,7 @@ function wireNav(header, backdrop) {
     nav.removeAttribute('data-open');
     nav.setAttribute('aria-hidden', isOffCanvas() ? 'true' : 'false');
     toggle.setAttribute('aria-expanded', 'false');
-    toggle.setAttribute('aria-label', 'Open menu');
+    toggle.setAttribute('aria-label', t('common.openMenu'));
     backdrop.hidden = true;
     lockScroll(false);
     if (lastFocus instanceof HTMLElement) lastFocus.focus();
@@ -504,6 +506,19 @@ function wireThemeModal(modal) {
   // does, theme.js says so and the modal redraws rather than showing yesterday
   // evening's answer.
   document.addEventListener('gftv:modechange', sync);
+
+  // And again once the dictionary has loaded.
+  //
+  // sync() writes two strings that are not in the markup and so carry no
+  // data-i18n attribute: the mode note and the theme button's label. It first
+  // runs from boot(), which is before initI18n(), so at that point t() has no
+  // dictionary and returns the key itself. translateDom() cannot rescue them
+  // afterwards precisely because they are not attributes on an element, which
+  // is how "theme.timeBasedNote" ended up on screen.
+  //
+  // The language modal already listened for this. The theme modal did not,
+  // and did not visibly need to until it gained a string of its own.
+  document.addEventListener('gftv:localechange', sync);
 }
 
 function wireLanguageModal(modal) {
