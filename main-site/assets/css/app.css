@@ -2071,3 +2071,318 @@ input[type='search']::-webkit-search-cancel-button {
 .report-dialog textarea {
   resize: vertical;
 }
+
+/* ---------------------------------------------------------------------------
+ * The Apply control, 7a and 7f
+ *
+ * A slot rather than a button, because one posting is six different controls
+ * depending on this reader's history with it. assets/js/apply.js decides which,
+ * and writes data-apply-state on the slot so the shape of each is here rather
+ * than in the JavaScript.
+ * ------------------------------------------------------------------------ */
+
+.apply-slot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: var(--radius-sm);
+}
+
+.apply-slot .btn {
+  min-height: 44px;
+}
+
+/* Coming back from signing in, per section 4: the button is scrolled to and
+   briefly highlighted, and a line says they can now apply. Briefly is the
+   operative word. A permanent ring is noise the second time somebody looks at
+   the page, so it is removed after a couple of seconds. */
+.apply-slot[data-highlight='true'] {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 6px;
+}
+
+.apply-note {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.apply-confirmation {
+  color: var(--ok);
+  font-weight: 600;
+}
+
+/* The cooldown, per 7f. A panel rather than a disabled button: the sentence is
+   two clauses long and reads badly inside a control, and a disabled button is
+   dropped from the accessibility tree in some browsers, which would hide the
+   only explanation on the page from exactly the readers who need it most. */
+.apply-state-panel {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  margin: 0;
+  padding: 0.5rem 0.875rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-active);
+  color: var(--text-muted-strong);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.apply-state-panel svg {
+  flex: none;
+  color: var(--ok);
+}
+
+/* The same fact on a card, so nobody clicks through only to be turned away. */
+.badge-cooldown {
+  background: var(--surface-active);
+  border-color: var(--border-strong);
+  color: var(--text-muted-strong);
+}
+
+@media (max-width: 479px) {
+  .apply-slot {
+    flex: 1 1 100%;
+  }
+
+  .apply-slot .btn,
+  .apply-state-panel {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * The handoff modal, 7c
+ *
+ * The one modal on this site built as a native <dialog> with showModal(), which
+ * is what 7c asks for. Focus trapping and the backdrop come free and correct,
+ * and a browser will never mistake an in-page dialog for a popup to block.
+ *
+ * It is styled to look like the other three rather than like a browser default:
+ * same glass card, same head, same close control in the corner, so a reader who
+ * has opened the theme picker has already learned how to leave this.
+ * ------------------------------------------------------------------------ */
+
+.apply-dialog {
+  width: min(30rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  overflow: visible;
+}
+
+.apply-dialog::backdrop {
+  background: color-mix(in srgb, #000 55%, transparent);
+}
+
+.apply-dialog-inner {
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  padding: 1.25rem;
+  background: var(--bg-alt);
+}
+
+.apply-lede {
+  margin: 0 0 1rem;
+  color: var(--text-muted-strong);
+  line-height: 1.6;
+}
+
+/* The indeterminate progress indicator, shown only while the tab is opening.
+   Presentational: the header beside it carries aria-live and says the same
+   thing in words, so this adds nothing for a screen reader and is hidden from
+   one rather than announced as a second, wordless status. */
+.apply-progress {
+  height: 3px;
+  margin: 0 0 1rem;
+  border-radius: 999px;
+  background: var(--surface-active);
+  overflow: hidden;
+}
+
+.apply-progress span {
+  display: block;
+  width: 40%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--brand-dark);
+  animation: apply-progress-slide 1.1s ease-in-out infinite;
+}
+
+@keyframes apply-progress-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(250%);
+  }
+}
+
+/* With motion turned down the global reset in theme.css stops the animation
+   mid stride, which would leave the bar frozen at an arbitrary point and read
+   as a stalled upload. A full width tint says "working" without moving. */
+@media (prefers-reduced-motion: reduce) {
+  .apply-progress span {
+    width: 100%;
+    transform: none;
+  }
+}
+
+.apply-blocked-action {
+  margin: 0 0 1rem;
+}
+
+.apply-blocked-action .btn {
+  width: 100%;
+  min-height: 48px;
+  justify-content: center;
+}
+
+/* The quiet version of the same link, shown in every case once there is a URL.
+   A tab can open on another monitor or behind the current window without the
+   applicant noticing, and this is the way back to it. */
+.apply-quiet-link {
+  margin: 1rem 0 0;
+  padding-top: 0.875rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.875rem;
+}
+
+/* ---------------------------------------------------------------------------
+ * Rating a posting, 7c's second section
+ *
+ * A real radio group with visually hidden inputs and labels, not a row of
+ * clickable spans, so arrow keys move between the stars and a screen reader
+ * hears a group of five choices. The readout beside them says the value in
+ * words, because colour and shape alone do not carry it.
+ * ------------------------------------------------------------------------ */
+
+:root[data-mode='light'] {
+  /* Yellow enough to read as a star, with an outline dark enough to clear 3:1
+     against a light surface. The fill alone does not, which is why every star
+     keeps its stroke rather than being a flat shape. */
+  --star-on: #eda600;
+  --star-edge: var(--warn);
+}
+
+:root[data-mode='dark'] {
+  --star-on: #fbbf24;
+  --star-edge: #fbbf24;
+}
+
+.star-rating {
+  margin: 0 0 1.25rem;
+  padding: 0;
+  border: 0;
+}
+
+.star-row {
+  display: flex;
+  gap: 0.25rem;
+  margin: 0.25rem 0 0.375rem;
+}
+
+.star-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* 44px of tappable area around a 30px star, per section 3. Touch accuracy is
+     the whole reason these are not 20px icons. */
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  color: var(--text-light);
+  cursor: pointer;
+}
+
+.star-label svg {
+  fill: none;
+  transition: fill 0.12s ease, color 0.12s ease;
+}
+
+.star-label[data-on='true'] {
+  color: var(--star-edge);
+}
+
+.star-label[data-on='true'] svg {
+  fill: var(--star-on);
+}
+
+.star-label:hover {
+  background: var(--surface-hover);
+}
+
+/* The input is visually hidden, so the focus ring goes on the label or a
+   keyboard user cannot see where they are in the row. */
+.star-input:focus-visible + .star-label {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.star-readout {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+/* ---------------------------------------------------------------------------
+ * The apply answer, 7c's third section
+ *
+ * Yes and No are the same size and the same weight. Neither is styled as the
+ * obvious default, because the useful answer is whichever one is true and a
+ * primary button on one of them is a thumb on the scale.
+ * ------------------------------------------------------------------------ */
+
+.apply-answer-buttons {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.25rem 0 0.5rem;
+}
+
+@media (min-width: 480px) {
+  .apply-answer-buttons {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.apply-answer-buttons .btn {
+  min-height: 48px;
+  justify-content: center;
+}
+
+.apply-answer-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+/* A full width sheet on a phone, per 7c, following the same pattern as the
+   /search filter panel: it comes up from the bottom, sits under the thumb, and
+   does not pretend a 360px screen is a small desktop. */
+@media (max-width: 639px) {
+  .apply-dialog {
+    width: 100vw;
+    max-width: 100vw;
+    max-height: 90dvh;
+    top: auto;
+    bottom: 0;
+    margin: 0;
+    border-radius: var(--radius) var(--radius) 0 0;
+  }
+
+  .apply-dialog-inner {
+    max-height: 90dvh;
+    border-radius: var(--radius) var(--radius) 0 0;
+    padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+  }
+}

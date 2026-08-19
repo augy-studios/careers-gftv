@@ -57,6 +57,20 @@ export const LIMITS = Object.freeze({
   // reading a posting will legitimately file and few enough that a script
   // filling the admin queue stops quickly.
   report: { limit: 12, windowMs: 60 * 60 * 1000, lockMs: 60 * 60 * 1000 },
+  // Starting an application handoff, per section 9's "rate limit application
+  // submission". Counted on success, for the same reason the report bucket is:
+  // there is no secret to guess here, and what is worth bounding is how many
+  // analytics rows one account can add to the funnel in an hour.
+  //
+  // Twenty is more roles than the board has had open at once and far more than
+  // anybody applies to in a sitting, so a person who is genuinely working
+  // through the openings never meets it. It exists so a script cannot fill
+  // gftvjobs_analytics, which is the table the phase 8 funnel is computed from.
+  //
+  // Also the one bucket applied per account and not per IP. GFTV runs stands at
+  // conventions, where a room shares one address behind NAT, and the reason is
+  // written out in full at the call site in api/applications/start.js.
+  apply: { limit: 20, windowMs: 60 * 60 * 1000, lockMs: 60 * 60 * 1000 },
   // Passkey ceremonies. A failure here is usually somebody cancelling the
   // system prompt, so the ceiling is generous: it is there to stop a script
   // opening challenges in a loop, not to punish a person who changed their

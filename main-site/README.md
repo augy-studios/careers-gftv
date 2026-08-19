@@ -6,11 +6,13 @@ Vercel serverless functions under `api/`.
 Vercel's root directory for this project is set to `main-site`, which is why
 `api/` lives inside this directory rather than at the repo root.
 
-**Current phase: 3 of 14, Browsing roles.** Live: the shell, the home page,
+**Current phase: 5 of 15, Apply flow.** Live: the shell, the home page,
 `/status`, registering and signing in, passkeys, recovery codes, account
-recovery, trusted devices, `/account/security`, and `/admin/security`.
-Everything else renders the placeholder. See
-[/status](https://careers.globalfurry.tv/status).
+recovery, trusted devices, `/account/security`, `/admin/security`, the board at
+`/search`, the posting page at `/jobs/{uuid}` with the openings feed and the
+translation report control, and applying, which is the handoff to the Google
+Form, the rating, and the reapply cooldown. Everything else renders the
+placeholder. See [/status](https://careers.globalfurry.tv/status).
 
 **Every role listed on this site is voluntary and unpaid**, and the interface
 says so on the home page, the registration page, the footer, the manifest, and
@@ -64,6 +66,13 @@ main-site/
     js/signin-prompt.js  section 4's prompt for a logged out visitor, and the
                       intent that survives the round trip
     js/translation-report.js  7h's report form
+    js/apply.js       the Apply control, and the six states one posting can be
+                      in for one reader
+    js/apply-dialog.js  7c's handoff modal. A native <dialog>, unlike the three
+                      above, and the reason is in the file
+    js/apply-prompt.js  the unanswered prompt that follows an applicant across
+                      the portal. Imported by shell.js, so it is on every page
+    js/apply-badges.js  the cooldown, on a card, per 7f
     js/i18n.js        language switching and the string dictionaries
     js/api.js         the one place that knows the API response shape
     js/forms.js       field errors, busy states, password reveal
@@ -84,6 +93,10 @@ main-site/
                       read in any of them except for an archived posting,
                       which 7g shows only to an applicant with history.
     translations/     report a translation problem, per 7h
+    applications/     start, respond, pending, mine. The only place in the
+                      build that emits a Google Form URL, and only to a
+                      session that has been checked
+    ratings/          upsert a rating for a posting, from the handoff modal
     job-page.js       the server rendered posting page. The one route in this
                       portal that returns HTML rather than JSON.
 ```
@@ -189,8 +202,8 @@ into one checkbox:
 
 ## API route map
 
-Phases 2, 3, and 4 are built. The rest is the shape phases 5 to 11 fill in,
-from section 9 of the specification.
+Phases 2 to 5 are built. The rest is the shape phases 6 to 11 fill in, from
+section 9 of the specification.
 
 One route in this table is not under `api/` as far as a reader is concerned.
 `vercel.json` rewrites `/jobs/:id` to `api/job-page.js`, which renders the
@@ -214,8 +227,14 @@ markup as delivered and does not run JavaScript.
 | `api/translations/report` | report a translation problem | 4 |
 | `api/translations/*` | list my own reports | 6 |
 | `api/translations/*` | helper drafting, annotations, suggestion queue | 8 |
-| `api/applications/*` | start, respond, pending, list mine, withdraw | 5 |
-| `api/ratings/*` | upsert a rating | 5 |
+| `api/applications/start` | logs the analytics row, upserts the tracking row, returns the prefilled form URL and the analytics row id | 5 |
+| | **The one route in the build that emits a Google Form URL.** A logged out request is 401 and writes nothing. The cooldown, the closing date, the global toggle, and an unanswered prompt are all enforced here rather than by hiding the button. | |
+| `api/applications/respond` | records the Yes or No from the modal, and starts the cooldown on a Yes | 5 |
+| `api/applications/pending` | the applicant's unanswered prompts. Called on every page of the portal | 5 |
+| `api/applications/mine` | the applicant's tracking rows, optionally for one posting. What the Apply button and the board's cooldown badge are drawn from | 5 |
+| | Section 9's "list mine", built thin. It returns no human readable content, so it takes no locale. Phase 6's My applications page widens it, with the page that displays the rest. | |
+| `api/applications/withdraw` | 7e, and it belongs with the page that offers it | 6 |
+| `api/ratings/upsert` | one rating per applicant per posting, from the handoff modal | 5 |
 | `api/saved/*` | save, unsave, list mine | 6 |
 | `api/tasks/*` | list mine, get one, reply, dismiss, unread count | 6 |
 | `api/account/danger/*` | verify password, then each destructive action | 6 |
@@ -247,6 +266,7 @@ Shared helpers live in `api/_lib/`:
 | `settings.js` | Reading `gftvjobs_settings`, cached for a minute. A settings read never fails a request and never falls back to the permissive value: if the reapply cooldown cannot be read the answer is 90 days, not zero. |
 | `job-detail.js` | One posting, read and resolved into a language, and the visibility rules from 7g. The public column list lives here as an allowlist, so `application_form_url` is never selected at all. Also the embed line: the admin's own `og_description`, or the first sentence of the description, with sentence detection that knows Han script ends a sentence with `。` and English does not. |
 | `page-shell.js` | The HTML document a serverless function sends. The only copy of the `<head>` in this repo that is not an HTML file, so **when `index.html`'s head changes, change this too.** |
+| `apply.js` | The apply flow's server side, shared by the four `api/applications/*` routes. Reads the form URL and the prefill map, which `job-detail.js` deliberately never selects; resolves a per language form; builds the prefilled address from the session; and holds the rules about what a start click may and may not move. |
 
 Every endpoint returning human readable content takes a locale, `en` or `zh`,
 and returns that language in the ordinary field names. A caller sending no
@@ -256,6 +276,61 @@ locale gets English.
 either that or in-memory. Table backed was chosen because each Vercel function
 instance has its own memory, so an in-memory limiter resets constantly and
 cannot hold the one hour lockouts that sections 5c and 7g require.
+
+## The apply flow
+
+Applications are collected in Google Forms, per section 10. The portal gates
+access, hands the applicant over, logs the handoff, and records whether they say
+they went through with it. It stores no answers and no files.
+
+**What happens on a click**, in this order, which is 7a's and is not arbitrary:
+
+1. `api/applications/start` verifies the session, the posting, the closing date,
+   the global `applications_open` toggle, the reapply cooldown, and whether an
+   unanswered prompt is already open for this posting.
+2. It inserts the `gftvjobs_analytics` row at `did_apply` false and
+   `response_state` pending. That row exists before the applicant can possibly
+   answer, which is why it is written first.
+3. It upserts the `gftvjobs_applications` tracking row and writes an event.
+4. It returns the prefilled form URL and the analytics row id.
+
+Meanwhile, in the browser: the modal opens in the same tick as the click, and
+only then, after a paint and at least 800ms, does the form open in a new tab. A
+blocked `window.open` is detected rather than fought, and the modal offers a
+real anchor instead, which is a fresh gesture and always works.
+
+**Three things that look like bugs and are not:**
+
+- **No answer means no.** `did_apply` starts false and stays false until
+  something positively confirms otherwise. A dismissed modal leaves the row
+  pending, no cooldown starts, and the Apply button stays available. The only
+  difference between silence and an explicit No is `response_state` and
+  `answer_source`, which exist so the phase 8 funnel can tell them apart.
+- **A tracking row never moves backwards.** A second start click on a row an
+  admin has moved to `shortlisted` leaves the status alone. Only `started` and
+  `withdrawn` are resettable, the second because 7e says somebody who pulls out
+  is not locked out of a role they change their mind about.
+- **The start call is not prefetched on hover**, though 7c step 2 suggests it.
+  That step reads as though prefetching the form URL were free, and it is not:
+  `start` is the endpoint that writes the analytics row, so calling it on
+  `mouseenter` would log an apply click for a hover and put a prompt in front of
+  somebody who never clicked. The 800ms gate before the tab opens is longer than
+  the call takes anyway.
+
+**The prompt is state, not a page.** There is no `/survey/` route and no route
+of its own. `assets/js/apply-prompt.js` is imported by `shell.js`, so every page
+of the portal asks `api/applications/pending` once per load for a signed in
+applicant and opens the modal if anything comes back. `localStorage` holds the
+same row id as a fast path and is treated as a cache that can be wrong: if the
+server says nothing is pending, it is cleared and nothing is shown. The only
+linkable form is `/jobs/{uuid}?prompt={analytics_row_id}`, and the parameter is
+stripped with `history.replaceState` once the modal is open.
+
+**`/apply` still 404s and is deliberately left alone.** `build-status.js` maps
+the path to the `apply` feature, but no route in the design serves it: 7c's
+apply flow is a modal on whichever page the reader is standing on, not a page of
+its own. It is not an unbuilt route waiting on a phase, so section 0c's
+placeholder handling does not apply to it either.
 
 ## The reapply cooldown
 
@@ -278,9 +353,10 @@ shows the number, only the date it produced, so nobody sees the unit.
   once, and setting it back to 90 restores every cooldown that was running
   rather than having silently destroyed them.
 
-Phase 5's apply endpoint should ask `isInCooldown()` rather than comparing
+`api/applications/start.js` asks `isInCooldown()` rather than comparing
 `cooldown_until` to the clock itself, since that comparison alone misses the
-disabled case.
+disabled case, and `api/applications/mine.js` resolves the same answer for the
+client so the browser never has to know the setting exists.
 
 Raising the setting does not extend a cooldown somebody is already serving.
 `cooldown_until` stays stored rather than computed on read, exactly as migration

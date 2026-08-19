@@ -17,6 +17,7 @@
 import { api } from './api.js';
 import { t } from './i18n.js';
 import { renderJobCards } from './job-card.js';
+import { markAppliedCards } from './apply-badges.js';
 import { formatCount } from './format.js';
 
 // Enough to show the board is alive without turning the home page into the
@@ -169,6 +170,10 @@ async function loadLatest() {
   if (el.latestNote) el.latestNote.hidden = true;
 
   renderJobCards(el.latest, jobs);
+
+  // The same cooldown badge the board shows, per 7f. The home page renders the
+  // same card, so it tells the same truth about it.
+  markAppliedCards(el.latest);
 }
 
 async function loadFacets() {

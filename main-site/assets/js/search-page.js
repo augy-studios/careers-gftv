@@ -25,6 +25,7 @@ import { api } from './api.js';
 import { t, getLocale } from './i18n.js';
 import { iconMarkup } from './icons.js';
 import { renderJobCards } from './job-card.js';
+import { markAppliedCards } from './apply-badges.js';
 import { formatCount, commitmentLabel } from './format.js';
 
 /* -------------------------------------------------------------------------
@@ -361,6 +362,12 @@ function renderResults(state, data) {
   // rather than twenty extra DOM walks.
   renderJobCards(el.results, jobs, { showHeadline: Boolean(state.q) });
   renderPagination(data);
+
+  // 7f: a posting inside its cooldown says so here as well as on the posting
+  // itself, so nobody clicks through only to be turned away. Not awaited: it is
+  // per applicant, most readers are signed out, and the results must never wait
+  // on a session check.
+  markAppliedCards(el.results);
 }
 
 function renderEmpty(state) {

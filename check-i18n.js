@@ -56,6 +56,9 @@ const DYNAMIC_FAMILIES = [
   'feature.',
   'codes.',
   'job.',
+  // apply.refused_<reason>, built from the reason code the start endpoint
+  // returns, so no literal in the source names any of the six.
+  'apply.',
 ];
 
 // A dictionary key: dotted, no interpolation. Anything with a ${ in it came

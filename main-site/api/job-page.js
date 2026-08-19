@@ -49,6 +49,10 @@ import {
   embedDescription,
   stripMarkdown,
 } from './_lib/job-detail.js';
+// The global applications toggle only. Nothing else from the apply flow reaches
+// this file, and above all not the form URL: that stays behind
+// api/applications/start.js and its session check.
+import { applicationsOpen } from './_lib/apply.js';
 
 // Every language the portal offers. The page inlines the posting in each one it
 // is ready in, so the globe redraws from memory rather than costing a request.
@@ -145,7 +149,19 @@ export default async function handler(req, res) {
       // there. An open posting carries nothing, so phase 12 decides for it.
       robots: facts.is_open ? null : 'noindex, follow',
       jsonLd: facts.is_open ? jobPostingLd(facts, english, job.id) : null,
-      inlineJson: { id: 'jobData', data: { job: facts, content } },
+      // applications_open rides along so the Apply button is right at first
+      // paint rather than after a request, per 7a's "the Apply button is
+      // disabled with an explanatory label ... once the global toggle is off".
+      //
+      // It is public information, and putting it in a document cached for 60
+      // seconds means flipping the toggle takes a few minutes to reach a page
+      // somebody is already looking at. That is the right trade: the button is
+      // a hint, and the enforcement is in api/applications/start.js, which
+      // reads the setting itself on every call and refuses immediately.
+      inlineJson: {
+        id: 'jobData',
+        data: { job: facts, content, applications_open: await applicationsOpen() },
+      },
       modules: ['/assets/js/shell.js', '/assets/js/job-page.js'],
       bodyHtml: bodyFor(english, facts),
     });

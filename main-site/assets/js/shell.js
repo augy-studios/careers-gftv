@@ -31,6 +31,7 @@ import {
   renderPlaceholder,
 } from './build-status.js';
 import { api, applicantSession } from './api.js';
+import { resumePendingPrompt } from './apply-prompt.js';
 
 /* -------------------------------------------------------------------------
  * Navigation
@@ -683,6 +684,12 @@ async function boot() {
   // changes one item in the navigation and nothing else, so it must never be
   // on the path that gets the page drawn.
   reflectApplicantSession();
+
+  // 7c: the outstanding apply prompt follows the applicant across the portal
+  // rather than living on the posting they started from, so the check runs on
+  // every page. It shares the session request above rather than making its own,
+  // and does nothing at all for a logged out reader.
+  resumePendingPrompt();
 }
 
 if (document.readyState === 'loading') {

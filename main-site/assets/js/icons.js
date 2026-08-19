@@ -92,6 +92,13 @@ const PATHS = {
   calendar:
     '<rect x="3.5" y="5" width="17" height="15" rx="2"/>' +
     '<path d="M3.5 10h17M8 3v4M16 3v4"/>',
+  // The rating star, from the handoff modal in 7c. The only icon in this set
+  // that is ever filled rather than stroked: an empty star and a chosen star
+  // have to differ at a glance across a row of five, and a stroke weight change
+  // does not carry that at 28px on a phone. app.css sets the fill on the
+  // chosen ones and leaves the rest as outlines.
+  star:
+    '<path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.15 1 5.85L12 16.95 6.75 19.7l1-5.85L3.5 9.7l5.9-.9z"/>',
 };
 
 // A few names read better in markup with a hyphen.

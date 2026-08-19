@@ -51,11 +51,11 @@
       "number": 5,
       "name": "Apply flow",
       "name_zh": "申请流程",
-      "status": "planned",
+      "status": "shipped",
       "description": "Applying to a role, the handoff to the application form, rating a posting, and the waiting period before you can apply to the same role again.",
       "description_zh": "申请职位、跳转至申请表单、为职位信息评分，以及再次申请同一职位前的等待期。",
-      "shipped_note": null,
-      "shipped_note_zh": null
+      "shipped_note": "Applying went live with this. Sign in, click Apply, and the role's application form opens in a new tab with your details already filled in where the posting is set up for it. When you come back we ask one question: did you apply? Answering is optional, nothing is locked if you skip it, and we will ask again next time rather than nag. You can also rate how well the posting was written, which only the team sees and which never appears on the posting. Once you have applied you cannot apply to that same role again for three months, and both the posting and the job board tell you the date rather than letting you find out by clicking. Saving roles and your own list of applications arrive in the next phase.",
+      "shipped_note_zh": "申请职位的功能随此阶段上线。登录后点击申请，该职位的申请表单会在新分页中打开；若该职位已设置好，您的资料也会预先填入。回到本网站时我们只问一个问题：您申请了吗？回答与否都可以，不回答也不会限制任何功能，我们下次会再问一次，而不会反复打扰。您也可以为职位信息写得好不好评分，评分只有团队看得到，绝不会显示在职位页面上。申请过之后，同一个职位三个月内不能再次申请；职位页面和职位板都会写明可以再次申请的日期，不必点进去才知道。收藏职位和查看自己的申请记录将在下一阶段上线。"
     },
     {
       "number": 6,

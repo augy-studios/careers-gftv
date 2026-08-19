@@ -13,12 +13,14 @@
 //
 // What is deliberately not here, and where it went:
 //
-//   Apply     phase 5. The button is present and disabled with the sentence
+//   Apply     assets/js/apply.js, which fills the slot this page leaves for it.
+//             Six states hang off one button and none of them are this file's
+//             business; all it owns is where the control sits on the page.
+//   Save      phase 6. The button is present and disabled with the sentence
 //             section 0c fixes, through the ordinary data-feature mechanism.
 //             Section 4's sign in prompt is for a logged out visitor facing a
 //             control that works; a control that does not exist yet is a
 //             different thing and 0c is the rule for it.
-//   Save      phase 6, same treatment.
 //   View log  the optional analytics `view` event in section 6. It is left to
 //             phase 8 with the rest of the analytics, because a row written
 //             here would sit at response_state pending and 7c's pending prompt
@@ -37,6 +39,9 @@ import { loadBuildStatus, applyFeatureGating } from './build-status.js';
 import { wireReportControl, openReportDialog } from './translation-report.js';
 import { consumeIntent } from './signin-prompt.js';
 import { applicantSession } from './api.js';
+// The Apply control and everything behind it. This page owns where it sits and
+// nothing else about it.
+import { mountApply } from './apply.js';
 // The posting body's small markdown subset. Its own module because it is pure,
 // has no DOM in it, and is the one part of this page that can be exercised
 // without a browser. Phase 7's editor preview should use it rather than write
@@ -160,9 +165,12 @@ function draw() {
     }
 
     <div class="job-actions">
-      <button type="button" class="btn btn-primary" data-feature="apply">
-        ${escapeHtml(t('job.apply'))}
-      </button>
+      <!-- Apply is a slot rather than a button, because it is six different
+           things depending on this reader's history with this posting: the
+           ordinary button, a cooldown notice, an unanswered prompt, a closed
+           state, a paused state, or the button with a line above it. assets/js/
+           apply.js owns everything inside it and redraws it in place. -->
+      <div class="apply-slot" id="applySlot"></div>
       <button type="button" class="btn btn-secondary" data-feature="saved_jobs">
         ${escapeHtml(t('job.save'))}
       </button>
@@ -212,6 +220,19 @@ function draw() {
   holder.removeAttribute('aria-busy');
   hydrateIcons(holder);
   wireActions(holder);
+
+  // After every draw, because a language change replaces the slot this fills.
+  // It holds its own state across those redraws, so switching language costs
+  // no request and never flickers back through the signed out button.
+  mountApply({
+    id: job.id,
+    title: content.title ?? '',
+    isOpen: job.is_open === true,
+    isArchived: job.is_archived === true,
+    // From the inlined payload rather than a request, so the button is right at
+    // first paint. The server checks it again on every apply.
+    applicationsOpen: payload.applications_open !== false,
+  });
 
   // The back link above the posting is in the document the function sent, so it
   // ships pointing at a bare /search. Section 4 wants it to return to the board
