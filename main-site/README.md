@@ -101,6 +101,24 @@ tracked; `.env` and `.env.local` are not.
 The browser never talks to Supabase directly and never receives an anon key, so
 there is no Supabase client bundled into the frontend at all.
 
+## Avatars
+
+Not built. `gftvjobs_users.avatar_url` has existed since migration `002` and
+nothing writes it. The upload endpoint is phase 6, with the rest of account
+settings.
+
+**[AVATARS.md](AVATARS.md)** is the guide: creating the `gftvjobs-avatars`
+bucket, compressing to WebP in the browser, and the endpoint that puts the two
+together. Read the first section before starting, because it changes a settled
+decision: section 10 item 1 says "No Supabase Storage, no uploads", and this is
+the exception to it.
+
+The shape is forced by section 2. The browser never receives an anon key, so it
+cannot upload to Storage directly the way a Supabase app normally would. The
+bytes go through a function using the service key, which is also why the
+browser has to compress first: a Vercel function takes at most 4.5 MB of
+request body.
+
 ## The two auth realms
 
 They are fully separate: separate tables, separate cookies, separate helpers.

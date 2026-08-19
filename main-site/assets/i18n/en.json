@@ -276,7 +276,7 @@
   "auth.backupCodeHint": "One of the ten codes from your security page. Each one works once. An account recovery code is a different set and is not accepted here.",
   "auth.passkeyUnsupportedHere": "This browser cannot use passkeys. Use a backup code instead.",
   "auth.passkeyFailed": "That did not work. Try again, or use a backup code.",
-  "common.unpaidNotice": "Every role currently listed at GFTV is voluntary and unpaid, unless a posting says otherwise. Nobody here is paid today, including the people running the station.",
+  "common.unpaidNotice": "Every role currently listed at GFTV is voluntary and unpaid, unless a posting says otherwise. Nobody here is paid today, including the people who developed this site.",
   "common.unpaidShort": "Every role currently listed is unpaid.",
   "home.unpaidHeading": "Every role listed today is unpaid",
   "home.unpaidBody": "GFTV is run by volunteers, and every posting on this site right now is voluntary and unpaid. That includes the staff and admin roles. We call this Careers@GFTV because it is where the openings are, not because they come with a salary. If a paid role is ever posted, that posting will say so on itself, and roles are labelled by how much time they take, so a full time posting can still be a full time volunteer one.",
