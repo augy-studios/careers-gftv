@@ -46,8 +46,16 @@ main-site/
     tasks/            7g's outstanding tasks, both sources unioned
     settings/         profile, picture, reports filed, and the danger zone
     security/         recovery codes, password, passkeys, trusted devices
-  admin/login/        staff sign in, with the second factor step
-  admin/security/     staff passkeys and trusted devices
+  admin/              the dashboard, phase 7
+    index.html        8.1's overview: postings, the pipeline, what is new
+    jobs/             8.2's postings list
+    jobs/edit/        the tabbed per language editor and the sections builder
+    applications/     8.3's applicant tracking, with the task composer
+    departments/      8.6's teams
+    tags/             8.7's tags, with the merge
+    maintenance/      8.12's switches
+    login/            staff sign in, with the second factor step
+    security/         staff passkeys and trusted devices
   placeholder.html    served for every route belonging to a later phase
   404.html            genuinely unknown paths
   manifest.json       PWA manifest, rewritten properly in phase 10
@@ -97,6 +105,12 @@ main-site/
     js/recovery-codes.js  the shown once code dialog
     js/login-page.js, register-page.js, forgot-password-page.js,
     js/admin-login-page.js, security-page.js, staff-security-page.js
+    js/admin-shell.js the dashboard's session guard, sidebar, and top bar
+    js/admin-page.js, admin-jobs-page.js, admin-job-editor.js,
+    js/admin-applications-page.js, admin-departments-page.js,
+    js/admin-tags-page.js, admin-maintenance-page.js  the seven pages
+    js/admin-questions.js  7g's question set composer, used by the editor and
+                      by the task composer. The set is frozen once sent
     js/passkeys.js    WebAuthn in the browser, hand written
     i18n/en.json      English interface strings
     i18n/zh.json      Simplified Chinese interface strings
@@ -107,9 +121,10 @@ main-site/
     auth/applicant/   register, login, logout, session, profile,
                       change-password, forgot-password, reset-password,
                       recovery-codes, trusted-devices, locale
-    public/           search, suggest, facets, job, jobs-feed. No session is
-                      read in any of them except for an archived posting,
-                      which 7g shows only to an applicant with history.
+    public/           search, suggest, facets, job, jobs-feed,
+                      feature-status. No session is read in any of them except
+                      for an archived posting, which 7g shows only to an
+                      applicant with history.
     translations/     report a translation problem, per 7h
     applications/     start, respond, pending, mine, withdraw. The only place
                       in the build that emits a Google Form URL, and only to a
@@ -117,6 +132,9 @@ main-site/
     saved/            mine, toggle
     tasks/            mine, count, respond
     account/          avatar, and danger/delete
+    admin/            me, stats, jobs, applications, tasks, departments, tags,
+                      maintenance. Every one re-checks the staff session and
+                      the access flag on the request, per section 8
     ratings/          upsert a rating for a posting, from the handoff modal
     job-page.js       the server rendered posting page. The one route in this
                       portal that returns HTML rather than JSON.

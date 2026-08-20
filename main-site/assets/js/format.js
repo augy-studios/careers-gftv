@@ -138,6 +138,23 @@ export function formatCount(value) {
 }
 
 /**
+ * The five keys migration 021 allows, in the order a picker offers them.
+ *
+ * Added in phase 7 for the editor, which needs the list rather than one label,
+ * per the note in section 6 of next-steps: the commitment picker is "limited to
+ * migration 021's five keys". It lives here beside commitmentLabel so the list
+ * and the wording cannot drift, and widening it is a new numbered migration
+ * plus a dictionary entry, never an edit to this array alone.
+ */
+export const COMMITMENTS = Object.freeze([
+  'volunteer',
+  'part_time',
+  'full_time',
+  'contract',
+  'internship',
+]);
+
+/**
  * The label for a commitment type key.
  *
  * The column holds a key from migration 021's fixed set and never a label, so

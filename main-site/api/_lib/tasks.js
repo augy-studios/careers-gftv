@@ -22,6 +22,7 @@
 
 import { supabase, T } from './supabase.js';
 import { APPLY_CLICK } from './apply.js';
+import { readQuestions } from './questions.js';
 
 /** Statuses that count as outstanding, for the list order and for the badge. */
 export const OPEN_STATUSES = Object.freeze(['open', 'awaiting_admin']);
@@ -49,6 +50,10 @@ const TASK_COLUMNS = [
   'title',
   'body',
   'status',
+  // Migration 031, phase 7. The set this task was sent with, frozen, and what
+  // the applicant answered.
+  'questions',
+  'answers',
   'response_text',
   'responded_at',
   'raised_by',
@@ -89,8 +94,13 @@ export async function fetchTasks(applicantId, options = {}) {
  * @param {object} row
  * @param {Map<string, object>} jobs from jobSummaries
  * @param {Map<string, string>} raisers staff id to a label
+ * @param {string} [locale] the reader's language, for the question labels. A
+ *        question is content and translates with everything else, per 7g, so
+ *        the labels are resolved here rather than sent as an object for the
+ *        client to pick from. The option *values* are untouched: an answer
+ *        stores a value, never a label.
  */
-export function publicTask(row, jobs, raisers) {
+export function publicTask(row, jobs, raisers, locale = 'en') {
   return {
     source: 'task',
     id: row.id,
@@ -99,11 +109,18 @@ export function publicTask(row, jobs, raisers) {
     body: row.body ?? null,
     status: row.status,
     is_open: OPEN_STATUSES.includes(row.status),
+    // Phase 7. An empty array on every task raised before migration 031 and on
+    // every ordinary reply box task, which is what the renderer branches on.
+    questions: readQuestions(row.questions, locale),
+    answers: row.answers ?? null,
     // Whether this task is waiting on the applicant, which is a different
     // question from whether it is open. A row at awaiting_admin is open and is
     // waiting on us, and telling somebody they still owe a reply they have
     // already written is the fastest way to make a task list ignorable.
-    needs_reply: row.status === 'open' && row.task_type === 'info_request',
+    // responded_at rather than response_text, since phase 7: a reply that
+    // answered questions and wrote nothing in the box leaves the text null.
+    needs_reply:
+      row.status === 'open' && row.task_type === 'info_request' && !row.responded_at,
     response_text: row.response_text ?? null,
     responded_at: row.responded_at ?? null,
     raised_by: raisers.get(row.raised_by) ?? null,
@@ -136,6 +153,11 @@ export function promptTask(row, jobs) {
     status: 'open',
     is_open: true,
     needs_reply: true,
+    // A prompt never carries questions. 7c's modal is a light tap on the
+    // shoulder, and the apply prompt is never extended, per the decision table:
+    // a posting's set raises its own task alongside it.
+    questions: [],
+    answers: null,
     response_text: null,
     responded_at: null,
     raised_by: null,

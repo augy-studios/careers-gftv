@@ -47,6 +47,28 @@ export const AUDIT = Object.freeze({
   AVATAR_SET: 'avatar_set',
   AVATAR_REMOVED: 'avatar_removed',
   ACCOUNT_DELETED: 'account_deleted',
+  // Phase 7, the dashboard. Every one of these is a staff action, so they are
+  // all written through auditStaff and all carry the actor's gftvhello id.
+  //
+  // What is logged is what changes somebody else's world: a posting going
+  // public or disappearing, a person's application moving, a feature going off
+  // across the whole site. What is not is an admin editing the wording of a
+  // draft, which is a row with an updated_at on it already.
+  JOB_CREATED: 'job_created',
+  JOB_STATUS_CHANGED: 'job_status_changed',
+  JOB_DELETED: 'job_deleted',
+  DEPARTMENT_DELETED: 'department_deleted',
+  TAG_DELETED: 'tag_deleted',
+  TAGS_MERGED: 'tags_merged',
+  APPLICATION_STATUS_CHANGED: 'application_status_changed',
+  COOLDOWN_WAIVED: 'cooldown_waived',
+  TASK_RAISED: 'task_raised',
+  TASK_RESOLVED: 'task_resolved',
+  // 8.12, and both directions on purpose: "Turning a feature back on is as much
+  // an event as turning it off, and an outage nobody recorded the end of is one
+  // nobody can measure."
+  FEATURE_DISABLED: 'feature_disabled',
+  FEATURE_ENABLED: 'feature_enabled',
 });
 
 /**

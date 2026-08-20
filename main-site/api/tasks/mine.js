@@ -75,7 +75,7 @@ export default async function handler(req, res) {
     ]);
 
     const items = sortTasks([
-      ...rows.map((row) => publicTask(row, jobs, raisers)),
+      ...rows.map((row) => publicTask(row, jobs, raisers, locale)),
       // A prompt whose posting has been hard deleted is dropped rather than
       // drawn as an item about nothing. An admin raised task keeps its place
       // with job null, because its message still means something without the

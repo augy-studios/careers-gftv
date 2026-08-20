@@ -4,10 +4,15 @@
 // and about coming back from signing in. The modal itself is apply-dialog.js;
 // this is the button in front of it.
 //
-// One posting can be in six states, and the button is a different thing in each
-// one. They are resolved in this order, because more than one can be true at
-// once and the reader needs the most specific answer:
+// One posting can be in seven states, and the button is a different thing in
+// each one. They are resolved in this order, because more than one can be true
+// at once and the reader needs the most specific answer:
 //
+//   accepted   they have the role. Added 21 August 2026 with the accept and
+//              reject rules in 8.3, and it is first because it is the only one
+//              that never ends: accepting closes the posting to that applicant
+//              for good, per 7f. **It must never render as a date.** A date
+//              invites somebody to come back for a role they already have.
 //   pending    an unanswered prompt from a previous handoff. 7c: the Apply
 //              button is replaced by a prompt that reopens the modal, so a
 //              second handoff cannot stack on an unresolved one.
@@ -111,8 +116,12 @@ function loadState({ refresh = false } = {}) {
   return statePromise;
 }
 
-/** Which of the six states this posting is in for this reader. */
+/** Which of the seven states this posting is in for this reader. */
 function currentState() {
+  // Before the cooldown, and before everything else about the posting: somebody
+  // who has been accepted is not waiting for anything and should not be told a
+  // date, per 8.3.
+  if (applicationState?.status === 'accepted') return 'accepted';
   if (applicationState?.pending_id) return 'pending';
   if (applicationState?.in_cooldown) return 'cooldown';
   if (posting.isArchived || !posting.isOpen) return 'closed';
@@ -128,6 +137,22 @@ function currentState() {
 function paint(slot) {
   const state = currentState();
   slot.setAttribute('data-apply-state', state);
+
+  if (state === 'accepted') {
+    // A panel, like the cooldown, and for the same two reasons: the sentence is
+    // longer than a control should carry, and a disabled button is dropped from
+    // the accessibility tree in some browsers, which would hide the only
+    // explanation on the page from the readers who most need it.
+    //
+    // No date anywhere in it. This state does not end.
+    slot.innerHTML = `
+      <p class="apply-state-panel apply-accepted" role="status">
+        ${iconMarkup('check', { size: 18 })}
+        <span>${escapeHtml(t('apply.acceptedSentence'))}</span>
+      </p>`;
+    hydrateIcons(slot);
+    return;
+  }
 
   if (state === 'pending') {
     slot.innerHTML = `

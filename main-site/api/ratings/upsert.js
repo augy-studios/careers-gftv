@@ -25,9 +25,14 @@ import { ok, fail, ERR, methodNotAllowed, failInternal, readJson } from '../_lib
 import { supabase, T } from '../_lib/supabase.js';
 import { getApplicantSession } from '../_lib/session.js';
 import { hasHistoryWithJob, isUuid, isVisible } from '../_lib/job-detail.js';
+import { unavailable } from '../_lib/maintenance.js';
 
 export default async function handler(req, res) {
   if (methodNotAllowed(req, res, ['POST'])) return;
+
+  // 8.12's shared guard. Off means off, including the API: a disabled
+  // control stops nobody with a stale tab or a phase 10 queued action.
+  if (await unavailable(res, 'ratings')) return;
 
   const session = await getApplicantSession(req);
   if (!session) {

@@ -20,11 +20,25 @@ import { hydrateIcons } from './icons.js';
 import { t, getLocale } from './i18n.js';
 
 const SOURCE = '/assets/build-status.json';
+const OVERRIDES = '/api/public/feature-status';
 const NOTICE_KEY = 'gftv-careers.phaseNoticeDismissed';
 
 /** The sentence section 0c fixes word for word, in the active language. */
 export function unavailableSentence(phase) {
   return t('feature.unavailable', { phase });
+}
+
+/**
+ * The other sentence, added in phase 7 with the maintenance switches in 8.12.
+ *
+ * **Never the phase one.** Telling somebody a feature they used last week "will
+ * be available in Phase 6" is a lie about a shipped feature, and it also makes
+ * a real outage indistinguishable from an unbuilt one. The admin's note is
+ * appended exactly as typed and is optional.
+ */
+export function maintenanceSentence(note) {
+  const base = t('feature.maintenance');
+  return note ? `${base} ${note}` : base;
 }
 
 let cache = null;
@@ -58,6 +72,59 @@ export function loadBuildStatus() {
     });
 
   return inFlight;
+}
+
+/* -------------------------------------------------------------------------
+ * The maintenance overrides, 8.12
+ * ---------------------------------------------------------------------- */
+
+// Which shipped features are switched off right now, and the public note on
+// each. Deliberately a second, separate load rather than something folded into
+// the file above, per section 9: the phase list is a static file three
+// consumers already read, and this is the one thing the browser needs that a
+// static file cannot answer.
+//
+// **A failure leaves everything on.** That is the direction to fail in. A
+// client that blanked a control it could not get a status for would turn a
+// settings blip into a site that looks broken, which is precisely the state
+// this exists to describe rather than to cause.
+let overridesCache = null;
+let overridesInFlight = null;
+
+/**
+ * The current overrides, as a feature key to { note, since } map.
+ * @returns {Promise<Record<string, { note: string|null, since: string|null }>>}
+ */
+export function loadFeatureOverrides() {
+  if (overridesCache) return Promise.resolve(overridesCache);
+  if (overridesInFlight) return overridesInFlight;
+
+  overridesInFlight = fetch(OVERRIDES, { headers: { Accept: 'application/json' } })
+    .then((res) => (res.ok ? res.json() : null))
+    .then((payload) => {
+      overridesCache = payload?.ok === true ? (payload.data?.off ?? {}) : {};
+      return overridesCache;
+    })
+    .catch((cause) => {
+      console.warn('[careers-gftv] could not load feature overrides:', cause);
+      overridesCache = {};
+      return overridesCache;
+    })
+    .finally(() => {
+      overridesInFlight = null;
+    });
+
+  return overridesInFlight;
+}
+
+/** Whether one feature is currently switched off. Synchronous, over the cache. */
+export function isFeatureOff(featureKey) {
+  return Boolean(overridesCache?.[featureKey]);
+}
+
+/** The public note on a switched off feature, or null. */
+export function featureNote(featureKey) {
+  return overridesCache?.[featureKey]?.note ?? null;
 }
 
 /* -------------------------------------------------------------------------
@@ -208,13 +275,23 @@ export function applyFeatureGating(status, root = document) {
       return;
     }
 
-    if (isFeatureShipped(status, key)) {
+    // Two reasons a control can be disabled, and they are never conflated. A
+    // feature that has not shipped gets the phase sentence; one that has
+    // shipped and been switched off gets the maintenance sentence and the
+    // admin's note. The second only applies to something that shipped, so the
+    // order below is the whole of the logic.
+    const shipped = isFeatureShipped(status, key);
+    const off = shipped && isFeatureOff(key);
+
+    if (shipped && !off) {
       el.setAttribute('data-shipped', 'true');
+      el.removeAttribute('data-maintenance');
       return;
     }
 
-    const sentence = unavailableSentence(phase);
-    el.setAttribute('data-shipped', 'false');
+    const sentence = off ? maintenanceSentence(featureNote(key)) : unavailableSentence(phase);
+    el.setAttribute('data-shipped', shipped ? 'true' : 'false');
+    if (off) el.setAttribute('data-maintenance', 'true');
     el.setAttribute('title', sentence);
 
     if (el.tagName === 'BUTTON' || el.tagName === 'INPUT' || el.tagName === 'SELECT') {
@@ -252,7 +329,15 @@ export function applyFeatureGating(status, root = document) {
       'pointerdown',
       (event) => {
         if (!el.contains(event.target) && event.target !== el) return;
-        showFeatureExplainer(unavailableSentence(phase), phase, status);
+        // Both the sentence and the reason are read again at click time, so the
+        // wording follows the language and a feature switched back on while the
+        // page was open explains itself correctly.
+        const nowOff = isFeatureShipped(status, key) && isFeatureOff(key);
+        showFeatureExplainer(
+          nowOff ? maintenanceSentence(featureNote(key)) : unavailableSentence(phase),
+          nowOff ? null : phase,
+          status
+        );
       },
       true
     );
@@ -266,7 +351,11 @@ let explainerTimer = null;
  * The small panel a disabled control opens. It explains and does nothing else.
  */
 export function showFeatureExplainer(sentence, phase, status) {
-  const info = phaseInfo(status, phase);
+  // A null phase means this is a maintenance sentence rather than a phase one,
+  // so there is no phase to describe underneath it. Saying what phase 6 covers
+  // to somebody whose saved roles are temporarily off would be answering a
+  // question they did not ask with something that is not true of their case.
+  const info = phase === null ? null : phaseInfo(status, phase);
 
   if (!explainer) {
     explainer = document.createElement('div');
@@ -317,8 +406,23 @@ const ROUTE_FEATURES = [
   ['/account/tasks', 'outstanding_tasks'],
   ['/account/settings', 'account_settings'],
   ['/account', 'account_settings'],
+  // The dashboard's own sections, per 0c: "A staff member clicking an unbuilt
+  // section gets the same message rather than an empty screen." The ones phase
+  // 7 built resolve to their own key and never reach the placeholder, because
+  // they are real pages; they are listed anyway so the sidebar can gate itself
+  // from the same map rather than from a second list.
   ['/admin/docs', 'admin_docs'],
   ['/admin/translations', 'admin_translations'],
+  ['/admin/analytics', 'admin_analytics'],
+  ['/admin/invites', 'admin_invites'],
+  ['/admin/admins', 'admin_admins'],
+  ['/admin/applicants', 'admin_applicants'],
+  ['/admin/settings', 'admin_settings'],
+  ['/admin/jobs', 'admin_jobs'],
+  ['/admin/applications', 'admin_applications'],
+  ['/admin/departments', 'admin_departments'],
+  ['/admin/tags', 'admin_tags'],
+  ['/admin/maintenance', 'admin_maintenance'],
   ['/admin', 'admin_dashboard'],
   ['/about', 'static_pages'],
   ['/faq', 'static_pages'],

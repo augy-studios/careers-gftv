@@ -91,6 +91,21 @@ export const LIMITS = Object.freeze({
   // Re-encoding is cheap, but an unbounded upload endpoint is not. Per account
   // and per IP, since the thing being bounded is bytes rather than guesses.
   avatar: { limit: 12, windowMs: 60 * 60 * 1000, lockMs: 30 * 60 * 1000 },
+  // The dashboard's writes, phase 7. Per staff account, counted on success,
+  // and deliberately loose: an admin working through a morning of postings,
+  // statuses, and tags does a great many writes, and a limit they can reach is
+  // a limit that stops the work rather than an attack.
+  //
+  // It is here at all because every write in this build is bounded, and because
+  // a compromised staff session should not be able to rewrite the whole board
+  // before anybody notices. Two hundred an hour is roughly one every twenty
+  // seconds sustained for an hour, which no person does.
+  admin: { limit: 200, windowMs: 60 * 60 * 1000, lockMs: 15 * 60 * 1000 },
+  // Permanent deletion, which is admins only and behind the three step
+  // confirmation. Separate from the bucket above and far tighter: deleting a
+  // posting destroys funnel history and is almost never the right answer, per
+  // 8.2, so a script with a stolen session gets very few of them.
+  adminDelete: { limit: 10, windowMs: 60 * 60 * 1000, lockMs: 60 * 60 * 1000 },
   // 7g: "Rate limit these endpoints hard, and lock the danger zone for an hour
   // after several failed password attempts." Harder than the login bucket,
   // because there is no legitimate reason to get your own password wrong four

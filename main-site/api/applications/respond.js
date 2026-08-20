@@ -33,9 +33,14 @@ import {
   fetchApplication,
   publicApplication,
 } from '../_lib/apply.js';
+import { unavailable } from '../_lib/maintenance.js';
 
 export default async function handler(req, res) {
   if (methodNotAllowed(req, res, ['POST'])) return;
+
+  // 8.12's shared guard. Off means off, including the API: a disabled
+  // control stops nobody with a stale tab or a phase 10 queued action.
+  if (await unavailable(res, 'apply_prompt')) return;
 
   const session = await getApplicantSession(req);
   if (!session) {

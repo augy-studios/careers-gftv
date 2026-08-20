@@ -1,4 +1,4 @@
-// POST /api/tasks/respond   { task_id, action: 'reply' | 'dismiss', text? }
+// POST /api/tasks/respond   { task_id, action: 'reply' | 'dismiss', text?, answers? }
 //
 // The two things an applicant can do with a task, per 7g.
 //
@@ -19,6 +19,20 @@
 //
 // Ownership is the applicant_id on the row, applied as a filter on both the read
 // and the write. A task id from another account matches nothing at either step.
+//
+// **Phase 7 added the answers**, per 7g's question sets and section 9's list of
+// what this endpoint has to check. The one round rule did not change: questions
+// and free text go in one submission, and a task with answers on it still
+// refuses a second reply.
+//
+// The rule that decides how they are checked, and it is section 9's own
+// sentence: **the answers are validated against the set stored on that task**,
+// never against what the browser sends back. "The browser was sent the questions
+// and cannot be trusted to send back an answer to one of them." So the questions
+// column is read here, checkAnswers takes it, and there is no path by which a
+// request can supply the set it is checked against.
+
+
 
 import { ok, fail, ERR, methodNotAllowed, failInternal, readJson } from '../_lib/respond.js';
 import { supabase, T } from '../_lib/supabase.js';
@@ -33,6 +47,8 @@ import {
   subjectForIp,
 } from '../_lib/rate-limit.js';
 import { OPEN_STATUSES } from '../_lib/tasks.js';
+import { checkAnswers, hasQuestions } from '../_lib/questions.js';
+import { unavailable } from '../_lib/maintenance.js';
 
 const ACTIONS = ['reply', 'dismiss'];
 
@@ -43,6 +59,9 @@ const REPLY_MAX = 4000;
 
 export default async function handler(req, res) {
   if (methodNotAllowed(req, res, ['POST'])) return;
+
+  // 8.12's guard. Off means off, including the API.
+  if (await unavailable(res, 'outstanding_tasks')) return;
 
   const session = await requireApplicant(req, res);
   if (!session) return;
@@ -61,7 +80,11 @@ export default async function handler(req, res) {
   const action = String(body.action ?? '').trim().toLowerCase();
   if (!ACTIONS.includes(action)) details.action = FIELD.INVALID;
 
-  const text = validateText(body.text, REPLY_MAX, { required: action === 'reply' });
+  // Whether the free text is required is decided after the task is read,
+  // because it depends on whether the task carries questions: a reply that
+  // answers three questions and adds nothing else is a complete reply, and
+  // demanding a sentence as well would be asking somebody to pad it out.
+  const text = validateText(body.text, REPLY_MAX);
   if (!text.ok) details.text = text.code;
 
   if (Object.keys(details).length > 0) {
@@ -71,7 +94,7 @@ export default async function handler(req, res) {
   try {
     const { data: task, error } = await supabase
       .from(T.tasks)
-      .select('id, task_type, status, response_text')
+      .select('id, task_type, status, response_text, responded_at, questions')
       .eq('id', taskId)
       .eq('applicant_id', session.user.id)
       .maybeSingle();
@@ -85,16 +108,46 @@ export default async function handler(req, res) {
       });
     }
 
-    if (action === 'reply' && task.response_text !== null) {
+    // responded_at rather than response_text, since phase 7. A reply that
+    // answered three questions and wrote nothing in the box leaves
+    // response_text null, and the old check would have let that one be replied
+    // to twice, which is the one thing the one round rule exists to prevent.
+    if (action === 'reply' && task.responded_at !== null) {
       return fail(res, ERR.CONFLICT, 'You have already replied to that one.', {
         details: { reason: 'already_replied' },
       });
+    }
+
+    let answers = null;
+
+    if (action === 'reply') {
+      const carriesQuestions = hasQuestions(task.questions);
+
+      // Every required question answered, every choice one of that question's
+      // own values, and nothing naming a question this task does not carry.
+      const checked = checkAnswers(body.answers, task.questions);
+      if (!checked.ok) {
+        return fail(res, ERR.BAD_REQUEST, 'Some of those answers are missing or not valid.', {
+          details: checked.details,
+        });
+      }
+      answers = checked.value;
+
+      // A task with no questions is the phase 6 reply box and still needs
+      // something written in it. A task with questions is satisfied by the
+      // answers, and the box beside them is the place to add anything else.
+      if (!carriesQuestions && !text.value) {
+        return fail(res, ERR.BAD_REQUEST, 'Write a reply before sending it.', {
+          details: { text: FIELD.REQUIRED },
+        });
+      }
     }
 
     const update =
       action === 'reply'
         ? {
             response_text: text.value,
+            answers,
             responded_at: new Date().toISOString(),
             status: 'awaiting_admin',
           }
@@ -108,7 +161,7 @@ export default async function handler(req, res) {
       // Filtered on the statuses that are still open, so two tabs racing write
       // one answer between them rather than one each.
       .in('status', OPEN_STATUSES)
-      .select('id, status, response_text, responded_at, updated_at')
+      .select('id, status, response_text, answers, responded_at, updated_at')
       .maybeSingle();
 
     if (updateError) return failInternal(res, updateError, 'task respond');

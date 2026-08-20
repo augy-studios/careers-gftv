@@ -52,6 +52,10 @@ const APPLY_COLUMNS = [
   'closes_at',
   'application_form_url',
   'form_prefill',
+  // Migration 031. The posting's question template, read here because 7a is
+  // where the auto-raise in 7g hangs: the tracking row is already being written
+  // at that point, so asking for one more column beats a second query.
+  'task_questions',
 ].join(', ');
 
 /**
@@ -226,6 +230,10 @@ export const REFUSAL = Object.freeze({
   NO_FORM: 'no_form',
   COOLDOWN: 'cooldown',
   PENDING: 'pending',
+  // Added 21 August 2026 with the accept and reject rules in 8.3. Unlike every
+  // other refusal here this one is permanent, and it must never render as a
+  // date: a date invites somebody to come back for a role they already have.
+  ACCEPTED: 'accepted',
 });
 
 /** Whether the global applications toggle is on, per 8.10 and 7a. */
@@ -261,6 +269,31 @@ export function refusalFor(job, open) {
   return null;
 }
 
+/**
+ * Why *this applicant* cannot apply to a posting that is otherwise open, or
+ * null.
+ *
+ * Separate from refusalFor because the two answer different questions and are
+ * needed at different moments: refusalFor is about the posting and is the same
+ * for everybody, so the posting page can inline it, while this one needs a
+ * tracking row and arrives with the per applicant state.
+ *
+ * Only the permanent case lives here. The cooldown is still asked of
+ * isInCooldown at the call site, because that answer depends on a setting and
+ * this function is deliberately synchronous.
+ *
+ * @param {{ status?: string }|null} application
+ * @returns {string|null} a REFUSAL
+ */
+export function refusalForApplicant(application) {
+  // 8.3, 21 August 2026: "Accepting closes that posting to that applicant for
+  // good, while rejecting closes it only until the cooldown runs out." A
+  // rejected row is handled by RESETTABLE and the cooldown; this is the other
+  // half, and it has no end date by design.
+  if (application?.status === 'accepted') return REFUSAL.ACCEPTED;
+  return null;
+}
+
 /* -------------------------------------------------------------------------
  * The tracking row and its history
  * ---------------------------------------------------------------------- */
@@ -286,7 +319,28 @@ export async function fetchApplication(jobId, applicantId) {
 // working through the pipeline, and a second click on Apply must not undo that.
 // 'withdrawn' is in the list because 7e is explicit that somebody who pulls out
 // is not locked out of a role they change their mind about.
-const RESETTABLE = ['started', 'withdrawn'];
+//
+// 'rejected' joined it on 21 August 2026, with the accept and reject rules in
+// 8.3, and it is the one entry here that is about somebody else's decision
+// rather than the applicant's own. A rejection closes the role until the
+// cooldown runs out and no longer, per 7f, so once that period is served the
+// row starts fresh at 'started'. Without this the row would stay reading "Not
+// this time" on both the applicant's list and the admin's while they reapply.
+//
+// 'accepted' is deliberately absent and is the opposite case: accepting closes
+// the posting to that applicant for good, which refusalForApplicant answers
+// before a start click ever reaches this list.
+const RESETTABLE = ['started', 'withdrawn', 'rejected'];
+
+// The same list for a *confirmation*, and it is deliberately the shorter one.
+//
+// A start click is a new attempt and may reopen a rejected row. A confirmed Yes
+// is an answer about an attempt that has already happened, and it arrives
+// through a prompt that can sit unanswered for fourteen days: if a rejection
+// landed in the meantime, moving the row to 'submitted' would silently undo it.
+// Splitting the two lists is the only thing standing between those two cases,
+// which is why they are not one constant with a comment.
+const CONFIRMABLE = ['started', 'withdrawn'];
 
 /**
  * What the tracking row's status should be after a start click.
@@ -310,20 +364,32 @@ export function startStatusFor(application) {
  * @param {string} applicationId
  * @param {string|null} fromStatus
  * @param {string} toStatus
- * @param {'applicant'|'system'} source
+ * @param {'applicant'|'system'|'admin'|'webhook'|'cron'} source
  * @param {string|null} [note]
+ * @param {{ changedBy?: string|null }} [options] the gftvhello uuid of the
+ *        staff member, for an admin action. Migration 006 puts a foreign key on
+ *        that column, so it takes a staff id and nothing else: an applicant id
+ *        here would fail the insert, which is why it is a named option rather
+ *        than a positional argument next to source.
  */
-export async function writeApplicationEvent(applicationId, fromStatus, toStatus, source, note = null) {
+export async function writeApplicationEvent(
+  applicationId,
+  fromStatus,
+  toStatus,
+  source,
+  note = null,
+  options = {}
+) {
   const { error } = await supabase.from(T.applicationEvents).insert({
     application_id: applicationId,
     from_status: fromStatus,
     to_status: toStatus,
     note,
     source,
-    // Null, always, from this file. changed_by only takes a gftvhello uuid, and
-    // nothing here is an admin action. That is what source is for, per the note
-    // in migration 006.
-    changed_by: null,
+    // Null for everything that is not an admin acting. Phase 7's tracking page
+    // is the first caller that passes one; every call from the applicant side
+    // leaves it null and lets source carry the meaning, per migration 006.
+    changed_by: options.changedBy ?? null,
   });
 
   if (error) console.error('[careers-gftv] application event:', error);
@@ -398,8 +464,9 @@ export async function confirmApplication(application, source) {
 
   // Same rule as a start click: never move a row backwards. An admin who has
   // already shortlisted somebody does not want a late Yes in the modal
-  // resetting them to 'submitted'.
-  const moves = RESETTABLE.includes(application.status);
+  // resetting them to 'submitted'. CONFIRMABLE rather than RESETTABLE, per the
+  // note on the two lists.
+  const moves = CONFIRMABLE.includes(application.status);
   const next = moves ? 'submitted' : application.status;
 
   const { data, error } = await supabase

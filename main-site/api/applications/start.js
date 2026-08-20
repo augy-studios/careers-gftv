@@ -46,13 +46,20 @@ import {
   logApplyClick,
   publicApplication,
   refusalFor,
+  refusalForApplicant,
   resolveForm,
   startApplication,
 } from '../_lib/apply.js';
 import { isInCooldown } from '../_lib/settings.js';
+import { raisePostingQuestions } from '../_lib/admin-tasks.js';
+import { unavailable } from '../_lib/maintenance.js';
 
 export default async function handler(req, res) {
   if (methodNotAllowed(req, res, ['POST'])) return;
+
+  // 8.12's shared guard, before anything else is read. Off means off, including
+  // the API: a disabled Apply button stops nobody with a stale tab.
+  if (await unavailable(res, 'apply')) return;
 
   const session = await getApplicantSession(req);
   if (!session) {
@@ -107,6 +114,12 @@ export default async function handler(req, res) {
       fetchPending(session.user.id, { jobId, limit: 1 }),
     ]);
 
+    // Permanent, and checked before the cooldown so an accepted applicant is
+    // never shown a date. 8.3: accepting closes the posting to that applicant
+    // for good.
+    const personal = refusalForApplicant(existing);
+    if (personal) return refuse(res, personal);
+
     if (pending.length > 0) {
       return refuse(res, REFUSAL.PENDING, { pending_id: pending[0].id });
     }
@@ -127,6 +140,18 @@ export default async function handler(req, res) {
     // true, because analytics is the append only log and applications is not.
     const event = await logApplyClick(jobId, session.user.id, req.headers?.referer ?? null);
     const application = await startApplication(jobId, session.user.id, existing);
+
+    // 7g's posting question set, per the second decision of 21 August 2026. The
+    // auto-raise goes here, where the tracking row is already being written, so
+    // it is one more step in a request that exists rather than anything
+    // scheduled. It is deliberately not bolted onto the handoff modal: 7c calls
+    // that modal a light tap on the shoulder rather than an ambush, and a
+    // required form hanging off it would make dismissing it cost something.
+    //
+    // Not awaited into the response's correctness: a failure to raise the task
+    // is logged and the handoff still happens. Somebody standing in front of an
+    // application form should not be stopped by a question we wanted to ask.
+    await raisePostingQuestions(job, session.user.id, application.id);
 
     // Counted on the way out rather than on a failure, like the report bucket:
     // what is worth bounding is how many handoffs one account can start in an
@@ -178,4 +203,6 @@ const MESSAGES = Object.freeze({
   [REFUSAL.COOLDOWN]: 'You have already applied for this role recently.',
   [REFUSAL.PENDING]:
     'You have an unanswered question about your last application to this role.',
+  // No date, deliberately. This is the one refusal that does not end.
+  [REFUSAL.ACCEPTED]: 'You have already been accepted for this role.',
 });

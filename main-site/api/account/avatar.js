@@ -38,9 +38,14 @@ import {
   subjectForUser,
   subjectForIp,
 } from '../_lib/rate-limit.js';
+import { unavailable } from '../_lib/maintenance.js';
 
 export default async function handler(req, res) {
   if (methodNotAllowed(req, res, ['POST', 'DELETE'])) return;
+
+  // 8.12's shared guard. Off means off, including the API: a disabled
+  // control stops nobody with a stale tab or a phase 10 queued action.
+  if (await unavailable(res, 'account_settings')) return;
 
   const session = await requireApplicant(req, res);
   if (!session) return;

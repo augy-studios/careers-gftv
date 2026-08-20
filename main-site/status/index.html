@@ -100,6 +100,13 @@
             Loading the current status.
         </div>
 
+        <!-- 8.12's outage notice. Filled by status-page.js from
+             /api/public/feature-status and hidden entirely when nothing is
+             switched off, which is almost always. It sits above the phase list
+             rather than inside it because it is a different kind of fact: the
+             list says what has been built, this says what is working today. -->
+        <div class="callout warn" id="statusOutages" role="status" hidden></div>
+
         <!-- Skeleton placeholders, replaced by the real phases. The count is
              arbitrary but the shape is not: matching the real card stops the
              page jumping when the data arrives. aria-busy tells a screen

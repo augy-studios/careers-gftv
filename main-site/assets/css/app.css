@@ -3028,3 +3028,982 @@ input[type='search']::-webkit-search-cancel-button {
     transition: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * The admin dashboard, phase 7
+ *
+ * Section 8 asks for the gftv.asia link shortener's layout: sidebar, header,
+ * card and table patterns, and the same empty and loading states. What that
+ * means here is a two column layout under the site's own header rather than a
+ * second one: /admin/login and /admin/security have sat under the public header
+ * since phase 2, and giving the dashboard its own would put two brands, two
+ * theme buttons, and two language switchers on one page.
+ *
+ * The whole area is a wider page than the rest of the site. A table of postings
+ * with a status, three languages, a date, and four controls does not fit in the
+ * 72rem the reading pages use, and squeezing it produces the horizontal scroll
+ * section 3 forbids on a body.
+ * ------------------------------------------------------------------------ */
+
+.page-wide {
+  max-width: 84rem;
+}
+
+.admin-layout {
+  display: grid;
+  grid-template-columns: 14rem minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.admin-content {
+  /* minmax(0, 1fr) above plus this is what lets a wide table scroll inside its
+     own container rather than stretching the grid column. */
+  min-width: 0;
+}
+
+/* The sidebar sticks, because a dashboard is a place somebody moves between
+   sections rather than reads top to bottom. */
+.admin-sidebar {
+  position: sticky;
+  top: 1rem;
+}
+
+.admin-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.admin-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted-strong);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.admin-nav-item:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.admin-nav-item[aria-current='page'] {
+  background: var(--surface-active);
+  color: var(--brand-text);
+}
+
+/* An unbuilt section, per 0c. Visible, not a link, and carrying the phase
+   sentence through the shared gating in build-status.js. */
+.admin-nav-item[data-shipped='false'] {
+  color: var(--text-light);
+  cursor: default;
+}
+
+/* A shipped feature switched off from 8.12. A different state from the one
+   above and it has to look different: the same grey for "coming later" and
+   "broken right now" is what makes an outage indistinguishable from an unbuilt
+   feature, which 0c is explicit about avoiding. */
+.admin-nav-item[data-off='true']::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--warn);
+  margin-left: auto;
+}
+
+.admin-nav-external {
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.admin-badge {
+  margin-left: auto;
+  min-width: 1.25rem;
+  padding: 0 0.3125rem;
+  border-radius: 999px;
+  background: var(--brand);
+  color: var(--brand-text);
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.admin-topbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-topbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.admin-whoami {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.admin-whoami-name {
+  font-weight: 600;
+}
+
+.admin-role-pill {
+  padding: 0.0625rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.admin-menu-toggle {
+  display: none;
+}
+
+.admin-maintenance-banner {
+  margin-bottom: 1rem;
+}
+
+.admin-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.admin-section {
+  margin-bottom: 2rem;
+}
+
+.admin-section h2 {
+  font-size: 1.125rem;
+  margin-bottom: 0.5rem;
+}
+
+.admin-empty {
+  padding: 1.5rem 0;
+  text-align: center;
+}
+
+.admin-sub {
+  display: block;
+  font-size: 0.8125rem;
+}
+
+/* ---------------------------------------------------------------------------
+ * Stat cards and tables
+ * ------------------------------------------------------------------------ */
+
+.admin-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.75rem;
+}
+
+.admin-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1rem;
+  text-decoration: none;
+  color: inherit;
+}
+
+.admin-stat-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.admin-stat-label {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+/* A table wide enough to need it scrolls inside its own container, never the
+   page body. Section 3's responsive rule, and the reason .admin-content sets
+   min-width: 0 above. */
+.admin-list {
+  overflow-x: auto;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+
+.admin-table th {
+  text-align: start;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border-strong);
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.admin-table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.admin-table tr:hover td {
+  background: var(--surface-hover);
+}
+
+.admin-row-title {
+  font-weight: 600;
+}
+
+.admin-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.admin-row-flags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.25rem;
+}
+
+.admin-select-col {
+  width: 2.5rem;
+}
+
+.admin-people {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.admin-people li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-person-name {
+  font-weight: 600;
+}
+
+.admin-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.admin-toolbar .field {
+  margin: 0;
+  min-width: 9rem;
+}
+
+.admin-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.admin-bulk-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+/* ---------------------------------------------------------------------------
+ * The language state pills, 8.2
+ *
+ * complete, in progress, and absent differ by shape and weight as well as by
+ * colour, per section 3: colour alone carries nothing for a reader who cannot
+ * distinguish two greens, and this sits in a table cell with no room for a
+ * word. The title attribute carries the state in words for everybody else.
+ * ------------------------------------------------------------------------ */
+
+.admin-langs {
+  display: inline-flex;
+  gap: 0.25rem;
+}
+
+.admin-lang {
+  padding: 0.0625rem 0.375rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.admin-lang-complete {
+  background: var(--callout-ok-bg);
+  border-color: var(--ok);
+  color: var(--ok);
+}
+
+.admin-lang-in_progress {
+  background: var(--callout-warn-bg);
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+.admin-lang-absent {
+  background: transparent;
+  border-style: dashed;
+  color: var(--text-light);
+}
+
+.lang-tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.lang-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.875rem;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--text-muted);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lang-tab[aria-selected='true'] {
+  border-bottom-color: var(--brand-dark);
+  color: var(--text);
+}
+
+.lang-state {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-light);
+}
+
+.lang-state-complete {
+  background: var(--ok);
+}
+
+.lang-state-in_progress {
+  background: var(--warn);
+}
+
+.lang-state-absent {
+  background: transparent;
+  border: 1px dashed var(--text-light);
+}
+
+/* ---------------------------------------------------------------------------
+ * The editor
+ * ------------------------------------------------------------------------ */
+
+.editor-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.editor-main,
+.editor-side {
+  padding: 1.25rem;
+}
+
+.editor-side {
+  position: sticky;
+  top: 1rem;
+}
+
+/* 8.2: the source wording sits beside the field being written, "so a translator
+   is never working from memory". Below 1024px it collapses to a disclosure
+   above each field rather than a second column, which is the media query at the
+   foot of this block. */
+.editor-field.has-source {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.editor-field-main {
+  min-width: 0;
+}
+
+.editor-source {
+  padding: 0.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.editor-source-label {
+  display: block;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin-bottom: 0.25rem;
+}
+
+.editor-source-text {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-muted-strong);
+  white-space: pre-wrap;
+}
+
+.editor-ready {
+  margin-bottom: 0.25rem;
+}
+
+.editor-sections,
+.editor-questions,
+.question-options {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.editor-section {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.editor-section-head {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.editor-section-head .section-heading {
+  flex: 1;
+}
+
+.editor-section-controls {
+  display: inline-flex;
+  gap: 0.25rem;
+}
+
+.editor-embed {
+  margin-top: 1.5rem;
+}
+
+.embed-card {
+  padding: 0.75rem 1rem;
+  border-inline-start: 4px solid var(--brand-dark);
+  max-width: 32rem;
+}
+
+.embed-site {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.embed-title {
+  margin: 0.125rem 0;
+  font-weight: 700;
+}
+
+.embed-description {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-muted-strong);
+}
+
+.editor-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.editor-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.editor-blockers {
+  margin: 0.5rem 0 0 1rem;
+  color: var(--warn);
+  font-size: 0.875rem;
+}
+
+.editor-preview {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.tag-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin-bottom: 0.375rem;
+}
+
+.chip-removable {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* ---------------------------------------------------------------------------
+ * The question composer, 8.3
+ * ------------------------------------------------------------------------ */
+
+.question-composer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.question-count {
+  margin: 0;
+  font-size: 0.8125rem;
+}
+
+.question-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+}
+
+.question-item {
+  padding: 1rem;
+}
+
+.question-item-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.question-item-controls {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 0.25rem;
+}
+
+.question-type-pill {
+  padding: 0.0625rem 0.5rem;
+  border-radius: 999px;
+  background: var(--surface-active);
+  color: var(--text-muted-strong);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.question-option {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.375rem;
+}
+
+/* The value is language independent and is what an answer stores, so it is
+   deliberately narrower and monospaced next to the label: the two are not the
+   same kind of thing and should not look interchangeable. */
+.question-option .option-value {
+  flex: 0 0 9rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8125rem;
+}
+
+.question-option input:not(.option-value) {
+  flex: 1;
+  min-width: 0;
+}
+
+.question-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.question-summary {
+  margin: 0.5rem 0 0 1rem;
+  font-size: 0.875rem;
+}
+
+.question-summary-label {
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------------------
+ * The tracking detail panel
+ * ------------------------------------------------------------------------ */
+
+.admin-detail-dialog .modal,
+.admin-composer-dialog .modal {
+  max-width: 44rem;
+  width: min(44rem, 100%);
+}
+
+.admin-detail-facts {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.25rem 1rem;
+  font-size: 0.9375rem;
+}
+
+.admin-detail-facts dt {
+  color: var(--text-muted);
+}
+
+.admin-detail-profile,
+.admin-detail-status,
+.admin-detail-tasks,
+.admin-detail-history {
+  padding-block: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-detail-history {
+  border-bottom: 0;
+}
+
+.admin-detail-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.admin-timeline {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.admin-timeline li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: baseline;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-timeline-status {
+  font-weight: 600;
+}
+
+.admin-timeline-note {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--text-muted-strong);
+}
+
+.admin-task {
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 0.5rem;
+}
+
+.admin-task-head {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 0.375rem;
+}
+
+.admin-task-title {
+  margin: 0;
+  font-weight: 600;
+}
+
+.admin-task-body,
+.admin-task-reply {
+  margin: 0.375rem 0 0;
+  font-size: 0.9375rem;
+}
+
+.admin-task-answers {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.25rem 1rem;
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.admin-task-answers dt {
+  color: var(--text-muted);
+}
+
+.admin-recipients {
+  padding: 0.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  margin-bottom: 1rem;
+}
+
+.admin-recipients ul {
+  list-style: none;
+  margin-top: 0.25rem;
+  max-height: 10rem;
+  overflow-y: auto;
+  font-size: 0.875rem;
+}
+
+/* ---------------------------------------------------------------------------
+ * The maintenance switches, 8.12
+ * ------------------------------------------------------------------------ */
+
+.feature-switch {
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+/* A feature that is off is marked by a border as well as by the switch, so the
+   state is legible while scanning rather than only by reading each control. */
+.feature-switch.is-off {
+  border-inline-start: 4px solid var(--warn);
+}
+
+.feature-switch-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.feature-switch h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.feature-switch-state {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.875rem;
+}
+
+.feature-note {
+  margin: 0.25rem 0 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  white-space: pre-wrap;
+}
+
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  position: relative;
+}
+
+.switch input {
+  position: absolute;
+  opacity: 0;
+  width: 2.5rem;
+  height: 1.375rem;
+  margin: 0;
+  cursor: pointer;
+}
+
+.switch-track {
+  width: 2.5rem;
+  height: 1.375rem;
+  border-radius: 999px;
+  background: var(--surface-active);
+  border: 1px solid var(--border-strong);
+  position: relative;
+  transition: background 0.15s ease;
+}
+
+.switch-track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  inset-inline-start: 2px;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: transform 0.15s ease;
+}
+
+.switch input:checked + .switch-track {
+  background: var(--callout-ok-bg);
+  border-color: var(--ok);
+}
+
+.switch input:checked + .switch-track::after {
+  background: var(--ok);
+  transform: translateX(1.125rem);
+}
+
+.switch input:focus-visible + .switch-track {
+  outline: 2px solid var(--brand-dark);
+  outline-offset: 2px;
+}
+
+.switch-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.denied-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.denied-feature {
+  display: flex;
+  gap: 0.75rem;
+  align-items: baseline;
+  flex-wrap: wrap;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.denied-feature-name {
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------------------
+ * Question answers on /account/tasks, the applicant's side
+ * ------------------------------------------------------------------------ */
+
+.task-question {
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 0.75rem;
+}
+
+.task-question legend {
+  font-weight: 600;
+  padding-inline: 0.25rem;
+}
+
+.field-required {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.task-answers-given {
+  margin-top: 0.75rem;
+}
+
+.task-answers-given dl {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.25rem 1rem;
+  font-size: 0.875rem;
+}
+
+.task-answers-given dt {
+  color: var(--text-muted);
+}
+
+/* The accepted panel from 8.3. Deliberately the only apply state that is not
+   grey or amber: it is the one that is good news. No date in it, ever. */
+.apply-accepted {
+  border-color: var(--ok);
+  color: var(--ok);
+}
+
+@media (max-width: 1024px) {
+  .editor-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .editor-side {
+    position: static;
+  }
+
+  /* 8.2: below 1024px the source wording collapses to a block above each field
+     rather than a second column. Above it rather than below, because a
+     translator reads the source and then types. */
+  .editor-field.has-source {
+    display: flex;
+    flex-direction: column-reverse;
+  }
+}
+
+@media (max-width: 900px) {
+  .admin-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-sidebar {
+    position: static;
+  }
+
+  /* The sidebar becomes a disclosure rather than a permanent column: twelve
+     items above every page is most of a phone screen before the page starts. */
+  .admin-layout:not(.nav-open) .admin-sidebar {
+    display: none;
+  }
+
+  .admin-menu-toggle {
+    display: inline-flex;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .switch-track,
+  .switch-track::after {
+    transition: none;
+  }
+}

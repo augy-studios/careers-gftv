@@ -59,6 +59,17 @@ const DYNAMIC_FAMILIES = [
   // apply.refused_<reason>, built from the reason code the start endpoint
   // returns, so no literal in the source names any of the six.
   'apply.',
+  // Phase 7. The dashboard builds a great many keys at runtime: a status, a
+  // question type, an event source, a blocker code, a translation state.
+  'admin.',
+  // The maintenance switches in 8.12 are keyed by feature, and the feature list
+  // is build-status.json rather than anything in the source, so no literal
+  // names any of them.
+  'featureName.',
+  'featureWhere.',
+  'featureDenied.',
+  // tasks.type_<task type>, from the union in api/_lib/tasks.js.
+  'tasks.',
 ];
 
 // A dictionary key: dotted, no interpolation. Anything with a ${ in it came

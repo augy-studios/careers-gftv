@@ -10,7 +10,13 @@
 // The page builds its own markup rather than carrying data-i18n attributes,
 // so it redraws on a language change instead of being retranslated in place.
 
-import { loadBuildStatus, currentPhase, allShipped, phaseText } from './build-status.js';
+import {
+  loadBuildStatus,
+  loadFeatureOverrides,
+  currentPhase,
+  allShipped,
+  phaseText,
+} from './build-status.js';
 import { hydrateIcons } from './icons.js';
 import { t } from './i18n.js';
 
@@ -102,15 +108,66 @@ function render(status) {
     : t('status.pageTitle');
 }
 
+/**
+ * Anything switched off right now, per 8.12: "A feature that is off appears on
+ * /status as currently unavailable with its note, since that page is already
+ * where somebody goes to find out what is going on."
+ *
+ * Above the phase list rather than inside it, because it is a different kind of
+ * fact: the list says what has been built, and this says what is working. The
+ * two are deliberately not merged, for the same reason an override never edits
+ * build-status.json.
+ *
+ * Absent entirely when nothing is off, which is almost always.
+ */
+function renderOutages(overrides) {
+  const holder = document.querySelector('#statusOutages');
+  if (!holder) return;
+
+  const keys = Object.keys(overrides ?? {});
+
+  holder.hidden = keys.length === 0;
+  if (keys.length === 0) {
+    holder.replaceChildren();
+    return;
+  }
+
+  holder.innerHTML = `
+    <h2>${escapeHtml(t('status.outagesHeading'))}</h2>
+    <p>${escapeHtml(t('status.outagesLede'))}</p>
+    <ul>
+      ${keys
+        .map((key) => {
+          const note = overrides[key]?.note;
+          return (
+            `<li><strong>${escapeHtml(t(`featureName.${key}`))}</strong>` +
+            (note ? ` ${escapeHtml(note)}` : '') +
+            `</li>`
+          );
+        })
+        .join('')}
+    </ul>`;
+}
+
 let loaded = null;
+let outages = null;
 
 function draw() {
   if (!loaded) return;
   render(loaded);
+  renderOutages(outages);
 }
 
 loadBuildStatus().then((status) => {
   loaded = status;
+  draw();
+});
+
+// Separate and not awaited with the file above: a failure to read the overrides
+// must leave the page working with everything on, which is exactly what an
+// empty answer does here.
+loadFeatureOverrides().then((off) => {
+  outages = off;
   draw();
 });
 

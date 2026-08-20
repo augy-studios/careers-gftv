@@ -45,6 +45,7 @@ import {
   isVisible,
   isUuid,
 } from '../_lib/job-detail.js';
+import { unavailable } from '../_lib/maintenance.js';
 
 // Migration 015's check constraint, repeated here so a bad value is a field
 // error the form can point at rather than a database error the client cannot
@@ -76,6 +77,10 @@ const KEY_MAX = 120;
 
 export default async function handler(req, res) {
   if (methodNotAllowed(req, res, ['POST'])) return;
+
+  // 8.12's shared guard. Off means off, including the API: a disabled
+  // control stops nobody with a stale tab or a phase 10 queued action.
+  if (await unavailable(res, 'translation_report')) return;
 
   const session = await getApplicantSession(req);
   if (!session) {

@@ -187,3 +187,43 @@ export function invalidateSettings() {
   cache = null;
   cachedAt = 0;
 }
+
+/* -------------------------------------------------------------------------
+ * Writing, added in phase 7 for 8.12
+ * ---------------------------------------------------------------------- */
+
+/**
+ * Write one setting.
+ *
+ * The header of this file says the write half is phase 8's, and it mostly still
+ * is: the settings page in 8.10 is phase 8's and nothing here is a substitute
+ * for it. What arrives early is 8.12's maintenance switches, which are stored
+ * as a setting because an admin cannot edit a file in the repo from a
+ * dashboard, and which are in phase 7 so there is a lever for turning a broken
+ * feature off before the phases that add the most surface.
+ *
+ * Unlike every read here, this one throws. A read that fails falls back to
+ * policy and carries on; a write that fails and says nothing would leave an
+ * admin looking at a switch they believe they have flipped.
+ *
+ * The cache is dropped rather than updated, so the next read goes to the table
+ * and a partial write cannot leave a wrong value in memory for a minute.
+ *
+ * @param {string} key
+ * @param {unknown} value
+ * @param {{ description?: string, staffId?: string|null }} [options] the
+ *        description is written only when it is given, so an upsert cannot
+ *        blank the sentence migration 012 seeded. staffId fills updated_by,
+ *        which takes a gftvhello uuid and nothing else.
+ */
+export async function putSetting(key, value, options = {}) {
+  const row = { key, value, updated_at: new Date().toISOString() };
+  if (options.description) row.description = options.description;
+  if (options.staffId) row.updated_by = options.staffId;
+
+  const { error } = await supabase.from(T.settings).upsert(row, { onConflict: 'key' });
+
+  if (error) throw new Error(`could not write the ${key} setting: ${error.message}`);
+
+  invalidateSettings();
+}

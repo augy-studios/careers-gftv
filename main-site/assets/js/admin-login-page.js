@@ -26,11 +26,18 @@ import {
 import { passkeysSupported, usePasskey, wasCancelled } from './passkeys.js';
 import { t } from './i18n.js';
 
-// /admin is the dashboard, and it is a placeholder until phase 7. Sending a
-// staff member who has just signed in to a page that says "not built yet" and
-// offers nothing is worse than sending them to the one staff page that works.
-// Change this to /admin when the dashboard lands.
-const AFTER_SIGN_IN = '/admin/security';
+// The dashboard, which phase 7 built. This pointed at /admin/security for two
+// phases because /admin was a placeholder, and sending somebody who had just
+// signed in to a page saying "not built yet" was worse than sending them to the
+// one staff page that worked.
+//
+// It stays a single destination rather than honouring a ?redirect=, unlike the
+// applicant sign in. A staff member arriving at /admin unauthenticated is
+// redirected here by the dashboard shell with the path they wanted, and phase 8
+// can carry that through; what it must not do meanwhile is send somebody to a
+// path taken from a query string, which is the thing api/_lib/redirects.js
+// exists to validate on the applicant side.
+const AFTER_SIGN_IN = '/admin';
 
 let challenge = null;
 let staySignedIn = false;

@@ -121,6 +121,32 @@ const PATHS = {
   // a posting, and this is deliberately the single figure so the two do not read
   // as the same thing at 18px.
   user: '<circle cx="12" cy="8" r="3.75"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/>',
+  // Phase 7, the dashboard. Everything below is sidebar or toolbar furniture:
+  // small, stroked, and deliberately dull, because a dashboard is read rather
+  // than looked at and a screen of expressive icons is harder to scan.
+  //
+  // Bars rather than a line, for analytics. A line chart at 18px is a squiggle;
+  // three bars stay legible and say "counts" rather than "trend", which is what
+  // 8.4's funnel actually is.
+  chart: '<path d="M4 20V4"/><path d="M4 20h16"/><rect x="7" y="12" width="3" height="5"/>' +
+    '<rect x="12" y="8" width="3" height="9"/><rect x="17" y="5" width="3" height="12"/>',
+  // A slider rather than a cog. The cog is what "build" already implies in this
+  // set, and settings here are values somebody adjusts rather than machinery.
+  settings:
+    '<path d="M4 8h10M18 8h2M4 16h4M12 16h8"/>' +
+    '<circle cx="16" cy="8" r="2"/><circle cx="10" cy="16" r="2"/>',
+  book: '<path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5z"/><path d="M5 19.5A1.5 1.5 0 0 1 6.5 18H19v3H6.5A1.5 1.5 0 0 1 5 19.5z"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  trash:
+    '<path d="M4 7h16"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7"/>' +
+    '<path d="M6.5 7l.8 12a1.5 1.5 0 0 0 1.5 1.4h6.4a1.5 1.5 0 0 0 1.5-1.4l.8-12"/>',
+  edit: '<path d="M4 20h4l10-10-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
+  // Two rows of grip dots, the ordinary handle for a draggable row. Reordering
+  // is also possible from the keyboard everywhere it appears, per the phase 12
+  // pass this set is written to survive.
+  drag: '<circle cx="9" cy="7" r="1.2"/><circle cx="15" cy="7" r="1.2"/><circle cx="9" cy="12" r="1.2"/>' +
+    '<circle cx="15" cy="12" r="1.2"/><circle cx="9" cy="17" r="1.2"/><circle cx="15" cy="17" r="1.2"/>',
+  warning: '<path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17h.01"/>',
 };
 
 // A few names read better in markup with a hyphen.
