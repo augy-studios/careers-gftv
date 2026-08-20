@@ -277,9 +277,12 @@ markup as delivered and does not run JavaScript.
 | `api/tasks/mine` | the union of admin raised tasks and unanswered apply prompts. `?task_id=` is 7g's deep link | 6 |
 | `api/tasks/count` | the badge on the account navigation. Its own route because every page of the account area draws it and none of them wants the tasks themselves | 6 |
 | `api/tasks/respond` | reply to an info request, or mark a notice as read. One round, per 7g | 6 |
+| | Phase 7 widens the reply to carry answers to the task's question set, validated on the server against the set stored on that task. An answer records an option's value, never its label, so it reads in either language | 7 |
 | `api/account/avatar` | POST a raw `image/webp` body, DELETE to remove. See AVATARS.md | 6 |
 | `api/account/danger/delete` | 7g's danger zone. **There is no separate verify-password route**, deliberately: an endpoint whose answer is "the password was correct" is exactly the client side signal 7g forbids relying on, so the destructive endpoint verifies it in the same request as the action | 6 |
 | `api/admin/*` | jobs, applications, tasks, departments, tags, docs | 7 |
+| `api/admin/maintenance` | read and flip the feature overrides in 8.12, so a shipped feature can be turned off while it is broken | 7 |
+| `api/public/feature-status` | which shipped features are currently off, and the public note on each. Short cache. The phase list stays in `build-status.json` and is not duplicated here | 7 |
 | `api/admin/*` | analytics, invites, users, admins, settings, stats, export, translations | 8 |
 | `api/cron/daily` | the scheduled maintenance in section 11 | 9 |
 | `api/webhooks/form-submit` | the Apps Script integration in section 13 | 9 |
@@ -715,6 +718,19 @@ To mark a control as belonging to an unshipped feature:
 and puts the reason on it: "Will be available in Phase 6. Sorry for the
 inconvenience caused." The control stays visible, because hiding it teaches
 people the feature does not exist.
+
+**Phase 7 adds a second reason a control can be disabled**, per 0c and 8.12: an
+admin can flip a *shipped* feature off while it is broken or being worked on.
+Three things about that, written here because the obvious implementation of each
+is wrong:
+
+- **It never edits this file.** `build-status.json` records what has been built.
+  An override records what is working right now, and it lives in
+  `gftvjobs_settings` so an admin can set it from a dashboard and a deploy
+  cannot silently undo it.
+- **It gets its own sentence.** Reusing the phase wording would tell somebody a
+  feature they used last week was never built.
+- **The API refuses too.** A disabled button stops nobody holding the endpoint.
 
 ## Fonts
 
