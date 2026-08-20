@@ -357,6 +357,12 @@ real anchor instead, which is a fresh gesture and always works.
   admin has moved to `shortlisted` leaves the status alone. Only `started` and
   `withdrawn` are resettable, the second because 7e says somebody who pulls out
   is not locked out of a role they change their mind about.
+
+  **Phase 7 adds `rejected` to that list**, per 7f: once the cooldown has run
+  out a rejection is not a ban, and the row starts fresh. `accepted` never joins
+  it and becomes a permanent refusal instead, because they have the role. Also
+  in phase 7: a status change must never write `applied_at` or `cooldown_until`,
+  so a rejection does not act as a waive.
 - **The start call is not prefetched on hover**, though 7c step 2 suggests it.
   That step reads as though prefetching the form URL were free, and it is not:
   `start` is the endpoint that writes the analytics row, so calling it on
