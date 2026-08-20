@@ -1,17 +1,21 @@
-// GET /api/applications/mine[?job_id={uuid}]
+// GET /api/applications/mine[?job_id={uuid}][?with_jobs=true][?bucket=...]
 //
-// Section 9's "list mine". This phase builds the half two surfaces need now:
-// the posting page, which has to know whether to draw an Apply button, a
-// cooldown notice, or an unanswered prompt, and the board, which per 7f shows
-// the same cooldown state on the card "so nobody clicks through only to be
-// turned away".
+// Section 9's "list mine", and now two callers with different appetites.
 //
-// Deliberately thin. It returns tracking rows and nothing human readable, so it
-// takes no locale and needs none. Phase 6's My applications page wants titles,
-// departments, and bucket tabs alongside these rows, and widening it there,
-// with the page that displays them, is better than guessing the shape now.
+// **Thin by default**, which is how phase 5 built it and is what the posting
+// page and the board want: tracking rows, no human readable content, no locale.
+// The posting page has to know whether to draw an Apply button, a cooldown
+// notice, or an unanswered prompt, and the board shows the same cooldown state
+// on the card, per 7f, "so nobody clicks through only to be turned away".
+// Neither of them wants a title they already have on screen.
 //
-// The two rules that matter:
+// **Wide when asked**, which is phase 6's My applications page: with_jobs=true
+// adds the posting summary each row is about and the bucket counts behind the
+// tabs, and only then does the locale mean anything. Widening this route rather
+// than writing a second one is what next-steps.md asked for; making it opt-in is
+// what stops the board paying for four queries it has no use for on every load.
+//
+// The three rules that matter:
 //
 //   **in_cooldown is resolved on the server.** The client cannot know whether
 //   the cooldown is switched off site wide, and comparing cooldown_until to the
@@ -20,11 +24,17 @@
 //
 //   **A signed out caller gets an empty list, not a 401.** The board calls this
 //   on every load and most readers are not signed in.
+//
+//   **No status filter on the postings.** 7g: the list "must keep working for
+//   postings that are closed, expired, or archived", so an applicant can always
+//   reread what they applied for. The scope is the applicant's own rows.
 
 import { ok, fail, ERR, methodNotAllowed, failInternal } from '../_lib/respond.js';
 import { supabase, T } from '../_lib/supabase.js';
 import { getApplicantSession } from '../_lib/session.js';
 import { isUuid } from '../_lib/job-detail.js';
+import { localeFromRequest } from '../_lib/validate.js';
+import { BUCKETS, bucketFor, isBucket, jobSummaries } from '../_lib/dashboard.js';
 import {
   applicationsOpen,
   fetchOwnRatings,
@@ -44,10 +54,18 @@ export default async function handler(req, res) {
 
   const url = new URL(req.url ?? '/', 'https://careers.invalid');
   const jobId = url.searchParams.get('job_id');
+  const withJobs = url.searchParams.get('with_jobs') === 'true';
+  const bucket = url.searchParams.get('bucket') ?? 'all';
 
   if (jobId !== null && !isUuid(jobId)) {
     return fail(res, ERR.BAD_REQUEST, 'That is not a posting id.', {
       details: { job_id: 'invalid' },
+    });
+  }
+
+  if (!isBucket(bucket)) {
+    return fail(res, ERR.BAD_REQUEST, 'That is not one of the buckets.', {
+      details: { bucket: 'invalid' },
     });
   }
 
@@ -95,12 +113,54 @@ export default async function handler(req, res) {
     const applications = await Promise.all(
       (data ?? []).map(async (row) => ({
         ...(await publicApplication(row, pendingByJob.get(row.job_id) ?? null)),
+        bucket: bucketFor(row.status),
         rating: ratings.get(row.job_id) ?? null,
       }))
     );
 
-    return ok(res, { applications, applications_open: open });
+    if (!withJobs) return ok(res, { applications, applications_open: open });
+
+    const summaries = await jobSummaries(
+      applications.map((row) => row.job_id),
+      localeFromRequest(req)
+    );
+
+    // A posting hard deleted in phase 7 takes its tracking row with it, per the
+    // cascade in migration 006, so this should never drop anything. It is here
+    // so a row with no posting behind it is skipped rather than drawn as a card
+    // with a blank title, and it happens before the counts so a tab never
+    // promises a row the list cannot show.
+    const drawable = applications
+      .filter((row) => summaries.has(row.job_id))
+      .map((row) => ({ ...row, job: summaries.get(row.job_id) }));
+
+    // Counted across every bucket rather than only the one being viewed, so the
+    // tabs keep saying how many are in each while you are standing in another.
+    // A count that only reads correctly on the tab you are on is worse than no
+    // count.
+    const counts = countBuckets(drawable);
+
+    return ok(res, {
+      applications: drawable.filter((row) => bucket === 'all' || row.bucket === bucket),
+      applications_open: open,
+      counts,
+      bucket,
+    });
   } catch (cause) {
     return failInternal(res, cause, 'my applications');
   }
+}
+
+/** How many rows are in each bucket, plus the total behind the All tab. */
+function countBuckets(applications) {
+  const counts = { all: applications.length };
+  for (const name of Object.keys(BUCKETS)) counts[name] = 0;
+
+  for (const row of applications) {
+    // A status the buckets do not cover is still counted in All, which is what
+    // stops a status added later from disappearing off this page entirely.
+    if (row.bucket) counts[row.bucket] += 1;
+  }
+
+  return counts;
 }

@@ -42,12 +42,16 @@ const INTENT_KEY = 'gftv-careers.intent';
  * the reader had forgotten about.
  *
  * @param {string} intent a short verb, for example 'report'
+ * @param {string|null} [target] what the verb was aimed at, where the path does
+ *        not already say. Apply and report are always about the posting being
+ *        read, so they need none; saving is offered from the board, where one
+ *        page carries twenty cards and "save" on its own names nothing.
  */
-export function rememberIntent(intent) {
+export function rememberIntent(intent, target = null) {
   try {
     sessionStorage.setItem(
       INTENT_KEY,
-      JSON.stringify({ intent, path: window.location.pathname })
+      JSON.stringify({ intent, target, path: window.location.pathname })
     );
   } catch {
     // Storage blocked. The sign in still works; only the resumption is lost.
@@ -62,7 +66,7 @@ export function rememberIntent(intent) {
  * navigated to another before the page that cares about it ran.
  *
  * @param {string} [expected] only return this intent
- * @returns {string|null}
+ * @returns {{ intent: string, target: string|null }|null}
  */
 export function consumeIntent(expected) {
   let stored = null;
@@ -81,7 +85,7 @@ export function consumeIntent(expected) {
     // Nothing to do. Worst case it is offered once more.
   }
 
-  return stored.intent;
+  return { intent: stored.intent, target: typeof stored.target === 'string' ? stored.target : null };
 }
 
 /**
@@ -100,7 +104,7 @@ let dialog = null;
 /**
  * Open the prompt.
  *
- * @param {{ intent: string, messageKey: string }} options
+ * @param {{ intent: string, messageKey: string, target?: string|null }} options
  *        messageKey is the one line explaining why this particular action needs
  *        an account. It is passed in rather than fixed here, because "you need
  *        an account to apply" and "you need an account so we can come back to
@@ -108,7 +112,7 @@ let dialog = null;
  *        would answer neither.
  */
 export function openSignInPrompt(options) {
-  rememberIntent(options.intent);
+  rememberIntent(options.intent, options.target ?? null);
 
   const redirect = encodeURIComponent(returnTo());
 

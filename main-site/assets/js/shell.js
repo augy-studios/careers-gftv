@@ -608,9 +608,12 @@ async function reflectApplicantSession() {
   if (!session?.user) return;
 
   const account = document.createElement('a');
-  account.href = '/account/security';
+  // The account area's own landing page, which phase 6 built. It pointed at
+  // /account/security until then, because that was the only page of the account
+  // area that existed.
+  account.href = '/account';
   account.innerHTML =
-    '<span data-icon="shield" data-icon-size="18"></span>' +
+    '<span data-icon="user" data-icon-size="18"></span>' +
     // Classed so app.css can cap it. A display name is arbitrary text of
     // arbitrary length dropped into a fixed width bar, and it is the one nav
     // item that may be cut short rather than allowed to push the row around.

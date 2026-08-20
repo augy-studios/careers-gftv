@@ -40,6 +40,13 @@ export const AUDIT = Object.freeze({
   TRUSTED_DEVICES_REVOKED_ALL: 'trusted_devices_revoked_all',
   RECOVERY_CODES_GENERATED: 'recovery_codes_generated',
   STAFF_SIGNED_IN: 'staff_signed_in',
+  // Phase 6, the account area. ACCOUNT_DELETED is the one row in this list that
+  // outlives its subject: 7g requires the audit row to be written before the
+  // action runs, and migration 012 deliberately puts no foreign key on actor_id
+  // so the record survives the account it describes.
+  AVATAR_SET: 'avatar_set',
+  AVATAR_REMOVED: 'avatar_removed',
+  ACCOUNT_DELETED: 'account_deleted',
 });
 
 /**

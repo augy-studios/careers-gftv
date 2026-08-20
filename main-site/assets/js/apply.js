@@ -334,7 +334,7 @@ function reopenPrompt() {
  * The next click is theirs.
  */
 function resumeAfterSignIn() {
-  if (consumeIntent('apply') !== 'apply') return;
+  if (!consumeIntent('apply')) return;
 
   const slot = document.querySelector('#applySlot');
   const button = slot?.querySelector('#applyButton');

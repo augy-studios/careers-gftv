@@ -29,7 +29,7 @@ const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /**
- * Run the three steps. Resolves with the typed password, or null if the person
+ * Run the steps. Resolves with the typed password, or null if the person
  * cancelled at any point.
  *
  * @param {{
@@ -37,13 +37,23 @@ const FOCUSABLE =
  *   consequences: string[],
  *   confirmLabel: string,
  *   username: string,
- *   irreversible?: string
+ *   irreversible?: string,
+ *   skipPassword?: boolean
  * }} options
- * @returns {Promise<{ password: string }|null>}
+ *   skipPassword drops step 3 and resolves with a null password. It is for an
+ *   action that is serious enough to need reading and typing but is not a
+ *   credentialled one, which in this build means withdrawing an application:
+ *   7e makes it reversible by applying again, so there is nothing for a password
+ *   to protect, and asking for one anyway teaches people to type their password
+ *   into any panel that asks. **Nothing in the danger zone proper may pass it.**
+ *   7g fixes all three steps there, and the endpoints behind those actions
+ *   verify the password server side regardless of what this component did.
+ * @returns {Promise<{ password: string|null }|null>}
  */
 export function confirmDangerousAction(options) {
   return new Promise((resolve) => {
     const previousFocus = document.activeElement;
+    const totalSteps = options.skipPassword ? 2 : 3;
     let step = 1;
 
     const wrap = document.createElement('div');
@@ -115,8 +125,8 @@ export function confirmDangerousAction(options) {
         section.hidden = Number(section.getAttribute('data-step')) !== step;
       });
 
-      stepLabel.textContent = t('danger.stepOf', { step, total: 3 });
-      advance.textContent = step === 3 ? options.confirmLabel : t('danger.continue');
+      stepLabel.textContent = t('danger.stepOf', { step, total: totalSteps });
+      advance.textContent = step === totalSteps ? options.confirmLabel : t('danger.continue');
 
       const focusTarget =
         step === 2 ? usernameInput : step === 3 ? passwordInput : advance;
@@ -146,6 +156,15 @@ export function confirmDangerousAction(options) {
           return;
         }
         showError('[data-username-error]', null);
+
+        // An action with no credential to check ends here, with a null
+        // password. The caller's endpoint is still the thing that decides
+        // whether the action may happen at all.
+        if (options.skipPassword) {
+          close({ password: null });
+          return;
+        }
+
         step = 3;
         render();
         return;

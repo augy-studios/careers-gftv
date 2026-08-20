@@ -76,6 +76,26 @@ export const LIMITS = Object.freeze({
   // opening challenges in a loop, not to punish a person who changed their
   // mind twice.
   passkey: { limit: 20, windowMs: 15 * 60 * 1000, lockMs: 15 * 60 * 1000 },
+  // The dashboard's own writes, all counted on success for the same reason the
+  // report and apply buckets are: there is no secret being guessed, and what is
+  // worth bounding is how many rows one account can add in an hour.
+  //
+  // Withdrawing and saving are both bounded by how many postings exist, so
+  // neither ceiling is reachable by anybody using the site. They are here so a
+  // script cannot fill gftvjobs_application_events or gftvjobs_saved_jobs.
+  withdraw: { limit: 20, windowMs: 60 * 60 * 1000, lockMs: 15 * 60 * 1000 },
+  save: { limit: 120, windowMs: 60 * 60 * 1000, lockMs: 15 * 60 * 1000 },
+  // Replying to a task. One round per task, per 7g, so this is generous by an
+  // order of magnitude and exists only as a ceiling.
+  taskReply: { limit: 30, windowMs: 60 * 60 * 1000, lockMs: 15 * 60 * 1000 },
+  // Re-encoding is cheap, but an unbounded upload endpoint is not. Per account
+  // and per IP, since the thing being bounded is bytes rather than guesses.
+  avatar: { limit: 12, windowMs: 60 * 60 * 1000, lockMs: 30 * 60 * 1000 },
+  // 7g: "Rate limit these endpoints hard, and lock the danger zone for an hour
+  // after several failed password attempts." Harder than the login bucket,
+  // because there is no legitimate reason to get your own password wrong four
+  // times on the page that deletes your account.
+  danger: { limit: 4, windowMs: 15 * 60 * 1000, lockMs: 60 * 60 * 1000 },
 });
 
 /**

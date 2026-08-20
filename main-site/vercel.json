@@ -37,16 +37,28 @@
       "destination": "/api/public/jobs-feed"
     },
     {
+      "source": "/account",
+      "destination": "/account/index.html"
+    },
+    {
+      "source": "/account/applications",
+      "destination": "/account/applications/index.html"
+    },
+    {
+      "source": "/account/saved",
+      "destination": "/account/saved/index.html"
+    },
+    {
+      "source": "/account/tasks",
+      "destination": "/account/tasks/index.html"
+    },
+    {
+      "source": "/account/settings",
+      "destination": "/account/settings/index.html"
+    },
+    {
       "source": "/account/security",
       "destination": "/account/security/index.html"
-    },
-    {
-      "source": "/account",
-      "destination": "/placeholder"
-    },
-    {
-      "source": "/account/:path*",
-      "destination": "/placeholder"
     },
     {
       "source": "/admin/login",

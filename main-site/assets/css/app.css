@@ -2424,3 +2424,607 @@ input[type='search']::-webkit-search-cancel-button {
     padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * The account area, phase 6
+ *
+ * Six pages share this: the overview, applications, saved roles, tasks,
+ * settings, and the security page phase 2 built. What they have in common is a
+ * header naming who is signed in, a second level of navigation under the site
+ * header, and a list of rows about postings.
+ *
+ * The rows are deliberately not job cards. A card sells a role and is built
+ * from a public search result; a row is a posting the reader already has a
+ * relationship with, so it carries state and actions instead of a summary and
+ * tag pills. See assets/js/account-row.js.
+ * ------------------------------------------------------------------------ */
+
+.account-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.account-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.account-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+}
+
+.account-identity h1 {
+  margin: 0;
+}
+
+.account-identity > span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  /* A display name is arbitrary text of arbitrary length. It wraps rather than
+     pushing the avatar off the row, per section 3. */
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* The avatar, or the initial standing in for one. Most accounts will never set
+   a picture, so the fallback is the ordinary case rather than an error state. */
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--surface-active);
+  border: 1px solid var(--border);
+}
+
+.avatar-large {
+  width: 96px;
+  height: 96px;
+}
+
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-initial {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-muted-strong);
+  text-transform: uppercase;
+}
+
+.avatar-large .avatar-initial {
+  font-size: 2.25rem;
+}
+
+/* The second level of navigation. A scrolling row on a phone rather than a
+   wrapped block, because six items wrapped onto three lines push the page
+   itself below the fold on a 360px screen. */
+.account-nav {
+  display: flex;
+  gap: 0.375rem;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.account-nav-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: none;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted-strong);
+  text-decoration: none;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.account-nav-item:hover {
+  background: var(--surface-active);
+  color: var(--text);
+}
+
+.account-nav-item[aria-current='page'] {
+  background: var(--surface-active);
+  color: var(--brand-text);
+}
+
+/* The count of open items, per 7g. Hidden at zero rather than shown as a
+   nought: a badge is an invitation, and one saying nothing is waiting is
+   noise. */
+.account-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.375rem;
+  height: 1.375rem;
+  padding: 0 0.375rem;
+  border-radius: 999px;
+  background: var(--warn);
+  color: var(--surface);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.account-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.account-body-narrow {
+  max-width: 46rem;
+}
+
+/* The overview's three tiles. */
+.account-summary-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .account-summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.account-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 1.125rem 1.25rem;
+  text-decoration: none;
+  color: var(--text);
+  transition: border-color 0.18s ease;
+}
+
+.account-tile:hover {
+  border-color: var(--border-strong);
+}
+
+.account-tile-icon {
+  color: var(--brand-text);
+}
+
+.account-tile-title {
+  font-weight: 600;
+}
+
+.account-tile-count {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+/* ---------------------------------------------------------------------------
+ * Bucket tabs, shared by My applications and Saved roles
+ * ------------------------------------------------------------------------ */
+
+.bucket-tabs {
+  display: flex;
+  gap: 0.375rem;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding-bottom: 0.25rem;
+}
+
+.bucket-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: none;
+  padding: 0.4375rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted-strong);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.bucket-tab:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.bucket-tab[aria-selected='true'] {
+  background: var(--surface-active);
+  border-color: var(--border-strong);
+  color: var(--brand-text);
+}
+
+.bucket-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  background: var(--surface-active);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.bucket-tab[aria-selected='true'] .bucket-count {
+  background: var(--surface);
+}
+
+/* ---------------------------------------------------------------------------
+ * A row about one posting
+ * ------------------------------------------------------------------------ */
+
+.account-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.account-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding: 1.125rem 1.25rem;
+}
+
+.account-row-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.account-row-title {
+  margin: 0;
+  font-size: 1.0625rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.account-row-title a,
+.account-row-title a:visited {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.account-row-title a:hover {
+  color: var(--brand-text);
+}
+
+.account-row-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+/* Whether the posting is still taking applications. Both states are quiet: a
+   closed role on somebody's own list is a fact, not a warning. */
+.badge-open {
+  background: var(--surface-active);
+  border-color: var(--border);
+  color: var(--text-muted-strong);
+}
+
+.badge-closed {
+  background: var(--surface-active);
+  border-color: var(--border-strong);
+  color: var(--text-muted);
+}
+
+.account-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.875rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.account-row-meta li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.account-row-state {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+}
+
+.account-row-dates {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.account-row-note {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  color: var(--text-muted-strong);
+  font-size: 0.875rem;
+}
+
+.account-row-note svg {
+  flex: none;
+}
+
+.account-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.account-empty-bucket {
+  margin: 0;
+  padding: 1rem 0;
+}
+
+/* The pipeline statuses on a tracking row. One shape, three weights: waiting on
+   the applicant, live, and over. Nine separate colours would turn a list into a
+   swatch chart without telling anybody anything. */
+.status-pill.status-started {
+  background: var(--callout-warn-bg);
+  color: var(--warn);
+}
+
+.status-pill.status-submitted,
+.status-pill.status-under_review,
+.status-pill.status-shortlisted,
+.status-pill.status-interview,
+.status-pill.status-offered,
+.status-pill.status-accepted {
+  background: var(--callout-ok-bg);
+  color: var(--ok);
+}
+
+.status-pill.status-rejected,
+.status-pill.status-withdrawn {
+  background: var(--surface-active);
+  border-color: var(--border);
+  color: var(--text-muted-strong);
+}
+
+/* ---------------------------------------------------------------------------
+ * Outstanding tasks
+ * ------------------------------------------------------------------------ */
+
+.badge-task-info_request {
+  background: var(--callout-warn-bg);
+  color: var(--warn);
+}
+
+.badge-task-notice,
+.badge-task-apply_prompt {
+  background: var(--surface-active);
+  border-color: var(--border);
+  color: var(--text-muted-strong);
+}
+
+/* The posting a task is about, nested inside the task's own row. Indented and
+   quieter, so it reads as context rather than as a second item in the list. */
+.task-job {
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--border);
+}
+
+.task-job .account-row-title {
+  font-size: 0.9375rem;
+}
+
+.task-body {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.task-reply-given {
+  padding: 0.75rem 0.875rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface-active);
+}
+
+.task-reply-given p {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.task-reply-form textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+.account-done {
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+}
+
+.account-done > summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text-muted-strong);
+}
+
+.account-done .account-list {
+  margin-top: 0.75rem;
+}
+
+/* ---------------------------------------------------------------------------
+ * Settings: the picture, the reports, and the danger zone
+ * ------------------------------------------------------------------------ */
+
+.avatar-editor {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.avatar-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.report-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.report-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.report-item-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+}
+
+.report-item-head .muted {
+  font-size: 0.8125rem;
+}
+
+.report-item-target {
+  margin: 0;
+  font-weight: 600;
+}
+
+.report-item-note,
+.report-item-resolution {
+  margin: 0;
+  color: var(--text-muted-strong);
+  font-size: 0.9375rem;
+  overflow-wrap: anywhere;
+}
+
+.report-item-resolution {
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--border);
+}
+
+.status-pill.status-open {
+  background: var(--callout-warn-bg);
+  color: var(--warn);
+}
+
+.status-pill.status-fixed {
+  background: var(--callout-ok-bg);
+  color: var(--ok);
+}
+
+/* 7g: "a clearly separated danger zone at the bottom". Separated by a border
+   and a heading rather than by red everywhere, which would make the section
+   easy to stop seeing. */
+.danger-zone {
+  border-color: var(--danger);
+}
+
+.danger-zone h2 {
+  color: var(--danger);
+}
+
+.danger-action {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.danger-action h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+
+.danger-action p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  max-width: 34rem;
+}
+
+/* ---------------------------------------------------------------------------
+ * The save control, 7g
+ *
+ * The same button on a card, on a posting, and on the saved list. Filled when
+ * pressed, outlined when not: saved and unsaved have to differ at a glance
+ * across a grid of cards, which a stroke weight change does not carry.
+ * ------------------------------------------------------------------------ */
+
+.save-btn svg {
+  fill: none;
+  transition: fill 0.15s ease;
+}
+
+.save-btn[aria-pressed='true'] {
+  color: var(--brand-text);
+}
+
+.save-btn[aria-pressed='true'] svg {
+  fill: currentColor;
+}
+
+.save-btn-wide {
+  gap: 0.5rem;
+}
+
+/* On a card, lifted above the title's stretched link so it stays clickable in
+   its own right, exactly as the tag pills are. */
+.job-card-save {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 1;
+}
+
+/* Room for it, so a long badge row does not run under the bookmark. */
+.job-card .job-card-badges {
+  padding-right: 2.25rem;
+}
+
+.save-btn[data-highlight='true'] {
+  outline: 2px solid var(--brand);
+  outline-offset: 3px;
+  border-radius: var(--radius-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .save-btn svg {
+    transition: none;
+  }
+}

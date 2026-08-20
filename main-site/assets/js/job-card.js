@@ -23,6 +23,7 @@
 import { t, getLocale, DEFAULT_LOCALE } from './i18n.js';
 import { iconMarkup } from './icons.js';
 import { closingText, postedText, commitmentLabel } from './format.js';
+import { saveButtonMarkup, mountSaveButtons } from './save-button.js';
 
 /**
  * Build one card.
@@ -67,6 +68,13 @@ export function jobCard(job, options = {}) {
           : ''
       }
     </div>
+
+    <!-- 7g's save toggle. It sits outside the title's stretched link rather
+         than inside the badges row, because a control inside the area the
+         stretched link covers is unreachable: the pseudo element in app.css
+         paints over the whole card, and only things lifted above it on the z
+         axis, like the tag pills, stay clickable. -->
+    <div class="job-card-save">${saveButtonMarkup(job.id)}</div>
 
     <h3 class="job-card-title">
       <a href="/jobs/${encodeURIComponent(job.id)}">${escapeHtml(job.title ?? '')}</a>
@@ -144,6 +152,10 @@ export function jobCard(job, options = {}) {
 export function renderJobCards(container, jobs, options = {}) {
   container.replaceChildren(...jobs.map((job) => jobCard(job, options)));
   container.removeAttribute('aria-busy');
+
+  // Not awaited. The cards are on screen; whether this reader has saved any of
+  // them is a correction in place, exactly as the cooldown badge is.
+  mountSaveButtons(container);
 }
 
 /* -------------------------------------------------------------------------

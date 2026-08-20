@@ -107,6 +107,20 @@ const PATHS = {
     '<rect x="13" y="4" width="7" height="7" rx="1.5"/>' +
     '<rect x="4" y="13" width="7" height="7" rx="1.5"/>' +
     '<rect x="13" y="13" width="7" height="7" rx="1.5"/>',
+  // Phase 6, the account area.
+  //
+  // A bookmark, for saving a posting. The second icon in this set that is ever
+  // filled rather than stroked, and for the same reason as the star: saved and
+  // not saved have to differ at a glance on a card, and a stroke weight change
+  // does not carry that. app.css fills it when the control is pressed.
+  //
+  // Not the star, which already means "how well was this posting written" in
+  // the handoff modal. One shape cannot carry two meanings on one site.
+  bookmark: '<path d="M6.5 3.5h11a1 1 0 0 1 1 1V21l-6.5-4.2L5.5 21V4.5a1 1 0 0 1 1-1z"/>',
+  // A person, for account settings. The two person glyph above is "openings" on
+  // a posting, and this is deliberately the single figure so the two do not read
+  // as the same thing at 18px.
+  user: '<circle cx="12" cy="8" r="3.75"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/>',
 };
 
 // A few names read better in markup with a hyphen.

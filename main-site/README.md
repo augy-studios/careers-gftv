@@ -6,13 +6,15 @@ Vercel serverless functions under `api/`.
 Vercel's root directory for this project is set to `main-site`, which is why
 `api/` lives inside this directory rather than at the repo root.
 
-**Current phase: 5 of 15, Apply flow.** Live: the shell, the home page,
+**Current phase: 6 of 15, Applicant dashboard.** Live: the shell, the home page,
 `/status`, registering and signing in, passkeys, recovery codes, account
 recovery, trusted devices, `/account/security`, `/admin/security`, the board at
 `/search`, the posting page at `/jobs/{uuid}` with the openings feed and the
 translation report control, and applying, which is the handoff to the Google
-Form, the rating, and the reapply cooldown. Everything else renders the
-placeholder. See [/status](https://careers.globalfurry.tv/status).
+Form, the rating, and the reapply cooldown. Phase 6 adds the rest of the account
+area: `/account`, `/account/applications`, `/account/saved`, `/account/tasks`,
+and `/account/settings` with avatars and the danger zone. Everything else
+renders the placeholder. See [/status](https://careers.globalfurry.tv/status).
 
 **Every role listed on this site is voluntary and unpaid**, and the interface
 says so on the home page, the registration page, the footer, the manifest, and
@@ -37,7 +39,13 @@ main-site/
   login/index.html    applicant sign in
   register/index.html applicant registration
   forgot-password/    account recovery with a recovery code
-  account/security/   recovery codes, password, trusted devices
+  account/            the account area, phase 6
+    index.html        the hub: three counts and a way back to the board
+    applications/     7g's My applications, with the bucket tabs
+    saved/            7g's saved roles
+    tasks/            7g's outstanding tasks, both sources unioned
+    settings/         profile, picture, reports filed, and the danger zone
+    security/         recovery codes, password, passkeys, trusted devices
   admin/login/        staff sign in, with the second factor step
   admin/security/     staff passkeys and trusted devices
   placeholder.html    served for every route belonging to a later phase
@@ -73,6 +81,16 @@ main-site/
     js/apply-prompt.js  the unanswered prompt that follows an applicant across
                       the portal. Imported by shell.js, so it is on every page
     js/apply-badges.js  the cooldown, on a card, per 7f
+    js/save-button.js the save toggle, on a card, on a posting, and on the
+                      saved list. One control, three places
+    js/account-shell.js  the account area's session guard, sub-navigation, and
+                      the count on the tasks item
+    js/account-row.js one posting as a row on a dashboard list. Not a job card,
+                      and the file says why
+    js/account-page.js, applications-page.js, saved-page.js, tasks-page.js,
+    js/settings-page.js  the five pages of the account area
+    js/avatar.js      square crop, resize, and WebP encode, in the browser.
+                      See AVATARS.md
     js/i18n.js        language switching and the string dictionaries
     js/api.js         the one place that knows the API response shape
     js/forms.js       field errors, busy states, password reveal
@@ -93,9 +111,12 @@ main-site/
                       read in any of them except for an archived posting,
                       which 7g shows only to an applicant with history.
     translations/     report a translation problem, per 7h
-    applications/     start, respond, pending, mine. The only place in the
-                      build that emits a Google Form URL, and only to a
+    applications/     start, respond, pending, mine, withdraw. The only place
+                      in the build that emits a Google Form URL, and only to a
                       session that has been checked
+    saved/            mine, toggle
+    tasks/            mine, count, respond
+    account/          avatar, and danger/delete
     ratings/          upsert a rating for a posting, from the handoff modal
     job-page.js       the server rendered posting page. The one route in this
                       portal that returns HTML rather than JSON.
@@ -139,15 +160,31 @@ there is no Supabase client bundled into the frontend at all.
 
 ## Avatars
 
-Not built. `gftvjobs_users.avatar_url` has existed since migration `002` and
-nothing writes it. The upload endpoint is phase 6, with the rest of account
-settings.
+Built in phase 6, on `/account/settings`. `api/account/avatar.js` takes the
+bytes and `api/_lib/avatars.js` holds the Storage half; the browser compresses
+first in `assets/js/avatar.js`.
 
-**[AVATARS.md](AVATARS.md)** is the guide: creating the `gftvjobs-avatars`
-bucket, compressing to WebP in the browser, and the endpoint that puts the two
-together. Read the first section before starting, because it changes a settled
-decision: section 10 item 1 says "No Supabase Storage, no uploads", and this is
-the exception to it.
+**The bucket is not created by any migration and has to exist before the
+endpoint works.** `gftvjobs-avatars`, public, a 256 KB file size limit,
+`image/webp` only, and no policies on `storage.objects`. The SQL is in
+[AVATARS.md](AVATARS.md) section 1. An account with no picture renders its
+initial instead, which is the ordinary case rather than a failure, so a missing
+bucket looks like nobody having uploaded anything until somebody tries.
+
+**[AVATARS.md](AVATARS.md)** is the guide, and its first section changes a
+settled decision: section 10 item 1 says "No Supabase Storage, no uploads", and
+this one square image per account is the recorded exception. Applications and
+resumes stay in Google Forms regardless.
+
+Two things in it that are easy to get wrong and are worth repeating here:
+
+- **The browser never receives an anon key**, so it cannot upload to Storage
+  directly. The bytes come through a function using the service key, which is
+  also why the browser has to compress first: a Vercel function takes at most
+  4.5 MB of request body.
+- **`readJson` caps bodies at 64 KB**, which is right for JSON and far too small
+  for an image. `api/account/avatar.js` reads the raw body with its own cap
+  rather than raising that default globally.
 
 The shape is forced by section 2. The browser never receives an anon key, so it
 cannot upload to Storage directly the way a Supabase app normally would. The
@@ -225,19 +262,23 @@ markup as delivered and does not run JavaScript.
 | | The one endpoint with no `{ ok, data }` envelope. Its callers are strangers rather than this site, and somebody pointing a script at a URL ending in `.json` expects the openings at the top level. Errors still use the envelope. | |
 | `/jobs/:id` | the posting page, rewritten to `api/job-page.js`. HTML, not JSON | 4 |
 | `api/translations/report` | report a translation problem | 4 |
-| `api/translations/*` | list my own reports | 6 |
+| `api/translations/mine` | the reader's own reports, with what an admin decided about each. 7h's other half: a reporter who never hears anything again learns that reporting is shouting into a hole | 6 |
 | `api/translations/*` | helper drafting, annotations, suggestion queue | 8 |
 | `api/applications/start` | logs the analytics row, upserts the tracking row, returns the prefilled form URL and the analytics row id | 5 |
 | | **The one route in the build that emits a Google Form URL.** A logged out request is 401 and writes nothing. The cooldown, the closing date, the global toggle, and an unanswered prompt are all enforced here rather than by hiding the button. | |
 | `api/applications/respond` | records the Yes or No from the modal, and starts the cooldown on a Yes | 5 |
 | `api/applications/pending` | the applicant's unanswered prompts. Called on every page of the portal | 5 |
 | `api/applications/mine` | the applicant's tracking rows, optionally for one posting. What the Apply button and the board's cooldown badge are drawn from | 5 |
-| | Section 9's "list mine", built thin. It returns no human readable content, so it takes no locale. Phase 6's My applications page widens it, with the page that displays the rest. | |
-| `api/applications/withdraw` | 7e, and it belongs with the page that offers it | 6 |
+| | Thin by default, which is what those two callers want. `?with_jobs=true` adds the posting summaries and the bucket counts for `/account/applications`, and only then does the locale mean anything. Widened rather than duplicated; opt-in so the board does not pay for it. | |
+| `api/applications/withdraw` | 7e. Clears `applied_at` and `cooldown_until` together, and answers any outstanding prompt for that posting as No, because a pending prompt blocks a fresh handoff and 7e is explicit that somebody who pulls out is not locked out | 6 |
 | `api/ratings/upsert` | one rating per applicant per posting, from the handoff modal | 5 |
-| `api/saved/*` | save, unsave, list mine | 6 |
-| `api/tasks/*` | list mine, get one, reply, dismiss, unread count | 6 |
-| `api/account/danger/*` | verify password, then each destructive action | 6 |
+| `api/saved/mine` | thin by default, `?with_jobs=true&filter=` for `/account/saved` | 6 |
+| `api/saved/toggle` | save and unsave, as one route with an `action`, following `trusted-devices`. Saving checks the posting's visibility, because a saved row is half of 7g's archived posting rule | 6 |
+| `api/tasks/mine` | the union of admin raised tasks and unanswered apply prompts. `?task_id=` is 7g's deep link | 6 |
+| `api/tasks/count` | the badge on the account navigation. Its own route because every page of the account area draws it and none of them wants the tasks themselves | 6 |
+| `api/tasks/respond` | reply to an info request, or mark a notice as read. One round, per 7g | 6 |
+| `api/account/avatar` | POST a raw `image/webp` body, DELETE to remove. See AVATARS.md | 6 |
+| `api/account/danger/delete` | 7g's danger zone. **There is no separate verify-password route**, deliberately: an endpoint whose answer is "the password was correct" is exactly the client side signal 7g forbids relying on, so the destructive endpoint verifies it in the same request as the action | 6 |
 | `api/admin/*` | jobs, applications, tasks, departments, tags, docs | 7 |
 | `api/admin/*` | analytics, invites, users, admins, settings, stats, export, translations | 8 |
 | `api/cron/daily` | the scheduled maintenance in section 11 | 9 |
@@ -266,6 +307,9 @@ Shared helpers live in `api/_lib/`:
 | `settings.js` | Reading `gftvjobs_settings`, cached for a minute. A settings read never fails a request and never falls back to the permissive value: if the reapply cooldown cannot be read the answer is 90 days, not zero. |
 | `job-detail.js` | One posting, read and resolved into a language, and the visibility rules from 7g. The public column list lives here as an allowlist, so `application_form_url` is never selected at all. Also the embed line: the admin's own `og_description`, or the first sentence of the description, with sentence detection that knows Han script ends a sentence with `。` and English does not. |
 | `page-shell.js` | The HTML document a serverless function sends. The only copy of the `<head>` in this repo that is not an HTML file, so **when `index.html`'s head changes, change this too.** |
+| `dashboard.js` | The account area's shared reads: posting summaries for a set of ids in one language, and the three buckets My applications filters by. Deliberately never filters on the posting's status, per 7g. |
+| `tasks.js` | The tasks read model, and the one place that adds up the badge count across both sources. |
+| `avatars.js` | The Storage half of avatars: the bucket, the magic byte check, turning a public URL back into an object path, and the upload order AVATARS.md fixes. |
 | `apply.js` | The apply flow's server side, shared by the four `api/applications/*` routes. Reads the form URL and the prefill map, which `job-detail.js` deliberately never selects; resolves a per language form; builds the prefilled address from the session; and holds the rules about what a start click may and may not move. |
 
 Every endpoint returning human readable content takes a locale, `en` or `zh`,
@@ -366,6 +410,48 @@ retroactively. Admins can still waive a single row, per 7f.
 The database constrains the value to a whole number from 0 to 3650. Ten years is
 the ceiling because without one a typo is indistinguishable from a permanent ban
 nobody meant to impose.
+
+## The account area
+
+Six pages behind one session check: `/account`, `/account/applications`,
+`/account/saved`, `/account/tasks`, `/account/settings`, and the
+`/account/security` page phase 2 built. `assets/js/account-shell.js` is the
+guard, the sub-navigation, and the badge; each page owns its own content.
+
+**Signed out is a redirect, not a message.** Every page here sends a signed out
+reader to `/login?redirect=...` and back. `api/_lib/redirects.js` validates the
+parameter on the way in, so nothing on the client has to be trusted.
+
+**The badge counts two sources and `api/tasks/count` is the only thing that adds
+them up.** Open rows in `gftvjobs_tasks`, plus unanswered apply prompts derived
+live from `gftvjobs_analytics`. Both 7g and migration `008` are explicit that a
+prompt is never copied into the tasks table: the analytics row is the single
+source of truth for whether an answer is owed, and duplicating it guarantees the
+two drift apart. Nothing in this build inserts a prompt into `gftvjobs_tasks`.
+
+**Every list keeps working for postings that are closed, expired, or archived**,
+per 7g, so an applicant can always reread what they applied for. None of these
+queries filters on the posting's status. What scopes them is the applicant's own
+rows, and a saved row or an application row is also what makes an archived
+posting resolve at its uuid, per the visibility rule in `api/_lib/job-detail.js`.
+
+**A dashboard row is not a job card**, and `assets/js/account-row.js` says why at
+length. A card advertises a role and is built from a public search result; a row
+is a posting the reader already has a relationship with, so it carries state and
+actions rather than a summary and tag pills. Do not merge the two.
+
+Two decisions in here that look like omissions:
+
+- **Withdrawing answers any outstanding prompt for that posting, as No.** 7e does
+  not ask for it, but 7c makes it necessary: an unanswered prompt blocks a fresh
+  handoff, so clearing the cooldown without clearing the prompt would leave
+  somebody exactly as locked out as before. `did_apply` is not touched, so a
+  confirmed Yes can never be turned back into a No.
+- **There is no `api/account/danger/verify` route.** Section 9 lists
+  `api/account/danger/*` as "verify password, then each destructive action", and
+  building the first half would produce the client side "password was correct"
+  signal 7g forbids relying on. The destructive endpoint verifies the password
+  itself, in the same request as the action.
 
 ## The board's query string
 
@@ -514,8 +600,16 @@ order, with no way to skip ahead:
    signal is never accepted.
 
 Built in phase 2 for removing a passkey, which turns part of the second factor
-off and is the same kind of action 7g already lists. **Phase 6 should use this
-component for the danger zone proper** rather than writing a second one.
+off and is the same kind of action 7g already lists. Phase 6 used it for the
+danger zone proper rather than writing a second one, and added one option to it:
+
+**`skipPassword` drops step 3 and resolves with a null password.** It is for an
+action serious enough to need reading and typing but not a credentialled one,
+which in this build means withdrawing an application: 7e makes that reversible
+by applying again, so there is nothing for a password to protect, and asking for
+one anyway teaches people to type their password into any panel that asks.
+Nothing in the danger zone proper may pass it, and the endpoints behind those
+actions verify the password server side regardless of what this component did.
 
 ## Language
 

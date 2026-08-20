@@ -42,6 +42,7 @@ import { applicantSession } from './api.js';
 // The Apply control and everything behind it. This page owns where it sits and
 // nothing else about it.
 import { mountApply } from './apply.js';
+import { saveButtonMarkup, mountSaveButtons } from './save-button.js';
 // The posting body's small markdown subset. Its own module because it is pure,
 // has no DOM in it, and is the one part of this page that can be exercised
 // without a browser. Phase 7's editor preview should use it rather than write
@@ -171,9 +172,7 @@ function draw() {
            state, a paused state, or the button with a line above it. assets/js/
            apply.js owns everything inside it and redraws it in place. -->
       <div class="apply-slot" id="applySlot"></div>
-      <button type="button" class="btn btn-secondary" data-feature="saved_jobs">
-        ${escapeHtml(t('job.save'))}
-      </button>
+      ${saveButtonMarkup(job.id, { withLabel: true })}
       <button type="button" class="btn btn-quiet" id="shareJob">
         ${iconMarkup('external', { size: 16 })}
         <span>${escapeHtml(t('job.share'))}</span>
@@ -234,6 +233,11 @@ function draw() {
     applicationsOpen: payload.applications_open !== false,
   });
 
+  // Same treatment, and for the same reason: a language change replaces the
+  // control, and the saved state is per applicant so it is filled in afterwards
+  // rather than held for.
+  mountSaveButtons(holder);
+
   // The back link above the posting is in the document the function sent, so it
   // ships pointing at a bare /search. Section 4 wants it to return to the board
   // with the previous query string intact, and only the browser knows what that
@@ -241,9 +245,9 @@ function draw() {
   const topBack = document.querySelector('#backToResults');
   if (topBack) topBack.href = backTarget();
 
-  // The Apply and Save buttons belong to phases that have not shipped, so they
-  // are drawn and then disabled with the reason on them. Run after every draw,
-  // because a language change replaces the elements the gating was applied to.
+  // Anything on this page belonging to a phase that has not shipped is drawn
+  // and then disabled with the reason on it. Run after every draw, because a
+  // language change replaces the elements the gating was applied to.
   loadBuildStatus().then((status) => applyFeatureGating(status, holder));
 
   drawn = true;
@@ -455,7 +459,7 @@ async function resumeIntent() {
   // Only the report intent resumes here, and only because reopening a form is
   // harmless. Nothing that opens a tab or writes a row may, per section 4:
   // there is no user gesture behind a post-login redirect.
-  if (consumeIntent('report') !== 'report') return;
+  if (!consumeIntent('report')) return;
 
   const session = await applicantSession();
   if (!session?.user) return;
