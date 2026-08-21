@@ -658,17 +658,26 @@ async function reflectApplicantSession() {
  * to ask, never what the answer is: the server re-checks the session and the
  * access flags on every admin route regardless, per section 8.
  *
- * The link points at /admin, which renders the phase 7 placeholder today. That
- * is section 0c working as intended rather than a dead link, and phase 7 turns
- * it into the real dashboard without touching this.
+ * The link points at /admin, which phase 7 turned into the real dashboard.
+ *
+ * @param {{ user: object }|null} [known] a staff session the caller has already
+ *        proved, which skips both the hint and the request. The dashboard
+ *        passes one: it has just had /api/admin/me answer, so asking the server
+ *        a second question about the same cookie would be waste.
+ *
+ *        It also fixes the case the hint alone cannot reach. On a fresh browser
+ *        the sequence is: open /admin/login with no session, so the hint is
+ *        cleared; sign in; land on /admin. The hint is false at the moment this
+ *        runs, so without the dashboard telling it, the header would offer no
+ *        way back to /admin on the very page somebody has just signed in to.
  */
-async function reflectStaffSession() {
-  if (!hasStaffHint()) return;
+async function reflectStaffSession(known = null) {
+  if (!known && !hasStaffHint()) return;
 
   const nav = document.querySelector('#siteNav');
   if (!nav) return;
 
-  const session = await staffSession();
+  const session = known ?? (await staffSession());
   if (!session?.user) return;
   if (nav.querySelector('#navAdmin')) return;
 
@@ -686,6 +695,26 @@ async function reflectStaffSession() {
   hydrateIcons(nav);
   translateNewChrome(nav);
 }
+
+/**
+ * A staff session the dashboard proved, held for whichever of the two arrives
+ * second.
+ *
+ * The listener is registered at module scope rather than inside boot() on
+ * purpose. boot() awaits the dictionary and the build status file before it
+ * reaches its own reflect call, and the dashboard shell awaits one request, so
+ * either can finish first. Registered here, the event is never missed; held in
+ * a variable, it is not lost when it arrives before the header exists to put
+ * the item in.
+ */
+let knownStaff = null;
+
+document.addEventListener('gftv:staffsession', (event) => {
+  knownStaff = event.detail ?? null;
+  // A no-op when the header has not been drawn yet, which is the case boot()
+  // covers by passing knownStaff to its own call.
+  reflectStaffSession(knownStaff);
+});
 
 // The nav item added above carries a data-i18n key that was never present when
 // the language was first applied, so it needs one pass of its own. Later
@@ -735,7 +764,10 @@ async function boot() {
   // changes one item in the navigation and nothing else, so it must never be
   // on the path that gets the page drawn.
   reflectApplicantSession();
-  reflectStaffSession();
+  // knownStaff is set by the listener above when the dashboard got there first,
+  // which it can: boot() awaits two fetches before reaching this line. Null
+  // falls back to the hint and behaves exactly as it did before.
+  reflectStaffSession(knownStaff);
 
   // 7c: the outstanding apply prompt follows the applicant across the portal
   // rather than living on the posting they started from, so the check runs on

@@ -26,7 +26,7 @@
 //   clicking an unbuilt section gets the same message rather than an empty
 //   screen." Those items stay in the sidebar, disabled, with the reason.
 
-import { api } from './api.js';
+import { api, noteStaffSession } from './api.js';
 import { t } from './i18n.js';
 import { hydrateIcons } from './icons.js';
 import { escapeHtml } from './markdown.js';
@@ -134,6 +134,19 @@ export async function mountAdminPage(options) {
   }
 
   context = result.data;
+
+  // The public header offers staff a way back to /admin, per deviation 20, and
+  // only bothers asking about a staff session when this browser has seen one.
+  // A successful /api/admin/me *is* that proof, so record it and hand the
+  // session straight to shell.js rather than making it ask again.
+  //
+  // Without this the item never appears on the page somebody has just signed in
+  // to: /admin/login clears the flag on load, when there is genuinely no
+  // session yet, and nothing on the dashboard side used to set it back.
+  noteStaffSession(true);
+  document.dispatchEvent(
+    new CustomEvent('gftv:staffsession', { detail: { user: context.staff } })
+  );
 
   renderSidebar(options.current);
   renderTopbar();
@@ -264,6 +277,11 @@ function renderTopbar() {
 
   holder.querySelector('[data-admin-signout]')?.addEventListener('click', async () => {
     await api('/api/auth/staff/logout', { method: 'POST', locale: false });
+    // The counterpart to the note on the way in. Without it the next public
+    // page would ask the server about a staff session that has just been ended,
+    // get told no, and clear the flag itself: correct, but a wasted request on
+    // a page that is drawn for everybody.
+    noteStaffSession(false);
     // The staff realm only. An applicant signed in on the same browser stays
     // signed in, because they are two accounts and not one.
     window.location.href = '/admin/login';

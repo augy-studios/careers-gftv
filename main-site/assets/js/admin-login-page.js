@@ -14,7 +14,7 @@
 // This page is on the same origin as the applicant pages but shares nothing
 // with them: separate endpoints, separate cookie, separate realm.
 
-import { api, staffSession } from './api.js';
+import { api, staffSession, noteStaffSession } from './api.js';
 import {
   clearErrors,
   applyApiError,
@@ -38,6 +38,24 @@ import { t } from './i18n.js';
 // path taken from a query string, which is the thing api/_lib/redirects.js
 // exists to validate on the applicant side.
 const AFTER_SIGN_IN = '/admin';
+
+/**
+ * Land on the dashboard, having recorded that this browser now holds a staff
+ * session.
+ *
+ * The recording is the point, and it is why every success path calls this
+ * rather than setting window.location itself. api.js keeps a flag saying this
+ * browser has seen a staff session, and shell.js only offers the Admin item in
+ * the public header when that flag is set, so that ordinary readers cost no
+ * request. Nothing set the flag on the way *in*: this page asks staffSession()
+ * on load, which on a fresh browser answers no and clears it, and the dashboard
+ * asks /api/admin/me rather than the session route. The header therefore
+ * offered no way back to /admin on a browser that had just signed in.
+ */
+function goToDashboard() {
+  noteStaffSession(true);
+  window.location.href = AFTER_SIGN_IN;
+}
 
 let challenge = null;
 let staySignedIn = false;
@@ -90,7 +108,7 @@ function boot() {
     }
 
     if (result.data.two_factor_required !== true) {
-      window.location.href = AFTER_SIGN_IN;
+      goToDashboard();
       return;
     }
 
@@ -148,7 +166,7 @@ function boot() {
         return;
       }
 
-      window.location.href = AFTER_SIGN_IN;
+      goToDashboard();
     } catch (cause) {
       if (!wasCancelled(cause)) {
         console.warn('[careers-gftv] staff passkey sign in:', cause);
@@ -218,12 +236,12 @@ function boot() {
       // the next one.
       showFormMessage(codeForm, 'warn', t('auth.backupCodeUsed'));
       window.setTimeout(() => {
-        window.location.href = AFTER_SIGN_IN;
+        goToDashboard();
       }, 2500);
       return;
     }
 
-    window.location.href = AFTER_SIGN_IN;
+    goToDashboard();
   });
 }
 

@@ -164,6 +164,31 @@ function setStaffHint(value) {
 }
 
 /**
+ * Record that this browser holds a staff session, for a caller that has just
+ * proved it some other way.
+ *
+ * The dashboard is the caller, and it exists because of a chicken and egg
+ * problem phase 7 walked into. The hint is what decides whether shell.js asks
+ * about a staff session at all, and until phase 7 the only things that *set* it
+ * were `staffSession()` calls on /admin/login and /admin/security. On a fresh
+ * browser the sequence went: open /admin/login with no session, so the hint is
+ * cleared; sign in; land on /admin, which asks /api/admin/me and never touches
+ * this. The header's Admin item therefore never appeared, on a browser that had
+ * just signed in, until the person happened to revisit one of those two pages.
+ *
+ * `mountAdminPage` calls this instead of making a second request, because a
+ * successful /api/admin/me is already proof of a staff session with portal
+ * access. It is still only a hint: the server re-checks everything per request,
+ * and `staffSession()` corrects it in both directions on the next page that
+ * asks.
+ *
+ * @param {boolean} seen
+ */
+export function noteStaffSession(seen) {
+  setStaffHint(Boolean(seen));
+}
+
+/**
  * The staff session. Separate call, separate cookie, separate realm.
  *
  * The two realms are never merged into one "current user" anywhere in this
