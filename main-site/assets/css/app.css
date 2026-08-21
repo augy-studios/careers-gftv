@@ -3430,9 +3430,24 @@ input[type='search']::-webkit-search-cancel-button {
  * The editor
  * ------------------------------------------------------------------------ */
 
+/* The editor is one column, and the panel of shared settings sits underneath
+ * the language tabs rather than beside them.
+ *
+ * It was a two column grid first, and that was wrong twice over. The dashboard
+ * already gives up 14rem to the sidebar, so a third of what remains is narrow
+ * before anything is put in it; and what goes in it is not a sidebar's worth of
+ * summary but fourteen real form controls, including a URL, a JSON map, a tag
+ * picker, and the whole question composer. Squeezed into a column that narrow
+ * every label wrapped, the checkbox pair broke across two lines mid-phrase, and
+ * the composer had no room to show an option's value beside its label.
+ *
+ * Below the tabs it gets the full width, and the fields inside it can then sit
+ * two or three abreast instead of in one long stack, which is shorter to scan
+ * than the tall thin column ever was.
+ */
 .editor-grid {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
   align-items: start;
 }
@@ -3442,9 +3457,45 @@ input[type='search']::-webkit-search-cancel-button {
   padding: 1.25rem;
 }
 
-.editor-side {
-  position: sticky;
-  top: 1rem;
+/* The shared settings, laid out across the width rather than down it. auto-fit
+ * rather than a fixed count, so this needs no breakpoint of its own: the
+ * columns appear when there is room for an 18rem field and collapse to one when
+ * there is not. */
+#editorShared {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: 0.25rem 1.5rem;
+  align-items: start;
+}
+
+/* The three that are not a single short field: the tag picker, which fills up
+ * sideways, the prefill map, which is JSON on one line, and the question
+ * composer, which is a panel rather than a control. All three read badly in a
+ * column sized for a text input.
+ *
+ * Marked with a class in the markup rather than selected with :has(), because
+ * the markup is ours to label and a layout rule that depends on what a field
+ * happens to contain is one rename away from silently not applying. */
+#editorShared .field-wide {
+  grid-column: 1 / -1;
+}
+
+/* Two checkboxes on one line, and never half of a phrase on the next. */
+.field-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  align-items: center;
+  margin-block: 0.5rem;
+}
+
+.field-row .checkbox-row {
+  white-space: nowrap;
+}
+
+/* A count, not a sentence. Full width it reads as a text field. */
+#jobOpenings {
+  max-width: 8rem;
 }
 
 /* 8.2: the source wording sits beside the field being written, "so a translator
@@ -3964,13 +4015,9 @@ input[type='search']::-webkit-search-cancel-button {
 }
 
 @media (max-width: 1024px) {
-  .editor-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .editor-side {
-    position: static;
-  }
+  /* The editor is one column at every width now, so there is nothing to
+     collapse here. What remains is the source wording, which 8.2 does put a
+     breakpoint on. */
 
   /* 8.2: below 1024px the source wording collapses to a block above each field
      rather than a second column. Above it rather than below, because a
@@ -4026,4 +4073,89 @@ input[type='search']::-webkit-search-cancel-button {
   background: transparent;
   border-style: dashed;
   color: var(--text-light);
+}
+
+/* ---------------------------------------------------------------------------
+ * Admin table column behaviour
+ *
+ * A six column table of a title, a pill, three language markers, a date, a
+ * second date, and four controls does not fit a phone and barely fits a laptop.
+ * Auto table layout resolves that by breaking text wherever it can, and what it
+ * chooses to break is whatever has no instruction: a status pill wrapped to two
+ * lines renders as a circle with "Draf t" in it, because the pill is a rounded
+ * inline-flex box sized by its own content.
+ *
+ * So the rule is the other way round from ordinary prose. **Everything in these
+ * tables that is a shape rather than a sentence refuses to wrap**, the columns
+ * take the width they need, and the one genuinely flexible column, the title,
+ * absorbs what is left. When even that is not enough the container scrolls
+ * sideways, which .admin-list already allows and which section 3 permits
+ * precisely here: a wide table may scroll inside its own box, and the page body
+ * may not.
+ * ------------------------------------------------------------------------ */
+
+.admin-table .status-pill,
+.admin-table .badge,
+.admin-table .admin-lang,
+.admin-table .chip,
+.admin-table .bucket-count {
+  white-space: nowrap;
+}
+
+/* A date is one thing and reads as one thing. "20 Aug" above "2026" is two. */
+.admin-table td.tabular {
+  white-space: nowrap;
+}
+
+/* The controls stay on one line and the table scrolls instead. Wrapping them
+   was worse in both directions: it made every row a different height, and it
+   pulled width away from the title column to do it. */
+.admin-table .admin-row-actions {
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+/* The flags under a title are the exception and do wrap, because there can be
+   three of them and they sit under a column that is already flexible. */
+.admin-table .admin-row-flags {
+  flex-wrap: wrap;
+}
+
+/* Below these the container scrolls. Chosen to fit the widest ordinary row
+   rather than the widest possible one: a very long posting title still wraps,
+   which is correct, because a title is a sentence. */
+.admin-jobs-table {
+  min-width: 62rem;
+}
+
+.admin-applications-table {
+  min-width: 58rem;
+}
+
+/* The title column takes what is left, with a floor so it never collapses to
+   one word per line next to a wide set of controls. */
+.admin-jobs-table td:first-child,
+.admin-jobs-table th:first-child {
+  min-width: 18rem;
+}
+
+.admin-applications-table td:nth-child(2),
+.admin-applications-table th:nth-child(2) {
+  min-width: 12rem;
+}
+
+/* Small controls in a dense row. The dashboard is the only place in the build
+   with four buttons on one line, and the ordinary button padding makes that row
+   wider than the rest of the table put together. */
+.admin-row-actions .btn.small {
+  padding-inline: 0.5rem;
+  gap: 0.3125rem;
+}
+
+/* A hint that the row continues past the edge, on the scrolling container
+   rather than on the table, so it appears only when there is something to
+   scroll to. */
+.admin-list {
+  scrollbar-width: thin;
+  overscroll-behavior-x: contain;
 }

@@ -585,7 +585,7 @@ function drawShared() {
       <p class="field-error" data-error-for="response_sheet_url" hidden></p>
     </div>
 
-    <div class="field">
+    <div class="field field-wide">
       <label for="jobPrefill">${escapeHtml(t('admin.field_prefill'))}</label>
       <textarea id="jobPrefill" rows="3" spellcheck="false">${escapeHtml(
         job.form_prefill ? JSON.stringify(job.form_prefill, null, 0) : ''
@@ -594,7 +594,7 @@ function drawShared() {
       <p class="field-error" data-error-for="form_prefill" hidden></p>
     </div>
 
-    <div class="field">
+    <div class="field field-wide">
       <label for="tagInput">${escapeHtml(t('admin.field_tags'))}</label>
       <div class="tag-picker" id="tagPicker"></div>
       <input id="tagInput" type="text" list="tagOptions" autocomplete="off"
@@ -604,7 +604,7 @@ function drawShared() {
       <p class="field-error" data-error-for="tags" hidden></p>
     </div>
 
-    <fieldset class="field editor-questions">
+    <fieldset class="field field-wide editor-questions">
       <legend>${escapeHtml(t('admin.postingQuestions'))}</legend>
       <p class="field-hint">${escapeHtml(t('admin.postingQuestionsHint'))}</p>
       <div id="jobQuestions"></div>

@@ -71,11 +71,11 @@
       "number": 7,
       "name": "Admin core",
       "name_zh": "管理后台核心",
-      "status": "building",
+      "status": "shipped",
       "description": "The staff side of running the board: the overview, writing and publishing postings in every language with a tabbed editor, tracking applicants, and managing departments and tags.",
       "description_zh": "员工端的日常运作：总览、以分页式编辑器撰写和发布多语言职位信息、跟进申请人，以及管理部门和标签。",
-      "shipped_note": null,
-      "shipped_note_zh": null
+      "shipped_note": "The staff side of the board went live with this. Roles are now written, translated, and published from inside the portal rather than by hand, so a posting can carry its full description in both languages and say plainly whether it is still open. If you have applied to something, the team can see where your application has got to, ask you a question about it, and tell you once a decision has been made: anything they need from you arrives in your outstanding tasks, and a question they ask there can now be a short set of questions rather than only a reply box. None of the staff pages are visible to applicants, and nothing about how you apply has changed.",
+      "shipped_note_zh": "员工端的运作功能随此阶段上线。职位现在直接在本网站内撰写、翻译和发布，不再需要另行处理，因此每则职位信息都能以双语呈现完整说明，并清楚标示是否仍在招募。如果您申请过某个职位，团队可以看到您的申请进展、就申请内容向您提问，并在有结果时通知您：任何需要您处理的事情都会送到您的待办事项，团队提问时现在也可以附上几道问题，而不只是一个回复框。员工使用的页面申请人都看不到，申请方式也完全没有改变。"
     },
     {
       "number": 8,
