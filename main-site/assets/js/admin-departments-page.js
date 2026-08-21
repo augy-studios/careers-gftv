@@ -19,6 +19,7 @@ import { t } from './i18n.js';
 import { hydrateIcons, iconMarkup } from './icons.js';
 import { escapeHtml } from './markdown.js';
 import { createDialog } from './dialog.js';
+import { confirmAction } from './danger-confirm.js';
 import { mountAdminPage, adminMessage, emptyRow, adminLocales } from './admin-shell.js';
 
 const PATH = '/admin/departments';
@@ -306,15 +307,18 @@ async function save(department, dialog) {
 async function remove(department) {
   const count = department.job_count ?? 0;
 
-  if (
-    !window.confirm(
+  const confirmed = await confirmAction({
+    title: t('admin.deleteTeamConfirm', { name: department.name }),
+    // Counted rather than described, the same way 8.2 handles a posting: an
+    // admin about to detach eleven postings should see the eleven.
+    consequences:
       count > 0
-        ? t('admin.deleteTeamWithJobs', { name: department.name, count })
-        : t('admin.deleteTeamConfirm', { name: department.name })
-    )
-  ) {
-    return;
-  }
+        ? [t('admin.deleteTeamImpact', { count }), t('admin.deleteTeamKeeps')]
+        : [t('admin.deleteTeamKeeps')],
+    confirmLabel: t('admin.delete'),
+  });
+
+  if (!confirmed) return;
 
   const result = await api('/api/admin/departments', {
     method: 'POST',

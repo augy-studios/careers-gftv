@@ -488,6 +488,186 @@ define('setup', 'Setup', async (state) => {
  * 4b, Before anything else, and Access
  * ====================================================================== */
 
+/**
+ * Items 4 and 5: the job poster's two roles, from whichever side we are on.
+ *
+ * 8.2's rule is that permanently deleting a posting is admins only, that the
+ * control is **absent** for a job poster rather than disabled, and that the
+ * route re-checks the role regardless. Section 0c's disabled state means "this
+ * is coming in a later phase", so using it for "you are not allowed" would make
+ * a permission look like a build status.
+ *
+ * The interesting half needs an account with is_admin false, which is a second
+ * credential rather than a flag this run can set. So this reads the role off
+ * /api/admin/me and checks whichever side it is on: as an admin, that the
+ * control is there and the route does not refuse it; as a job poster, all of
+ * item 4 and item 5. Running it once as each is the whole check.
+ */
+async function runRoleChecks(state) {
+  const page = state.staffPage;
+  const isAdmin = state.staff?.is_admin === true;
+
+  await page.goto(`${BASE}/admin/jobs`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#jobList table, #jobList .admin-empty', { timeout: 20000 });
+  await dismissApplyPrompt(page);
+
+  // Both admin-only sections belong to phase 8, which has not shipped, so for an
+  // admin they are drawn as disabled spans carrying the phase sentence rather
+  // than as links. Counting hrefs alone would call that absent, which is the
+  // opposite of what it is: **present and explained** is 0c's state for a later
+  // phase, and **absent** is 8.2's state for a permission. The whole of items 4
+  // and 5 is that those two are different, so this counts both shapes.
+  const sidebar = await page.evaluate(() => {
+    const count = (key, href) =>
+      document.querySelectorAll(`#adminNav [data-feature="${key}"], #adminNav [href="${href}"]`)
+        .length;
+
+    return {
+      admins: count('admin_admins', '/admin/admins'),
+      applicants: count('admin_applicants', '/admin/applicants'),
+      disabled: document.querySelectorAll(
+        '#adminNav span[data-feature="admin_admins"], #adminNav span[data-feature="admin_applicants"]'
+      ).length,
+      role: document.querySelector('.admin-role-pill')?.textContent?.trim() ?? null,
+    };
+  });
+
+  const deleteButtons = await page.locator('#jobList [data-delete]').count();
+  const rows = await page.locator('#jobList tbody tr').count();
+
+  if (isAdmin) {
+    check(
+      '4. as an admin, Staff access and Applicant accounts are in the sidebar',
+      sidebar.admins === 1 && sidebar.applicants === 1,
+      JSON.stringify(sidebar)
+    );
+    check(
+      '4. as an admin they are shown, disabled, because phase 8 has not shipped',
+      sidebar.disabled === 2,
+      `${sidebar.disabled} of the two are drawn with the phase sentence`
+    );
+    check(
+      '4. as an admin, the postings list offers Delete',
+      rows === 0 || deleteButtons > 0,
+      `${deleteButtons} delete controls across ${rows} rows`
+    );
+    check(
+      '5. the delete action does not refuse an admin',
+      (
+        await post(page, '/api/admin/jobs', {
+          action: 'delete',
+          id: '00000000-0000-0000-0000-000000000000',
+        })
+      ).status !== 403,
+      'an admin was refused by the role check'
+    );
+    skip(
+      '4, 5. the job poster half',
+      'this run signed in as an admin. Run it again with a staff account whose is_admin is false to check what a job poster is not shown, and that the route refuses them anyway'
+    );
+    return;
+  }
+
+  // The half that matters, and the reason item 5 exists as a separate item.
+  check(
+    '4. a job poster has no Staff access item',
+    sidebar.admins === 0,
+    'the /admin/admins item is in the sidebar for an account without is_admin'
+  );
+  check(
+    '4. a job poster has no Applicant accounts item',
+    sidebar.applicants === 0,
+    'the /admin/applicants item is in the sidebar for an account without is_admin'
+  );
+  check(
+    '4. those items are absent, not drawn disabled',
+    sidebar.disabled === 0,
+    'an admin-only item is drawn with the phase sentence, which makes a permission look like a build status'
+  );
+  check(
+    '4. the top bar names the role',
+    typeof sidebar.role === 'string' && sidebar.role.length > 0 && !/admin/i.test(sidebar.role),
+    `the role pill reads "${sidebar.role}"`
+  );
+  check(
+    '4. the postings list offers no Delete',
+    deleteButtons === 0,
+    `${deleteButtons} delete controls across ${rows} rows`
+  );
+
+  // 5. A hidden control stops nobody. This is a request that would succeed for
+  // an admin: a real posting, and its slug typed exactly. Anything less would
+  // be proving that a bad id is refused rather than that the role is.
+  const list = await get(page, '/api/admin/jobs?status=draft&limit=100');
+  const target = (list.data?.jobs ?? []).find((job) => job.title.startsWith('SMOKE P7'))
+    ?? (list.data?.jobs ?? [])[0]
+    ?? null;
+
+  if (!target) {
+    skip('5. POST delete by hand', 'no posting to aim a delete at');
+    return;
+  }
+
+  const full = await get(page, `/api/admin/jobs?id=${target.id}`);
+  const refused = await post(page, '/api/admin/jobs', {
+    action: 'delete',
+    id: target.id,
+    confirm: full.data?.job?.slug,
+  });
+
+  // The adminDelete bucket is checked before the role, so an account whose ten
+  // an hour is spent answers 429 to a delete it would have been refused anyway.
+  // Reported as not run rather than as a failure: 429 is not evidence either
+  // way about the role, and calling it one would be the wrong lesson.
+  if (refused.status === 429) {
+    const wait = refused.details?.retry_after;
+    skip(
+      '5. POST delete by hand',
+      `the adminDelete bucket is spent, so the endpoint answered 429 before it reached the role check${
+        wait ? `. It clears in about ${Math.ceil(wait / 60)} minutes` : ''
+      }`
+    );
+  } else {
+    check(
+      '5. a well formed delete from a job poster answers 403',
+      refused.status === 403,
+      `status ${refused.status} ${short(refused.text, 200)}`
+    );
+
+    // The role check comes before everything else in the handler, which is what
+    // makes it a permission rather than a validation. A delete with no confirm
+    // at all must answer 403 rather than "type the web address".
+    const noConfirm = await post(page, '/api/admin/jobs', { action: 'delete', id: target.id });
+    check(
+      '5. the role is checked before the confirmation, not after',
+      noConfirm.status === 403,
+      `status ${noConfirm.status} ${short(noConfirm.text, 160)}`
+    );
+  }
+
+  check(
+    '5. and the posting is still there',
+    (await get(page, `/api/admin/jobs?id=${target.id}`)).status === 200,
+    'the posting was deleted by an account without is_admin'
+  );
+
+  // And the rest of the dashboard still works, because two roles is not a
+  // permission system: a job poster does everything except delete a posting and
+  // see the two admin-only sections.
+  const stillAllowed = await Promise.all([
+    get(page, '/api/admin/stats'),
+    get(page, '/api/admin/applications'),
+    get(page, '/api/admin/departments?counts=false'),
+    get(page, '/api/admin/tags'),
+    get(page, '/api/admin/maintenance'),
+  ]);
+  check(
+    '4. a job poster still reaches postings, tracking, teams, tags and maintenance',
+    stillAllowed.every((result) => result.ok),
+    stillAllowed.map((result) => result.status).join(', ')
+  );
+}
+
 const GUARDED = [
   '/admin',
   '/admin/jobs',
@@ -607,28 +787,15 @@ define('access', 'Access, items 1 to 6b', async (state) => {
   );
   await applicantOnly.close();
 
-  // 4 and 5 need a staff account without is_admin, and 6 needs the
-  // gftvjobs_admin_access row revoked underneath a live session.
-  skip(
-    '4, 5. job poster without is_admin',
-    'needs a second staff account with is_admin false; only one staff credential was supplied, and it is an admin'
-  );
+  // 4 and 5. Two roles, not a permission system: what a job poster is not shown
+  // and what the server refuses them regardless. Which half runs depends on the
+  // role of the account this run signed in as, so the same file covers both.
+  await runRoleChecks(state);
+
+  // 6 needs the gftvjobs_admin_access row revoked underneath a live session.
   skip(
     '6. revoking gftvjobs_admin_access mid-session',
     'needs SQL against the live database; no service key is available to this run'
-  );
-
-  // 5, the half that can run: the delete action re-checks the role rather than
-  // trusting the hidden control. As an admin it must not 403, which is the
-  // other side of the same check.
-  const deleteWithoutConfirm = await post(state.staffPage, '/api/admin/jobs', {
-    action: 'delete',
-    id: '00000000-0000-0000-0000-000000000000',
-  });
-  check(
-    '5. delete reaches the role check before the id check for an admin',
-    deleteWithoutConfirm.status !== 403,
-    `status ${deleteWithoutConfirm.status}`
   );
 
   // 6a. The way in on a browser that has never held a staff session.
@@ -2828,6 +2995,46 @@ define('maintenance', 'Maintenance, items 53 to 58', async (state) => {
       `banner reads "${short(staffBanner, 160)}"`
     );
 
+    // And does not wreck the layout doing it. #adminPage *is* .admin-layout, a
+    // two column grid, so a banner prepended to it without grid-column: 1 / -1
+    // becomes a third grid item and takes the first cell: the sidebar moves to
+    // column two at the content's width and the content drops to the next row
+    // at 14rem. Measured rather than eyeballed, because every text assertion
+    // above still passed while the page was inside out.
+    const layout = await page.evaluate(() => {
+      const bar = document.querySelector('.admin-maintenance-banner');
+      const sidebar = document.querySelector('.admin-sidebar');
+      const content = document.querySelector('.admin-content');
+      if (!bar || !sidebar || !content) return null;
+
+      const box = (el) => {
+        const rect = el.getBoundingClientRect();
+        return { left: Math.round(rect.left), width: Math.round(rect.width), top: Math.round(rect.top) };
+      };
+
+      return { bar: box(bar), sidebar: box(sidebar), content: box(content) };
+    });
+
+    check(
+      '54. the banner spans the layout rather than becoming a column of it',
+      layout !== null && layout.bar.width > layout.sidebar.width,
+      JSON.stringify(layout)
+    );
+    check(
+      '54. the sidebar is still the narrow left column',
+      layout !== null &&
+        layout.sidebar.left < layout.content.left &&
+        layout.sidebar.width < layout.content.width,
+      JSON.stringify(layout)
+    );
+    check(
+      '54. and both columns are still below the banner',
+      layout !== null &&
+        layout.sidebar.top >= layout.bar.top &&
+        layout.content.top >= layout.bar.top,
+      JSON.stringify(layout)
+    );
+
     // The applicant's own dashboard. There is no banner there at all: the only
     // The applicant's own dashboard, which has its own banner: the tiles read
     // their counts from endpoints that answer 503 when a feature is off, and a
@@ -3394,6 +3601,237 @@ define('switchers', 'The language and appearance switches', async (state) => {
   }
 
   await stub.close();
+});
+
+/* =========================================================================
+ * Modals. Every one of them is the site's own, not the browser's.
+ *
+ * The rule, from 22 August 2026: **every modal uses the danger zone
+ * confirmation's design.** window.confirm and window.prompt are the browser's,
+ * not ours. They are unstyled, they are untranslated in the parts the browser
+ * writes, they read like a warning about the site rather than a question from
+ * it, on mobile they are hard to tell from a page trying to trap you, and they
+ * block the thread. This section is here because that rule is invisible in a
+ * screenshot and easy to undo with one convenient line.
+ * ====================================================================== */
+
+define('modals', 'Modals, and no native popups', async (state) => {
+  const page = state.staffPage;
+
+  // Anything the browser opens gets recorded rather than dismissed, so a native
+  // dialog is a failure with a name attached rather than a silent pass.
+  const native = [];
+  const spy = (dialog) => {
+    native.push({ type: dialog.type(), message: dialog.message(), url: page.url() });
+    dialog.dismiss().catch(() => {});
+  };
+  page.on('dialog', spy);
+
+  const ours = () =>
+    page.evaluate(() => {
+      const modal = document.querySelector('.modal-backdrop:not(.hidden) .modal');
+      if (!modal) return null;
+      return {
+        design: modal.classList.contains('glass-card'),
+        role: modal.getAttribute('role'),
+        modalAttr: modal.getAttribute('aria-modal'),
+        titled: Boolean(modal.getAttribute('aria-labelledby')),
+        title: modal.querySelector('.modal-head h2')?.textContent?.trim() ?? null,
+        consequences: [...modal.querySelectorAll('.danger-consequences li')].map((li) =>
+          li.textContent.trim()
+        ),
+        field: Boolean(modal.querySelector('[data-confirm-field]')),
+        cancelFirst:
+          modal.querySelector('.danger-actions button')?.matches('[data-cancel]') ?? false,
+        confirmClass: modal.querySelector('[data-confirm]')?.className ?? null,
+        scrollLocked: document.body.getAttribute('data-scroll-locked') === 'true',
+        focusInside: modal.contains(document.activeElement),
+      };
+    });
+
+  const closed = () => page.locator('.modal-backdrop:not(.hidden) .modal').count();
+
+  // 1. The maintenance switch, which is what this was asked for.
+  await page.goto(`${BASE}/admin/maintenance`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#featureList [data-feature-key]', { timeout: 20000 });
+  await dismissApplyPrompt(page);
+
+  const card = page.locator('[data-feature-key="saved_jobs"]');
+  if ((await card.count()) === 0) {
+    skip('the maintenance switch modal', 'saved_jobs is not flippable on this deployment');
+  } else {
+    await card.locator('label.switch').click();
+    await page.waitForTimeout(600);
+
+    const offModal = await ours();
+    check(
+      'switching a feature off opens the site\'s own modal, not a native prompt',
+      offModal !== null && offModal.design && offModal.role === 'dialog' && offModal.modalAttr === 'true',
+      JSON.stringify(offModal)
+    );
+    check(
+      'it carries the note field, the cancel first, and a danger confirm',
+      offModal?.field === true &&
+        offModal?.cancelFirst === true &&
+        /btn-danger/.test(offModal?.confirmClass ?? ''),
+      JSON.stringify(offModal)
+    );
+    check(
+      'it locks the page behind it and puts focus inside',
+      offModal?.scrollLocked === true && offModal?.focusInside === true,
+      JSON.stringify(offModal)
+    );
+    check(
+      'its title names the feature rather than the site',
+      (offModal?.title ?? '').includes('Saved roles'),
+      `title reads "${short(offModal?.title, 100)}"`
+    );
+
+    // Cancelling puts the switch back and changes nothing.
+    await page.click('.modal-backdrop [data-cancel]');
+    await page.waitForTimeout(600);
+    check('cancelling closes it', (await closed()) === 0);
+    check(
+      'cancelling puts the switch back where it was',
+      (await card.locator('[data-switch]').isChecked()) === true,
+      'the switch stayed off after the flip was cancelled'
+    );
+    check(
+      'and the feature is still on',
+      (await get(page, '/api/admin/maintenance')).data?.features?.find(
+        (f) => f.key === 'saved_jobs'
+      )?.off === false,
+      'cancelling the modal switched the feature off anyway'
+    );
+
+    // Escape is the same as cancel.
+    await card.locator('label.switch').click();
+    await page.waitForTimeout(600);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(600);
+    check(
+      'Escape cancels it too, and the switch goes back',
+      (await closed()) === 0 && (await card.locator('[data-switch]').isChecked()) === true
+    );
+
+    // Switching one back **on** is confirmed as well, and that modal has no
+    // field: there is nothing to say when something starts working again.
+    const anythingOff = (await get(page, '/api/admin/maintenance')).data?.features?.find(
+      (feature) => feature.off
+    );
+    if (anythingOff) {
+      const offCard = page.locator(`[data-feature-key="${anythingOff.key}"]`);
+      await offCard.locator('label.switch').click();
+      await page.waitForTimeout(600);
+      const onModal = await ours();
+      check(
+        'switching one back on is confirmed too, with no note field',
+        onModal !== null && onModal.field === false,
+        JSON.stringify(onModal)
+      );
+      await page.click('.modal-backdrop [data-cancel]');
+      await page.waitForTimeout(400);
+    } else {
+      skip(
+        'the switch-back-on modal',
+        'nothing was switched off at the time, so there was nothing to switch back on'
+      );
+    }
+  }
+
+  // 2. Deleting a tag: a confirmation with the consequence counted, not
+  //    described. A throwaway tag, so nothing real is aimed at.
+  const throwaway = await post(page, '/api/admin/tags', {
+    action: 'save',
+    name: `smoke-modal-${STAMP}`,
+  });
+
+  if (throwaway.ok) {
+    created.tags.push(throwaway.data.tag.id);
+
+    await page.goto(`${BASE}/admin/tags?q=smoke-modal-${STAMP}`, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('#tagList table, #tagList .admin-empty', { timeout: 20000 });
+    await dismissApplyPrompt(page);
+    await page.fill('#tagSearch', `smoke-modal-${STAMP}`);
+    await page.press('#tagSearch', 'Enter');
+    await page.waitForTimeout(2000);
+
+    const row = page.locator(`[data-tag-id="${throwaway.data.tag.id}"]`);
+    if ((await row.count()) > 0) {
+      await row.locator('[data-delete]').click();
+      await page.waitForTimeout(600);
+
+      const deleteModal = await ours();
+      check(
+        'deleting a tag opens the site\'s own confirmation',
+        deleteModal !== null && deleteModal.design && deleteModal.cancelFirst,
+        JSON.stringify(deleteModal)
+      );
+      check(
+        'it names the tag and offers no field to fill in',
+        (deleteModal?.title ?? '').includes(`smoke-modal-${STAMP}`) && deleteModal?.field === false,
+        JSON.stringify(deleteModal)
+      );
+
+      await page.click('.modal-backdrop [data-cancel]');
+      await page.waitForTimeout(600);
+      check(
+        'cancelling leaves the tag alone',
+        (await closed()) === 0 &&
+          (await get(page, `/api/admin/tags?q=smoke-modal-${STAMP}`)).data?.tags?.length === 1,
+        'the tag went away after the delete was cancelled'
+      );
+    } else {
+      skip('the tag delete modal', 'the throwaway tag was not on the filtered list');
+    }
+
+    await post(page, '/api/admin/tags', {
+      action: 'delete',
+      id: throwaway.data.tag.id,
+      confirm_count: 0,
+    });
+  }
+
+  // 3. The editor's create-a-tag confirmation, which is the one that is not a
+  //    destructive action and must not be dressed as one.
+  await page.goto(`${BASE}/admin/jobs/edit`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#tagInput', { timeout: 20000 });
+  await dismissApplyPrompt(page);
+  await page.fill('#tagInput', `no-such-tag-${STAMP}`);
+  await page.press('#tagInput', 'Enter');
+  await page.waitForTimeout(800);
+
+  const createModal = await ours();
+  check(
+    'creating a tag from the editor asks in the site\'s own modal',
+    createModal !== null && createModal.design && createModal.cancelFirst,
+    JSON.stringify(createModal)
+  );
+  check(
+    'and its confirm is the ordinary primary button, not the danger one',
+    /btn-primary/.test(createModal?.confirmClass ?? '') &&
+      !/btn-danger/.test(createModal?.confirmClass ?? ''),
+    `confirm is "${createModal?.confirmClass}"`
+  );
+
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(600);
+  const tagsAfter = await get(page, `/api/admin/tags?q=no-such-tag-${STAMP}`);
+  check(
+    'cancelling creates nothing',
+    (await closed()) === 0 && (tagsAfter.data?.tags ?? []).length === 0,
+    `${tagsAfter.data?.tags?.length} tags called no-such-tag-${STAMP}`
+  );
+
+  // 4. The whole point, checked once at the end: nothing above reached the
+  //    browser's own dialogs.
+  check(
+    'no native confirm, prompt or alert was opened anywhere in this section',
+    native.length === 0,
+    native.map((entry) => `${entry.type} on ${entry.url}: ${short(entry.message, 80)}`).join(' | ')
+  );
+
+  page.off('dialog', spy);
 });
 
 await main();

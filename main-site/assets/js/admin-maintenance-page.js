@@ -26,7 +26,18 @@ import { t } from './i18n.js';
 import { hydrateIcons } from './icons.js';
 import { escapeHtml } from './markdown.js';
 import { formatDate } from './format.js';
+import { confirmAction } from './danger-confirm.js';
 import { mountAdminPage, adminMessage, emptyRow } from './admin-shell.js';
+
+/**
+ * The note's cap, matching NOTE_MAX in api/_lib/maintenance.js.
+ *
+ * Written here rather than fetched because a maxlength on the field is a
+ * courtesy, not the enforcement: the endpoint validates it regardless, and a
+ * field that let somebody type a thousand characters and then refused the save
+ * would be worse than one that stopped them at the limit.
+ */
+const NOTE_MAX = 300;
 
 const PATH = '/admin/maintenance';
 
@@ -119,28 +130,72 @@ function drawFeatures() {
 
     card.querySelector('[data-switch]')?.addEventListener('change', (event) => {
       // The checkbox reads as "this feature is on", so an unchecked box means
-      // off. Reverted immediately if the flip is cancelled or fails, because a
-      // switch that shows the wrong state on this page of all pages is worse
-      // than one that does not move.
+      // off.
       const turningOff = !event.target.checked;
-      flip(feature, turningOff, event.target);
+
+      // Put it straight back, before anything is asked. The switch shows what
+      // is true, and what is true does not change until the endpoint says so.
+      // Leaving it moved while the confirmation is open showed a control in a
+      // state nothing had agreed to yet, and next to a label still reading
+      // "On", because the label is drawn from the payload and the track is
+      // drawn by :checked. Reverting here means the two can never disagree:
+      // the redraw after a successful flip is the only thing that moves it.
+      revert(event.target, turningOff);
+
+      flip(feature, turningOff);
     });
   });
 }
 
-async function flip(feature, off, control) {
-  let note = null;
+/**
+ * Put the switch back to the state the flip was trying to leave.
+ *
+ * The box reads as "this feature is on", so a flip to off started from on and a
+ * flip to on started from off: the state to go back to is `off` itself. It was
+ * written as `!off`, which is the same expression with the opposite meaning, so
+ * a flip that failed left the switch showing the state the server had just
+ * refused to move to. A control lying about what is switched off is bad on any
+ * page and worst on this one.
+ *
+ * Setting `checked` from script fires no change event, so this cannot loop.
+ *
+ * @param {HTMLInputElement} control
+ * @param {boolean} off whether the flip was trying to switch the feature off
+ */
+function revert(control, off) {
+  control.checked = off;
+}
 
-  if (off) {
-    // Optional, and prefilled with nothing. 8.12: "an admin who has just broken
-    // something writes a better sentence than a dropdown does."
-    note = window.prompt(t('admin.notePrompt', { feature: t(`featureName.${feature.key}`) }), '');
-    if (note === null) {
-      control.checked = true;
-      return;
-    }
-    note = note.trim();
-  }
+async function flip(feature, off) {
+  const name = t(`featureName.${feature.key}`);
+
+  // Both directions are confirmed, and switching one back **on** is confirmed
+  // for the reason that is easy to miss: during an incident this page is being
+  // read by somebody under pressure, and a mis-click that quietly turns a
+  // broken feature back on is worse than one that turns a working feature off.
+  // The off direction carries the note; 8.12: "Prefill nothing and suggest
+  // nothing: an admin who has just broken something writes a better sentence
+  // than a dropdown does."
+  const answer = await confirmAction({
+    title: t(off ? 'admin.confirmOffTitle' : 'admin.confirmOnTitle', { feature: name }),
+    body: t(off ? 'admin.confirmOffBody' : 'admin.confirmOnBody', { feature: name }),
+    confirmLabel: t(off ? 'admin.confirmOffAction' : 'admin.confirmOnAction'),
+    danger: off,
+    field: off
+      ? {
+          label: t('admin.notePrompt', { feature: name }),
+          hint: t('admin.notePromptHint'),
+          multiline: true,
+          maxLength: NOTE_MAX,
+        }
+      : undefined,
+  });
+
+  // Cancelled. The switch was already put back before the question was asked,
+  // so there is nothing to undo here.
+  if (answer === null) return;
+
+  const note = answer.value;
 
   const result = await api('/api/admin/maintenance', {
     method: 'POST',
@@ -149,7 +204,7 @@ async function flip(feature, off, control) {
   });
 
   if (!result.ok) {
-    control.checked = !off;
+    // Also already showing the state that is still true, for the same reason.
     adminMessage('error', result.error?.message ?? t('error.unexpected'));
     return;
   }

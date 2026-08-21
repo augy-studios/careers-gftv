@@ -38,6 +38,7 @@ import { t } from './i18n.js';
 import { hydrateIcons, iconMarkup } from './icons.js';
 import { escapeHtml } from './markdown.js';
 import { COMMITMENTS } from './format.js';
+import { confirmAction } from './danger-confirm.js';
 import { mountAdminPage, adminMessage, adminLocales } from './admin-shell.js';
 import { mountQuestionComposer } from './admin-questions.js';
 
@@ -778,7 +779,16 @@ async function addTagByName(raw) {
   // Nothing matched, so this is the create case. Confirmed rather than silent:
   // 8.7 exists because near duplicate tags are the thing that fills the list up,
   // and a tag created by a typo is exactly that.
-  if (!window.confirm(t('admin.createTagConfirm', { name }))) return;
+  const confirmed = await confirmAction({
+    title: t('admin.createTagConfirm', { name }),
+    body: t('admin.createTagBody'),
+    confirmLabel: t('admin.createTagAction'),
+    // Not a destructive action, so the confirm is the ordinary primary button.
+    // The panel is here to slow down a typo, not to warn about a consequence.
+    danger: false,
+  });
+
+  if (!confirmed) return;
 
   const result = await api('/api/admin/tags', { method: 'POST', body: { action: 'save', name } });
   if (!result.ok) {

@@ -38,9 +38,22 @@ You need three things.
 
 2. **A staff account with portal access.** `requireStaff` re-reads
    `gftvhello_sessions` and re-checks `hasPortalAccess` on every request, so
-   there is no way to fake one. The account needs `is_admin` for the deletion
-   and merge checks; a `is_editor` only account will run most of it and skip the
-   rest.
+   there is no way to fake one.
+
+   **Run it once as each role.** The account's `is_admin` decides which half of
+   items 4 and 5 runs, and the file covers both: as an admin it checks that
+   Delete is offered and the route does not refuse it, and as a job poster it
+   checks that Staff access, Applicant accounts and Delete are all *absent* —
+   absent rather than disabled, since 0c's disabled state means "a later phase"
+   — and that a well formed delete still answers 403. Neither run alone is the
+   check. An admin is also needed for item 17 and for `cleanup-smoke.mjs`.
+
+   One wrinkle worth knowing before it confuses you: the `adminDelete` rate
+   limit is checked before the role, so an account whose ten an hour is spent
+   answers 429 to a delete rather than 403. That only happens if the same
+   account was deleting things as an admin earlier in the hour, which is exactly
+   what demoting one account to test both halves does. The run reports it as not
+   run rather than as a failure.
 
 3. **Somewhere to point it.** Production by default. Prefer a preview
    deployment when there is one.

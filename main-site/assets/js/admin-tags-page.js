@@ -21,6 +21,7 @@ import { t } from './i18n.js';
 import { hydrateIcons, iconMarkup } from './icons.js';
 import { escapeHtml } from './markdown.js';
 import { createDialog } from './dialog.js';
+import { confirmAction } from './danger-confirm.js';
 import { mountAdminPage, adminMessage, emptyRow, adminLocales } from './admin-shell.js';
 
 const PATH = '/admin/tags';
@@ -351,15 +352,16 @@ function openMerge(source) {
 async function remove(tag) {
   const count = tag.job_count ?? 0;
 
-  if (
-    !window.confirm(
-      count > 0
-        ? t('admin.deleteTagWithJobs', { name: tag.name, count })
-        : t('admin.deleteTagConfirm', { name: tag.name })
-    )
-  ) {
-    return;
-  }
+  const confirmed = await confirmAction({
+    title: t('admin.deleteTagConfirm', { name: tag.name }),
+    // The join rows cascade, so the postings survive and lose the tag. Worth
+    // knowing before rather than after: a published posting that loses its last
+    // tag cannot be republished until it gets another.
+    consequences: count > 0 ? [t('admin.deleteTagImpact', { count })] : [],
+    confirmLabel: t('admin.delete'),
+  });
+
+  if (!confirmed) return;
 
   const result = await api('/api/admin/tags', {
     method: 'POST',

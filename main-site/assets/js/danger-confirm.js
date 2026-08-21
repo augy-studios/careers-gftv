@@ -221,6 +221,150 @@ export function confirmDangerousAction(options) {
   });
 }
 
+/**
+ * One step of the same thing: a modal that asks before doing something, with an
+ * optional field to fill in.
+ *
+ * **Every modal on this site uses this design**, and the reason is not house
+ * style. `window.confirm` and `window.prompt` are the browser's, not ours: they
+ * are unstyled, untranslated in the parts the browser writes, unreadable in
+ * dark mode on some platforms, they name the site in a way that reads like a
+ * warning, and on mobile they are indistinguishable from a page trying to trap
+ * you. They also block the whole thread. The three step confirmation above
+ * already had the right shell, the focus trap, the Escape and backdrop
+ * behaviour, and the scroll lock, so this is that component with the steps
+ * taken out rather than a second implementation.
+ *
+ * Not a replacement for `confirmDangerousAction`. That one exists because 7g
+ * fixes three steps for anything irreversible, and nothing here may be used to
+ * skip them: this is for the ordinary "are you sure" that does not need a typed
+ * name or a password.
+ *
+ * @param {{
+ *   title: string,
+ *   body?: string,
+ *   consequences?: string[],
+ *   confirmLabel: string,
+ *   cancelLabel?: string,
+ *   danger?: boolean,
+ *   field?: {
+ *     label: string,
+ *     hint?: string,
+ *     placeholder?: string,
+ *     multiline?: boolean,
+ *     maxLength?: number,
+ *   },
+ * }} options
+ * @returns {Promise<{ value: string|null }|null>} null when cancelled. The
+ *          value is the field's text, trimmed, or null when it was left empty
+ *          or there is no field. Empty and absent are the same thing to every
+ *          caller here, and a caller that ever needs to tell them apart should
+ *          say so rather than have this guess.
+ */
+export function confirmAction(options) {
+  return new Promise((resolve) => {
+    const previousFocus = document.activeElement;
+
+    const wrap = document.createElement('div');
+    wrap.className = 'modal-backdrop';
+    wrap.innerHTML = `
+      <div class="modal glass-card danger-dialog" role="dialog" aria-modal="true"
+           aria-labelledby="confirmTitle">
+        <div class="modal-head">
+          <h2 id="confirmTitle">${escapeHtml(options.title)}</h2>
+        </div>
+
+        ${options.body ? `<p>${escapeHtml(options.body)}</p>` : ''}
+
+        ${
+          options.consequences?.length
+            ? `<ul class="danger-consequences">${options.consequences
+                .map((line) => `<li>${escapeHtml(line)}</li>`)
+                .join('')}</ul>`
+            : ''
+        }
+
+        ${options.field ? fieldMarkup(options.field) : ''}
+
+        <!-- Cancel first and no quieter than the confirm, for the same reason
+             7g gives: a cancel that is harder to find than the confirm is how
+             people end up doing the thing they came to avoid. -->
+        <div class="danger-actions">
+          <button type="button" class="btn btn-secondary" data-cancel>
+            ${escapeHtml(options.cancelLabel ?? t('danger.cancel'))}
+          </button>
+          <button type="button" class="btn ${
+            options.danger === false ? 'btn-primary' : 'btn-danger'
+          }" data-confirm>${escapeHtml(options.confirmLabel)}</button>
+        </div>
+      </div>
+    `;
+
+    document.body.append(wrap);
+    document.body.setAttribute('data-scroll-locked', 'true');
+    hydrateIcons(wrap);
+
+    const panel = wrap.querySelector('.modal');
+    const input = wrap.querySelector('[data-confirm-field]');
+    const confirmButton = wrap.querySelector('[data-confirm]');
+
+    // The field when there is one, because filling it in is the next thing
+    // anybody does; the confirm otherwise, so Enter and Space both work without
+    // reaching for the mouse.
+    (input ?? confirmButton).focus();
+
+    confirmButton.addEventListener('click', () => {
+      close({ value: input ? input.value.trim() || null : null });
+    });
+
+    wrap.querySelector('[data-cancel]').addEventListener('click', () => close(null));
+
+    wrap.addEventListener('click', (event) => {
+      if (event.target === wrap) close(null);
+    });
+
+    function onKeydown(event) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        close(null);
+      } else if (event.key === 'Tab') {
+        trapFocus(panel, event);
+      } else if (event.key === 'Enter' && event.target.tagName === 'INPUT') {
+        // Only a single line input. Enter inside a textarea is a newline, which
+        // is the whole reason somebody chose a textarea.
+        event.preventDefault();
+        confirmButton.click();
+      }
+    }
+
+    document.addEventListener('keydown', onKeydown, true);
+
+    function close(result) {
+      document.removeEventListener('keydown', onKeydown, true);
+      wrap.remove();
+      document.body.setAttribute('data-scroll-locked', 'false');
+      if (previousFocus instanceof HTMLElement) previousFocus.focus();
+      resolve(result);
+    }
+  });
+}
+
+function fieldMarkup(field) {
+  const max = field.maxLength ? ` maxlength="${Number(field.maxLength)}"` : '';
+  const placeholder = field.placeholder ? ` placeholder="${escapeHtml(field.placeholder)}"` : '';
+
+  const control = field.multiline
+    ? `<textarea id="confirmField" data-confirm-field rows="3"${max}${placeholder}></textarea>`
+    : `<input id="confirmField" data-confirm-field type="text" autocomplete="off"${max}${placeholder}>`;
+
+  return `
+    <div class="field">
+      <label for="confirmField">${escapeHtml(field.label)}</label>
+      ${control}
+      ${field.hint ? `<p class="field-hint">${escapeHtml(field.hint)}</p>` : ''}
+    </div>`;
+}
+
 function trapFocus(panel, event) {
   const items = [...panel.querySelectorAll(FOCUSABLE)].filter(
     (el) => !el.disabled && el.offsetParent !== null

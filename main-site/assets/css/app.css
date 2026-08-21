@@ -933,6 +933,19 @@ select:disabled {
   padding-left: 0.25rem;
 }
 
+/* confirmAction puts a sentence, sometimes a list, and sometimes a field in the
+   same panel, and the three ran together without this: the field's label sat
+   directly under the last line of the explanation and read as part of it. The
+   three step confirmation never needed the rule because each of its steps shows
+   one thing at a time. */
+.danger-dialog > p {
+  margin: 0 0 1rem;
+}
+
+.danger-dialog > .field {
+  margin-top: 1rem;
+}
+
 .danger-actions {
   display: flex;
   flex-wrap: wrap;
@@ -3185,6 +3198,22 @@ input[type='search']::-webkit-search-cancel-button {
 .admin-maintenance-banner,
 .account-maintenance-banner {
   margin-bottom: 1rem;
+}
+
+/* The dashboard's banner is prepended to #adminPage, which **is** .admin-layout
+   rather than something inside it, so without this it becomes a third grid item
+   and takes the first cell: the sidebar was pushed into column two and rendered
+   at the content's full width, and the content dropped into column one of the
+   next row at 14rem wide. The page came out inside out.
+
+   Spanning both columns is also the right answer rather than only the safe one.
+   The banner is about the whole dashboard and not about the section being
+   looked at, so it belongs above both columns, which is where prepending it to
+   the layout was always trying to put it. .account-maintenance-banner needs no
+   equivalent: #accountPage is a plain element and the banner is an ordinary
+   block inside it. */
+.admin-maintenance-banner {
+  grid-column: 1 / -1;
 }
 
 .admin-page-header {
