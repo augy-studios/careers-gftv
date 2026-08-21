@@ -1102,5 +1102,6 @@
   "featureName.language_switcher": "语言切换按钮",
   "featureName.theme_switcher": "外观切换按钮",
   "featureWhere.language_switcher": "每个页面顶部的地球图标按钮。",
-  "featureWhere.theme_switcher": "每个页面顶部的调色板图标按钮。"
+  "featureWhere.theme_switcher": "每个页面顶部的调色板图标按钮。",
+  "account.maintenanceBanner": "部分功能暂时无法使用，我们正在修复：{features}。"
 }

@@ -2829,17 +2829,55 @@ define('maintenance', 'Maintenance, items 53 to 58', async (state) => {
     );
 
     // The applicant's own dashboard. There is no banner there at all: the only
-    // one in the build is admin-shell.js's, and account-shell.js draws nothing.
+    // The applicant's own dashboard, which has its own banner: the tiles read
+    // their counts from endpoints that answer 503 when a feature is off, and a
+    // tile deliberately shows nothing rather than claiming zero, so without a
+    // banner Saved roles renders with a blank count and no reason.
     await applicantPage.goto(`${BASE}/account`, { waitUntil: 'domcontentloaded' });
     await applicantPage.waitForTimeout(4000);
     await dismissApplyPrompt(applicantPage);
-    const applicantBanner = await applicantPage.evaluate(() =>
-      document.body.textContent.replace(/\s+/g, ' ')
+
+    const applicantBanner = await applicantPage.evaluate(() => {
+      const bar = document.querySelector('.account-maintenance-banner');
+      return bar ? bar.textContent.replace(/\s+/g, ' ').trim() : null;
+    });
+    check(
+      '54. the applicant dashboard shows a maintenance banner',
+      typeof applicantBanner === 'string' && applicantBanner.length > 0,
+      'no .account-maintenance-banner on /account'
     );
     check(
-      '54. the applicant dashboard says something about the outage',
-      applicantBanner.includes(NOTE),
-      'nothing on /account mentions the note; there is no maintenance banner on the applicant side'
+      '54. it names what is off and carries the note',
+      (applicantBanner ?? '').includes('Saved roles') && (applicantBanner ?? '').includes(NOTE),
+      `banner reads "${short(applicantBanner, 200)}"`
+    );
+    check(
+      '54. it says nothing about the staff dashboard',
+      !/dashboard|admin/i.test(applicantBanner ?? ''),
+      `banner reads "${short(applicantBanner, 200)}"`
+    );
+
+    // And in Chinese, where the feature name and the sentence both come from
+    // the dictionary and the note is shown as the admin typed it.
+    await applicantPage.evaluate(() =>
+      window.localStorage.setItem('gftv-careers.locale', 'zh')
+    );
+    await applicantPage.goto(`${BASE}/account`, { waitUntil: 'domcontentloaded' });
+    await applicantPage.waitForTimeout(4000);
+    await dismissApplyPrompt(applicantPage);
+    const zhBanner = await applicantPage.evaluate(() => {
+      const bar = document.querySelector('.account-maintenance-banner');
+      return bar ? bar.textContent.replace(/\s+/g, ' ').trim() : null;
+    });
+    check(
+      '54. the banner reads in Chinese, with no raw dictionary key',
+      typeof zhBanner === 'string' &&
+        /[一-鿿]/.test(zhBanner) &&
+        !/account\.|featureName\./.test(zhBanner),
+      `banner reads "${short(zhBanner, 200)}"`
+    );
+    await applicantPage.evaluate(() =>
+      window.localStorage.setItem('gftv-careers.locale', 'en')
     );
 
     // 57. A redeploy cannot be triggered from here.

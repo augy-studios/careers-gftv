@@ -25,6 +25,13 @@
 import { api, applicantSession } from './api.js';
 import { t } from './i18n.js';
 import { hydrateIcons } from './icons.js';
+import { escapeHtml } from './markdown.js';
+import {
+  loadBuildStatus,
+  loadFeatureOverrides,
+  featureNote,
+  isFeatureOff,
+} from './build-status.js';
 
 // One entry per page, in the order somebody would use them: what have I done,
 // what did I keep, what do you need from me, then the account itself.
@@ -65,11 +72,80 @@ export async function mountAccountPage(options) {
   const page = document.querySelector('#accountPage');
   if (page) page.hidden = false;
 
+  // Not awaited, for the same reason the badge is not: a feature being switched
+  // off is a line at the top of the page, not something the page waits for.
+  renderMaintenanceBanner();
+
   // Not awaited. The badge is one number on a navigation item and must never be
   // on the path that gets the page drawn.
   refreshTaskBadge();
 
   return session;
+}
+
+/* -------------------------------------------------------------------------
+ * The maintenance banner
+ * ---------------------------------------------------------------------- */
+
+/**
+ * A line at the top of the account area when something an applicant uses is
+ * switched off, per 8.12's item 54.
+ *
+ * The staff dashboard has had one since phase 7 and this is its counterpart,
+ * built after the phase 7 verification run found the gap it leaves. Without it
+ * the failure is silent in the worst way: /account's tiles read their counts
+ * from endpoints that answer 503 when the feature is off, and the tile
+ * deliberately shows nothing rather than claiming zero, so Saved roles rendered
+ * with a blank count line and no reason anywhere on the page.
+ *
+ * Three decisions in it:
+ *
+ *   **It names what is off**, rather than counting. The staff banner says "3
+ *   features" because an admin is about to open the page that lists them; an
+ *   applicant has no such page and a number tells them nothing. featureName
+ *   already carries a reader-facing name for every key.
+ *
+ *   **It skips anything admin_*.** Whether the staff dashboard is available is
+ *   not an applicant's business and is not something they could act on. The
+ *   filter is on the key prefix rather than a second list, so a feature added
+ *   to the map is covered by whichever side of it the name puts it.
+ *
+ *   **It shows the notes, and links to /status for the rest.** The note is the
+ *   only part written by a person and is the only part that says anything
+ *   specific, so a banner that withheld it would be telling somebody their
+ *   saved roles are gone and declining to say why. They are capped short at the
+ *   endpoint, so however many are off it stays a few lines. Identical notes are
+ *   shown once: switching three things off during one incident is one sentence
+ *   typed three times, not three sentences.
+ */
+async function renderMaintenanceBanner() {
+  document.querySelector('.account-maintenance-banner')?.remove();
+
+  const status = await loadBuildStatus();
+  await loadFeatureOverrides();
+
+  const off = Object.keys(status?.features ?? {})
+    .filter((key) => !key.startsWith('admin_'))
+    .filter((key) => isFeatureOff(key));
+
+  if (off.length === 0) return;
+
+  const names = off.map((key) => t(`featureName.${key}`));
+  const notes = [...new Set(off.map((key) => featureNote(key)).filter(Boolean))];
+
+  const bar = document.createElement('div');
+  bar.className = 'callout warn account-maintenance-banner';
+  bar.setAttribute('role', 'status');
+  bar.innerHTML =
+    `<p>${escapeHtml(t('account.maintenanceBanner', { features: names.join(', ') }))} ` +
+    `<a href="/status">${escapeHtml(t('notice.link'))}</a></p>` +
+    notes.map((note) => `<p class="feature-note">${escapeHtml(note)}</p>`).join('');
+
+  document.querySelector('#accountPage')?.prepend(bar);
+
+  // Redrawn rather than retranslated: the feature names and the note are
+  // written here rather than carried on data-i18n attributes.
+  document.addEventListener('gftv:localechange', () => renderMaintenanceBanner(), { once: true });
 }
 
 /* -------------------------------------------------------------------------

@@ -3179,7 +3179,11 @@ input[type='search']::-webkit-search-cancel-button {
   display: none;
 }
 
-.admin-maintenance-banner {
+/* Both realms' maintenance banners. The applicant's was added after the phase 7
+   verification run, which found that a switched off feature reached /account as
+   a tile with a blank count and no reason anywhere on the page. */
+.admin-maintenance-banner,
+.account-maintenance-banner {
   margin-bottom: 1rem;
 }
 

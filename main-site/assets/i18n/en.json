@@ -1102,5 +1102,6 @@
   "featureName.language_switcher": "The language switcher",
   "featureName.theme_switcher": "The appearance switcher",
   "featureWhere.language_switcher": "The globe button in the header, on every page.",
-  "featureWhere.theme_switcher": "The palette button in the header, on every page."
+  "featureWhere.theme_switcher": "The palette button in the header, on every page.",
+  "account.maintenanceBanner": "Some things are temporarily unavailable while we fix them: {features}."
 }
