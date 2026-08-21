@@ -36,7 +36,7 @@
 
 import { siteUrl } from './_lib/env.js';
 import { renderDocument, sendHtml, escapeHtml } from './_lib/page-shell.js';
-import { getApplicantSession } from './_lib/session.js';
+import { getApplicantSession, getStaffSession, hasPortalAccess } from './_lib/session.js';
 import { searchParams } from './_lib/jobs.js';
 import {
   fetchJobRecord,
@@ -70,6 +70,30 @@ const CACHE_PUBLIC = 'public, max-age=0, s-maxage=60, stale-while-revalidate=300
 // archived posting to everybody.
 const CACHE_PRIVATE = 'private, no-store';
 
+/**
+ * Whether the caller may preview a posting that is not otherwise visible.
+ *
+ * The same two questions requireStaff asks, asked the same way: a real session
+ * row, and the portal access rule re-checked on this request. It answers a
+ * boolean rather than writing to the response, because a caller who is not
+ * staff must fall through to the ordinary 404 rather than be told that a
+ * preview mode exists at all.
+ *
+ * Not gated on is_admin. A job poster writes postings, so previewing one before
+ * publishing it is the ordinary case rather than an admin's privilege.
+ */
+async function isStaffPreviewer(req) {
+  try {
+    const session = await getStaffSession(req);
+    if (!session) return false;
+    return await hasPortalAccess(session.user);
+  } catch (cause) {
+    // Fail closed. A preview that cannot prove who is asking is a 404.
+    console.warn('[careers-gftv] preview check:', cause);
+    return false;
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     res.setHeader('Allow', 'GET, HEAD');
@@ -79,6 +103,7 @@ export default async function handler(req, res) {
   }
 
   const segment = segmentFrom(req);
+  const params = searchParams(req);
 
   try {
     // A uuid is the canonical address. Anything else that looks like a slug is
@@ -118,7 +143,28 @@ export default async function handler(req, res) {
       hasHistory = await hasHistoryWithJob(job.id, session?.user?.id ?? null);
     }
 
-    if (!isVisible(job, hasHistory)) return notFound(res);
+    // Phase 7's preview, per 8.2's editor. A draft 404s for everybody,
+    // deliberately and including the person writing it, which left an admin no
+    // way to see what they had written before publishing it to the board.
+    //
+    // Four things make this safe to add to the one public page on the site:
+    //
+    //   **It is asked for explicitly.** Without ?preview=1 nothing here runs,
+    //   so the ordinary path is byte for byte what it was.
+    //   **It is a real staff session with portal access**, checked against the
+    //   database on this request. There is no token in the URL to share or
+    //   leak, and a signed out caller gets the same 404 as before.
+    //   **It never widens what is rendered.** The same record, the same
+    //   allowlist, the same body. What changes is only whether the 404 happens.
+    //   **The response is never cached**, which is the part that would be a
+    //   real leak if it were missed: without it a CDN could hold a draft and
+    //   hand it to the next person who asked for that uuid.
+    const previewing =
+      params.get('preview') === '1' && !isVisible(job, hasHistory)
+        ? await isStaffPreviewer(req)
+        : false;
+
+    if (!previewing && !isVisible(job, hasHistory)) return notFound(res);
 
     const facts = jobFacts(record);
 
@@ -160,7 +206,16 @@ export default async function handler(req, res) {
       // reads the setting itself on every call and refuses immediately.
       inlineJson: {
         id: 'jobData',
-        data: { job: facts, content, applications_open: await applicationsOpen() },
+        data: {
+          job: facts,
+          content,
+          applications_open: await applicationsOpen(),
+          // The client draws the banner from this rather than the server
+          // writing the sentence, because the sentence is a dictionary string
+          // and this function has no dictionary, which is the same rule every
+          // other endpoint in the build follows.
+          preview: previewing,
+        },
       },
       modules: ['/assets/js/shell.js', '/assets/js/job-page.js'],
       bodyHtml: bodyFor(english, facts),
@@ -168,10 +223,20 @@ export default async function handler(req, res) {
 
     return sendHtml(res, html, {
       headers: {
-        'Cache-Control': facts.is_archived ? CACHE_PRIVATE : CACHE_PUBLIC,
-        // An archived posting's visibility depends on the session cookie, so
-        // any shared cache in front of this has to be told that too.
-        ...(facts.is_archived ? { Vary: 'Cookie' } : {}),
+        // A preview is never cached, by anything. This is the line that would
+        // turn the preview into a leak if it were dropped: a shared cache
+        // holding a draft would hand it to the next caller who asked for that
+        // uuid, with no session and no 404.
+        'Cache-Control':
+          previewing || facts.is_archived ? CACHE_PRIVATE : CACHE_PUBLIC,
+        // An archived posting's visibility depends on the session cookie, and
+        // so does a preview, so any shared cache in front of this has to be
+        // told that too.
+        ...(previewing || facts.is_archived ? { Vary: 'Cookie' } : {}),
+        // Belt and braces against an unfurler or a crawler that somehow has a
+        // staff cookie. The whole site is noindex until phase 12 anyway, and
+        // this one must stay noindex after that.
+        ...(previewing ? { 'X-Robots-Tag': 'noindex, nofollow' } : {}),
       },
     });
   } catch (cause) {

@@ -3623,13 +3623,6 @@ input[type='search']::-webkit-search-cancel-button {
   font-size: 0.875rem;
 }
 
-.editor-preview {
-  margin-top: 1rem;
-  padding: 1rem;
-  border: 1px dashed var(--border-strong);
-  border-radius: var(--radius-sm);
-}
-
 .tag-picker {
   display: flex;
   flex-wrap: wrap;
@@ -4257,4 +4250,20 @@ input[type='search']::-webkit-search-cancel-button {
   ::view-transition-new(root) {
     animation: none !important;
   }
+}
+
+/* The staff preview banner on a posting page. Above the title and impossible to
+   read past: the page under it is rendered exactly as a reader would see it,
+   which is the point of a preview and also the reason it has to say loudly that
+   nobody else can see it. */
+.job-preview-banner {
+  margin-bottom: 1rem;
+}
+
+.job-preview-banner p {
+  margin: 0;
+}
+
+.job-preview-banner p + p {
+  margin-top: 0.25rem;
 }

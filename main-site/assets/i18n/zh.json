@@ -846,7 +846,7 @@
   "admin.postingQuestions": "向每位申请人提出的问题",
   "admin.postingQuestionsHint": "可不填。从现在起申请的人会以独立任务的形式收到这些问题。修改内容只会影响之后的申请人。",
   "admin.currentStatus": "此职位目前",
-  "admin.preview": "预览",
+  "admin.preview": "在新分页中预览",
   "admin.publish": "发布",
   "admin.published": "职位已上线。",
   "admin.errorOnTab": "{language} 分页上还有需要修正的地方。",
@@ -1094,5 +1094,9 @@
   "tasks.anythingElseLabel": "还有什么想补充的",
   "tasks.anythingElseHint": "可不填。上面的问题才是我们需要的答案。",
   "status.outagesHeading": "目前无法使用",
-  "status.outagesLede": "以下功能已经上线，但目前暂时关闭，我们正在修复。稍后会恢复。"
+  "status.outagesLede": "以下功能已经上线，但目前暂时关闭，我们正在修复。稍后会恢复。",
+  "admin.previewNeedsSave": "预览前请先保存一次。职位建立之后才会有网址。",
+  "admin.previewBlocked": "浏览器挡下了新分页。请允许本网站开启弹出式窗口，或使用「查看职位页面」链接打开。",
+  "job.previewBanner": "预览模式。其他人看不到此页面。",
+  "job.previewBannerBody": "您能看到，是因为您已以员工身份登录。此页面的呈现方式与发布后读者看到的完全相同。"
 }

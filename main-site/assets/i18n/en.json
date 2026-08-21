@@ -846,7 +846,7 @@
   "admin.postingQuestions": "Questions asked of everybody who applies",
   "admin.postingQuestionsHint": "Optional. Anybody who applies from now on is asked these as a separate task. Editing them changes only what the next applicant is asked.",
   "admin.currentStatus": "This posting is",
-  "admin.preview": "Preview",
+  "admin.preview": "Preview in a new tab",
   "admin.publish": "Publish",
   "admin.published": "The posting is live.",
   "admin.errorOnTab": "There is something to fix on the {language} tab.",
@@ -1094,5 +1094,9 @@
   "tasks.anythingElseLabel": "Anything else you want to add",
   "tasks.anythingElseHint": "Optional. The questions above are what we asked for.",
   "status.outagesHeading": "Currently unavailable",
-  "status.outagesLede": "These have shipped and are switched off at the moment while we fix something. They will be back."
+  "status.outagesLede": "These have shipped and are switched off at the moment while we fix something. They will be back.",
+  "admin.previewNeedsSave": "Save the posting once before previewing it. A posting has no address until it exists.",
+  "admin.previewBlocked": "Your browser blocked the new tab. Allow pop-ups for this site, or open the posting from the View posting link.",
+  "job.previewBanner": "Preview. Nobody else can see this page.",
+  "job.previewBannerBody": "You are seeing it because you are signed in as staff. It is rendered exactly as a reader would see it once it is published."
 }

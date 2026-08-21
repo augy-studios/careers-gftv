@@ -36,7 +36,7 @@
 import { api } from './api.js';
 import { t } from './i18n.js';
 import { hydrateIcons, iconMarkup } from './icons.js';
-import { escapeHtml, renderProse } from './markdown.js';
+import { escapeHtml } from './markdown.js';
 import { COMMITMENTS } from './format.js';
 import { mountAdminPage, adminMessage, adminLocales } from './admin-shell.js';
 import { mountQuestionComposer } from './admin-questions.js';
@@ -868,6 +868,16 @@ function collect() {
     }
   }
 
+  // Every field is read off `job`, which readShared and readTabBody have just
+  // filled in from the DOM. Reading half of them from `job` and half straight
+  // out of the document again was how this function came to reference two
+  // variables that no longer existed, which threw before the request was ever
+  // made and made Save look like it did nothing at all. One source of truth.
+  //
+  // closes_at is already resolved by readShared, including the "no closing
+  // date" toggle and the end-of-day time: a date input gives a day, the column
+  // is a timestamp, and midnight at the start of that day would close the
+  // posting a day before the admin meant.
   const payload = {
     job: {
       slug: job.slug ?? '',
@@ -881,17 +891,14 @@ function collect() {
       compensation_note: job.compensation_note ?? '',
       og_description: job.og_description ?? '',
       sections: sections.get('__base') ?? [],
-      department_id: document.querySelector('#jobDepartment')?.value || null,
-      commitment_type: document.querySelector('#jobCommitment')?.value || null,
-      is_remote: document.querySelector('#jobRemote')?.checked === true,
-      is_paid: document.querySelector('#jobPaid')?.checked === true,
-      openings: Number(document.querySelector('#jobOpenings')?.value ?? 1),
-      // A date input gives a day; the column is a timestamp. The end of that day
-      // is what somebody means by "closes on the 4th", and the alternative,
-      // midnight at its start, closes the posting a day early.
-      closes_at: noDeadline || !closes ? null : `${closes}T23:59:59.000Z`,
-      application_form_url: document.querySelector('#jobForm')?.value?.trim() || null,
-      response_sheet_url: document.querySelector('#jobSheet')?.value?.trim() || null,
+      department_id: job.department_id ?? null,
+      commitment_type: job.commitment_type ?? null,
+      is_remote: job.is_remote === true,
+      is_paid: job.is_paid === true,
+      openings: Number.isInteger(job.openings) ? job.openings : 1,
+      closes_at: job.closes_at ?? null,
+      application_form_url: job.application_form_url ?? null,
+      response_sheet_url: job.response_sheet_url ?? null,
       form_prefill: prefill,
       task_questions: questionComposer?.value() ?? [],
     },
@@ -1010,10 +1017,39 @@ function clone(value) {
   return JSON.parse(JSON.stringify(value ?? []));
 }
 
+/**
+ * Run one of the three actions, and say so when it throws.
+ *
+ * The catch is not defensive padding. `collect()` threw a ReferenceError on the
+ * live site, before the request was ever made, and because these were bare
+ * calls on a click handler the rejection went to the console and nothing
+ * appeared on screen: Save looked like a button that did nothing. An editor
+ * somebody has spent ten minutes in is the worst place on the site for a silent
+ * failure, because the obvious next move is to try again and then leave.
+ *
+ * The message is deliberately the generic one. Whatever went wrong here is a
+ * fault in this page rather than something the admin can act on, and the
+ * console still carries the real cause for whoever reads it.
+ */
+function runAction(action, label) {
+  try {
+    const result = action();
+    if (result && typeof result.catch === 'function') {
+      result.catch((cause) => {
+        console.error(`[careers-gftv] editor ${label}:`, cause);
+        adminMessage('error', t('error.unexpected'));
+      });
+    }
+  } catch (cause) {
+    console.error(`[careers-gftv] editor ${label}:`, cause);
+    adminMessage('error', t('error.unexpected'));
+  }
+}
+
 document.addEventListener('click', (event) => {
-  if (event.target.closest('#saveButton')) save();
-  if (event.target.closest('#publishButton')) publish();
-  if (event.target.closest('#previewButton')) togglePreview();
+  if (event.target.closest('#saveButton')) runAction(save, 'save');
+  if (event.target.closest('#publishButton')) runAction(publish, 'publish');
+  if (event.target.closest('#previewButton')) runAction(openPreview, 'preview');
 });
 
 /**
@@ -1021,19 +1057,59 @@ document.addEventListener('click', (event) => {
  * uses. 8.2: "The preview should import assets/js/markdown.js rather than
  * reimplement it", which is also the only way the preview can be true.
  */
-function togglePreview() {
-  const holder = document.querySelector('#editorPreview');
-  if (!holder) return;
-
-  if (!holder.hidden) {
-    holder.hidden = true;
+/**
+ * Open the posting as a reader would see it, in a new tab.
+ *
+ * This was an inline panel that rendered the description through markdown.js,
+ * which answered a narrower question than anybody actually has: what a reader
+ * sees is the whole page, with the badges, the meta rows, the sections, the
+ * unpaid notice, and the Apply control, and a preview that showed one field of
+ * it was a preview of the wrong thing. `/jobs/{uuid}?preview=1` is the real
+ * page, rendered by the real function, so nothing can drift out of step with it
+ * because there is nothing to keep in step.
+ *
+ * **It saves first.** The preview reads the database, so previewing unsaved
+ * edits would show the previous version and quietly look like the edits had not
+ * worked. If the save fails the tab is closed rather than left pointing at
+ * something stale.
+ *
+ * **The tab is opened before the await, not after.** A `window.open` that
+ * follows an await is a popup rather than a click for every browser that counts
+ * them, and gets blocked. Phase 5 hit exactly this in the apply handoff and
+ * settled it the same way: open synchronously, navigate once the work is done,
+ * and treat a null return as blocked rather than as an error.
+ */
+async function openPreview() {
+  if (!job.id) {
+    // Nothing to preview: the posting has no address until it exists. Saving
+    // first would work, but it would also mean the Preview button silently
+    // creates a posting, which is not what it says it does.
+    adminMessage('error', t('admin.previewNeedsSave'));
     return;
   }
 
-  const values = currentValues();
-  const description = readInput('description') || values.description || '';
-  holder.innerHTML = renderProse(description);
-  holder.hidden = false;
+  const tab = window.open('', '_blank');
+
+  await save();
+
+  if (!tab) {
+    // Blocked. The link is offered instead rather than a dead end, and it is
+    // the same address the tab would have gone to.
+    adminMessage('error', t('admin.previewBlocked'));
+    return;
+  }
+
+  if (dirty) {
+    // save() leaves dirty set when it refused, so there is nothing worth
+    // showing and the empty tab would otherwise sit there.
+    tab.close();
+    return;
+  }
+
+  tab.location = `/jobs/${encodeURIComponent(job.id)}?preview=1`;
+  // The same mitigation phase 5 applies to the form tab, for the same reason:
+  // this window stays reachable through opener otherwise.
+  tab.opener = null;
 }
 
 if (document.readyState === 'loading') {

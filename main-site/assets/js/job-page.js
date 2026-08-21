@@ -111,6 +111,19 @@ function draw() {
   const commitment = commitmentLabel(job.commitment_type);
 
   holder.innerHTML = `
+    ${
+      // Phase 7's staff preview. The posting underneath is rendered exactly as
+      // a reader would see it, which is the entire point, so the one thing this
+      // page owes the person looking at it is an unmissable statement that
+      // nobody else can. Above the title rather than beside it: a preview that
+      // has to be noticed is not a badge.
+      payload?.preview
+        ? `<div class="callout warn job-preview-banner" role="status">
+             <p><strong>${escapeHtml(t('job.previewBanner'))}</strong></p>
+             <p>${escapeHtml(t('job.previewBannerBody'))}</p>
+           </div>`
+        : ''
+    }
     <header class="job-detail-head">
       <div class="job-card-badges">
         ${
