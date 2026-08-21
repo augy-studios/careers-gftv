@@ -65,6 +65,25 @@ const buildStatus = require('../../assets/build-status.json');
 export const OVERRIDES_KEY = 'feature_overrides';
 
 /**
+ * How stale an override may be before it is read again. Five seconds.
+ *
+ * settings.js caches for a minute, which is right for a policy value like the
+ * reapply cooldown: it is read on every apply and changed twice a year. This
+ * one is different in both directions. It is read by a page load rather than by
+ * a write, so re-reading it costs one small query on a five row table; and it
+ * is changed *during an incident*, by somebody who flips a switch and then
+ * reloads the public page to check. A minute of "did that work?" is the wrong
+ * answer to give them, and it is the answer they were getting: a minute here,
+ * plus thirty seconds of edge cache and sixty of stale-while-revalidate on
+ * api/public/feature-status, came to about ninety seconds.
+ *
+ * Five seconds rather than none because the cost is per instance rather than
+ * per request: a burst of traffic still collapses to one query per instance per
+ * five seconds, which is the property that made the cache worth having.
+ */
+const FRESH_MS = 5 * 1000;
+
+/**
  * Features that can never be flipped, with the reason each one is on the list.
  *
  * The reasons are shown on the page, so they are written for an admin to read
@@ -166,7 +185,7 @@ export function deniedFeatures() {
  * @returns {Promise<Record<string, { off: boolean, note: string|null, at: string|null, by: string|null }>>}
  */
 export async function featureOverrides() {
-  const value = await getSetting(OVERRIDES_KEY, {});
+  const value = await getSetting(OVERRIDES_KEY, {}, { maxAgeMs: FRESH_MS });
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
 
   const overrides = {};

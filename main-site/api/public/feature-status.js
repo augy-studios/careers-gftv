@@ -14,11 +14,19 @@
 // into a site that looks broken, which is precisely the state this endpoint
 // exists to describe rather than to cause.
 //
-// Cached for a short window and never longer, per section 9. Thirty seconds on
-// the edge plus the minute settings.js already caches means a flip reaches
-// everybody inside about ninety seconds, which is the same order as the minute
-// 8.12 accepts, and it costs one query per instance per minute rather than one
-// per page view.
+// **Not cached on the edge, and that is a correction.** It was
+// s-maxage=30 with stale-while-revalidate=60, which with the minute
+// settings.js cached for meant a flip took about ninety seconds to reach a
+// reader. That is the wrong trade for this endpoint specifically: it is the
+// one an admin checks by reloading a public page immediately after switching
+// something off during an outage, and ninety seconds of the old answer reads
+// exactly like the switch not working.
+//
+// The cost is bounded without the edge cache. This is one small request per
+// page load, the same as it was, and the query behind it collapses to one per
+// instance per five seconds through FRESH_MS in api/_lib/maintenance.js. What
+// the edge cache was buying was not load, it was latency on a payload of a few
+// dozen bytes.
 
 import { ok, methodNotAllowed, failInternal } from '../_lib/respond.js';
 import { publicFeatureStatus } from '../_lib/maintenance.js';
@@ -31,10 +39,10 @@ export default async function handler(req, res) {
   try {
     const status = await publicFeatureStatus();
 
-    res.setHeader(
-      'Cache-Control',
-      'public, max-age=0, s-maxage=30, stale-while-revalidate=60'
-    );
+    // no-store rather than a short max-age: a browser reusing this from its own
+    // cache on the next page load would put the delay back where it was, one
+    // reader at a time and invisibly.
+    res.setHeader('Cache-Control', 'no-store');
 
     return ok(res, status);
   } catch (cause) {

@@ -347,11 +347,20 @@ async function main() {
         if (!PATCH_JS.includes(name)) return route.continue();
 
         const body = await readFile(join(HERE, 'main-site', path.replace(/^\//, '')), 'utf8');
+
+        // The content type matters more than it looks. A stylesheet served as
+        // JavaScript is refused by the browser's strict MIME checking and the
+        // page renders unstyled, which then fails every layout assertion in the
+        // run for a reason that has nothing to do with the layout.
+        const contentType = name.endsWith('.json')
+          ? 'application/json'
+          : name.endsWith('.css')
+            ? 'text/css'
+            : 'application/javascript';
+
         return route.fulfill({
           status: 200,
-          contentType: name.endsWith('.json')
-            ? 'application/json; charset=utf-8'
-            : 'application/javascript; charset=utf-8',
+          contentType: `${contentType}; charset=utf-8`,
           body,
         });
       });
@@ -2727,14 +2736,40 @@ define('teams', 'Teams and tags, items 47 to 52', async (state) => {
  * ====================================================================== */
 
 /**
- * How long a flip takes to reach a public page.
+ * How long a flip may take to reach a public page before it counts as broken.
  *
- * settings.js caches the row for a minute and api/public/feature-status is
- * served with s-maxage=30 and stale-while-revalidate=60, which the endpoint's
- * own comment puts at "about ninety seconds". Anything checked sooner than that
- * is checking the cache rather than the flip.
+ * It used to be about ninety seconds: settings.js cached the row for a minute
+ * and api/public/feature-status was served with s-maxage=30 and
+ * stale-while-revalidate=60. That is the wrong trade for the one endpoint an
+ * admin reloads during an outage to check that the switch worked, so the edge
+ * cache is gone and the overrides are read with a five second ceiling.
+ *
+ * Measured rather than waited out, because the number is the thing worth
+ * knowing. A run against a deployment that predates the change will fail this
+ * and say how long it actually took, which is the correct signal.
  */
-const FLIP_REACHES_PUBLIC_MS = 100_000;
+const FLIP_MUST_REACH_PUBLIC_MS = 15_000;
+
+/** Give up eventually, so a genuinely stuck flip does not hang the run. */
+const FLIP_CEILING_MS = 120_000;
+
+/**
+ * Poll the public endpoint until it agrees, and say how long that took.
+ *
+ * @returns {Promise<number|null>} milliseconds, or null if it never agreed.
+ */
+async function timeFlipToPublic(page, key, expectOff) {
+  const started = Date.now();
+
+  while (Date.now() - started < FLIP_CEILING_MS) {
+    const status = await get(page, '/api/public/feature-status');
+    const isOff = Boolean(status.data?.off?.[key]);
+    if (isOff === expectOff) return Date.now() - started;
+    await page.waitForTimeout(1000);
+  }
+
+  return null;
+}
 
 define('maintenance', 'Maintenance, items 53 to 58', async (state) => {
   const page = state.staffPage;
@@ -2872,8 +2907,27 @@ define('maintenance', 'Maintenance, items 53 to 58', async (state) => {
       `status ${toggled.status} ${short(toggled.text, 200)}`
     );
 
-    console.log(`      waiting ${FLIP_REACHES_PUBLIC_MS / 1000}s for the flip to reach the edge…`);
-    await page.waitForTimeout(FLIP_REACHES_PUBLIC_MS);
+    // How long the flip takes to reach a reader. This is the check, not the
+    // setup: "I switched it off and nothing happened for a minute and a half"
+    // is the complaint the caching change was made for.
+    const anon = await state.anon.newPage();
+    const reached = await timeFlipToPublic(anon, 'saved_jobs', true);
+    await anon.close();
+
+    check(
+      '54. switching a feature off reaches a public page promptly',
+      reached !== null && reached <= FLIP_MUST_REACH_PUBLIC_MS,
+      reached === null
+        ? `it never reached /api/public/feature-status within ${FLIP_CEILING_MS / 1000}s`
+        : `took ${(reached / 1000).toFixed(1)}s, and should be under ${
+            FLIP_MUST_REACH_PUBLIC_MS / 1000
+          }s. Anything near a minute means the deployment still has the old` +
+          ' caching: this is a server side change and PATCH_JS cannot stand in' +
+          ' for it'
+    );
+    if (reached !== null) {
+      console.log(`      the flip reached the public endpoint in ${(reached / 1000).toFixed(1)}s`);
+    }
 
     // 58. The public endpoint, with no session.
     const anonPage = await state.anon.newPage();
@@ -3064,6 +3118,45 @@ define('maintenance', 'Maintenance, items 53 to 58', async (state) => {
       `banner reads "${short(applicantBanner, 200)}"`
     );
 
+    // The same layout trap as the dashboard's, checked rather than assumed:
+    // #accountPage is a plain element today, so prepending to it is an ordinary
+    // block, but that is a property of the markup rather than of the banner and
+    // nothing stops the page becoming a grid later. The measurement is what
+    // would notice.
+    const accountLayout = await applicantPage.evaluate(() => {
+      const bar = document.querySelector('.account-maintenance-banner');
+      const page = document.querySelector('#accountPage');
+      if (!bar || !page) return null;
+
+      const barBox = bar.getBoundingClientRect();
+      const pageBox = page.getBoundingClientRect();
+      const siblings = [...page.children].filter((el) => el !== bar);
+
+      return {
+        display: getComputedStyle(page).display,
+        // Full width of its container, give or take the container's padding.
+        spans: Math.round(pageBox.width - barBox.width) <= 4,
+        first: page.firstElementChild === bar,
+        // Nothing beside it: a sibling whose top overlaps the banner's box is
+        // the shape the dashboard's bug had.
+        beside: siblings.filter((el) => {
+          const box = el.getBoundingClientRect();
+          return box.width > 0 && box.top < barBox.bottom - 4 && box.left > barBox.left + 4;
+        }).length,
+        bodyScrollsSideways: document.documentElement.scrollWidth > window.innerWidth + 1,
+      };
+    });
+
+    check(
+      '54. the applicant banner spans the page and pushes nothing sideways',
+      accountLayout !== null &&
+        accountLayout.first === true &&
+        accountLayout.spans === true &&
+        accountLayout.beside === 0 &&
+        accountLayout.bodyScrollsSideways === false,
+      JSON.stringify(accountLayout)
+    );
+
     // And in Chinese, where the feature name and the sentence both come from
     // the dictionary and the note is shown as the admin typed it.
     await applicantPage.evaluate(() =>
@@ -3098,6 +3191,21 @@ define('maintenance', 'Maintenance, items 53 to 58', async (state) => {
       const on = await post(page, '/api/admin/maintenance', { key, off: false });
       check(`55. ${key} switches back on`, on.ok && on.data?.off === false, short(on.text, 200));
     }
+
+    // Back on has to reach a reader as promptly as off did. It is the direction
+    // that gets less attention and the one where a delay looks like the fix did
+    // not work.
+    const anonBack = await state.anon.newPage();
+    const cleared = await timeFlipToPublic(anonBack, 'saved_jobs', false);
+    await anonBack.close();
+
+    check(
+      '55. switching it back on reaches a public page promptly too',
+      cleared !== null && cleared <= FLIP_MUST_REACH_PUBLIC_MS,
+      cleared === null
+        ? `it was still listed as off after ${FLIP_CEILING_MS / 1000}s`
+        : `took ${(cleared / 1000).toFixed(1)}s`
+    );
 
     const backOn = await get(page, '/api/admin/maintenance');
     const stillOff = (backOn.data?.features ?? []).filter((feature) => feature.off);

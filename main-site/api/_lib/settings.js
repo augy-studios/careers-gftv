@@ -45,6 +45,11 @@ const MAX_COOLDOWN_DAYS = 3650;
 // Deliberately not cached for the life of the instance. Vercel keeps a warm
 // instance for a long time, and "the setting I changed this morning still has
 // not taken effect" is a much worse bug than one query a minute.
+//
+// A caller may ask for a fresher answer than this, and the maintenance
+// overrides do: see FRESH_MS in maintenance.js. The write path invalidates the
+// cache outright, but only on the instance that served the write, and a flip
+// has to reach the others as well.
 const CACHE_MS = 60 * 1000;
 
 let cache = null;
@@ -57,8 +62,8 @@ let cachedAt = 0;
  * @returns {Promise<Record<string, unknown>|null>} null when the table could
  *          not be read at all, so a caller can tell "no value" from "no answer".
  */
-export async function allSettings({ refresh = false } = {}) {
-  if (!refresh && cache && Date.now() - cachedAt < CACHE_MS) return cache;
+export async function allSettings({ refresh = false, maxAgeMs = CACHE_MS } = {}) {
+  if (!refresh && cache && Date.now() - cachedAt < maxAgeMs) return cache;
 
   const { data, error } = await supabase.from(T.settings).select('key, value');
 
@@ -79,9 +84,14 @@ export async function allSettings({ refresh = false } = {}) {
  * One setting, with a fallback.
  * @param {string} key
  * @param {unknown} fallback returned when the key is absent or unreadable
+ * @param {{ maxAgeMs?: number }} [options] how stale an answer this caller will
+ *        accept. The default is the minute above, which is right for a policy
+ *        value like the cooldown. The maintenance overrides pass something much
+ *        shorter, because that one is read during an outage by somebody who has
+ *        just flipped a switch and wants to see it take effect.
  */
-export async function getSetting(key, fallback = null) {
-  const settings = await allSettings();
+export async function getSetting(key, fallback = null, options = {}) {
+  const settings = await allSettings(options);
   if (!settings || !(key in settings)) return fallback;
   return settings[key];
 }
