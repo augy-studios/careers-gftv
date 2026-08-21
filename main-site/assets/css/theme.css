@@ -84,6 +84,36 @@
   --radius: 14px;
   --radius-sm: 8px;
 
+  /* One duration for everything that opens, closes, or moves a reader from one
+   * view to another: a modal, the mobile drawer, the filter panel, a tab, the
+   * theme switch, and a navigation between two pages of the same area.
+   *
+   * They were four different durations before, between 0.12s and 0.25s, which
+   * is why a modal and a theme change felt like two different products. This is
+   * the single value they now share.
+   *
+   * **220ms rather than the theme switch's 250ms**, which is the one thing here
+   * worth reading twice. The theme switch is what somebody pointed at when they
+   * asked for everything to feel the same, and it was itself the outlier: the
+   * non-negotiable rule in gftv-theme.md is 150 to 220ms, and the body's
+   * background transition had sat at 250ms since phase 1 in breach of it.
+   * Matching everything *to* 250ms would have spread that breach across the
+   * whole site. So the token is the top of the permitted range, the theme
+   * switch now uses it like everything else, and the 30ms it loses is not a
+   * difference anybody can see.
+   *
+   * What deliberately does *not* use it: hovers, focus rings, and the two fill
+   * toggles on the star and the bookmark. Those are feedback on a thing the
+   * pointer is already touching, where this duration reads as lag rather than
+   * as polish. They stay at 0.15s to 0.18s, which is inside the same rule. The
+   * star pair was at 0.12s, under the 150ms floor, and was corrected while this
+   * was being done.
+   *
+   * The reduced motion block near the foot of this file overrides every
+   * duration to near zero, so this token is never the last word. */
+  --transition: 0.22s;
+  --ease: ease;
+
   /* Proxima Nova carries no CJK glyphs, so every Han character falls past the
      Latin families, none of which have them either, and lands on the reader's
      own system default: PingFang SC on Apple platforms, Microsoft YaHei on
@@ -324,7 +354,9 @@ body {
   background: var(--bg);
   color: var(--text);
   line-height: 1.6;
-  transition: background-color 0.25s ease, color 0.25s ease;
+  transition:
+    background-color var(--transition) var(--ease),
+    color var(--transition) var(--ease);
   /* Nothing may scroll the page sideways at any width down to 320px. */
   overflow-x: hidden;
 }
@@ -776,7 +808,7 @@ a.chip:visited {
   padding: 1rem;
   background: color-mix(in srgb, #000 55%, transparent);
   opacity: 1;
-  transition: opacity 0.18s ease;
+  transition: opacity var(--transition) var(--ease);
 }
 
 .modal-backdrop.hidden {
@@ -792,7 +824,7 @@ a.chip:visited {
   padding: 1.25rem;
   background: var(--bg-alt);
   transform: translateY(0);
-  transition: transform 0.18s ease;
+  transition: transform var(--transition) var(--ease);
 }
 
 .modal-backdrop.hidden .modal {

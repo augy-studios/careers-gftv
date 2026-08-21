@@ -202,7 +202,7 @@ body {
   background: var(--bg-alt);
   border-right: 1px solid var(--border);
   transform: translateX(-100%);
-  transition: transform 0.2s ease;
+  transition: transform var(--transition) var(--ease);
   overflow-y: auto;
 }
 
@@ -265,7 +265,7 @@ body {
   z-index: 85;
   background: color-mix(in srgb, #000 45%, transparent);
   opacity: 1;
-  transition: opacity 0.2s ease;
+  transition: opacity var(--transition) var(--ease);
 }
 
 .nav-backdrop[hidden] {
@@ -451,7 +451,9 @@ a[data-feature][data-shipped='false'] {
   padding: 0.875rem 1rem;
   background: var(--bg-alt);
   font-size: 0.9375rem;
-  transition: opacity 0.18s ease, transform 0.18s ease;
+  transition:
+    opacity var(--transition) var(--ease),
+    transform var(--transition) var(--ease);
 }
 
 .feature-explainer[hidden] {
@@ -1426,7 +1428,9 @@ select:disabled {
   padding-bottom: env(safe-area-inset-bottom);
   transform: translateY(100%);
   visibility: hidden;
-  transition: transform 0.22s ease, visibility 0.22s;
+  transition:
+    transform var(--transition) var(--ease),
+    visibility var(--transition);
 }
 
 .filter-panel[data-open='true'] {
@@ -2342,7 +2346,7 @@ input[type='search']::-webkit-search-cancel-button {
 
 .star-label svg {
   fill: none;
-  transition: fill 0.12s ease, color 0.12s ease;
+  transition: fill 0.15s ease, color 0.15s ease;
 }
 
 .star-label[data-on='true'] {
@@ -4158,4 +4162,99 @@ input[type='search']::-webkit-search-cancel-button {
 .admin-list {
   scrollbar-width: thin;
   overscroll-behavior-x: contain;
+}
+
+/* ---------------------------------------------------------------------------
+ * Tabs, and moving between pages of the same area
+ *
+ * Two things that looked like hard cuts and now do not, both on the shared
+ * --transition token so they match the modals and the theme switch.
+ * ------------------------------------------------------------------------ */
+
+/* Tabs had no transition at all, so selecting one repainted instantly while
+   everything around it eased. Colour and border only: the pill must not change
+   size on selection, or the row reflows and the tabs beside it move under the
+   pointer. */
+.bucket-tab,
+.lang-tab,
+.account-nav-item,
+.admin-nav-item {
+  transition:
+    background-color var(--transition) var(--ease),
+    border-color var(--transition) var(--ease),
+    color var(--transition) var(--ease);
+}
+
+/* Moving between two pages of the same area.
+ *
+ * Every page here is a real document rather than a view swapped in by script,
+ * so /account and /account/saved are two navigations and the browser paints the
+ * second one straight over the first. Inside one area that reads as a jolt: the
+ * chrome either side of the change is identical, so the only thing the eye
+ * catches is the flicker.
+ *
+ * A cross-document view transition fixes exactly that and nothing else. The
+ * browser holds the old page's last frame, paints the new one underneath, and
+ * cross-fades. Both documents have to opt in, which they do, because every page
+ * on the site loads this stylesheet.
+ *
+ * Three things worth knowing about it:
+ *
+ *   **It is same-origin only**, by the specification. A link out to the docs
+ *   site or to a Google Form gets an ordinary navigation, which is right: those
+ *   are a different place and should feel like one.
+ *
+ *   **Where it is unsupported, nothing happens.** An unknown at-rule is skipped,
+ *   and the navigation is what it was before. Nothing is layered on top of it in
+ *   script, so there is no path where a browser without it behaves worse than a
+ *   browser with it.
+ *
+ *   **A page held blank for the dictionary fades to its own loader, not to
+ *   nothing.** A non default language sets data-i18n-pending before first paint,
+ *   which hides the body and shows the full screen boot loader over --bg. So the
+ *   fade lands on a painted surface either way, and the Chinese site does not
+ *   cross-fade into white. */
+@view-transition {
+  navigation: auto;
+}
+
+::view-transition-group(root) {
+  animation-duration: var(--transition);
+  animation-timing-function: var(--ease);
+}
+
+/* The fade is the whole effect. No slide, no scale: this is one page of an area
+   replacing another, not a step forward through a flow, and a directional
+   animation would be claiming a relationship between the two that a sidebar of
+   twelve unordered sections does not have. */
+::view-transition-old(root) {
+  animation-name: gftv-view-out;
+}
+
+::view-transition-new(root) {
+  animation-name: gftv-view-in;
+}
+
+@keyframes gftv-view-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes gftv-view-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* prefers-reduced-motion is honoured by the blanket block in theme.css for
+   transitions, but a view transition is an animation and needs saying
+   separately. Skipping it entirely restores the plain navigation, which is the
+   behaviour somebody asking for reduced motion is asking for. */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(root),
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none !important;
+  }
 }
