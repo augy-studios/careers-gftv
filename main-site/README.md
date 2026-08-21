@@ -902,6 +902,25 @@ no-cache`, or a stale service worker pins an old build indefinitely, and
 `build-status.json` gets a short `s-maxage` so a phase flipping to shipped
 reaches people quickly.
 
+**Nothing in that file can carry a comment**, and this is where the ones it
+would otherwise hold live instead. Vercel validates `vercel.json` against a
+schema that rejects any property it does not know, inside a `redirects` or
+`rewrites` entry as well as at the root, so a `$comment` key beside a `source`
+fails the build rather than being ignored. Two entries are worth explaining:
+
+- **`/admin/docs` is a 302, not a 301.** Section 8a keeps the route as a
+  redirect to the docs site so an old bookmark and any link written into the
+  dashboard before the move keep working. The destination is not built until
+  phase 13, and a permanent redirect would be cached by every browser that
+  followed it before it existed, which is a mistake nobody could take back.
+- **`/admin/:path*` sends everything to the placeholder, and every real page
+  under `/admin` wins anyway**, because Vercel matches the filesystem before it
+  consults rewrites. That rule is what keeps section 0c's promise that a staff
+  member clicking an unbuilt section gets the phase sentence rather than an
+  empty screen. It is also the rule phase 3 learned the hard way, so **check it
+  on a deployment rather than locally**: a route returning 200 is not evidence
+  its rewrite works.
+
 ## The service worker
 
 **Bump `VERSION` at the top of `sw.js` on every change to this site.** Not once

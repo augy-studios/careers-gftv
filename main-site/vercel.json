@@ -12,7 +12,6 @@
       "permanent": true
     },
     {
-      "$comment": "8a. The staff manual moved to the docs site and this route stays as a redirect, so anybody who bookmarked it and any link written into the dashboard before the move keeps working. Not permanent: the docs site is not built until phase 13, and a 301 would be cached by every browser that followed it before the destination existed.",
       "source": "/admin/docs",
       "destination": "https://docs.careers.globalfurry.tv/staff",
       "permanent": false
@@ -80,7 +79,6 @@
       "destination": "/admin/security/index.html"
     },
     {
-      "$comment": "Phase 7 built /admin and five pages under it, so the catch-all below now only catches the sections that belong to phase 8. Vercel matches the filesystem before it consults rewrites, so every real page wins on its own; the rule is what keeps 0c's promise that a staff member clicking an unbuilt section gets the phase sentence rather than an empty screen.",
       "source": "/admin/:path*",
       "destination": "/placeholder"
     },
