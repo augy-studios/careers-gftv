@@ -46,8 +46,9 @@ unbuilt one.
 | `migrations/` | Every numbered SQL file, run by hand in the Supabase SQL editor. Nothing automated applies these. |
 | `telegram-bot/` | The `careersgftv_bot` Telegram bot. Scaffold only until phase 11. Runs on a Debian VPS under tmux. |
 | `docs-site/` | The public documentation site for `docs.careers.globalfurry.tv`. Scaffold only until phase 13. Its own Vercel project on the same repo. |
+| `tests/` | Playwright checks, run by hand against a deployment. Not a CI suite: they need a staff credential and they write real rows. |
 
-Four READMEs, plus the one in `migrations/`, and no others. Each says what
+Five READMEs, plus the one in `migrations/`, and no others. Each says what
 lives in its directory and how to work with it.
 
 | Where | What it covers |
@@ -57,6 +58,7 @@ lives in its directory and how to work with it.
 | [`migrations/README.md`](migrations/README.md) | Every migration file in order, how to run them, and the rule about never editing an applied file. |
 | [`telegram-bot/README.md`](telegram-bot/README.md) | What the bot does, the nine commands, running it under tmux, and its environment variables. |
 | [`docs-site/README.md`](docs-site/README.md) | What the docs site covers, adding a page, previewing, and the screenshot capture. |
+| [`tests/README.md`](tests/README.md) | Running the Playwright checks, what a run writes, what it cannot check, and how to write a new phase's. |
 
 ## Working references, not in this repository
 
@@ -173,6 +175,35 @@ resolves.
 
 The bot is not on Vercel. It runs on a Debian VPS under tmux, from this same
 repository.
+
+## Regression testing
+
+There is no CI suite and no test database. What there is: Playwright scripts in
+[`tests/`](tests/), run by hand against a deployment, one file per phase.
+
+```sh
+npm install
+npx playwright install chromium
+
+STAFF_USER=yourname STAFF_PASS='...' node tests/phase7-test.mjs
+STAFF_USER=yourname STAFF_PASS='...' node tests/phase7-test.mjs --only=editor
+```
+
+Three things to know before the first run, all of which
+[`tests/README.md`](tests/README.md) covers properly:
+
+- **They sign in as a real staff account and write real rows.** Postings,
+  applications, tasks, tags. Everything they make is prefixed `SMOKE P7` and
+  deleted at the end, and anything the ten an hour deletion budget cannot reach
+  is unpublished and listed so it can be removed afterwards.
+- **Point them at a preview deployment where there is one**, with `BASE=`.
+  Production is only the default because usually there is not one.
+- **A clean run is not full coverage.** Anything needing SQL, a second staff
+  account, a redeploy, a real Google Form, or a person on a keyboard is skipped
+  rather than silently passed, and the count at the end says how many.
+
+Alongside them are three small debug scripts, each the shortest way to reproduce
+one specific failure. They are kept as much for the shape as for the bug.
 
 ## Stack
 

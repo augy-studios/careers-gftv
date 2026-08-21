@@ -129,7 +129,16 @@ export async function mountAdminPage(options) {
     // is the right answer to both: a staff member without portal access needs
     // to know they are signed in and still cannot get in, and the login page
     // says so rather than a dashboard drawn empty.
-    window.location.replace(`/admin/login?redirect=${encodeURIComponent(options.current)}`);
+    //
+    // The path comes from the address bar rather than from options.current.
+    // current is which sidebar item to mark, which is not the same question:
+    // the editor marks Postings, so a session that expired inside it recorded
+    // /admin/jobs and lost both the page and the id of the posting being
+    // edited. /admin/login ignores the parameter today, per the note in
+    // admin-login-page.js, so this is about the value being true when phase 8
+    // starts honouring it.
+    const here = `${window.location.pathname}${window.location.search}`;
+    window.location.replace(`/admin/login?redirect=${encodeURIComponent(here)}`);
     return null;
   }
 

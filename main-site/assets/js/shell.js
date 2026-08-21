@@ -26,6 +26,7 @@ import { initI18n, applyLocale, getLocale, t, LOCALES } from './i18n.js';
 import { hydrateIcons } from './icons.js';
 import {
   loadBuildStatus,
+  loadFeatureOverrides,
   renderPhaseNotice,
   applyFeatureGating,
   renderPlaceholder,
@@ -135,15 +136,24 @@ function renderHeader() {
       <!-- The language control is its own button rather than a section inside
            the theme modal. Someone who reads only Mandarin and lands on the
            English site cannot be expected to find a switch labelled "Theme",
-           whereas a globe is legible without reading anything. -->
+           whereas a globe is legible without reading anything.
+
+           Both carry a feature key, so 8.12 can switch either off from the
+           maintenance page. Off disables the button with the maintenance
+           sentence rather than removing it, per 0c: a control that vanishes
+           looks like a site that has lost a feature, and a disabled one with
+           the reason on it says what has actually happened. Whatever language
+           and theme the reader already had stay applied, because both live in
+           localStorage and are read before first paint; what is switched off is
+           the ability to change them, which is the part that can break. -->
       <button type="button" class="icon-btn" id="languageButton"
-              aria-haspopup="dialog"
+              aria-haspopup="dialog" data-feature="language_switcher"
               data-i18n-attr="aria-label:common.language">
         <span data-icon="globe" data-icon-size="22"></span>
       </button>
 
       <button type="button" class="icon-btn" id="themeButton"
-              aria-haspopup="dialog"
+              aria-haspopup="dialog" data-feature="theme_switcher"
               data-i18n-attr="aria-label:common.appearance">
         <span data-icon="palette" data-icon-size="22"></span>
       </button>
@@ -747,6 +757,21 @@ async function boot() {
   await initI18n();
 
   const status = await loadBuildStatus();
+
+  // The maintenance overrides, alongside the build status and before the first
+  // gating pass. Without this every public page gates on "has the phase
+  // shipped" alone: isFeatureOff reads a module level cache that only this call
+  // fills, so a feature an admin had switched off stayed fully enabled
+  // everywhere outside the dashboard and /status, which are the two places that
+  // loaded it themselves. The API still answered 503, so the control worked and
+  // then failed, which is the worst of the three possible behaviours.
+  //
+  // Not awaited as part of the same expression as loadBuildStatus, because a
+  // failure to read the overrides must leave the site working with everything
+  // on rather than holding the page: that is the direction to fail in, and it
+  // is why the loader resolves to an empty map rather than rejecting.
+  await loadFeatureOverrides();
+
   const paint = () => {
     renderPhaseNotice(status);
     applyFeatureGating(status);
@@ -773,7 +798,20 @@ async function boot() {
   // rather than living on the posting they started from, so the check runs on
   // every page. It shares the session request above rather than making its own,
   // and does nothing at all for a logged out reader.
-  resumePendingPrompt();
+  //
+  // **Except inside the staff dashboard.** Being signed into both realms on one
+  // browser is supported and expected, and this header is the same one /admin
+  // draws, so a staff member who had also applied for something got the
+  // applicant's "have you applied?" modal opening over the dashboard: a modal
+  // about their own application, on a page about everybody else's, intercepting
+  // pointer events across the whole screen until it was dismissed. It appeared
+  // in any tab that had not already shown it, which is every new tab, because
+  // the once-a-visit guard is in sessionStorage.
+  //
+  // Nothing is lost by skipping it here. The prompt is not dismissed and not
+  // marked shown; it is simply not raised on a page belonging to the other
+  // realm, and it opens on the next public or account page as it always did.
+  if (!window.location.pathname.startsWith('/admin')) resumePendingPrompt();
 }
 
 if (document.readyState === 'loading') {

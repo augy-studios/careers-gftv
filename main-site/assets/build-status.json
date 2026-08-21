@@ -159,6 +159,8 @@
     }
   ],
   "features": {
+    "language_switcher": 1,
+    "theme_switcher": 1,
     "staff_login": 2,
     "applicant_register": 2,
     "applicant_login": 2,

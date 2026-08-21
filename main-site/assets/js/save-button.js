@@ -121,7 +121,17 @@ function paint(button, isSaved) {
 
   // The title carries the same words for a pointer user, since a card's control
   // shows the bookmark alone.
-  button.setAttribute('title', label);
+  //
+  // Except when the control is gated. applyFeatureGating puts the phase or the
+  // maintenance sentence on the title, and it runs before the second paint that
+  // follows savedIds(), so writing "Save this role" here unconditionally
+  // replaced the only explanation a pointer user gets for a bookmark that is
+  // greyed out. The gated state is the more useful of the two sentences, and it
+  // is the one that answers the question somebody hovering is actually asking.
+  const gated =
+    button.getAttribute('data-shipped') === 'false' ||
+    button.getAttribute('data-maintenance') === 'true';
+  if (!gated) button.setAttribute('title', label);
 }
 
 async function onClick(event) {

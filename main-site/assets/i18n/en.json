@@ -1098,5 +1098,9 @@
   "admin.previewNeedsSave": "Save the posting once before previewing it. A posting has no address until it exists.",
   "admin.previewBlocked": "Your browser blocked the new tab. Allow pop-ups for this site, or open the posting from the View posting link.",
   "job.previewBanner": "Preview. Nobody else can see this page.",
-  "job.previewBannerBody": "You are seeing it because you are signed in as staff. It is rendered exactly as a reader would see it once it is published."
+  "job.previewBannerBody": "You are seeing it because you are signed in as staff. It is rendered exactly as a reader would see it once it is published.",
+  "featureName.language_switcher": "The language switcher",
+  "featureName.theme_switcher": "The appearance switcher",
+  "featureWhere.language_switcher": "The globe button in the header, on every page.",
+  "featureWhere.theme_switcher": "The palette button in the header, on every page."
 }

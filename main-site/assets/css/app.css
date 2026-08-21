@@ -3612,8 +3612,13 @@ input[type='search']::-webkit-search-cancel-button {
   border-top: 1px solid var(--border);
 }
 
+/* Wraps, because the three labels no longer shrink. Save, Preview and Publish
+   on one line need about 21rem, which is more than a 360px screen has once the
+   editor's own padding is taken off, and a row that cannot wrap is a row that
+   pushes the page sideways instead. */
 .editor-buttons {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
 }
 
@@ -4155,6 +4160,104 @@ input[type='search']::-webkit-search-cancel-button {
 .admin-list {
   scrollbar-width: thin;
   overscroll-behavior-x: contain;
+}
+
+/* ---------------------------------------------------------------------------
+ * Cell widths, and the one thing that escaped the scroll container
+ *
+ * Two problems that turned out to share a block.
+ *
+ * **A .visually-hidden label escaped its table's scroller and made the whole
+ * page scroll sideways.** .visually-hidden is position: absolute with no
+ * offsets, so it sits at its static position, and with no positioned ancestor
+ * its containing block is the initial one. Inside a table 1234px wide in a
+ * 328px scroller that put a 1px span at x=745 in the *document*, so
+ * document.scrollingElement.scrollWidth was 746 at a 360px viewport and the
+ * body really did scroll sideways, by 386px on /admin/jobs. The table itself
+ * was scrolling correctly the whole time; the accessible name for the actions
+ * column was the thing sticking out.
+ *
+ * Making the scrollers a containing block is the whole fix. The span is then
+ * placed inside the scroller's overflow region and is clipped and scrolled with
+ * everything else. Nothing moves visually, because the span is 1px and
+ * clip-path: inset(50%) already hides it.
+ * ------------------------------------------------------------------------ */
+
+.admin-list,
+.table-scroll {
+  position: relative;
+}
+
+/* ---------------------------------------------------------------------------
+ * A floor under every cell, so text has room to be read
+ *
+ * Without one, a narrow viewport hands a column whatever is left after the
+ * columns that cannot shrink, and "left" can be forty pixels. That is the state
+ * where a heading breaks after its first letter and a two word label becomes
+ * four lines. The column is not readable at that width, and shrinking it
+ * further to avoid a scrollbar trades the thing the reader came for against a
+ * gesture they already have: every table on this site is inside a container
+ * that scrolls sideways, which is where the extra width goes.
+ *
+ * One value, as a custom property, so a table with a genuine reason to be
+ * tighter can raise or lower it in one place rather than by overriding a
+ * selector. The per table minimums above still win where they are wider, since
+ * they are the same property on a more specific selector.
+ * ------------------------------------------------------------------------ */
+
+:root {
+  /* Roughly nine characters at the table's own font size, plus the padding.
+     Enough for "Published", "Languages", and a date, which are the shortest
+     things a column here ever has to hold. */
+  --cell-min: 7rem;
+}
+
+table th,
+table td {
+  min-width: var(--cell-min);
+}
+
+/* The select-all and per-row tick boxes are a control rather than a column of
+   text, and a floor under them would push every other column sideways for
+   nothing. */
+.admin-table .admin-select-col {
+  min-width: 0;
+}
+
+/* The same, for a tick box column that does not carry the class. In its own
+   rule rather than in the list above, because one unsupported selector in a
+   comma separated list invalidates the whole rule, and losing the line above
+   in a browser without :has() would be worse than not catching this case. */
+table th:has(> input[type='checkbox']:only-child),
+table td:has(> input[type='checkbox']:only-child) {
+  min-width: 0;
+}
+
+/* A label breaking mid phrase is the same problem one level down, and a button
+   is the place it looks worst: the control keeps its box and the words inside
+   it stack one to a line. Buttons here are two or three words, so holding them
+   on one line and letting the row scroll is the same trade the tables make.
+   The floor is smaller than a cell's, since a button carries its own padding.  */
+.btn,
+.bucket-tab,
+.lang-tab {
+  white-space: nowrap;
+  min-width: max-content;
+}
+
+/* Except where the button is deliberately full width or is the only thing in a
+   narrow column, in which case its own width rule is the more specific one and
+   min-width: max-content would fight it. */
+.btn.block,
+.btn-block,
+.form .btn {
+  min-width: 0;
+}
+
+/* An icon only button has no text to protect and a floor would make it oblong. */
+.icon-btn {
+  min-width: 0;
+  white-space: normal;
 }
 
 /* ---------------------------------------------------------------------------

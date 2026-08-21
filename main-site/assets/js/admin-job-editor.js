@@ -64,6 +64,13 @@ let questionComposer = null;
 let activeLocale = 'en';
 let dirty = false;
 
+/**
+ * Whether the slug has been typed by hand, and so must stop following the
+ * title. Module state rather than a flag on the input, because drawShared
+ * rebuilds that input on every redraw. See maybeSuggestSlug.
+ */
+let slugTouched = false;
+
 /** Sections, per language. The default language's live on the posting itself. */
 const sections = new Map();
 
@@ -680,6 +687,12 @@ function wireShared(holder) {
     });
   });
 
+  // Typing here is what stops the slug following the title, and the flag has to
+  // outlive this node: the next redraw replaces it.
+  holder.querySelector('#jobSlug')?.addEventListener('input', () => {
+    slugTouched = true;
+  });
+
   // The toggle clears the date to null rather than leaving it empty, per 8.2:
   // "a 'no closing date' toggle that clears it to null, so an admin cannot
   // leave it empty by accident and cannot be blocked by a required validator".
@@ -789,16 +802,28 @@ async function addTagByName(raw) {
  * A slug that rewrote itself as somebody edited the title of a published
  * posting would break a link that has been shared, so this only ever fills a
  * blank field and only on a posting that does not exist yet.
+ *
+ * **Two things it used to get wrong**, both found by a language tab switch.
+ *
+ * The "somebody has typed a slug" flag lived in a dataset attribute on the
+ * input. drawShared rebuilds that input from `job` on every redraw, so the flag
+ * died with the old node and the very next keystroke in the title overwrote a
+ * slug that had been typed by hand.
+ *
+ * And it ran from whichever title field was on screen, including a translation
+ * tab's. Typing a Chinese title therefore rewrote the *shared* slug from it,
+ * and a Chinese title slugifies to nothing, so the field was silently emptied
+ * and the save fell back to a slug generated from the English title.
+ *
+ * So the flag is module state, set by wireShared on the input it belongs to,
+ * and the suggestion only ever comes from the default language's title, which
+ * is the only one the slug is a slug of.
  */
 function maybeSuggestSlug(title) {
-  if (job.id) return;
+  if (job.id || slugTouched || !isBaseTab()) return;
 
   const field = document.querySelector('#jobSlug');
-  if (!field || field.dataset.touched === 'true') return;
-
-  field.addEventListener('input', () => {
-    field.dataset.touched = 'true';
-  }, { once: true });
+  if (!field) return;
 
   field.value = String(title ?? '')
     .normalize('NFKD')

@@ -44,6 +44,42 @@ paths, no environment variables, and no Google Form URLs. The staff half can be
 specific, but it still holds no secrets: no variable values, no keys, no
 tokens, and no real applicant data.
 
+## The test scripts in the developer guide
+
+The developer guide hands a reader the scripts in [`tests/`](../tests/) directly,
+rather than telling them to go and find the repository. **The pages that do it
+are phase 14's and are not written yet.** What is here now is the one piece that
+does not depend on how the site is built:
+
+[`scripts/embed-tests.mjs`](scripts/embed-tests.mjs) reads every `tests/*.mjs`,
+takes each one's description and usage lines from the comment it already starts
+with, and emits them with the file base64 encoded alongside its size and its
+SHA-256:
+
+```sh
+node docs-site/scripts/embed-tests.mjs          # write it
+node docs-site/scripts/embed-tests.mjs --check  # fail if it is out of date
+```
+
+Nothing is written by hand: adding a script to `tests/` and rerunning it is the
+whole of the work, and `--check` is what belongs in whatever runs before a docs
+deploy. Where the output goes is a decision for phase 13, when this site has a
+content pipeline to put it in.
+
+**The download should have no address of its own.** The content travels inside
+the page and the download link is a `blob:` URL built in that tab: unique to the
+tab, dead when the tab closes, and no path anybody can share that serves a
+script directly. A raw path would be a second public surface for a file whose
+only supported entry point is the page explaining what it writes to the live
+database.
+
+**Be clear about what that is not.** A blob hides where the file came from, not
+what is in it: the text is in the page and the network tab has it. That is fine
+and is the point — somebody who reads a script before running it against their
+own database is doing the right thing. Nothing in `tests/` is a secret, none of
+it holds a credential (every script takes those from the environment), and if
+one ever needs to, it does not belong in `tests/`.
+
 ## Signing in
 
 Staff sign in here with the same gftv.asia account they use on the portal, with

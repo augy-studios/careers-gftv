@@ -524,6 +524,40 @@ Three things the postings list shows that are easy to leave off, and each is in
 8.2 by name: which languages are done, which postings never close, and which
 roles carry a question set.
 
+**The applicant's apply prompt does not open here.** `shell.js` draws the same
+public header on the dashboard, and it checks for an outstanding "have you
+applied?" prompt on every page. Being signed into both realms on one browser is
+supported and expected, so a staff member who had also applied for something got
+that modal opening over the dashboard: a modal about their own application, on a
+page about everybody else's, taking pointer events across the whole screen. It
+appeared in any tab that had not already shown it, which is every new tab, since
+the once-a-visit guard is in `sessionStorage`. `boot()` now skips the check under
+`/admin`; nothing is dismissed or marked shown, and the prompt opens on the next
+public or account page exactly as it did.
+
+### Tables at narrow widths
+
+Section 3's rule is that a wide table scrolls inside its own box and the page
+body does not. Three things make that true, and the first is the one that was
+wrong for two phases.
+
+- **The scroll containers are positioned.** `.visually-hidden` is
+  `position: absolute` with no offsets, so with no positioned ancestor its
+  containing block is the initial one. The accessible name on the actions column
+  therefore sat at x≈745 *in the document*, escaping the table's own scroller: at
+  a 360px viewport the page really did scroll sideways, by 386px on
+  `/admin/jobs`. `.admin-list` and `.table-scroll` are `position: relative`, so
+  it is placed inside the scroller and clipped with everything else.
+- **Every cell has a floor**, `--cell-min`, so a column cannot be squeezed to the
+  width where a heading breaks after its first letter. Tick box columns are
+  exempt. Where that makes a table wider than the viewport, the container
+  scrolls, which is where the width is supposed to go.
+- **Button labels do not wrap.** A control keeps its box and stacks its words one
+  to a line, which is the same problem one level down. Full width buttons and
+  form buttons opt out, and icon-only buttons have no text to protect.
+
+`node tests/layout-check.mjs` measures all three at 360, 480 and 768px.
+
 ## Question sets on tasks
 
 7g, added to the specification on 21 August 2026 and built in phase 7. Migration
@@ -578,6 +612,28 @@ phases that add the most surface.
 The browser reads `/api/public/feature-status` alongside `build-status.json`.
 A failure to read it leaves the site working with everything on, which is the
 direction to fail in.
+
+**`shell.js` has to load it, and for a while did not.** `isFeatureOff` answers
+from a module level cache that only `loadFeatureOverrides()` fills, and until
+21 August 2026 the only callers were `admin-shell.js` and `status-page.js`. So
+every public page gated its `[data-feature]` controls on "has the phase shipped"
+alone: a feature an admin had switched off was still fully enabled everywhere
+outside the dashboard and `/status`, and the API answered 503 when the control
+was used. A control that works and then fails is the worst of the three
+possible behaviours. `boot()` now awaits it before the first gating pass.
+
+**Two of the switches are the header's own controls.** `language_switcher` and
+`theme_switcher` sit at phase 1 in the feature map, so an admin can turn the
+globe or the palette off the same way as anything else. Off disables the button
+with the maintenance sentence rather than removing it; whatever language and
+theme the reader already had stay applied, since both are read from
+`localStorage` before first paint. What is switched off is the ability to
+change them.
+
+Anything that needs a floor under it here is the deployment: a flip reaches a
+public page in about ninety seconds, which is `settings.js`'s minute plus the
+`s-maxage=30` and `stale-while-revalidate=60` on the endpoint. A check written
+sooner than that is checking the cache.
 
 ## The board's query string
 

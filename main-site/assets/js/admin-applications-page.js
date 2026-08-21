@@ -404,7 +404,7 @@ async function openDetail(id) {
   hydrateIcons(body);
   wireDetail(body, application);
 
-  dialog.open();
+  detailDialog.open();
 }
 
 function detailMarkup(application, history, tasks) {

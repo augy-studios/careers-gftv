@@ -1098,5 +1098,9 @@
   "admin.previewNeedsSave": "预览前请先保存一次。职位建立之后才会有网址。",
   "admin.previewBlocked": "浏览器挡下了新分页。请允许本网站开启弹出式窗口，或使用「查看职位页面」链接打开。",
   "job.previewBanner": "预览模式。其他人看不到此页面。",
-  "job.previewBannerBody": "您能看到，是因为您已以员工身份登录。此页面的呈现方式与发布后读者看到的完全相同。"
+  "job.previewBannerBody": "您能看到，是因为您已以员工身份登录。此页面的呈现方式与发布后读者看到的完全相同。",
+  "featureName.language_switcher": "语言切换按钮",
+  "featureName.theme_switcher": "外观切换按钮",
+  "featureWhere.language_switcher": "每个页面顶部的地球图标按钮。",
+  "featureWhere.theme_switcher": "每个页面顶部的调色板图标按钮。"
 }
