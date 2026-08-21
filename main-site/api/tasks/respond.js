@@ -136,7 +136,12 @@ export default async function handler(req, res) {
       // A task with no questions is the phase 6 reply box and still needs
       // something written in it. A task with questions is satisfied by the
       // answers, and the box beside them is the place to add anything else.
-      if (!carriesQuestions && !text.value) {
+      //
+      // The second condition is the case that only exists because every
+      // question on a set can be optional: a reply carrying no answers and no
+      // text would spend the one round the applicant has and tell the admin
+      // nothing, which is worse for them than being asked to write something.
+      if (!text.value && (!carriesQuestions || answers === null)) {
         return fail(res, ERR.BAD_REQUEST, 'Write a reply before sending it.', {
           details: { text: FIELD.REQUIRED },
         });

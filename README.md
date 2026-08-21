@@ -8,13 +8,16 @@ collected in Google Forms: the portal's job is to gate access, hand the
 applicant over, log the handoff, and track what happened next. It is a GFTV
 HelloApp and follows the same conventions as the other GFTV PWAs.
 
-**Phases 1 to 4 of 15 have shipped.** The database schema and the shared server
-side code, then signing in, then the job board, and now the postings
-themselves. The public surface is the home page, `/search` with its filters and
+**Phases 1 to 6 of 15 have shipped, and phase 7 is being built.** The database
+schema and the shared server side code, then signing in, then the job board,
+the postings themselves, applying to one, and the applicant's own account area.
+The public surface is the home page, `/search` with its filters and
 suggestions, `/jobs/{uuid}` for a posting in full, the `jobs.json` feed,
-`/about`, `/faq`, `/status`, creating an account and signing in, and a
-placeholder page that every route belonging to a later phase renders. Applying
-to a role arrives in phase 5. Live status:
+`/about`, `/faq`, `/status`, creating an account and signing in, applying and
+tracking what happened next, and a placeholder page that every route belonging
+to a later phase renders. Phase 7 is the staff side of running the board: the
+overview, the tabbed per language editor, applicant tracking, teams, and tags.
+Live status:
 [careers.globalfurry.tv/status](https://careers.globalfurry.tv/status).
 
 `/jobs/{uuid}` is the one server rendered route in the portal, and deliberately
@@ -26,6 +29,14 @@ The site is built and released in public, one phase at a time. `main` is always
 deployable, and the interface is honest about what is not there yet: a control
 for an unshipped feature stays visible and disabled with the reason on it,
 rather than being hidden.
+
+Since phase 7 there is a second reason a control can be disabled, and the two
+are never conflated. A feature that has shipped can be switched off temporarily
+by an admin, for an outage or while something is being fixed, and it says so in
+its own words rather than borrowing the phase sentence. Telling somebody a
+feature they used last week "will be available in Phase 6" would be a lie about
+a shipped feature, and it would make a real outage indistinguishable from an
+unbuilt one.
 
 ## Directories
 

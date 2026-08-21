@@ -4007,3 +4007,23 @@ input[type='search']::-webkit-search-cancel-button {
     transition: none;
   }
 }
+
+/* The four posting statuses from migration 005. The applicant pipeline pills
+   above are a different set of words on a different page, and the two share
+   only the shape. */
+.status-pill.status-draft {
+  background: var(--surface-active);
+  border-color: var(--border);
+  color: var(--text-muted-strong);
+}
+
+.status-pill.status-published {
+  background: var(--callout-ok-bg);
+  color: var(--ok);
+}
+
+.status-pill.status-archived {
+  background: transparent;
+  border-style: dashed;
+  color: var(--text-light);
+}

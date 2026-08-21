@@ -257,7 +257,7 @@ into one checkbox:
 
 ## API route map
 
-Phases 2 to 5 are built. The rest is the shape phases 6 to 11 fill in, from
+Phases 2 to 7 are built. The rest is the shape phases 8 to 11 fill in, from
 section 9 of the specification.
 
 One route in this table is not under `api/` as far as a reader is concerned.
@@ -298,7 +298,13 @@ markup as delivered and does not run JavaScript.
 | | Phase 7 widens the reply to carry answers to the task's question set, validated on the server against the set stored on that task. An answer records an option's value, never its label, so it reads in either language | 7 |
 | `api/account/avatar` | POST a raw `image/webp` body, DELETE to remove. See AVATARS.md | 6 |
 | `api/account/danger/delete` | 7g's danger zone. **There is no separate verify-password route**, deliberately: an endpoint whose answer is "the password was correct" is exactly the client side signal 7g forbids relying on, so the destructive endpoint verifies it in the same request as the action | 6 |
-| `api/admin/*` | jobs, applications, tasks, departments, tags, docs | 7 |
+| `api/admin/me` | who is signed in, their role, the active languages, and the two counts on the sidebar. The first request every dashboard page makes | 7 |
+| `api/admin/stats` | 8.1's overview: postings by status, the pipeline buckets, and the two recent lists | 7 |
+| `api/admin/jobs` | 8.2, whole: the list, one posting with its translations and tags, create, update, publish, close, archive, duplicate, and permanent deletion, which is admins only | 7 |
+| `api/admin/applications` | 8.3's tracking: the list with its bucket counts, one row with its timeline and tasks, status changes single and bulk, waiving a cooldown, the note, and the CSV | 7 |
+| `api/admin/tasks` | raising a task on one applicant or on fifty, with or without a question set, and resolving one. The set is written once and never updated | 7 |
+| `api/admin/departments` | 8.6, and the rule that an active team needs a name in every active language | 7 |
+| `api/admin/tags` | 8.7, including the merge, which moves the join rows and lets the triggers in `007` do the counting | 7 |
 | `api/admin/maintenance` | read and flip the feature overrides in 8.12, so a shipped feature can be turned off while it is broken | 7 |
 | `api/public/feature-status` | which shipped features are currently off, and the public note on each. Short cache. The phase list stays in `build-status.json` and is not duplicated here | 7 |
 | `api/admin/*` | analytics, invites, users, admins, settings, stats, export, translations | 8 |
@@ -331,6 +337,12 @@ Shared helpers live in `api/_lib/`:
 | `dashboard.js` | The account area's shared reads: posting summaries for a set of ids in one language, and the three buckets My applications filters by. Deliberately never filters on the posting's status, per 7g. |
 | `tasks.js` | The tasks read model, and the one place that adds up the badge count across both sources. |
 | `avatars.js` | The Storage half of avatars: the bucket, the magic byte check, turning a public URL back into an object path, and the upload order AVATARS.md fixes. |
+| `admin.js` | The dashboard's shared server side: the two roles from 10 item 2, the admins only guard, the query string helpers, slugs, and the active language list read from `gftvjobs_locales` rather than hardcoded. |
+| `admin-jobs.js` | The admin's posting read and write model. Its own column list, wider than the public one on purpose: `job-detail.js` exists so a public payload cannot be widened by an edit to shaping code, and an admin summary must not be built by relaxing it. |
+| `admin-applications.js` | The pipeline: the nine statuses, the bucket counts, a status change with its event row, waiving a cooldown, and the CSV. Nothing here writes `applied_at` or `cooldown_until`, per 7f. |
+| `admin-tasks.js` | Raising and resolving tasks, and the auto-raise a posting's question set triggers when somebody applies. Every path writes `questions` exactly once. |
+| `questions.js` | The question sets in 7g, both directions: what the composer may store, and what a reply may contain. A reply is validated against the set stored on that task and never against what the browser sent back. |
+| `maintenance.js` | 8.12's switches: the overrides, the denylist that is in code rather than in a setting, and `unavailable()`, the shared guard every flippable route calls so that off means off including the API. |
 | `apply.js` | The apply flow's server side, shared by the four `api/applications/*` routes. Reads the form URL and the prefill map, which `job-detail.js` deliberately never selects; resolves a per language form; builds the prefilled address from the session; and holds the rules about what a start click may and may not move. |
 
 Every endpoint returning human readable content takes a locale, `en` or `zh`,
@@ -479,6 +491,93 @@ Two decisions in here that look like omissions:
   building the first half would produce the client side "password was correct"
   signal 7g forbids relying on. The destructive endpoint verifies the password
   itself, in the same request as the action.
+
+## The dashboard
+
+Section 8, built in phase 7. Seven pages under `/admin`, sharing a sidebar and
+a session guard from `assets/js/admin-shell.js`.
+
+It sits under the public header rather than carrying its own, exactly as
+`/admin/login` and `/admin/security` have since phase 2. A second header would
+mean two brands, two theme buttons, and two language switchers on one page. What
+the dashboard's own top bar carries is the one thing the public header cannot
+say: which staff account is signed in, and how to sign *that* one out. **The two
+realms are never merged**, so somebody signed into both sees two identities and
+two sign out controls, which is the honest rendering of being signed into two
+things.
+
+**Two roles, not a permission system.** Section 10 item 2 names exactly two:
+
+| | Admin | Job poster |
+|---|---|---|
+| Postings, tracking, teams, tags, maintenance | yes | yes |
+| Permanently deleting a posting | yes | the control is **absent**, not disabled |
+| Staff access and applicant accounts, phase 8 | yes | not listed in the sidebar |
+
+Absent rather than disabled is deliberate: section 0c's disabled state means
+"this is coming in a later phase", and using it for "you are not allowed" would
+make a permission look like a build status. Every route re-checks `is_admin` on
+the request regardless, per section 8, so a hidden control is a courtesy and
+never the enforcement.
+
+Three things the postings list shows that are easy to leave off, and each is in
+8.2 by name: which languages are done, which postings never close, and which
+roles carry a question set.
+
+## Question sets on tasks
+
+7g, added to the specification on 21 August 2026 and built in phase 7. Migration
+`031` is the schema half and `api/_lib/questions.js` is the other.
+
+A job poster can attach up to twenty questions to an info request, or to a
+posting so everybody who applies from then on is asked. Four types: short answer,
+long answer, choice, and checkbox. Four rules run through all of it:
+
+- **The set is frozen once sent.** Editing it would orphan answers already given,
+  so `questions` is written when a task is raised and never updated. A posting's
+  template is *copied* onto each task rather than referenced, which is what makes
+  editing the template safe: it changes only what the next applicant is asked.
+- **Answers are validated against the set stored on that task**, never against
+  what the browser sends back. `checkAnswers` takes the stored set as its second
+  argument for exactly that reason, and there is no version of it that takes the
+  questions from a request body.
+- **An answer stores an option value, never a label.** The label is per language
+  and the value is not, so an answer given in 华文 stays readable in English and
+  matchable against the question's own options.
+- **There is no file upload**, on a question or anywhere near one. Section 10
+  item 1 gave up one exception and it is the avatar.
+
+A posting's set auto-raises its task where 7a already writes the tracking row, in
+`api/applications/start.js`. It is deliberately never bolted onto the handoff
+modal: 7c calls that modal a light tap on the shoulder rather than an ambush, and
+a required form hanging off it would make dismissing it cost something.
+
+## Maintenance switches
+
+0c and 8.12, built in phase 7 rather than with the rest of the settings in 8.10,
+because a lever for turning a broken feature off is worth having before the
+phases that add the most surface.
+
+- **It never edits `build-status.json`.** That file records what has been built;
+  an override records what is working right now. Conflating them would have a
+  deploy silently undo an outage response. The override is a `feature_overrides`
+  row in `gftvjobs_settings`.
+- **Off means off, including the API.** `unavailable()` in
+  `api/_lib/maintenance.js` is the shared guard each flippable route calls, and
+  it answers 503. A disabled button stops nobody with the endpoint, a stale tab,
+  or a phase 10 queued action.
+- **Its own sentence, never the phase one.** Telling somebody a feature they used
+  last week "will be available in Phase 6" is a lie about a shipped feature and
+  makes an outage indistinguishable from an unbuilt one.
+- **The denylist is in code**, not a setting: sign in and registration in both
+  realms, and anything the maintenance page itself needs.
+- **It is not `applications_open`**, and the two are never merged. That one is a
+  policy choice; this says something is broken. Which of the two it is is the one
+  thing somebody turned away actually wants to know.
+
+The browser reads `/api/public/feature-status` alongside `build-status.json`.
+A failure to read it leaves the site working with everything on, which is the
+direction to fail in.
 
 ## The board's query string
 

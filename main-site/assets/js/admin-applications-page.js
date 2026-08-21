@@ -895,6 +895,12 @@ function openTaskComposer(rows) {
 
   const composer = mountQuestionComposer(dialog.element.querySelector('#taskQuestions'));
 
+  // The posting the task is about, when every selected row is about the same
+  // one. A send across two roles is a message about neither, so it hangs off no
+  // posting rather than off whichever row happened to be first: the task still
+  // reaches everybody, and nobody is told it concerns a role it does not.
+  const jobId = rows.every((row) => row.job.id === rows[0].job.id) ? rows[0].job.id : null;
+
   const typeSelect = dialog.element.querySelector('#taskType');
   const questionsWrap = dialog.element.querySelector('#taskQuestionsWrap');
 
@@ -919,7 +925,7 @@ function openTaskComposer(rows) {
       body: {
         action: 'raise',
         applicant_ids: rows.map((row) => row.applicant.id),
-        job_id: rows[0].job.id ?? null,
+        job_id: jobId,
         task_type: type,
         title,
         body: dialog.element.querySelector('#taskBody').value.trim() || null,

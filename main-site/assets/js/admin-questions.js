@@ -344,6 +344,18 @@ export function mountQuestionComposer(root, options = {}) {
         .filter((question) => Object.keys(question.label).length > 0)
         .filter((question) => !LIST_TYPES.includes(question.type) || question.options.length > 0);
     },
+    /**
+     * The working set exactly as it stands, half typed rows included.
+     *
+     * Not for sending anywhere. It exists so a caller that redraws the panel
+     * around this component, which the editor does on every language tab
+     * switch, can hand the state back rather than losing a question somebody
+     * had started. value() filters, and filtering on a redraw would delete the
+     * row somebody was in the middle of writing.
+     */
+    raw() {
+      return clone(questions);
+    },
     set(next) {
       questions = clone(next ?? []);
       draw();

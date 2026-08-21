@@ -135,13 +135,16 @@ function draw() {
 function languageMarkup(tag) {
   return `<span class="admin-langs">${adminLocales()
     .map((locale) => {
-      const state = locale.is_default
+      // Named mark rather than state: the module already has a state object
+      // holding the filters, and one shadowing the other inside a map is the
+      // sort of thing that reads correctly and edits wrongly.
+      const mark = locale.is_default
         ? 'complete'
         : tag.translations?.[locale.code]?.name
           ? 'complete'
           : 'absent';
-      return `<span class="admin-lang admin-lang-${state}" title="${escapeHtml(
-        t(`admin.translation_${state}`)
+      return `<span class="admin-lang admin-lang-${mark}" title="${escapeHtml(
+        t(`admin.translation_${mark}`)
       )}">${escapeHtml(locale.code)}</span>`;
     })
     .join('')}</span>`;

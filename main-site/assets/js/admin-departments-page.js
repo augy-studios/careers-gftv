@@ -114,13 +114,16 @@ function draw() {
 function languageMarkup(department) {
   return `<span class="admin-langs">${adminLocales()
     .map((locale) => {
-      const state = locale.is_default
+      // A team has no in progress state, unlike a posting: a translation row
+      // either carries a name or does not, because migration 014 makes the
+      // column not null. So this is complete or absent and never the third.
+      const mark = locale.is_default
         ? 'complete'
         : department.translations?.[locale.code]?.name
           ? 'complete'
           : 'absent';
-      return `<span class="admin-lang admin-lang-${state}" title="${escapeHtml(
-        t(`admin.translation_${state}`)
+      return `<span class="admin-lang admin-lang-${mark}" title="${escapeHtml(
+        t(`admin.translation_${mark}`)
       )}">${escapeHtml(locale.code)}</span>`;
     })
     .join('')}</span>`;

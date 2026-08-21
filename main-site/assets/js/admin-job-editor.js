@@ -183,7 +183,12 @@ function drawTabs() {
 
   holder.querySelectorAll('[data-locale]').forEach((tab) => {
     tab.addEventListener('click', () => {
+      // Both halves of the page are read back before the switch, because draw()
+      // redraws both. Without the second call, changing tab would quietly
+      // discard whatever had been typed into the panel on the right, which is
+      // where the form URL and the questions live.
       readTabBody();
+      readShared();
       activeLocale = tab.getAttribute('data-locale');
       draw();
     });
@@ -617,6 +622,54 @@ function drawShared() {
   });
 }
 
+/**
+ * Read the panel on the right back into the model.
+ *
+ * The counterpart to readTabBody, and it exists for the same reason: draw()
+ * rebuilds both halves from `job`, so anything on screen that has not been read
+ * back is lost the moment anything triggers a redraw. A language tab switch
+ * triggers one.
+ */
+function readShared() {
+  const holder = document.querySelector('#editorShared');
+  if (!holder) return;
+
+  const value = (selector) => holder.querySelector(selector)?.value ?? '';
+  const checked = (selector) => holder.querySelector(selector)?.checked === true;
+
+  job.slug = value('#jobSlug').trim();
+  job.department_id = value('#jobDepartment') || null;
+  job.commitment_type = value('#jobCommitment') || null;
+  job.is_remote = checked('#jobRemote');
+  job.is_paid = checked('#jobPaid');
+
+  const openings = Number(value('#jobOpenings'));
+  if (Number.isInteger(openings)) job.openings = openings;
+
+  const noDeadline = checked('#jobNoDeadline');
+  const closes = value('#jobCloses');
+  job.closes_at = noDeadline || !closes ? null : `${closes}T23:59:59.000Z`;
+
+  job.application_form_url = value('#jobForm').trim() || null;
+  job.response_sheet_url = value('#jobSheet').trim() || null;
+
+  const prefill = value('#jobPrefill').trim();
+  if (prefill === '') job.form_prefill = null;
+  else {
+    try {
+      job.form_prefill = JSON.parse(prefill);
+    } catch {
+      // Left as it was. collect() is where a malformed map becomes a field
+      // error, and losing what somebody typed on the way to that error would be
+      // the worst of both.
+    }
+  }
+
+  // raw() rather than value(), so a question with the label half typed survives
+  // the redraw instead of being filtered out of existence.
+  job.task_questions = questionComposer?.raw() ?? job.task_questions ?? [];
+}
+
 function wireShared(holder) {
   holder.querySelectorAll('input, select, textarea').forEach((input) => {
     input.addEventListener('input', () => {
@@ -800,10 +853,11 @@ function publishBlockers() {
 
 function collect() {
   readTabBody();
+  readShared();
 
-  const noDeadline = document.querySelector('#jobNoDeadline')?.checked;
-  const closes = document.querySelector('#jobCloses')?.value;
-
+  // Re-read rather than trusting what readShared stored, because this is the
+  // one place a malformed map has to become a field error rather than being
+  // left alone.
   let prefill = null;
   const prefillRaw = document.querySelector('#jobPrefill')?.value?.trim();
   if (prefillRaw) {
@@ -816,7 +870,7 @@ function collect() {
 
   const payload = {
     job: {
-      slug: document.querySelector('#jobSlug')?.value?.trim() ?? '',
+      slug: job.slug ?? '',
       title: job.title ?? '',
       summary: job.summary ?? '',
       description: job.description ?? '',
