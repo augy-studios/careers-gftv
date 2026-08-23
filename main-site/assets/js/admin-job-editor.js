@@ -81,7 +81,18 @@ async function boot() {
 
   activeLocale = adminLocales()[0]?.code ?? 'en';
 
-  const id = new URL(window.location.href).searchParams.get('id');
+  const search = new URL(window.location.href).searchParams;
+  const id = search.get('id');
+
+  // ?locale= opens on that language's tab. Nothing on this page writes it; the
+  // translation queue in 8.11 does, when it sends somebody here for a correction
+  // a single textarea cannot make. Checked against gftvjobs_locales rather than
+  // trusted, so a stale link opens on the default tab rather than on a tab that
+  // does not exist.
+  const wanted = search.get('locale');
+  if (wanted && adminLocales().some((locale) => locale.code === wanted)) {
+    activeLocale = wanted;
+  }
 
   const [loaded, departmentList, tagList] = await Promise.all([
     id ? api(`/api/admin/jobs?id=${encodeURIComponent(id)}`) : Promise.resolve(null),

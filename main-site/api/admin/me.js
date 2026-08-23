@@ -45,14 +45,20 @@ export default async function handler(req, res) {
 /**
  * The numbers on the sidebar.
  *
- * Both are counts rather than lists, and both fail to null rather than to zero,
- * for the reason phase 6 wrote out for the applicant's badge: a zero is a claim
- * about the state of something, and a failed request does not entitle us to
- * make one. A badge that is not drawn is better than one that says nothing is
+ * All three are counts rather than lists, and all three fail to null rather than
+ * to zero, for the reason phase 6 wrote out for the applicant's badge: a zero is
+ * a claim about the state of something, and a failed request does not entitle us
+ * to make one. A badge that is not drawn is better than one that says nothing is
  * waiting when something is.
+ *
+ * The third arrived with phase 8. 8.11: "Show the count of open reports in the
+ * admin sidebar, so the queue is visible without going looking for it." Open
+ * only, not open plus accepted: an accepted report is one somebody has already
+ * picked up, and leaving it in the badge would hold the number high for as long
+ * as the work took and teach everybody to ignore it.
  */
 async function sidebarCounts() {
-  const [openTasks, newApplications] = await Promise.all([
+  const [openTasks, newApplications, openReports] = await Promise.all([
     supabase.from(T.tasks).select('id', { count: 'exact', head: true }).in('status', OPEN_STATUSES),
     supabase
       .from(T.applications)
@@ -60,10 +66,15 @@ async function sidebarCounts() {
       // The two buckets that are waiting on somebody here rather than on the
       // applicant. Anything past 'submitted' has been picked up.
       .in('status', ['started', 'submitted']),
+    supabase
+      .from(T.translationReports)
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'open'),
   ]);
 
   return {
     open_tasks: openTasks.error ? null : (openTasks.count ?? 0),
     new_applications: newApplications.error ? null : (newApplications.count ?? 0),
+    open_translation_reports: openReports.error ? null : (openReports.count ?? 0),
   };
 }

@@ -61,6 +61,12 @@ export const AUDIT = Object.freeze({
   TAG_DELETED: 'tag_deleted',
   TAGS_MERGED: 'tags_merged',
   APPLICATION_STATUS_CHANGED: 'application_status_changed',
+  // Added 23 August 2026 with the bulk delete on the tracking page. Its own
+  // action rather than a variant of the status change, because it is the only
+  // thing on that page that cannot be undone: the row, its whole timeline, and
+  // the reapply cooldown it was carrying all go, and the metadata names every
+  // applicant and posting affected because the rows will not be there to say.
+  APPLICATION_DELETED: 'application_deleted',
   COOLDOWN_WAIVED: 'cooldown_waived',
   TASK_RAISED: 'task_raised',
   TASK_RESOLVED: 'task_resolved',

@@ -5,8 +5,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <title data-i18n="admin.applicationsPageTitle">Dashboard | Careers@GFTV</title>
-    <meta name="description" content="Applicant tracking.">
+    <title data-i18n="admin.translationsPageTitle">Dashboard | Careers@GFTV</title>
+    <meta name="description" content="The translation queue.">
     <meta name="robots" content="noindex">
 
     <meta name="theme-color" content="#ffffff">
@@ -45,14 +45,14 @@
     <link rel="stylesheet" href="/assets/css/app.css">
 
     <link rel="manifest" href="/manifest.json">
-    <link rel="canonical" href="https://careers.globalfurry.tv/admin/applications">
+    <link rel="canonical" href="https://careers.globalfurry.tv/admin/translations">
 
     <link rel="apple-touch-icon" href="/HLC-main.png">
     <link rel="icon" href="/favicon.ico">
     <link rel="shortcut icon" href="/favicon.ico">
 
     <script type="module" src="/assets/js/shell.js"></script>
-    <script type="module" src="/assets/js/admin-applications-page.js"></script>
+    <script type="module" src="/assets/js/admin-translations-page.js"></script>
 </head>
 
 <body>
@@ -79,64 +79,45 @@
                 <p class="callout" id="adminMessage" hidden></p>
                 <div class="page-header admin-page-header">
                     <div>
-                        <h1 data-i18n="admin.applicationsHeading">Applicant tracking</h1>
-                        <p class="lede" data-i18n="admin.applicationsLede">
-                            Who was handed over to which form, and where each one
-                            has got to. The answers themselves are in Google Forms:
-                            each row links out to its posting's response sheet.
+                        <h1 data-i18n="admin.translationsHeading">Translations</h1>
+                        <p class="lede" data-i18n="admin.translationsLede">
+                            What readers have told us reads wrongly, from the
+                            form at the foot of a posting and from helpers
+                            selecting the words in place. One queue for both.
                         </p>
                     </div>
-                    <button type="button" class="btn btn-quiet" id="exportCsv"
-                            data-i18n="admin.exportCsv">Export CSV</button>
                 </div>
 
-                <div class="bucket-tabs admin-buckets" id="applicationBuckets" role="tablist"
-                     data-i18n-attr="aria-label:admin.bucketsLabel"></div>
+                <p class="callout note" data-i18n="admin.translationsInterfaceNote">
+                    Wording in the interface itself, the navigation and the
+                    buttons, lives in the code rather than the database. A report
+                    about one of those shows its key and is fixed by editing
+                    assets/i18n and deploying.
+                </p>
 
-                <form class="admin-toolbar" id="applicationFilters" role="search">
+                <form class="admin-toolbar" id="reportFilters" role="search">
                     <div class="field">
-                        <label for="filterJob" data-i18n="admin.colRole">Role</label>
-                        <select id="filterJob" name="job"></select>
+                        <label for="statusFilter" data-i18n="admin.colStatus">Status</label>
+                        <select id="statusFilter" name="status"></select>
                     </div>
                     <div class="field">
-                        <label for="filterFrom" data-i18n="admin.fromDate">From</label>
-                        <input id="filterFrom" name="from" type="date">
+                        <label for="localeFilter" data-i18n="admin.colLanguage">Language</label>
+                        <select id="localeFilter" name="locale"></select>
                     </div>
                     <div class="field">
-                        <label for="filterUntil" data-i18n="admin.untilDate">Until</label>
-                        <input id="filterUntil" name="until" type="date">
+                        <label for="targetFilter" data-i18n="admin.colTarget">About</label>
+                        <select id="targetFilter" name="target"></select>
                     </div>
                     <div class="field">
-                        <label for="filterQ" data-i18n="admin.searchApplicant">Applicant</label>
-                        <input id="filterQ" name="q" type="search" autocomplete="off">
+                        <label for="originFilter" data-i18n="admin.colOrigin">Came from</label>
+                        <select id="originFilter" name="origin"></select>
                     </div>
                     <button class="btn btn-secondary" type="submit"
                             data-i18n="search.submit">Search</button>
-                    <button class="btn btn-quiet" type="button" data-clear-filters
-                            data-i18n="search.clearFilters">Clear filters</button>
                 </form>
 
-                <div class="admin-bulk-bar glass-card" id="bulkBar" hidden>
-                    <span id="bulkCount"></span>
-                    <label class="visually-hidden" for="bulkStatus"
-                           data-i18n="admin.bulkChoose">Move to</label>
-                    <select id="bulkStatus"></select>
-                    <button type="button" class="btn btn-secondary" id="bulkApply"
-                            data-i18n="admin.bulkApply">Apply</button>
-                    <button type="button" class="btn btn-quiet" id="bulkTask"
-                            data-i18n="admin.raiseTask">Raise a task</button>
-                    <!-- Admins only, per the decision of 23 August 2026, and
-                         absent rather than disabled for a job poster, per
-                         deviation 34. The page removes it on load when the
-                         signed in staff member is not an admin, and the route
-                         refuses the action either way. -->
-                    <button type="button" class="btn btn-danger" id="bulkDelete"
-                            data-i18n="admin.bulkDelete">Delete permanently</button>
-                </div>
-
-                <div class="admin-list" id="applicationList" aria-busy="true"
-                     aria-live="polite"></div>
-                <div class="admin-pager" id="applicationPager"></div>
+                <div class="admin-list" id="reportList" aria-live="polite"></div>
+                <div class="admin-pager" id="reportPager"></div>
             </div>
         </div>
 

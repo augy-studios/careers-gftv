@@ -89,6 +89,9 @@ const ADMIN_NAV = [
     key: 'admin.navTranslations',
     icon: 'globe',
     feature: 'admin_translations',
+    // 8.11: "Show the count of open reports in the admin sidebar, so the queue
+    // is visible without going looking for it."
+    badge: 'open_translation_reports',
   },
   {
     href: '/admin/maintenance',

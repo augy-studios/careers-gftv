@@ -4771,3 +4771,83 @@ ul.field-hint {
   font-family: var(--font-mono, monospace);
   letter-spacing: 0.05em;
 }
+
+/* ---------------------------------------------------------------------------
+ * The translation queue, 8.11
+ *
+ * One queue for both origins, per 7i, so nothing here draws a form report and an
+ * annotation differently except the badge and the quoted span. What the panel
+ * needs is a way to put two pieces of prose side by side without either becoming
+ * an editable field by accident: an admin is reading here and typing one field
+ * below.
+ * ------------------------------------------------------------------------ */
+
+/* The four status counts above the table. A line rather than four stat cards:
+   this is context for the list under it, not the point of the page. */
+.admin-counts {
+  margin: 0 0 0.75rem;
+  font-size: 0.9375rem;
+}
+
+/* Wording as it stands, and a suggestion. Quoted rather than boxed as a field,
+   because none of it is editable: the one editable thing on the panel is the
+   textarea, and it must not be mistaken for one of these. */
+.admin-quote {
+  margin: 0 0 0.75rem;
+  padding: 0.6rem 0.8rem;
+  border-left: 3px solid var(--border-strong);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--surface-active);
+  /* A posting's description arrives with its line breaks and keeps them. It is
+     markdown in the database and is shown here as the source rather than
+     rendered, because what is being compared is the text somebody would edit. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* The annotated span inside its surrounding run of text. */
+.admin-quote mark {
+  background: var(--callout-warn-bg);
+  color: inherit;
+  padding: 0 0.1em;
+}
+
+/* Source beside translation above 48rem, stacked below it. Two columns of prose
+   on a phone is two columns of one word each. */
+.admin-wording {
+  display: grid;
+  gap: 0 1rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 48rem) {
+  .admin-wording:has(> div + div) {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* The four report states. Open is the one that wants attention, accepted says
+   somebody has it, and the two closed states recede. */
+.badge-report-open {
+  background: var(--callout-warn-bg);
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+.badge-report-accepted {
+  background: var(--surface-active);
+  border-color: var(--border-strong);
+  color: var(--text-muted-strong);
+}
+
+.badge-report-fixed {
+  background: var(--callout-ok-bg);
+  border-color: var(--ok);
+  color: var(--ok);
+}
+
+.badge-report-rejected {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text-light);
+}

@@ -28,7 +28,14 @@ import { hydrateIcons, iconMarkup } from './icons.js';
 import { escapeHtml } from './markdown.js';
 import { formatDate } from './format.js';
 import { createDialog } from './dialog.js';
-import { mountAdminPage, adminMessage, emptyRow } from './admin-shell.js';
+import { confirmDangerousAction } from './danger-confirm.js';
+import {
+  mountAdminPage,
+  adminMessage,
+  emptyRow,
+  runAction,
+  isAdminUser,
+} from './admin-shell.js';
 import { mountQuestionComposer } from './admin-questions.js';
 
 const PATH = '/admin/applications';
@@ -655,10 +662,19 @@ async function sendNote(id, note) {
 
 function wireBulkBar() {
   document.querySelector('#bulkStatus')?.addEventListener('change', () => drawBulkBar());
-  document.querySelector('#bulkApply')?.addEventListener('click', () => applyBulk());
+  document.querySelector('#bulkApply')?.addEventListener('click', () => {
+    runAction(applyBulk, 'bulk status');
+  });
   document.querySelector('#bulkTask')?.addEventListener('click', () => {
     openTaskComposer(selectedRows());
   });
+
+  // Removed rather than hidden or disabled for a job poster, per deviation 34:
+  // section 0c's disabled state means "coming in a later phase", and using it
+  // for "you are not allowed" would make a permission look like a build status.
+  const remove = document.querySelector('#bulkDelete');
+  if (!isAdminUser()) remove?.remove();
+  else remove?.addEventListener('click', () => runAction(deleteBulk, 'bulk delete'));
 }
 
 function selectedRows() {
@@ -711,6 +727,98 @@ async function applyBulk() {
   }
 
   adminMessage('ok', t('admin.bulkDone', { count: result.data.moved.length }));
+  await load();
+}
+
+/**
+ * Delete the selected tracking rows permanently.
+ *
+ * **Not in 8.3, and added on 23 August 2026.** Everything else on this page is
+ * reversible: a status can be moved back, a cooldown can be waived, a note can
+ * be rewritten. This is the one thing here that cannot, so it walks 7g's
+ * confirmation with deviation 49's shape — read what it destroys, then prove it
+ * is you with your own password.
+ *
+ * The panel is counted from the database rather than described, per 8.2's rule
+ * for a posting, and it names the consequence that is easiest to miss: the
+ * reapply cooldown lives on the row being deleted, so anybody serving one stops
+ * serving it. Section 3's rule is that exactly three things write those columns
+ * and a rejection is not a waive; this is the fourth way they stop applying, and
+ * an admin should read that before it happens rather than find out when somebody
+ * reapplies the same afternoon.
+ *
+ * What survives is worth saying too, and the panel says it: the 8.4 funnel is
+ * untouched, because gftvjobs_analytics has no foreign key to this table, and
+ * any tasks the applicant was sent stay with them.
+ */
+async function deleteBulk() {
+  const rows = selectedRows();
+  if (rows.length === 0) return;
+
+  const measured = await api('/api/admin/applications', {
+    method: 'POST',
+    body: { action: 'impact', ids: rows.map((row) => row.id) },
+  });
+
+  if (!measured.ok) {
+    adminMessage('error', measured.error?.message ?? t('error.unexpected'));
+    return;
+  }
+
+  const impact = measured.data.impact ?? {};
+
+  // A dash rather than a zero for a count that could not be read, and the route
+  // refuses the deletion on one. An admin shown a zero would believe there was
+  // nothing attached to these rows.
+  const count = (value) => (value === null || value === undefined ? '—' : value);
+
+  const consequences = [
+    t('admin.deleteRowsConsequenceRows', { count: rows.length }),
+    t('admin.deleteRowsConsequenceEvents', { count: count(impact.events) }),
+    t('admin.deleteRowsConsequenceTasks', { count: count(impact.tasks) }),
+    t('admin.deleteRowsConsequenceAnalytics'),
+    t('admin.deleteRowsConsequenceApplicant'),
+  ];
+
+  // Only when it applies. A line about cooldowns on a set where nobody is
+  // serving one is noise, and noise in a danger panel is how the line that does
+  // matter stops being read.
+  if (impact.cooldowns > 0) {
+    consequences.splice(3, 0, t('admin.deleteRowsConsequenceCooldown', { count: impact.cooldowns }));
+  }
+
+  const confirmed = await confirmDangerousAction({
+    title: t('admin.deleteRowsTitle', { count: rows.length }),
+    consequences,
+    confirmLabel: t('admin.bulkDelete'),
+    irreversible: t('admin.deleteRowsIrreversible'),
+    // Deviation 49. The admin types their own password rather than an identifier
+    // off the screen, and the route verifies it in the same request as the
+    // delete. There is no single username to type here anyway: a selection is
+    // several people, which is exactly why the identifier step is the wrong one.
+    skipUsername: true,
+    username: '',
+  });
+
+  if (!confirmed) return;
+
+  const result = await api('/api/admin/applications', {
+    method: 'POST',
+    body: {
+      action: 'bulk_delete',
+      ids: rows.map((row) => row.id),
+      confirm_count: rows.length,
+      password: confirmed.password,
+    },
+  });
+
+  if (!result.ok) {
+    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    return;
+  }
+
+  selected.clear();
+  adminMessage('ok', t('admin.rowsDeleted', { count: result.data.count }));
   await load();
 }
 

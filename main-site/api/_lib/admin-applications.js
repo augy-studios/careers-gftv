@@ -27,6 +27,10 @@
 import { supabase, T } from './supabase.js';
 import { writeApplicationEvent } from './apply.js';
 import { raiseTask } from './admin-tasks.js';
+// For the deletion impact panel only. Asked rather than compared to the clock,
+// because with reapply_cooldown_days at zero the stored dates are ignored rather
+// than cleared, per the decision table.
+import { isInCooldown } from './settings.js';
 
 /**
  * The nine statuses migration 006 allows, in pipeline order.
@@ -346,6 +350,103 @@ export async function fetchApplicationRow(applicationId) {
 
   if (error) throw error;
   return data ?? null;
+}
+
+/* -------------------------------------------------------------------------
+ * Permanent deletion, added 23 August 2026
+ * ---------------------------------------------------------------------- */
+
+/**
+ * What deleting these rows would destroy, counted from the database.
+ *
+ * The same shape 8.2 uses before deleting a posting, and for the same reason:
+ * "names exactly what goes with the posting, counted from the database rather
+ * than described in the abstract". An admin about to do something irreversible
+ * is owed a number, not an adjective.
+ *
+ * Four counts, and each one is a different answer:
+ *
+ *   **events** go with the row. migration 006 puts `on delete cascade` on
+ *   gftvjobs_application_events.application_id, so the whole timeline of how
+ *   this application got where it is disappears with it.
+ *
+ *   **cooldowns** is the one that is easy to miss and is the reason this
+ *   function exists. applied_at and cooldown_until live on the row being
+ *   deleted, so deleting it lets the applicant reapply at once. Section 3's
+ *   rule is that exactly three things write those columns and a rejection is
+ *   not a waive; deletion becomes a fourth, and the panel says so out loud
+ *   rather than letting it be discovered later.
+ *
+ *   **tasks** survive. migration 008 puts `on delete set null` on
+ *   gftvjobs_tasks.application_id, so an applicant keeps the questions and
+ *   notices they were sent and those stop pointing at anything. Counted anyway,
+ *   because an admin should know they are leaving them behind.
+ *
+ *   **analytics rows are not counted and are not touched.** gftvjobs_analytics
+ *   has no foreign key to this table at all, per 007: it is the append only log
+ *   and applications is not. So the 8.4 funnel survives a deletion intact,
+ *   which is the one genuinely reassuring thing about this action.
+ *
+ * @param {string[]} ids
+ */
+export async function deletionImpact(ids) {
+  if (ids.length === 0) return { rows: 0, events: 0, tasks: 0, cooldowns: 0 };
+
+  const [events, tasks, rows] = await Promise.all([
+    supabase
+      .from(T.applicationEvents)
+      .select('id', { count: 'exact', head: true })
+      .in('application_id', ids),
+    supabase.from(T.tasks).select('id', { count: 'exact', head: true }).in('application_id', ids),
+    supabase.from(T.applications).select('id, cooldown_until').in('id', ids),
+  ]);
+
+  if (rows.error) throw rows.error;
+
+  // Asked of isInCooldown rather than compared to the clock, per the rule at the
+  // top of apply.js: with reapply_cooldown_days at zero the stored dates are
+  // ignored rather than cleared, so a raw date comparison would warn about a
+  // cooldown nobody is actually serving.
+  let cooldowns = 0;
+  for (const row of rows.data ?? []) {
+    if (await isInCooldown(row)) cooldowns += 1;
+  }
+
+  return {
+    rows: (rows.data ?? []).length,
+    // Null rather than zero when the count could not be read, and the route
+    // refuses the deletion on a null. An impact panel that cannot count is not
+    // a panel showing zero.
+    events: events.error ? null : (events.count ?? 0),
+    tasks: tasks.error ? null : (tasks.count ?? 0),
+    cooldowns,
+  };
+}
+
+/**
+ * Delete tracking rows permanently.
+ *
+ * One statement over an id list, unlike changeStatus in the bulk path above,
+ * and the difference is the point: that one loops because each row needs its
+ * own event row naming where it came from. There is nothing to record on a row
+ * that is about to stop existing, and the audit row the route writes before
+ * this covers the whole set.
+ *
+ * Nothing is written to the applicant. 8.3's decision messages exist because
+ * accepting and rejecting are things a person needs to hear; a tracking row
+ * being tidied out of a dashboard is not, and raising a task to announce it
+ * would be worse than saying nothing.
+ *
+ * @param {string[]} ids
+ * @returns {Promise<string[]>} the ids that were actually deleted
+ */
+export async function deleteApplications(ids) {
+  if (ids.length === 0) return [];
+
+  const { data, error } = await supabase.from(T.applications).delete().in('id', ids).select('id');
+
+  if (error) throw error;
+  return (data ?? []).map((row) => row.id);
 }
 
 /* -------------------------------------------------------------------------
