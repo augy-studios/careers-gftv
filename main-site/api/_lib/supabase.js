@@ -87,6 +87,17 @@ export const T = Object.freeze({
   rateLimits: 'gftvjobs_rate_limits',
   adminAccess: 'gftvjobs_admin_access',
 
+  // Phase 8's helper role, from migration 023.
+  translationHelpers: 'gftvjobs_translation_helpers',
+
+  // Views, not tables. Read only by construction: PostgREST will refuse a write
+  // to any of them, which is the property that makes them safe to expose to the
+  // same client the tables use. Migrations 032 and 033.
+  needsTranslation: 'gftvjobs_needs_translation',
+  applicationSearch: 'gftvjobs_application_search',
+  jobFunnel: 'gftvjobs_job_funnel',
+  jobFunnelDaily: 'gftvjobs_job_funnel_daily',
+
   // Staff passkeys live in a gftvjobs_ table on purpose. Section 2 forbids
   // adding to the gftvhello_ namespace, so this mirrors gftvjobs_admin_access:
   // gftvhello_users is referenced, never written to. See migration 025.

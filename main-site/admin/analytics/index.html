@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title data-i18n="admin.analyticsPageTitle">Dashboard | Careers@GFTV</title>
+    <meta name="description" content="Analytics.">
+    <meta name="robots" content="noindex">
+
+    <meta name="theme-color" content="#ffffff">
+    <script>
+        (function () {
+            var k = "gftv-careers";
+            var m = localStorage.getItem(k + ".mode") || "light";
+
+            // Time based mode, per gftv-theme.md. Resolved here rather than
+            // in theme.js because theme.js runs after first paint, and an
+            // evening reader would otherwise watch a white page turn dark.
+            // Keep the two hours in step with LIGHT_FROM_HOUR and
+            // LIGHT_UNTIL_HOUR in theme.js.
+            if (m === "time") {
+                var h = new Date().getHours();
+                m = h >= 9 && h < 18 ? "light" : "dark";
+                document.documentElement.setAttribute("data-mode-preference", "time");
+            }
+            var c = localStorage.getItem(k + ".colorTheme") || "classic";
+            var l = localStorage.getItem(k + ".locale") || "en";
+            document.documentElement.setAttribute("data-mode", m);
+            document.documentElement.setAttribute("data-color-theme", c);
+            document.documentElement.setAttribute("data-locale", l);
+            document.documentElement.setAttribute("lang", l === "zh" ? "zh-Hans-SG" : "en");
+
+            if (l !== "en") {
+                document.documentElement.setAttribute("data-i18n-pending", "true");
+                setTimeout(function () {
+                    document.documentElement.removeAttribute("data-i18n-pending");
+                }, 1200);
+            }
+        })();
+    </script>
+
+    <link rel="stylesheet" href="/assets/css/theme.css">
+    <link rel="stylesheet" href="/assets/css/app.css">
+
+    <link rel="manifest" href="/manifest.json">
+    <link rel="canonical" href="https://careers.globalfurry.tv/admin/analytics">
+
+    <link rel="apple-touch-icon" href="/HLC-main.png">
+    <link rel="icon" href="/favicon.ico">
+    <link rel="shortcut icon" href="/favicon.ico">
+
+    <script type="module" src="/assets/js/shell.js"></script>
+    <script type="module" src="/assets/js/admin-analytics-page.js"></script>
+</head>
+
+<body>
+    <div class="boot-loader" aria-hidden="true">
+        <span class="spinner delayed"></span>
+    </div>
+    <a class="skip-link" href="#main" data-i18n="common.skipToContent">Skip to content</a>
+
+    <main class="page page-wide admin" id="main">
+        <div class="loading-row" id="adminLoading">
+            <span class="spinner delayed"></span>
+            <span data-i18n="common.loading">Loading</span>
+        </div>
+
+        <div class="admin-layout" id="adminPage" hidden>
+            <aside class="admin-sidebar">
+                <nav class="admin-nav" id="adminNav"
+                     data-i18n-attr="aria-label:admin.navLabel"></nav>
+            </aside>
+
+            <div class="admin-content">
+                <div class="admin-topbar" id="adminTopbar"></div>
+
+                <p class="callout" id="adminMessage" hidden></p>
+                <div class="page-header admin-page-header">
+                    <div>
+                        <h1 data-i18n="admin.analyticsHeading">Analytics</h1>
+                        <p class="lede" data-i18n="admin.analyticsLede">
+                            How each posting is doing: who opened it, who clicked
+                            Apply, and how many of those told us they went
+                            through with it.
+                        </p>
+                    </div>
+                    <button type="button" class="btn btn-secondary" id="exportCsv"
+                            data-i18n="admin.exportCsv">Export CSV</button>
+                </div>
+
+                <!-- The one sentence this page cannot be read without. 8.4: an
+                     unanswered prompt counts as not applied, so the rate can
+                     only ever understate the truth. -->
+                <p class="callout note" data-i18n="admin.rateIsFloor">
+                    A click counts as applied only when somebody told us so.
+                    Nobody is chased for an answer, so the conversion rate is the
+                    lowest the truth can be, never an estimate of it.
+                </p>
+
+                <form class="admin-toolbar" id="analyticsFilters">
+                    <div class="field">
+                        <label for="statusFilter" data-i18n="admin.colStatus">Status</label>
+                        <select id="statusFilter" name="status"></select>
+                    </div>
+                    <div class="field">
+                        <label for="sortBy" data-i18n="admin.sortBy">Sort by</label>
+                        <select id="sortBy" name="sort"></select>
+                    </div>
+                    <div class="field">
+                        <label for="sortDirection" data-i18n="admin.sortDirection">Order</label>
+                        <select id="sortDirection" name="direction">
+                            <option value="desc" data-i18n="admin.sortDesc">Highest first</option>
+                            <option value="asc" data-i18n="admin.sortAsc">Lowest first</option>
+                        </select>
+                    </div>
+                </form>
+
+                <div class="admin-list" id="analyticsList" aria-live="polite"></div>
+                <div class="admin-pager" id="analyticsPager"></div>
+            </div>
+        </div>
+
+        <noscript>
+            <div class="callout warn">
+                <p>This page needs JavaScript.</p>
+            </div>
+        </noscript>
+    </main>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js');
+        }
+    </script>
+</body>
+
+</html>

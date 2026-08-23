@@ -4460,3 +4460,168 @@ ul.field-hint {
   margin: 0.5rem 0 0;
   padding: 0;
 }
+
+/* ---------------------------------------------------------------------------
+ * The analytics page and its chart, 8.4
+ *
+ * The chart is inline SVG with no library, like everything else here. What the
+ * CSS carries is the parts that have to follow the theme: the ink for the grid
+ * and the axes, which must stay recessive against the data, and the tooltip's
+ * surface. The three series colours come from --chart-1 to --chart-3 in
+ * theme.css and are set inline per element, because a series keeps its colour
+ * wherever it is drawn.
+ * ------------------------------------------------------------------------ */
+
+.admin-chart {
+  position: relative;
+  margin: 0 0 0.5rem;
+}
+
+.admin-chart svg {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+/* 2px, and never thicker. A thick line hides its own shape at ninety points. */
+.chart-line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+/* Hairlines, and in the border token rather than in text ink: a gridline that
+   competes with the data is worse than no gridline. */
+.chart-grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.chart-axis {
+  fill: var(--text-light);
+  font-size: 11px;
+}
+
+/* The direct label at each line's right end. Identity is never colour alone,
+   so the series is named here as well as in the legend below. */
+.chart-label {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.chart-crosshair {
+  stroke: var(--border-strong);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+/* 9px across, which clears the 8px floor for a hover marker, with a surface
+   ring so a dot sitting on a line of another colour stays legible. */
+.chart-dot {
+  stroke: var(--bg);
+  stroke-width: 2;
+}
+
+.chart-tooltip {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-alt);
+  color: var(--text);
+  font-size: 0.8125rem;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 8px var(--shadow);
+}
+
+.chart-tooltip span {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.chart-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.chart-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex: none;
+}
+
+.admin-chart-heading {
+  font-size: 1rem;
+  margin: 1.25rem 0 0.5rem;
+}
+
+/* The funnel numbers, which are also the chart's table view. */
+.admin-funnel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+  margin: 0.75rem 0;
+}
+
+.admin-funnel dt {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.admin-funnel dd {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.admin-source-list {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  font-size: 0.875rem;
+}
+
+.admin-daily {
+  margin-top: 1rem;
+}
+
+.admin-daily summary {
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+/* The "check the form" flag from 8.4. A word and a badge rather than a coloured
+   cell, so it survives being read by somebody who cannot see the colour. */
+.admin-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+.badge-warn {
+  background: var(--callout-warn-bg);
+  border-color: var(--warn);
+  color: var(--warn);
+}

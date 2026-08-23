@@ -361,7 +361,7 @@ export async function fetchApplicationRow(applicationId) {
  * applicant's own profile, so that is not a theoretical concern: a display name
  * of =HYPERLINK(...) would otherwise execute when an admin opened the file.
  */
-function csvField(value) {
+export function csvField(value) {
   if (value === null || value === undefined) return '';
 
   let text = String(value);

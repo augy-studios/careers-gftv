@@ -38,7 +38,7 @@ import { closingText, postedText, commitmentLabel, formatDate } from './format.j
 import { loadBuildStatus, applyFeatureGating } from './build-status.js';
 import { wireReportControl, openReportDialog } from './translation-report.js';
 import { consumeIntent } from './signin-prompt.js';
-import { applicantSession } from './api.js';
+import { api, applicantSession } from './api.js';
 // The Apply control and everything behind it. This page owns where it sits and
 // nothing else about it.
 import { mountApply } from './apply.js';
@@ -480,11 +480,58 @@ async function resumeIntent() {
   openReportDialog(reportTarget());
 }
 
+/**
+ * Tell the server this posting was opened, per 8.4.
+ *
+ * **Once per session per posting**, which is 007's rule for the event and the
+ * reason the guard is a sessionStorage key rather than a flag in this module:
+ * a reader who opens a posting, goes back to the board, and returns has not
+ * viewed it twice in any sense an admin cares about, and this page is a real
+ * document that reloads every time.
+ *
+ * **Never for a preview**, per deviation 48. A staff member reading their own
+ * draft is not traffic, and counting it would put a number on the analytics
+ * page that only ever came from the person reading the page.
+ *
+ * Nothing is awaited and nothing is reported. The posting is already on screen
+ * by the time this runs, and a failed counter is not the reader's problem.
+ */
+function recordView() {
+  if (!payload?.job?.id || payload.preview) return;
+
+  const key = `gftv-careers.viewed.${payload.job.id}`;
+
+  try {
+    if (window.sessionStorage.getItem(key)) return;
+    window.sessionStorage.setItem(key, '1');
+  } catch {
+    // Storage refused, in a private window or by a setting. Recording the view
+    // anyway is the right trade: at worst a reader who reloads three times
+    // counts three times, and the alternative is a board whose most private
+    // readers are invisible in every number.
+  }
+
+  api('/api/public/view', {
+    method: 'POST',
+    locale: false,
+    body: {
+      job_id: payload.job.id,
+      // Where the reader came from, which only this page knows: the request's
+      // own Referer header would say this posting every time. Empty for a
+      // direct open, which is itself worth knowing.
+      referrer: document.referrer || null,
+    },
+  }).catch(() => {
+    /* A view is a number, not the reader's business. */
+  });
+}
+
 function boot() {
   payload = readPayload();
   if (!payload) return;
 
   rememberSearch();
+  recordView();
 
   // Drawn on the language being applied rather than immediately. shell.js
   // fetches the dictionary before it dispatches this, and drawing first would

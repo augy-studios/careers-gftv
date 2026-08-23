@@ -326,6 +326,44 @@
 }
 
 /* ---------------------------------------------------------------------------
+ * Chart series, 8.4
+ *
+ * Three categorical hues in a fixed order: views, apply clicks, answered yes.
+ * Fixed means a series keeps its colour whatever else is on the chart, which is
+ * the one rule that makes two charts on this page comparable at a glance.
+ *
+ * **Keyed on the mode and not on the colour theme**, which is deliberate: a
+ * reader who switches from classic to hello is changing the furniture, not the
+ * meaning of the lines, and a chart whose series changed colour with the site's
+ * accent would be unreadable across a language of its own. Both sets were
+ * checked against all four surfaces this site actually paints, the white and
+ * the pale yellow in light mode and the two near blacks in dark.
+ *
+ * **The dark steps are chosen, not derived.** They are not the light hues
+ * lightened: an automatic flip lands outside the lightness band that keeps a
+ * thin 2px line legible on a dark surface, and it was the mid greens that gave
+ * way first. Both sets pass the same six checks, including deuteranopia and
+ * protanopia separation, which is why the greens are teal-leaning and the
+ * second series is an orange rather than the red that would read as an error.
+ *
+ * Not the status tokens. --ok, --warn, and --danger mean something on this
+ * site, and a series that borrowed one would be claiming a posting is broken
+ * because it happens to be third in a legend.
+ * ------------------------------------------------------------------------ */
+
+:root[data-mode='light'] {
+  --chart-1: #2563c9;
+  --chart-2: #c2410c;
+  --chart-3: #0d8a6a;
+}
+
+:root[data-mode='dark'] {
+  --chart-1: #5688dd;
+  --chart-2: #c9772f;
+  --chart-3: #27a877;
+}
+
+/* ---------------------------------------------------------------------------
  * Base
  * ------------------------------------------------------------------------ */
 

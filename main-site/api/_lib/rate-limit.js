@@ -111,6 +111,20 @@ export const LIMITS = Object.freeze({
   // because there is no legitimate reason to get your own password wrong four
   // times on the page that deletes your account.
   danger: { limit: 4, windowMs: 15 * 60 * 1000, lockMs: 60 * 60 * 1000 },
+  // Recording that a posting was opened, phase 8 and 8.4. The one bucket in
+  // this list whose ceiling an ordinary reader could plausibly approach: a
+  // browser fires one per posting per session, so somebody reading the whole
+  // board in an afternoon is doing real work here rather than abusing anything.
+  //
+  // Generous, and bounded anyway, because this is the only write in the build a
+  // caller with no account at all can make. What it is defending is the size of
+  // gftvjobs_analytics: a script left running against it would not break the
+  // site, it would quietly ruin every number on the analytics page.
+  //
+  // The lock is short on purpose. Being wrong here costs a missed view, which
+  // is a number, and locking a shared address out for an hour would cost
+  // several real readers their apply prompt resumption on the same connection.
+  view: { limit: 200, windowMs: 60 * 60 * 1000, lockMs: 5 * 60 * 1000 },
 });
 
 /**
