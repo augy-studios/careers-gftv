@@ -27,8 +27,16 @@ import { readQuestions } from './questions.js';
 /** Statuses that count as outstanding, for the list order and for the badge. */
 export const OPEN_STATUSES = Object.freeze(['open', 'awaiting_admin']);
 
-/** The two types migration 008 ships with. The column stays open to more. */
-export const TASK_TYPES = Object.freeze(['info_request', 'notice']);
+/**
+ * The types a stored task may carry.
+ *
+ * Two shipped in phase 6 and `invite` joined them in phase 8, which cost no
+ * SQL: migration 008 left task_type without a check constraint on purpose, and
+ * its comment says so. 8.5 says an invite "sends real messages", Telegram is
+ * phase 11, and this list is what makes the applicant's outstanding tasks the
+ * channel in the meantime. The task is the record either way, per section 15.
+ */
+export const TASK_TYPES = Object.freeze(['info_request', 'notice', 'invite']);
 
 /**
  * The type given to a derived apply prompt.

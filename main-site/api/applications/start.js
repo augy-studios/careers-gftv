@@ -52,6 +52,7 @@ import {
 } from '../_lib/apply.js';
 import { isInCooldown } from '../_lib/settings.js';
 import { raisePostingQuestions } from '../_lib/admin-tasks.js';
+import { markInviteApplied } from '../_lib/invites.js';
 import { unavailable } from '../_lib/maintenance.js';
 
 export default async function handler(req, res) {
@@ -152,6 +153,13 @@ export default async function handler(req, res) {
     // is logged and the handoff still happens. Somebody standing in front of an
     // application form should not be stopped by a question we wanted to ask.
     await raisePostingQuestions(job, session.user.id, application.id);
+
+    // 8.5's invite marker, if this person was invited to this posting. Same
+    // shape as the line above and for the same reason: it is a marker on
+    // somebody else's row, it cannot be allowed to stop the handoff, and this
+    // is the one place in the build that knows an invite led somewhere. Nothing
+    // else ever moves an invite to applied.
+    await markInviteApplied(jobId, session.user.id);
 
     // Counted on the way out rather than on a failure, like the report bucket:
     // what is worth bounding is how many handoffs one account can start in an

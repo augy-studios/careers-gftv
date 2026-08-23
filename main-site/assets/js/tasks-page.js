@@ -449,12 +449,24 @@ function canReply(item) {
 }
 
 /**
- * Only a notice. An info request is closed by the admin who read the reply, and
- * a prompt is closed by answering it or by the phase 9 cron giving up after
- * fourteen days. Neither is something to sweep off the list.
+ * A notice, and from phase 8 an invite. Both are one way: there is nothing to
+ * submit, so the only thing left to do with one is clear it off the list.
+ *
+ * An info request is closed by the admin who read the reply, and a prompt is
+ * closed by answering it or by the phase 9 cron giving up after fourteen days.
+ * Neither is something to sweep away.
+ *
+ * Dismissing an invite is not declining it. The gftvjobs_invites row keeps
+ * whatever status it had, deliberately: "I have read this" and "no thank you"
+ * are different answers, and 8.5's declined state is phase 11's, where Telegram
+ * can offer a button that means the second one.
  */
 function canDismiss(item) {
-  return item.source === 'task' && item.task_type === 'notice' && item.is_open;
+  return (
+    item.source === 'task' &&
+    (item.task_type === 'notice' || item.task_type === 'invite') &&
+    item.is_open
+  );
 }
 
 /* -------------------------------------------------------------------------

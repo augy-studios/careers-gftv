@@ -4625,3 +4625,68 @@ ul.field-hint {
   border-color: var(--warn);
   color: var(--warn);
 }
+
+/* ---------------------------------------------------------------------------
+ * Invites and shortlists, 8.5
+ * ------------------------------------------------------------------------ */
+
+/* An invite on the applicant's own outstanding tasks. It reads as an offer
+   rather than as a warning, so it takes the brand's own emphasis rather than
+   the amber an info request uses to say somebody is waiting on you. */
+.badge-task-invite {
+  background: var(--callout-ok-bg);
+  border-color: var(--ok);
+  color: var(--ok);
+}
+
+/* The invite states on the dashboard. Only three of the six are ever drawn
+   differently, because only three mean anything different to somebody reading
+   the list: nobody has been told, somebody has, and it led to an application. */
+.badge-invite-shortlisted {
+  background: var(--surface-active);
+  border-color: var(--border);
+  color: var(--text-muted-strong);
+}
+
+.badge-invite-invited,
+.badge-invite-seen {
+  background: var(--callout-warn-bg);
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+.badge-invite-applied {
+  background: var(--callout-ok-bg);
+  border-color: var(--ok);
+  color: var(--ok);
+}
+
+.badge-invite-withdrawn,
+.badge-invite-declined {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text-light);
+}
+
+/* Who a send is going to, kept on screen while the search list underneath it
+   changes. A chip rather than a row, because this is a choice being assembled
+   rather than a list being read. */
+.admin-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+  min-height: 1.5rem;
+}
+
+.admin-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.35rem 0.15rem 0.6rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 0.875rem;
+  white-space: nowrap;
+}

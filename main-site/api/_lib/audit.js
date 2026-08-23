@@ -84,6 +84,14 @@ export const AUDIT = Object.freeze({
   SETTING_CHANGED: 'setting_changed',
   APPLICATIONS_CLOSED: 'applications_closed',
   APPLICATIONS_OPENED: 'applications_opened',
+  // 8.5. Inviting is logged because it reaches a real person; shortlisting is
+  // logged because it is a decision about somebody made without telling them,
+  // which is exactly the kind of thing a log exists for. Withdrawing is logged
+  // for the same reason both directions of a maintenance flip are: an invite
+  // nobody recorded the end of is one nobody can explain later.
+  INVITE_SENT: 'invite_sent',
+  INVITE_WITHDRAWN: 'invite_withdrawn',
+  APPLICANT_SHORTLISTED: 'applicant_shortlisted',
 });
 
 /**
