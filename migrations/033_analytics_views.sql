@@ -53,7 +53,13 @@ begin;
 -- nobody has opened it is the one case where a zero is more useful than an
 -- absence: it is the answer to "why is nobody applying to this".
 
-create or replace view gftvjobs_job_funnel as
+create or replace view gftvjobs_job_funnel
+  -- Added 24 August 2026, with migration 035. A view runs as its owner, so
+  -- the RLS that protects every table underneath it does not apply unless
+  -- this is set. It lives here as well as in 035 because this file says it
+  -- is safe to recreate, and create or replace resets the option. The revoke
+  -- that goes with it is in 035 and survives a recreate, because grants do.
+  with (security_invoker = true) as
 select
   j.id                                  as job_id,
   j.title,
@@ -154,7 +160,13 @@ comment on view gftvjobs_job_funnel is
 -- are in the table above and would make a six series chart of a board this
 -- size unreadable.
 
-create or replace view gftvjobs_job_funnel_daily as
+create or replace view gftvjobs_job_funnel_daily
+  -- Added 24 August 2026, with migration 035. A view runs as its owner, so
+  -- the RLS that protects every table underneath it does not apply unless
+  -- this is set. It lives here as well as in 035 because this file says it
+  -- is safe to recreate, and create or replace resets the option. The revoke
+  -- that goes with it is in 035 and survives a recreate, because grants do.
+  with (security_invoker = true) as
 select
   job_id,
   (created_at at time zone 'UTC')::date                            as day,

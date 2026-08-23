@@ -126,7 +126,13 @@ comment on column gftvjobs_users.must_change_password is
 -- gftvjobs_locales, so Malay and Tamil appear here in phase 15 without this
 -- file being touched.
 
-create or replace view gftvjobs_needs_translation as
+create or replace view gftvjobs_needs_translation
+  -- Added 24 August 2026, with migration 035. A view runs as its owner, so
+  -- the RLS that protects every table underneath it does not apply unless
+  -- this is set. It lives here as well as in 035 because this file says it
+  -- is safe to recreate, and create or replace resets the option. The revoke
+  -- that goes with it is in 035 and survives a recreate, because grants do.
+  with (security_invoker = true) as
 
 -- Postings
 select
@@ -270,7 +276,13 @@ comment on view gftvjobs_needs_translation is
 -- search_text is lowered here so the route can match with ilike without
 -- pushing lower() onto every row at query time.
 
-create or replace view gftvjobs_application_search as
+create or replace view gftvjobs_application_search
+  -- Added 24 August 2026, with migration 035. A view runs as its owner, so
+  -- the RLS that protects every table underneath it does not apply unless
+  -- this is set. It lives here as well as in 035 because this file says it
+  -- is safe to recreate, and create or replace resets the option. The revoke
+  -- that goes with it is in 035 and survives a recreate, because grants do.
+  with (security_invoker = true) as
 select
   a.id            as application_id,
   a.job_id,
