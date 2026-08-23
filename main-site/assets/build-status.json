@@ -1,7 +1,7 @@
 {
   "$comment": "Single source of truth for the phased rollout, per section 0c of careers-gftv-spec.md. The site, the Telegram bot, and the docs site all read this one file, so the three stay in step. Flipping a phase to shipped is the only edit needed when it goes live. No copy anywhere hardcodes a phase number. Phase names and descriptions carry a translated variant per non default language, because three separate consumers render them and they are content rather than interface strings; everything else the site says comes from assets/i18n.",
   "schema_version": 3,
-  "updated": "2026-08-21",
+  "updated": "2026-08-23",
   "locales": [
     "en",
     "zh"
@@ -81,7 +81,7 @@
       "number": 8,
       "name": "Admin operations",
       "name_zh": "管理后台进阶",
-      "status": "planned",
+      "status": "building",
       "description": "The rest of the dashboard: analytics, invitations and shortlists, managing staff and applicant accounts, portal settings, and the translation review queue. Volunteers who speak a language can be given access to improve its wording, and can suggest a correction by selecting the text that reads wrongly.",
       "description_zh": "后台的其余部分：数据分析、邀请与候选名单、管理员工和申请人账户、门户设置，以及翻译审核队列。会说某种语言的志愿者可以获得权限改进该语言的用词，并可以直接选中读起来不对的文字提出修改建议。",
       "shipped_note": null,

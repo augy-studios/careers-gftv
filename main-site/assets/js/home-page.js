@@ -19,6 +19,7 @@ import { t } from './i18n.js';
 import { renderJobCards } from './job-card.js';
 import { markAppliedCards } from './apply-badges.js';
 import { formatCount } from './format.js';
+import { loadSiteSettings } from './site-settings.js';
 
 // Enough to show the board is alive without turning the home page into the
 // board. Anyone who wants more is one link away.
@@ -26,12 +27,19 @@ const LATEST_COUNT = 6;
 
 const el = {};
 
+// What the grid can show. Two lists rather than one, because which of them is
+// drawn is a setting and either can arrive first: 8.10's featured roles come
+// from the settings endpoint and the latest openings from the board's own.
+let latest = [];
+let featured = [];
+
 function collectElements() {
   el.form = document.querySelector('#heroSearchForm');
   el.input = document.querySelector('#heroSearchInput');
   el.department = document.querySelector('#heroDepartment');
   el.latest = document.querySelector('#latestOpenings');
   el.latestNote = document.querySelector('#latestNote');
+  el.heading = document.querySelector('#openingsHeading');
   el.departments = document.querySelector('#departmentList');
 }
 
@@ -127,6 +135,43 @@ function renderDepartments(departments) {
  * Latest openings
  * ---------------------------------------------------------------------- */
 
+/**
+ * The hero wording and the featured roles, from 8.10.
+ *
+ * Both are settings with a perfectly good default already on the page: the hero
+ * falls back to the dictionary, and with nothing featured the grid shows the
+ * latest openings, which is what migration 012's own comment says the empty
+ * list means. So a failed request changes nothing and is not reported.
+ *
+ * The hero fields lose their data-i18n attribute while a setting is overriding
+ * them and get it back when it is cleared, so emptying the field on the
+ * settings page restores the written copy rather than freezing the last value
+ * on screen.
+ */
+async function loadSiteCopy() {
+  const settings = await loadSiteSettings();
+  if (!settings) return;
+
+  applyCopy('#heroHeading', 'home.heroHeading', settings.hero_heading);
+  applyCopy('#heroLede', 'home.heroLede', settings.hero_body);
+
+  featured = settings.featured ?? [];
+  drawOpenings();
+}
+
+function applyCopy(selector, key, value) {
+  const node = document.querySelector(selector);
+  if (!node) return;
+
+  if (value) {
+    node.removeAttribute('data-i18n');
+    node.textContent = value;
+  } else {
+    node.setAttribute('data-i18n', key);
+    node.textContent = t(key);
+  }
+}
+
 async function loadLatest() {
   if (!el.latest) return;
 
@@ -154,9 +199,35 @@ async function loadLatest() {
     return;
   }
 
-  const jobs = (result.data.jobs ?? []).slice(0, LATEST_COUNT);
+  latest = (result.data.jobs ?? []).slice(0, LATEST_COUNT);
+  drawOpenings();
+}
 
-  if (jobs.length === 0) {
+/**
+ * The grid, which is the featured roles when there are any and the latest
+ * openings when there are not.
+ *
+ * That is migration 012's own rule for the setting, written down where the
+ * decision is visible: "Empty means show the latest published postings
+ * instead." One grid rather than two sections, because a home page with a
+ * featured row and a latest row shows the same three postings twice on a board
+ * this size.
+ *
+ * The heading changes with it, and changes by swapping the dictionary key
+ * rather than the text, so a language change still retranslates it.
+ */
+function drawOpenings() {
+  if (!el.latest) return;
+
+  const showing = featured.length > 0 ? featured : latest;
+
+  if (el.heading) {
+    const key = featured.length > 0 ? 'home.featuredHeading' : 'home.latestHeading';
+    el.heading.setAttribute('data-i18n', key);
+    el.heading.textContent = t(key);
+  }
+
+  if (showing.length === 0) {
     el.latest.replaceChildren();
     el.latest.removeAttribute('aria-busy');
     if (el.latestNote) {
@@ -169,7 +240,7 @@ async function loadLatest() {
 
   if (el.latestNote) el.latestNote.hidden = true;
 
-  renderJobCards(el.latest, jobs);
+  renderJobCards(el.latest, showing);
 
   // The same cooldown badge the board shows, per 7f. The home page renders the
   // same card, so it tells the same truth about it.
@@ -193,13 +264,16 @@ function boot() {
 
   loadFacets();
   loadLatest();
+  loadSiteCopy();
 
-  // Both sections write their own strings, so neither is reached by
+  // These sections write their own strings, so none of them is reached by
   // translateDom. A language change redraws them, and re-fetches, because the
-  // postings and the department names both come back in the new language.
+  // postings, the department names, and the hero wording all come back in the
+  // new language.
   document.addEventListener('gftv:localechange', () => {
     loadFacets();
     loadLatest();
+    loadSiteCopy();
   });
 }
 

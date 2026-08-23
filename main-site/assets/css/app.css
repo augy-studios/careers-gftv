@@ -4403,3 +4403,60 @@ table td:has(> input[type='checkbox']:only-child) {
 .job-preview-banner p + p {
   margin-top: 0.25rem;
 }
+
+/* ---------------------------------------------------------------------------
+ * The settings page, 8.10
+ *
+ * Four small pieces. Everything else on that page is .admin-section, .field,
+ * .editor-actions, and the badges, which the dashboard already had: a settings
+ * form that needed its own layout language would be a sign it was doing
+ * something the rest of the dashboard does not.
+ * ------------------------------------------------------------------------ */
+
+/* The applications state line: a badge, then the sentence that says what the
+   state means for somebody trying to apply. */
+.admin-setting-state {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+/* The featured roles, in the order they will appear. Numbered rather than
+   bulleted because the order is the decision being made. */
+.admin-chosen-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+  padding-left: 1.5rem;
+}
+
+.admin-chosen-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+/* A day count needs four characters, not a column of the form's width. */
+.input-narrow {
+  max-width: 8rem;
+}
+
+/* A list of hints reads as prose rather than as a checklist: no bullets, and
+   the same muted size the single line version already uses. */
+ul.field-hint {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0.5rem 0 0;
+  padding: 0;
+}

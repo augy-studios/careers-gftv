@@ -79,6 +79,7 @@ foreign key but never created, altered, or dropped from this directory.
 | `029_configurable_reapply_cooldown.sql` | Turns 7f's fixed three month reapply cooldown into the `reapply_cooldown_days` setting, with a check constraint. Zero is legal and switches the cooldown off. |
 | `030_typo_tolerant_search.sql` | Makes the typo fallback in `gftvjobs_search_jobs` and `gftvjobs_suggest` actually work, by matching on `word_similarity` against the closest word rather than `similarity` against the whole title. Adds `gftvjobs_typo_threshold()`. |
 | `031_task_questions.sql` | Adds `questions` and `answers` to `gftvjobs_tasks` and `task_questions` to `gftvjobs_jobs`, with the validators behind them. The question sets in 7g, capped at twenty and frozen once sent. |
+| `032_phase8_operations.sql` | The four things phase 8 turned out to need: the `shortlisted` state and `notified_at` on `gftvjobs_invites`, `must_change_password` on `gftvjobs_users`, the `gftvjobs_needs_translation` view behind 8.11's audit and 7i's helper view, and `gftvjobs_application_search`, which makes 8.3's applicant box a real filter. |
 
 ## Things worth knowing before you run them
 

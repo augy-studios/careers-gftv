@@ -388,3 +388,41 @@ export function clearAdminMessage() {
 export function emptyRow(text) {
   return `<p class="muted admin-empty">${escapeHtml(text)}</p>`;
 }
+
+/**
+ * Run an async handler from a listener, and say so when it throws.
+ *
+ * The single most expensive habit in this build, twice over. Phase 7 shipped two
+ * bare async click handlers in two different files: `collect()` threw a
+ * ReferenceError in the editor, and `dialog.open()` threw one on the tracking
+ * page where the variable was `detailDialog`. In both cases the rejection went
+ * to the console and nothing at all reached the screen, so the whole applicant
+ * detail panel had never worked and nobody could tell from looking at it. A
+ * control that does nothing is indistinguishable from a control that is slow.
+ *
+ * It lives here rather than in each page because "every page phase 8 adds needs
+ * one" is exactly the kind of rule that gets followed four times and forgotten
+ * on the fifth. `admin-job-editor.js` keeps its own copy for now; the two are
+ * the same function and merging them is a phase 12 tidy up, not a phase 8 one.
+ *
+ * The message is deliberately generic: whatever went wrong is a fault in the
+ * page rather than something the admin can act on, and the console still has
+ * the real cause for whoever reads it.
+ *
+ * @param {() => unknown} action
+ * @param {string} label what it was, for the console line
+ */
+export function runAction(action, label) {
+  try {
+    const result = action();
+    if (result && typeof result.catch === 'function') {
+      result.catch((cause) => {
+        console.error(`[careers-gftv] ${label}:`, cause);
+        adminMessage('error', t('error.unexpected'));
+      });
+    }
+  } catch (cause) {
+    console.error(`[careers-gftv] ${label}:`, cause);
+    adminMessage('error', t('error.unexpected'));
+  }
+}

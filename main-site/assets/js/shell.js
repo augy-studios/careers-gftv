@@ -32,6 +32,7 @@ import {
   renderPlaceholder,
 } from './build-status.js';
 import { api, applicantSession, staffSession, hasStaffHint } from './api.js';
+import { loadSiteSettings, cachedPortalTitle } from './site-settings.js';
 import { resumePendingPrompt } from './apply-prompt.js';
 
 /* -------------------------------------------------------------------------
@@ -124,7 +125,7 @@ function renderHeader() {
     <div class="site-header-inner">
       <a class="brand" href="/">
         <span class="brand-mark" data-icon="briefcase" data-icon-size="18"></span>
-        <span data-i18n="brand.name"></span>
+        <span data-i18n="brand.name" data-brand-name></span>
       </a>
 
       <button type="button" class="icon-btn nav-toggle" id="navToggle"
@@ -199,7 +200,7 @@ function renderFooter() {
   footer.innerHTML = `
     <div class="site-footer-inner">
       <div>
-        <h2 data-i18n="brand.name"></h2>
+        <h2 data-i18n="brand.name" data-brand-name></h2>
         <p data-i18n="footer.tagline"></p>
       </div>
       ${FOOTER.map(
@@ -739,6 +740,32 @@ function translateNewChrome(root) {
  * Boot
  * ---------------------------------------------------------------------- */
 
+/**
+ * The portal title from 8.10, in the header and the footer.
+ *
+ * The name is a dictionary key by default, and a setting when somebody has
+ * written one. Applied in three passes rather than one, which is what makes it
+ * arrive without a flash of the old name: what this browser saw last time goes
+ * on immediately, the network answer replaces it when it lands, and a language
+ * change asks again because the wording is per language.
+ *
+ * Clearing the setting restores the dictionary rather than leaving the last
+ * value on screen, which is why the data-i18n attribute is put back rather than
+ * simply overwritten. Without that, emptying the field on the settings page
+ * would look like a save that did nothing.
+ */
+function applyPortalTitle(title = cachedPortalTitle()) {
+  document.querySelectorAll('[data-brand-name]').forEach((node) => {
+    if (title) {
+      node.removeAttribute('data-i18n');
+      node.textContent = title;
+    } else {
+      node.setAttribute('data-i18n', 'brand.name');
+      node.textContent = t('brand.name');
+    }
+  });
+}
+
 async function boot() {
   initTheme();
 
@@ -776,14 +803,28 @@ async function boot() {
     renderPhaseNotice(status);
     applyFeatureGating(status);
     renderPlaceholder(status);
+    applyPortalTitle();
   };
 
   paint();
 
-  // These three render their own strings rather than carrying data-i18n
-  // attributes, so they are redrawn on a language change rather than
-  // retranslated in place.
+  // These render their own strings rather than carrying data-i18n attributes,
+  // so they are redrawn on a language change rather than retranslated in place.
   document.addEventListener('gftv:localechange', paint);
+
+  // The portal title, per 8.10. Not awaited: the header is already drawn and
+  // correct, and this only replaces the name when an admin has set one. A
+  // failed request leaves the dictionary's name, which is the right answer to
+  // "we could not ask".
+  loadSiteSettings().then((settings) => {
+    if (settings) applyPortalTitle(settings.portal_title ?? '');
+  });
+
+  document.addEventListener('gftv:localechange', () => {
+    loadSiteSettings().then((settings) => {
+      if (settings) applyPortalTitle(settings.portal_title ?? '');
+    });
+  });
 
   // Last, and not awaited by anything above it. Whether somebody is signed in
   // changes one item in the navigation and nothing else, so it must never be

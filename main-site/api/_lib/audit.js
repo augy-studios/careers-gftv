@@ -69,6 +69,21 @@ export const AUDIT = Object.freeze({
   // nobody can measure."
   FEATURE_DISABLED: 'feature_disabled',
   FEATURE_ENABLED: 'feature_enabled',
+  // Phase 8, the rest of the dashboard.
+  //
+  // SETTING_CHANGED is one action rather than one per key, and it carries the
+  // key in its metadata. 8.10 edits five things and phase 9 will add more; a
+  // constant per setting would make the audit view's grouping a list that grows
+  // every time somebody adds a row to gftvjobs_settings.
+  //
+  // APPLICATIONS_CLOSED and APPLICATIONS_OPENED are the exception, and they are
+  // separate for the same reason the two feature actions above are: turning
+  // applications off across the whole site is not "a setting changed", it is the
+  // board closing, and it should be legible in the log without reading the
+  // metadata of every setting write.
+  SETTING_CHANGED: 'setting_changed',
+  APPLICATIONS_CLOSED: 'applications_closed',
+  APPLICATIONS_OPENED: 'applications_opened',
 });
 
 /**
