@@ -4690,3 +4690,32 @@ ul.field-hint {
   font-size: 0.875rem;
   white-space: nowrap;
 }
+
+/* ---------------------------------------------------------------------------
+ * Picking a person, 8.5 and 8.8
+ *
+ * .admin-people already existed for the tracking page, where its children are
+ * list items. The two pickers put a label or a div in it instead, because a
+ * checkbox needs a label around it and a search result needs a button beside
+ * it, so the row styling is on the child class rather than on the element.
+ * ------------------------------------------------------------------------ */
+
+.admin-person {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-person:last-child {
+  border-bottom: none;
+}
+
+/* A picker inside a dialog scrolls rather than growing past the fold. The list
+   is capped at twenty results, which is still taller than a phone. */
+.admin-composer-dialog .admin-people {
+  max-height: 18rem;
+  overflow-y: auto;
+}

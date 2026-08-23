@@ -92,6 +92,13 @@ export const AUDIT = Object.freeze({
   INVITE_SENT: 'invite_sent',
   INVITE_WITHDRAWN: 'invite_withdrawn',
   APPLICANT_SHORTLISTED: 'applicant_shortlisted',
+  // 8.8. Who can reach the dashboard, in all three directions. The third is not
+  // a tidy up: handing the decision back to somebody's gftv.asia role is a
+  // different act from granting or revoking, and a log that recorded it as
+  // either would misdescribe what happens the next time that role changes.
+  PORTAL_ACCESS_GRANTED: 'portal_access_granted',
+  PORTAL_ACCESS_REVOKED: 'portal_access_revoked',
+  PORTAL_ACCESS_RESET: 'portal_access_reset',
 });
 
 /**
