@@ -20,6 +20,7 @@ gftv-official.md
 !tests/*.mjs
 !docs-site/scripts/*.mjs
 *.log
+.claude
 
 # Generated review sheet for the Chinese copy. Regenerate rather than commit.
 zh-review.html
