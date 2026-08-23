@@ -12,6 +12,27 @@
 // Every gftvjobs_ table has RLS enabled with no policies, so anything holding
 // an anon key gets nothing while the portal keeps working. That matters
 // because the project is shared with other GFTV apps.
+//
+// **Two footnotes to that sentence, both from the grant sweep on 24 August
+// 2026, and both worth knowing before relying on it.**
+//
+//   **RLS covers four verbs, and the grants are wider than four.** Supabase's
+//   default privileges hand anon and authenticated delete, insert, references,
+//   select, trigger, truncate, and update on every table in public at creation,
+//   and that is true of every app in this project rather than of this one. RLS
+//   neutralises select, insert, update, and delete. It does not apply to
+//   truncate, which is a table level operation: that grant is live, and what
+//   actually stops it is that PostgREST only ever emits those four verbs. The
+//   grants were left alone deliberately on 24 August 2026, because narrowing
+//   ours alone would leave the schema half in one model and half in another
+//   while changing nothing an anon key can reach. **The thing to carry: the
+//   defence is RLS plus the shape of PostgREST, not RLS alone.** Anything that
+//   ever lets a caller with an anon key run arbitrary SQL changes that answer.
+//
+//   **A view is not covered at all.** A view runs as its owner, so the RLS on
+//   the tables underneath it does not apply. Migration 035 closed the four that
+//   existed, and any new one needs both halves in the file that creates it:
+//   revoke from anon and authenticated, and security_invoker = on.
 
 import { createClient } from '@supabase/supabase-js';
 import { requireEnv } from './env.js';
