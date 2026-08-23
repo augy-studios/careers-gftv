@@ -4851,3 +4851,26 @@ ul.field-hint {
   border-color: var(--border);
   color: var(--text-light);
 }
+
+/* The audit's three states, weighted by how much is left. Nothing started is
+   the loudest; a drafted translation is somebody's work in progress; a thin one
+   is live and readable and only missing parts, so it recedes. None of them is
+   drawn in the ok colour: every row on this list is unfinished, and a green
+   badge on a page of work outstanding would be the wrong reassurance. */
+.badge-audit-missing {
+  background: var(--callout-warn-bg);
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+.badge-audit-drafted {
+  background: var(--surface-active);
+  border-color: var(--border-strong);
+  color: var(--text-muted-strong);
+}
+
+.badge-audit-thin {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text-light);
+}

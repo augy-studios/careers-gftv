@@ -28,6 +28,25 @@
 //   without one, so this is not the only guard; what the page adds is saying why
 //   before somebody hits it. The reporter reads that note on their own account
 //   page, which is the whole reason the requirement is there.
+//
+// The second tab is the other half of 8.11, the needs-translation audit: what
+// nobody has translated yet, whether or not a reader has complained. It is on
+// this page rather than one of its own because the two are the same question
+// asked from opposite ends, and somebody who has just fixed a reported sentence
+// is the person best placed to see what else in that language is missing.
+//
+//   **The audit is per language**, and the language is chosen rather than
+//   filtered. All of them at once would need a language column on every row and
+//   a count that answers nothing.
+//
+//   **A finished translation is not on the list at all**, so an empty list is
+//   the real answer to "what is left in Chinese" and the page says it in those
+//   words rather than as "no results".
+//
+//   **The audit has no actions.** Everything on it is fixed in the editor or on
+//   the team and tag pages, and every row carries the way through. Building a
+//   second editing surface here would be a second set of validation to keep in
+//   step with 8.2's.
 
 import { api } from './api.js';
 import { t } from './i18n.js';
@@ -48,8 +67,27 @@ const RESOLVED = ['fixed', 'rejected'];
 const TARGETS = ['job', 'department', 'tag', 'interface'];
 const ORIGINS = ['form', 'annotation'];
 
+/** The two halves of 8.11, as tabs. */
+const TABS = ['queue', 'audit'];
+
+/**
+ * Migration 032's three states, and the three things it audits.
+ *
+ * No `interface` here, unlike the queue's targets: the dictionaries are files
+ * rather than rows, per 7i, so nothing in the database can say whether a key has
+ * been translated. `npm run check-i18n` is what answers that.
+ */
+const AUDIT_STATES = ['missing', 'drafted', 'thin'];
+const AUDIT_TARGETS = ['job', 'department', 'tag'];
+
+/** How many field names a row lists before it says how many more there are. */
+const MISSING_SHOWN = 3;
+
 let payload = null;
 let state = { status: '', locale: '', target: '', origin: '', page: 1 };
+let auditPayload = null;
+let auditState = { locale: '', target: '', state: '', page: 1 };
+let tab = 'queue';
 let detailDialog = null;
 
 async function boot() {
@@ -58,6 +96,9 @@ async function boot() {
 
   readStateFromUrl();
   drawFilters();
+  drawAuditFilters();
+  applyTabVisibility();
+  drawTabs();
 
   document.querySelector('#reportFilters')?.addEventListener('submit', (event) => {
     event.preventDefault();
@@ -70,11 +111,24 @@ async function boot() {
     runAction(load, 'translation queue load');
   });
 
-  await load();
+  document.querySelector('#auditFilters')?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    auditState.locale = document.querySelector('#auditLocale').value;
+    auditState.target = document.querySelector('#auditTarget').value;
+    auditState.state = document.querySelector('#auditState').value;
+    auditState.page = 1;
+    writeStateToUrl();
+    runAction(loadAudit, 'needs translation load');
+  });
+
+  await loadCurrentTab();
 
   document.addEventListener('gftv:localechange', () => {
     drawFilters();
+    drawAuditFilters();
+    drawTabs();
     draw();
+    drawAudit();
   });
 }
 
@@ -84,6 +138,10 @@ function readStateFromUrl() {
     const value = search.get(name) ?? '';
     return allowed.includes(value) ? value : '';
   };
+
+  const page = Math.max(1, Number(search.get('page')) || 1);
+
+  tab = pick('tab', TABS) || 'queue';
 
   state = {
     // 'all' is not a status. It is the way out of the default view, which shows
@@ -97,17 +155,139 @@ function readStateFromUrl() {
     locale: search.get('locale') ?? '',
     target: pick('target', TARGETS),
     origin: pick('origin', ORIGINS),
-    page: Math.max(1, Number(search.get('page')) || 1),
+    page,
+  };
+
+  // The two tabs share the names of the filters they have in common, so a
+  // language chosen on one is the language the other opens on. Only the active
+  // tab's are written back, so the query string says what is on screen rather
+  // than carrying a set of filters for a list nobody is looking at.
+  auditState = {
+    locale: search.get('locale') ?? '',
+    target: pick('target', AUDIT_TARGETS),
+    state: pick('state', AUDIT_STATES),
+    page,
   };
 }
 
 function writeStateToUrl() {
   const search = new URLSearchParams();
-  for (const name of ['status', 'locale', 'target', 'origin']) {
-    if (state[name]) search.set(name, state[name]);
+
+  if (tab === 'audit') {
+    search.set('tab', 'audit');
+    for (const name of ['locale', 'target', 'state']) {
+      if (auditState[name]) search.set(name, auditState[name]);
+    }
+    if (auditState.page > 1) search.set('page', String(auditState.page));
+  } else {
+    for (const name of ['status', 'locale', 'target', 'origin']) {
+      if (state[name]) search.set(name, state[name]);
+    }
+    if (state.page > 1) search.set('page', String(state.page));
   }
-  if (state.page > 1) search.set('page', String(state.page));
-  window.history.replaceState({}, '', `${PATH}?${search.toString()}`);
+
+  const query = search.toString();
+  window.history.replaceState({}, '', query ? `${PATH}?${query}` : PATH);
+}
+
+/* -------------------------------------------------------------------------
+ * The two tabs
+ * ---------------------------------------------------------------------- */
+
+/**
+ * The tab strip.
+ *
+ * Manual activation rather than automatic: the arrow keys move focus along the
+ * strip and Enter or Space opens the tab focus is on. Each tab is a request, and
+ * arrowing across a strip that fetches on every keypress is how a keyboard user
+ * ends up waiting for two lists they did not ask for.
+ *
+ * The roving tabindex is the other half of that, and it is the part the phase 7
+ * bucket tabs got half right: they set tabindex="-1" on the unselected ones
+ * without handling an arrow key, which leaves those tabs reachable by nothing at
+ * all. Either both or neither.
+ */
+function drawTabs() {
+  const holder = document.querySelector('#translationTabs');
+  if (!holder) return;
+
+  const hadFocus = holder.contains(document.activeElement);
+
+  const counts = [
+    // Open reports, which is what the sidebar badge counts too.
+    { name: 'queue', id: 'tabQueue', key: 'admin.tabReports', count: payload?.counts?.open },
+    { name: 'audit', id: 'tabAudit', key: 'admin.tabAudit', count: auditPayload?.total },
+  ];
+
+  holder.innerHTML = counts
+    .map(
+      (entry) =>
+        `<button type="button" class="bucket-tab" role="tab" id="${entry.id}"` +
+        ` data-tab="${entry.name}" aria-controls="${entry.name}Panel"` +
+        ` aria-selected="${tab === entry.name}"` +
+        ` tabindex="${tab === entry.name ? '0' : '-1'}">` +
+        `<span>${escapeHtml(t(entry.key))}</span>` +
+        // A count that has not been read yet is absent rather than zero. A zero
+        // on the audit tab would say the translation is finished.
+        (entry.count === null || entry.count === undefined
+          ? ''
+          : `<span class="bucket-count">${escapeHtml(String(entry.count))}</span>`) +
+        '</button>'
+    )
+    .join('');
+
+  const buttons = [...holder.querySelectorAll('[data-tab]')];
+
+  buttons.forEach((button, index) => {
+    button.addEventListener('click', () => selectTab(button.getAttribute('data-tab')));
+
+    button.addEventListener('keydown', (event) => {
+      let next = null;
+      if (event.key === 'ArrowRight') next = buttons[(index + 1) % buttons.length];
+      else if (event.key === 'ArrowLeft') next = buttons[(index - 1 + buttons.length) % buttons.length];
+      else if (event.key === 'Home') next = buttons[0];
+      else if (event.key === 'End') next = buttons[buttons.length - 1];
+      if (!next) return;
+
+      event.preventDefault();
+      buttons.forEach((other) => {
+        other.tabIndex = other === next ? 0 : -1;
+      });
+      next.focus();
+    });
+  });
+
+  // Redrawing the strip destroys the button the keyboard was on, which would
+  // drop focus to the document and lose somebody's place mid-page.
+  if (hadFocus) holder.querySelector('[aria-selected="true"]')?.focus();
+}
+
+function applyTabVisibility() {
+  const queuePanel = document.querySelector('#queuePanel');
+  const auditPanel = document.querySelector('#auditPanel');
+  if (queuePanel) queuePanel.hidden = tab !== 'queue';
+  if (auditPanel) auditPanel.hidden = tab !== 'audit';
+}
+
+function selectTab(name) {
+  if (!TABS.includes(name) || name === tab) return;
+
+  tab = name;
+  writeStateToUrl();
+  applyTabVisibility();
+  drawTabs();
+  runAction(loadCurrentTab, `translation ${name} load`);
+}
+
+/**
+ * Load whichever tab is open.
+ *
+ * Every time it is opened, not once. An admin who has just fixed three postings
+ * and flips to the audit is asking what is left now, and a cached answer from
+ * before those edits is the wrong one.
+ */
+function loadCurrentTab() {
+  return tab === 'audit' ? loadAudit() : load();
 }
 
 /**
@@ -186,6 +366,9 @@ async function load() {
 
   payload = result.data;
   draw();
+  // The open count on the tab beside it, so the number is the same one the
+  // sidebar badge shows rather than a second reading of the same thing.
+  drawTabs();
 }
 
 /* -------------------------------------------------------------------------
@@ -286,10 +469,20 @@ function countsMarkup() {
 }
 
 function drawPager() {
-  const holder = document.querySelector('#reportPager');
-  if (!holder) return;
+  drawPagerInto('#reportPager', state, payload?.pages ?? 1, load, 'translation queue page');
+}
 
-  const pages = payload?.pages ?? 1;
+/**
+ * One pager, used by both tabs.
+ *
+ * The state object is passed rather than its page number, because the button
+ * moves it: two lists paging independently is two page numbers, and reading one
+ * while writing the other is how a next button starts sending somebody to the
+ * other tab's page three.
+ */
+function drawPagerInto(selector, holderState, pages, loader, label) {
+  const holder = document.querySelector(selector);
+  if (!holder) return;
 
   if (pages <= 1) {
     holder.innerHTML = '';
@@ -298,18 +491,18 @@ function drawPager() {
 
   holder.innerHTML = `
     <button type="button" class="btn btn-quiet small" data-page="prev"
-            ${state.page <= 1 ? 'disabled' : ''}>${escapeHtml(t('search.previous'))}</button>
+            ${holderState.page <= 1 ? 'disabled' : ''}>${escapeHtml(t('search.previous'))}</button>
     <span class="muted tabular">${escapeHtml(
-      t('admin.pageOf', { page: state.page, pages })
+      t('admin.pageOf', { page: holderState.page, pages })
     )}</span>
     <button type="button" class="btn btn-quiet small" data-page="next"
-            ${state.page >= pages ? 'disabled' : ''}>${escapeHtml(t('search.next'))}</button>`;
+            ${holderState.page >= pages ? 'disabled' : ''}>${escapeHtml(t('search.next'))}</button>`;
 
   holder.querySelectorAll('[data-page]').forEach((button) => {
     button.addEventListener('click', () => {
-      state.page += button.getAttribute('data-page') === 'next' ? 1 : -1;
+      holderState.page += button.getAttribute('data-page') === 'next' ? 1 : -1;
       writeStateToUrl();
-      runAction(load, 'translation queue page');
+      runAction(loader, label);
     });
   });
 }
@@ -334,16 +527,26 @@ function fieldLabel(report) {
   if (report.target_type === 'interface') return t('admin.target_interface');
   if (!report.field) return t('admin.wholeThing');
 
-  // The type qualified key first, because the same column name means different
-  // things on different tables: a posting's description is the body of the role,
-  // and a tag's is one line explaining the tag. Falling straight through to
-  // admin.field_description would label the second with the first's wording.
-  for (const key of [`admin.field_${report.target_type}_${report.field}`, `admin.field_${report.field}`]) {
+  return fieldName(report.target_type, report.field);
+}
+
+/**
+ * What a column is called on screen, for one of the three content types.
+ *
+ * The type qualified key first, because the same column name means different
+ * things on different tables: a posting's description is the body of the role,
+ * and a tag's is one line explaining the tag. Falling straight through to
+ * admin.field_description would label the second with the first's wording.
+ *
+ * Shared with the audit, which names the fields a translation is missing.
+ */
+function fieldName(targetType, field) {
+  for (const key of [`admin.field_${targetType}_${field}`, `admin.field_${field}`]) {
     const label = t(key);
     if (label !== key) return label;
   }
 
-  return report.field.replace(/_/g, ' ');
+  return String(field).replace(/_/g, ' ');
 }
 
 function localeName(code) {
@@ -357,6 +560,217 @@ function reporterName(report) {
 function excerpt(text, max = 140) {
   const value = String(text ?? '').replace(/\s+/g, ' ').trim();
   return value.length > max ? `${value.slice(0, max - 1)}…` : value;
+}
+
+/* -------------------------------------------------------------------------
+ * The needs-translation audit
+ * ---------------------------------------------------------------------- */
+
+/**
+ * The audit's three selects.
+ *
+ * The language list is the active languages minus the default one. The default
+ * is what everything else is translated *from*, so it is never a thing to
+ * audit, and offering it would put an option on screen that can only ever
+ * return an empty list.
+ */
+function drawAuditFilters() {
+  const options = (list, selected) =>
+    list
+      .map(
+        (entry) =>
+          `<option value="${escapeHtml(entry.value)}"${
+            entry.value === selected ? ' selected' : ''
+          }>${escapeHtml(entry.name ?? t(entry.key))}</option>`
+      )
+      .join('');
+
+  const localeList = adminLocales()
+    .filter((locale) => !locale.is_default)
+    .map((locale) => ({ value: locale.code, name: locale.native_name }));
+
+  const targetList = [
+    { value: '', key: 'admin.anyTarget' },
+    ...AUDIT_TARGETS.map((target) => ({ value: target, key: `admin.target_${target}` })),
+  ];
+
+  const stateList = [
+    { value: '', key: 'admin.anyState' },
+    ...AUDIT_STATES.map((entry) => ({ value: entry, key: `admin.auditState_${entry}` })),
+  ];
+
+  const locale = document.querySelector('#auditLocale');
+  const target = document.querySelector('#auditTarget');
+  const auditStateSelect = document.querySelector('#auditState');
+
+  if (locale) locale.innerHTML = options(localeList, auditState.locale);
+  if (target) target.innerHTML = options(targetList, auditState.target);
+  if (auditStateSelect) auditStateSelect.innerHTML = options(stateList, auditState.state);
+}
+
+async function loadAudit() {
+  const search = new URLSearchParams({ view: 'audit' });
+  for (const name of ['locale', 'target', 'state']) {
+    if (auditState[name]) search.set(name, auditState[name]);
+  }
+  search.set('page', String(auditState.page));
+
+  const result = await api(`/api/admin/translations?${search.toString()}`);
+
+  if (!result.ok) {
+    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    return;
+  }
+
+  auditPayload = result.data;
+
+  // The language the route answered with, which is not always the one asked
+  // for: a code this site does not have falls back to the first other language
+  // rather than to nothing. Taking it back means the select and the sentences
+  // under it name what is actually on screen.
+  if (auditPayload.locale) auditState.locale = auditPayload.locale;
+
+  drawAuditFilters();
+  drawAudit();
+  drawTabs();
+}
+
+function drawAudit() {
+  const list = document.querySelector('#auditList');
+  if (!list || !auditPayload) return;
+
+  // No second language configured. A real state on the day one is being set up,
+  // and not the same as nothing being left to translate.
+  if (!auditPayload.locale) {
+    list.innerHTML = emptyRow(t('admin.auditNeedsSecondLanguage'));
+    drawAuditPager();
+    return;
+  }
+
+  const rows = auditPayload.audit ?? [];
+  const language = localeName(auditState.locale);
+
+  if (rows.length === 0) {
+    const filtered = Boolean(auditState.target || auditState.state);
+    list.innerHTML =
+      auditCountsMarkup() +
+      emptyRow(
+        filtered ? t('admin.noAuditMatches') : t('admin.auditFinished', { language })
+      );
+    drawAuditPager();
+    return;
+  }
+
+  list.innerHTML =
+    auditCountsMarkup() +
+    `
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th scope="col">${escapeHtml(t('admin.colTarget'))}</th>
+          <th scope="col">${escapeHtml(t('admin.colState'))}</th>
+          <th scope="col">${escapeHtml(t('admin.colMissing'))}</th>
+          <th scope="col">${escapeHtml(t('admin.colUpdated'))}</th>
+          <th scope="col"><span class="visually-hidden">${escapeHtml(
+            t('admin.colActions')
+          )}</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(auditRowMarkup).join('')}
+      </tbody>
+    </table>`;
+
+  drawAuditPager();
+}
+
+function auditRowMarkup(row) {
+  const href = editorHref(row);
+
+  return `
+    <tr>
+      <td>
+        <span class="admin-row-title">${escapeHtml(row.label ?? t('admin.targetGone'))}</span>
+        <span class="admin-sub muted">${escapeHtml(
+          t(`admin.target_${row.target_type}`)
+        )} &middot; ${escapeHtml(sourceStateLabel(row))}</span>
+      </td>
+      <td><span class="badge badge-audit-${escapeHtml(row.state)}">${escapeHtml(
+        t(`admin.auditState_${row.state}`)
+      )}</span></td>
+      <td>${escapeHtml(missingLabel(row))}</td>
+      <td class="tabular">${escapeHtml(formatDate(row.updated_at))}</td>
+      <td class="admin-row-actions">${
+        href
+          ? `<a class="btn btn-quiet small" href="${escapeHtml(href)}">${escapeHtml(
+              row.target_type === 'job' ? t('admin.openInEditor') : t('admin.openTheList')
+            )}</a>`
+          : ''
+      }</td>
+    </tr>`;
+}
+
+/**
+ * What is missing from this one.
+ *
+ * "Everything" for a row with no translation at all, because listing nine field
+ * names to say the same thing is noise. A drafted translation with nothing thin
+ * about it gets a dash: the state column has already said what is wrong with it,
+ * which is that nobody has marked it ready.
+ *
+ * The list is capped rather than wrapped, per deviation 45: nothing in an admin
+ * table wraps except a title, and a translation missing every optional field
+ * would otherwise widen the row past the page.
+ */
+function missingLabel(row) {
+  if (row.state === 'missing') return t('admin.auditEverything');
+
+  const fields = row.missing_fields ?? [];
+  if (fields.length === 0) return '—';
+
+  const names = fields.slice(0, MISSING_SHOWN).map((field) => fieldName(row.target_type, field));
+  if (fields.length > MISSING_SHOWN) {
+    names.push(t('admin.andMoreFields', { count: fields.length - MISSING_SHOWN }));
+  }
+
+  return names.join(', ');
+}
+
+/**
+ * What state the thing being translated is in, which decides how much this
+ * matters.
+ *
+ * A draft posting with no Chinese is nothing to worry about; a published one is
+ * a page a reader is looking at in the wrong language today. The view answers
+ * this differently per type, because "published" means nothing about a tag: it
+ * says whether a team is active and whether a tag is on any posting at all.
+ */
+function sourceStateLabel(row) {
+  if (row.target_type === 'job') return t(`admin.jobStatus_${row.source_status}`);
+  return t(`admin.sourceState_${row.source_status}`);
+}
+
+function auditCountsMarkup() {
+  const counts = auditPayload?.counts ?? {};
+
+  return `<p class="muted admin-counts">${AUDIT_STATES.map(
+    (entry) =>
+      `${escapeHtml(t(`admin.auditState_${entry}`))}: <strong>${
+        counts[entry] === null || counts[entry] === undefined
+          ? '&mdash;'
+          : escapeHtml(String(counts[entry]))
+      }</strong>`
+  ).join(' &middot; ')}</p>`;
+}
+
+function drawAuditPager() {
+  drawPagerInto(
+    '#auditPager',
+    auditState,
+    auditPayload?.pages ?? 1,
+    loadAudit,
+    'needs translation page'
+  );
 }
 
 /* -------------------------------------------------------------------------

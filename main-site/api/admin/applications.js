@@ -179,7 +179,7 @@ async function read(req, res) {
 
   const { from, to, page, size } = pageRange(search, { size: 25, max: 100 });
 
-  const [{ rows, total }, counts] = await Promise.all([
+  const [{ rows, total, truncated }, counts] = await Promise.all([
     listApplications({ ...filters, rangeFrom: from, rangeTo: to }),
     bucketCounts({ jobId: filters.jobId, from: filters.from, until: filters.until }),
   ]);
@@ -199,7 +199,10 @@ async function read(req, res) {
     )
   );
 
-  return ok(res, { applications: shaped, counts, total, page, limit: size });
+  // `truncated` says the applicant box matched more people than one search
+  // filters by, so the count beside it is of the capped set rather than of
+  // everybody. It is only ever true when that box has something in it.
+  return ok(res, { applications: shaped, counts, total, page, limit: size, truncated });
 }
 
 /* -------------------------------------------------------------------------

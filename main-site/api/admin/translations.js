@@ -5,8 +5,15 @@
 //
 //   GET                      the queue, filtered and paged, with the status counts
 //   GET  ?id=<uuid>          one report, with the wording it is about
+//   GET  ?view=audit         what is left untranslated in one language, per 8.11
 //   POST { action: 'edit' }      rewrite one field of what it points at
 //   POST { action: 'resolve' }   move it through the queue with a note
+//
+// The audit is a read and nothing more: it has no actions of its own, because
+// everything it finds is fixed in the editor or on the team and tag pages. It
+// sits on this route rather than on one of its own because it is the second half
+// of the same section and the same page, and because a route per tab would mean
+// two places to keep the language handling in step.
 //
 // **Not admins only**, and that is the same call phase 8 made about analytics.
 // 8.8 and 8.9 say admins only and give their reasons; 8.11 does not. A job
@@ -30,7 +37,14 @@
 
 import { ok, fail, ERR, methodNotAllowed, failInternal, readJson } from '../_lib/respond.js';
 import { requireStaff } from '../_lib/session.js';
-import { params, pageRange, enumParam, isUuid, defaultLocale } from '../_lib/admin.js';
+import {
+  params,
+  pageRange,
+  enumParam,
+  isUuid,
+  defaultLocale,
+  activeLocales,
+} from '../_lib/admin.js';
 import { FIELD, validateText } from '../_lib/validate.js';
 import { unavailable } from '../_lib/maintenance.js';
 import { LIMITS, limited, recordFailures, subjectForUser } from '../_lib/rate-limit.js';
@@ -47,6 +61,14 @@ import {
   applyWording,
   resolveReport,
 } from '../_lib/translation-queue.js';
+import {
+  AUDIT_PAGE_SIZE,
+  AUDIT_STATES,
+  AUDIT_TARGETS,
+  auditCounts,
+  auditLocale,
+  listNeedsTranslation,
+} from '../_lib/translation-audit.js';
 
 /** Long enough for a paragraph of explanation, short of an essay. */
 const NOTE_MAX = 2000;
@@ -99,6 +121,8 @@ async function read(req, res) {
     return ok(res, { report, source_locale: source });
   }
 
+  if (search.get('view') === 'audit') return await audit(res, search, source);
+
   const { from, to, page, size } = pageRange(search, { size: PAGE_SIZE, max: 100 });
 
   const [{ rows, total }, counts] = await Promise.all([
@@ -142,6 +166,62 @@ async function localeParam(search) {
   if (error) throw error;
 
   return data ? raw : null;
+}
+
+/**
+ * The needs-translation audit, per 8.11.
+ *
+ * One language, chosen rather than filtered: the view crosses every active non
+ * default language, and a list of all of them at once would need a language
+ * column on every row and counts that answer nothing. The chosen code comes back
+ * in the payload, so a page that asked for a language this site does not have
+ * finds out what it was actually shown instead of mislabelling it.
+ *
+ * The languages come from activeLocales rather than from gftvjobs_locales
+ * directly, unlike the queue's own filter above. The difference is deliberate:
+ * the queue may be filtered by a language that has since been deactivated,
+ * because a report against it still exists and still deserves an answer, while
+ * there is nothing to audit in a language the site has stopped serving.
+ */
+async function audit(res, search, source) {
+  const locales = await activeLocales();
+  const chosen = auditLocale(search.get('locale'), locales);
+
+  if (!chosen) {
+    // One language configured, which is a real state on the day a second one is
+    // being set up rather than an error. An empty list with a null language is
+    // what the page reads to say so.
+    return ok(res, {
+      audit: [],
+      counts: {},
+      total: 0,
+      page: 1,
+      pages: 1,
+      page_size: AUDIT_PAGE_SIZE,
+      locale: null,
+      source_locale: source,
+    });
+  }
+
+  const { from, to, page, size } = pageRange(search, { size: AUDIT_PAGE_SIZE, max: 100 });
+  const targetType = enumParam(search, 'target', AUDIT_TARGETS);
+  const state = enumParam(search, 'state', AUDIT_STATES);
+
+  const [{ rows, total }, counts] = await Promise.all([
+    listNeedsTranslation({ locale: chosen.code, targetType, state, from, to }),
+    auditCounts({ locale: chosen.code, targetType }),
+  ]);
+
+  return ok(res, {
+    audit: rows,
+    counts,
+    total,
+    page,
+    page_size: size,
+    pages: Math.max(1, Math.ceil(total / size)),
+    locale: chosen.code,
+    source_locale: source,
+  });
 }
 
 /* -------------------------------------------------------------------------

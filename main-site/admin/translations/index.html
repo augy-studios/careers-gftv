@@ -83,41 +83,76 @@
                         <p class="lede" data-i18n="admin.translationsLede">
                             What readers have told us reads wrongly, from the
                             form at the foot of a posting and from helpers
-                            selecting the words in place. One queue for both.
+                            selecting the words in place, and what nobody has
+                            translated yet.
                         </p>
                     </div>
                 </div>
 
-                <p class="callout note" data-i18n="admin.translationsInterfaceNote">
-                    Wording in the interface itself, the navigation and the
-                    buttons, lives in the code rather than the database. A report
-                    about one of those shows its key and is fixed by editing
-                    assets/i18n and deploying.
-                </p>
+                <div class="bucket-tabs admin-buckets" id="translationTabs" role="tablist"
+                     data-i18n-attr="aria-label:admin.translationTabsLabel"></div>
 
-                <form class="admin-toolbar" id="reportFilters" role="search">
-                    <div class="field">
-                        <label for="statusFilter" data-i18n="admin.colStatus">Status</label>
-                        <select id="statusFilter" name="status"></select>
-                    </div>
-                    <div class="field">
-                        <label for="localeFilter" data-i18n="admin.colLanguage">Language</label>
-                        <select id="localeFilter" name="locale"></select>
-                    </div>
-                    <div class="field">
-                        <label for="targetFilter" data-i18n="admin.colTarget">About</label>
-                        <select id="targetFilter" name="target"></select>
-                    </div>
-                    <div class="field">
-                        <label for="originFilter" data-i18n="admin.colOrigin">Came from</label>
-                        <select id="originFilter" name="origin"></select>
-                    </div>
-                    <button class="btn btn-secondary" type="submit"
-                            data-i18n="search.submit">Search</button>
-                </form>
+                <section id="queuePanel" role="tabpanel" aria-labelledby="tabQueue">
+                    <p class="callout note" data-i18n="admin.translationsInterfaceNote">
+                        Wording in the interface itself, the navigation and the
+                        buttons, lives in the code rather than the database. A report
+                        about one of those shows its key and is fixed by editing
+                        assets/i18n and deploying.
+                    </p>
 
-                <div class="admin-list" id="reportList" aria-live="polite"></div>
-                <div class="admin-pager" id="reportPager"></div>
+                    <form class="admin-toolbar" id="reportFilters" role="search">
+                        <div class="field">
+                            <label for="statusFilter" data-i18n="admin.colStatus">Status</label>
+                            <select id="statusFilter" name="status"></select>
+                        </div>
+                        <div class="field">
+                            <label for="localeFilter" data-i18n="admin.colLanguage">Language</label>
+                            <select id="localeFilter" name="locale"></select>
+                        </div>
+                        <div class="field">
+                            <label for="targetFilter" data-i18n="admin.colTarget">About</label>
+                            <select id="targetFilter" name="target"></select>
+                        </div>
+                        <div class="field">
+                            <label for="originFilter" data-i18n="admin.colOrigin">Came from</label>
+                            <select id="originFilter" name="origin"></select>
+                        </div>
+                        <button class="btn btn-secondary" type="submit"
+                                data-i18n="search.submit">Search</button>
+                    </form>
+
+                    <div class="admin-list" id="reportList" aria-live="polite"></div>
+                    <div class="admin-pager" id="reportPager"></div>
+                </section>
+
+                <section id="auditPanel" role="tabpanel" aria-labelledby="tabAudit" hidden>
+                    <p class="callout note" data-i18n="admin.auditNote">
+                        What nobody has translated yet, whether or not anybody has
+                        complained. Three states: nothing in this language at all,
+                        drafted but not marked ready, and live but thinner than the
+                        original. A translation that is finished is not on this list.
+                    </p>
+
+                    <form class="admin-toolbar" id="auditFilters" role="search">
+                        <div class="field">
+                            <label for="auditLocale" data-i18n="admin.colLanguage">Language</label>
+                            <select id="auditLocale" name="locale"></select>
+                        </div>
+                        <div class="field">
+                            <label for="auditTarget" data-i18n="admin.colTarget">About</label>
+                            <select id="auditTarget" name="target"></select>
+                        </div>
+                        <div class="field">
+                            <label for="auditState" data-i18n="admin.colState">State</label>
+                            <select id="auditState" name="state"></select>
+                        </div>
+                        <button class="btn btn-secondary" type="submit"
+                                data-i18n="search.submit">Search</button>
+                    </form>
+
+                    <div class="admin-list" id="auditList" aria-live="polite"></div>
+                    <div class="admin-pager" id="auditPager"></div>
+                </section>
             </div>
         </div>
 

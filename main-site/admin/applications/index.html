@@ -108,7 +108,13 @@
                     </div>
                     <div class="field">
                         <label for="filterQ" data-i18n="admin.searchApplicant">Applicant</label>
-                        <input id="filterQ" name="q" type="search" autocomplete="off">
+                        <input id="filterQ" name="q" type="search" autocomplete="off"
+                               aria-describedby="filterQHint">
+                        <p class="field-hint" id="filterQHint"
+                           data-i18n="admin.searchApplicantHint">
+                            Name, username, or email address. It searches every
+                            page, not only the rows on screen.
+                        </p>
                     </div>
                     <button class="btn btn-secondary" type="submit"
                             data-i18n="search.submit">Search</button>

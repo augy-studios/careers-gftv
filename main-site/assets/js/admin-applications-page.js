@@ -248,11 +248,13 @@ function drawList() {
   const rows = payload?.applications ?? [];
 
   if (rows.length === 0) {
-    list.innerHTML = emptyRow(t('admin.noApplications'));
+    list.innerHTML = truncatedMarkup() + emptyRow(t('admin.noApplications'));
     return;
   }
 
-  list.innerHTML = `
+  list.innerHTML =
+    truncatedMarkup() +
+    `
     <table class="admin-table admin-applications-table">
       <thead>
         <tr>
@@ -276,6 +278,21 @@ function drawList() {
 
   hydrateIcons(list);
   wireRows(list);
+}
+
+/**
+ * Said out loud when the applicant box matched more people than one search
+ * filters by.
+ *
+ * The applicant box is a real filter from part 7 of phase 8, across every page
+ * rather than inside the one on screen, and the cost of that is a ceiling on
+ * how many people one search can name. A capped list with an exact looking
+ * count under it is the sort of thing somebody makes a decision on, so it says
+ * so, and it says it about the export too, which carries the same capped set.
+ */
+function truncatedMarkup() {
+  if (!payload?.truncated) return '';
+  return `<p class="callout warn">${escapeHtml(t('admin.searchTruncated'))}</p>`;
 }
 
 function rowMarkup(row) {

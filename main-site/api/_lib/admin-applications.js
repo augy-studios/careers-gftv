@@ -93,6 +93,18 @@ export async function listApplications(options) {
   if (options.from) query = query.gte('started_at', options.from);
   if (options.until) query = query.lte('started_at', options.until);
 
+  // 8.3's applicant box, and from 23 August 2026 it is a real filter rather
+  // than one applied to the page that had already come back. That was deviation
+  // 36, and migration 032 built gftvjobs_application_search to close it.
+  let truncated = false;
+  if (options.q) {
+    const match = await matchingApplicationIds(options);
+    if (match.ids.length === 0) return { rows: [], total: 0, truncated: false };
+
+    truncated = match.truncated;
+    query = query.in('id', match.ids);
+  }
+
   switch (options.sort) {
     case 'started':
       query = query.order('started_at', { ascending: false });
@@ -107,27 +119,82 @@ export async function listApplications(options) {
   const { data, error, count } = await query;
   if (error) throw error;
 
-  let rows = data ?? [];
+  return { rows: data ?? [], total: count ?? 0, truncated };
+}
 
-  // Searching by applicant is done here rather than in the query, and that is a
-  // real limitation stated rather than hidden: PostgREST cannot filter a parent
-  // row by a pattern on an embedded one without a view, so this matches inside
-  // the page that came back. A search that spans pages needs the view, which is
-  // a migration, and 8.3's filters are by job, status, and date range. The box
-  // narrows what is on screen and the page says so.
-  if (options.q) {
-    const needle = options.q.toLowerCase();
-    rows = rows.filter((row) => {
-      const applicant = row.applicant ?? {};
-      return (
-        String(applicant.username ?? '').toLowerCase().includes(needle) ||
-        String(applicant.display_name ?? '').toLowerCase().includes(needle) ||
-        String(applicant.email ?? '').toLowerCase().includes(needle)
-      );
-    });
-  }
+/**
+ * The most application ids one search will filter by.
+ *
+ * The ids go back out as an `in` filter, which travels in the query string, so
+ * this is a bound on a URL as much as on a result set: two hundred uuids is
+ * about seven kilobytes and a search matching more than that is not a search,
+ * it is a browse. The caller is told when the cap was reached rather than
+ * quietly shown the first two hundred, because a truncated match set with an
+ * exact looking count is the sort of thing somebody makes a decision on.
+ */
+const MATCH_CAP = 200;
 
-  return { rows, total: count ?? 0 };
+/**
+ * Which applications match the applicant box, per 8.3.
+ *
+ * PostgREST cannot filter a parent row by a pattern on an embedded one, which
+ * is why this is two queries and why migration 032 exists. The view flattens
+ * the display name, the username, and the email onto the application row and
+ * lowercases them once, so the match is an ilike against one column rather than
+ * three ors against an embedded table.
+ *
+ * **The other filters are applied to the match query too**, which is why the
+ * view carries job_id, status, and started_at. Matching every Tan in the
+ * database and then intersecting with one posting would spend the cap on rows
+ * that were never going to be shown.
+ *
+ * **The email is matched and never selected.** It is in search_text so that
+ * looking somebody up by the address they wrote to you from works, and the
+ * tracking list a job poster reads still shows only the name and the username.
+ */
+async function matchingApplicationIds(options) {
+  let query = supabase
+    .from(T.applicationSearch)
+    .select('application_id')
+    .ilike('search_text', `%${likeNeedle(options.q)}%`)
+    // Ordered so that a capped set is the same 200 on page two as it was on page
+    // one. A limit with no order is whatever Postgres hands back, which can
+    // differ between two identical requests and would quietly reshuffle a
+    // truncated search under somebody paging through it. Newest first, so the
+    // 200 kept are the ones somebody is most likely to be looking for.
+    .order('updated_at', { ascending: false })
+    .order('application_id', { ascending: true })
+    .limit(MATCH_CAP);
+
+  if (options.jobId) query = query.eq('job_id', options.jobId);
+  if (options.status) query = query.eq('status', options.status);
+  if (options.from) query = query.gte('started_at', options.from);
+  if (options.until) query = query.lte('started_at', options.until);
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  const ids = (data ?? []).map((row) => row.application_id);
+  return { ids, truncated: ids.length >= MATCH_CAP };
+}
+
+/**
+ * What somebody typed, as a literal to match rather than as a pattern.
+ *
+ * An underscore is a real character in a username and a percent sign is a real
+ * character in a display name, and both are wildcards in a LIKE. Escaped rather
+ * than stripped, so searching for `a_b` finds `a_b` and not `axb`.
+ *
+ * The star is the exception and is dropped: PostgREST spells `%` as `*` in a
+ * like filter and substitutes it before Postgres ever sees the pattern, so
+ * there is no escape that survives. Nothing that can be in a username, an
+ * email, or a real name is lost by it.
+ */
+function likeNeedle(value) {
+  return String(value ?? '')
+    .replace(/\\/g, '\\\\')
+    .replace(/[%_]/g, (char) => `\\${char}`)
+    .replace(/\*/g, '');
 }
 
 /**
