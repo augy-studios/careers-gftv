@@ -227,6 +227,17 @@ function boot() {
   function finish(data) {
     const remaining = data?.codes?.recovery ?? 0;
     const target = redirectTarget() ?? DEFAULT_AFTER_LOGIN;
+
+    // 8.9's forced reset comes first, ahead of both the recovery code warning
+    // and wherever they were going. An admin has required a new password before
+    // this account is used again, and the account area insists on it anyway;
+    // sending them straight there is the difference between being told why and
+    // being bounced.
+    if (data?.user?.must_change_password === true) {
+      window.location.href = '/account/security?password=required';
+      return;
+    }
+
     window.location.href = remaining === 0 ? '/account/security?codes=none' : target;
   }
 }

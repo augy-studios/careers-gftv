@@ -102,10 +102,18 @@ export default async function handler(req, res) {
 
     const { data: user, error: updateError } = await supabase
       .from(T.users)
-      .update({ password_hash: await hashSecret(body.password) })
+      .update({
+        password_hash: await hashSecret(body.password),
+        // 8.9's forced reset is satisfied here as well as in change-password.
+        // Somebody told to set a new password on their next sign in may well
+        // arrive through the recovery code path instead, and leaving the flag
+        // set would put them back on the reset screen with a password they
+        // have just chosen.
+        must_change_password: false,
+      })
       .eq('id', reset.user_id)
       .select(
-        'id, username, display_name, email, avatar_url, phone, locale, totp_secret, is_active, created_at'
+        'id, username, display_name, email, avatar_url, phone, locale, totp_secret, is_active, must_change_password, created_at'
       )
       .single();
 

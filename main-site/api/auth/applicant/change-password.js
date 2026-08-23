@@ -68,7 +68,16 @@ export default async function handler(req, res) {
 
     const { error } = await supabase
       .from(T.users)
-      .update({ password_hash: await hashSecret(body.new_password) })
+      .update({
+        password_hash: await hashSecret(body.new_password),
+        // 8.9's forced reset, cleared by the thing it was asking for. An admin
+        // assisting somebody locked out sets this flag; choosing a password is
+        // what satisfies it, and nothing else does. Written unconditionally
+        // rather than only when it is set, because a second update to clear a
+        // flag that is already false is one query nobody notices and a branch
+        // that forgets it is a person stuck on the reset screen forever.
+        must_change_password: false,
+      })
       .eq('id', session.user.id);
 
     if (error) return failInternal(res, error, 'change password');

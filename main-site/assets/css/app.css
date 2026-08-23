@@ -4719,3 +4719,40 @@ ul.field-hint {
   max-height: 18rem;
   overflow-y: auto;
 }
+
+/* ---------------------------------------------------------------------------
+ * The applicant account panel, 8.9
+ *
+ * Three short lists in one dialog: what they have applied to, what they have
+ * been invited to, and what has been done to the account. Rows rather than
+ * tables, because each one is three facts and a date, and a table of three
+ * columns inside a modal is a table nobody can read on a phone.
+ * ------------------------------------------------------------------------ */
+
+.admin-history {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0 0 1rem;
+  padding: 0;
+  font-size: 0.9375rem;
+}
+
+.admin-history li {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-history li:last-child {
+  border-bottom: none;
+}
+
+/* The date sits at the end of the row and stays there when the rest wraps. */
+.admin-history li .tabular {
+  margin-left: auto;
+}

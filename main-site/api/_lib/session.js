@@ -114,7 +114,7 @@ export async function getApplicantSession(req) {
     .from(T.sessions)
     .select(
       `id, expires_at,
-       user:${T.users} ( id, username, display_name, email, avatar_url, phone, locale, totp_secret, is_active, created_at )`
+       user:${T.users} ( id, username, display_name, email, avatar_url, phone, locale, totp_secret, is_active, must_change_password, created_at )`
     )
     .eq('token', token)
     .maybeSingle();
@@ -737,6 +737,11 @@ export function publicApplicant(user) {
     avatar_url: user.avatar_url ?? null,
     phone: user.phone ?? null,
     locale: user.locale ?? 'en',
+    // Migration 032 and 8.9. An admin assisting somebody locked out can require
+    // a new password at the next sign in, and this is what the account area
+    // reads to insist on it. It is not a permission and not a secret: the
+    // person it is about is the only one who ever sees it.
+    must_change_password: user.must_change_password === true,
     created_at: user.created_at ?? null,
   };
 }

@@ -58,7 +58,7 @@ export default async function handler(req, res) {
       .from(T.loginChallenges)
       .select(
         `id, user_id, stay_signed_in, expires_at,
-         user:${T.users} ( id, username, display_name, email, avatar_url, phone, locale, totp_secret, is_active, created_at )`
+         user:${T.users} ( id, username, display_name, email, avatar_url, phone, locale, totp_secret, is_active, must_change_password, created_at )`
       )
       .eq('token', token)
       .maybeSingle();

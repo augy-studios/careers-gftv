@@ -72,6 +72,11 @@ export async function mountAccountPage(options) {
   const page = document.querySelector('#accountPage');
   if (page) page.hidden = false;
 
+  // 8.9's forced reset, and this one is awaited because it is not a note: an
+  // account required to set a new password is shown a line it cannot miss and,
+  // on any page except the one that fixes it, is sent there.
+  requirePasswordChange(session.user, options.current);
+
   // Not awaited, for the same reason the badge is not: a feature being switched
   // off is a line at the top of the page, not something the page waits for.
   renderMaintenanceBanner();
@@ -81,6 +86,48 @@ export async function mountAccountPage(options) {
   refreshTaskBadge();
 
   return session;
+}
+
+/* -------------------------------------------------------------------------
+ * The forced password change, 8.9
+ * ---------------------------------------------------------------------- */
+
+/** Where somebody required to choose a new password is sent. */
+const PASSWORD_PAGE = '/account/security';
+
+/**
+ * Insist on a new password when an admin has required one.
+ *
+ * 8.9 gives an admin two assisted actions for somebody locked out, and both set
+ * this flag. What it buys is that the admin never has to know the password: the
+ * account holder chooses it themselves at the next sign in, which is the whole
+ * reason those two paths are the ones to prefer over setting one.
+ *
+ * **A redirect and a banner, not one or the other.** The redirect handles
+ * somebody arriving anywhere in the account area; the banner handles the page
+ * they land on, where a redirect would be a loop. Neither is a security
+ * boundary and neither pretends to be: the session is real and the API still
+ * answers, because locking an account out of its own data to insist it change a
+ * password would be a worse outcome than the one being fixed.
+ */
+function requirePasswordChange(user, current) {
+  if (user?.must_change_password !== true) return;
+
+  if (current !== PASSWORD_PAGE) {
+    window.location.replace(PASSWORD_PAGE);
+    return;
+  }
+
+  document.querySelector('.account-password-required')?.remove();
+
+  const bar = document.createElement('div');
+  bar.className = 'callout warn account-password-required';
+  bar.setAttribute('role', 'alert');
+  bar.innerHTML =
+    `<p><strong>${escapeHtml(t('account.passwordRequired'))}</strong></p>` +
+    `<p>${escapeHtml(t('account.passwordRequiredBody'))}</p>`;
+
+  document.querySelector('#accountPage')?.prepend(bar);
 }
 
 /* -------------------------------------------------------------------------

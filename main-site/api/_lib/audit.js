@@ -99,6 +99,19 @@ export const AUDIT = Object.freeze({
   PORTAL_ACCESS_GRANTED: 'portal_access_granted',
   PORTAL_ACCESS_REVOKED: 'portal_access_revoked',
   PORTAL_ACCESS_RESET: 'portal_access_reset',
+  // 8.9. Deleting an applicant account from the dashboard is deliberately not
+  // in this list: it writes ACCOUNT_DELETED with the staff realm, because it is
+  // the same event from the account's point of view and the actor is what tells
+  // the two apart.
+  APPLICANT_DEACTIVATED: 'applicant_deactivated',
+  APPLICANT_REACTIVATED: 'applicant_reactivated',
+  // The one action in the build that breaks non repudiation, per 8.9. Once an
+  // admin can set a password, this log can no longer prove the applicant did
+  // something themselves, which is why it is its own action rather than another
+  // password_changed row.
+  APPLICANT_PASSWORD_SET: 'applicant_password_set',
+  APPLICANT_RESET_FORCED: 'applicant_reset_forced',
+  APPLICANT_TELEGRAM_UNLINKED: 'applicant_telegram_unlinked',
 });
 
 /**
@@ -145,7 +158,7 @@ export async function recordAudit(entry) {
  * @param {{ id: string, username?: string }} user
  * @param {string} action
  * @param {Record<string, unknown>} [metadata]
- * @param {{ targetTable?: string, targetId?: string }} [target]
+ * @param {{ targetTable?: string, targetId?: string, reason?: string|null }} [target]
  */
 export function auditApplicant(user, action, metadata = {}, target = {}) {
   return recordAudit({
@@ -155,6 +168,7 @@ export function auditApplicant(user, action, metadata = {}, target = {}) {
     action,
     targetTable: target.targetTable ?? null,
     targetId: target.targetId ?? null,
+    reason: target.reason ?? null,
     metadata,
   });
 }
@@ -164,7 +178,11 @@ export function auditApplicant(user, action, metadata = {}, target = {}) {
  * @param {{ id: string, username?: string }} user
  * @param {string} action
  * @param {Record<string, unknown>} [metadata]
- * @param {{ targetTable?: string, targetId?: string }} [target]
+ * @param {{ targetTable?: string, targetId?: string, reason?: string|null }} [target]
+ *        The reason is optional to pass and required by some callers: 8.9 will
+ *        not deactivate, set a password, or delete an account without one, and
+ *        that requirement is enforced at the route rather than here, so a
+ *        caller that legitimately has nothing to say is not forced to invent it.
  */
 export function auditStaff(user, action, metadata = {}, target = {}) {
   return recordAudit({
@@ -174,6 +192,7 @@ export function auditStaff(user, action, metadata = {}, target = {}) {
     action,
     targetTable: target.targetTable ?? null,
     targetId: target.targetId ?? null,
+    reason: target.reason ?? null,
     metadata,
   });
 }

@@ -27,7 +27,7 @@ import {
 
 /** Columns a login needs. The password hash is only ever read here. */
 const APPLICANT_AUTH_COLUMNS =
-  'id, username, display_name, email, password_hash, avatar_url, phone, locale, totp_secret, is_active, created_at';
+  'id, username, display_name, email, password_hash, avatar_url, phone, locale, totp_secret, is_active, must_change_password, created_at';
 
 const STAFF_AUTH_COLUMNS =
   'id, username, password_hash, is_approved, is_admin, is_editor, totp_secret';
