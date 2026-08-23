@@ -153,6 +153,35 @@
                     <div class="admin-list" id="auditList" aria-live="polite"></div>
                     <div class="admin-pager" id="auditPager"></div>
                 </section>
+
+                <!--
+                    The helpers tab, per 7i and 8.11. Admins only: the panel is
+                    removed from the page rather than hidden for a job poster,
+                    per deviation 34, and the route refuses either way.
+                -->
+                <section id="helpersPanel" role="tabpanel" aria-labelledby="tabHelpers" hidden>
+                    <p class="callout note" data-i18n="admin.helpersNote">
+                        A helper is an ordinary applicant account granted the
+                        right to edit translations in one language. They draft
+                        freely and cannot make anything live: only an admin sets
+                        a translation ready, so access can be granted before
+                        trust is.
+                    </p>
+
+                    <form class="admin-toolbar" id="helperFilters" role="search">
+                        <div class="field">
+                            <label for="helperLocale" data-i18n="admin.colLanguage">Language</label>
+                            <select id="helperLocale" name="locale"></select>
+                        </div>
+                        <button class="btn btn-secondary" type="submit"
+                                data-i18n="search.submit">Search</button>
+                        <button class="btn btn-primary" type="button" id="grantHelper"
+                                data-i18n="admin.grantHelper">Grant the role</button>
+                    </form>
+
+                    <div class="admin-list" id="helperList" aria-live="polite"></div>
+                    <div class="admin-pager" id="helperPager"></div>
+                </section>
             </div>
         </div>
 

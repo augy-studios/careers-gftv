@@ -118,6 +118,17 @@ export const AUDIT = Object.freeze({
   APPLICANT_PASSWORD_SET: 'applicant_password_set',
   APPLICANT_RESET_FORCED: 'applicant_reset_forced',
   APPLICANT_TELEGRAM_UNLINKED: 'applicant_telegram_unlinked',
+  // 7i and 8.11. The two actions on /admin/translations that write here at all:
+  // everything else on that page is an admin editing wording, which phase 7
+  // settled is not an audit event. Granting is, because it hands somebody
+  // standing write access to a language across every posting.
+  //
+  // Revoking is logged for a second reason on top of that one. Migration 023 has
+  // no revoked state and the primary key is (user_id, locale), so a revoke
+  // deletes the row and this is the only surviving record that the role was ever
+  // held or why it was taken away.
+  TRANSLATION_HELPER_GRANTED: 'translation_helper_granted',
+  TRANSLATION_HELPER_REVOKED: 'translation_helper_revoked',
 });
 
 /**

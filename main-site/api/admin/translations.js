@@ -6,8 +6,12 @@
 //   GET                      the queue, filtered and paged, with the status counts
 //   GET  ?id=<uuid>          one report, with the wording it is about
 //   GET  ?view=audit         what is left untranslated in one language, per 8.11
-//   POST { action: 'edit' }      rewrite one field of what it points at
-//   POST { action: 'resolve' }   move it through the queue with a note
+//   GET  ?view=helpers       who holds the helper role, per 7i. Admins only
+//   GET  ?view=helpers&search=  applicant accounts to grant it to. Admins only
+//   POST { action: 'edit' }           rewrite one field of what it points at
+//   POST { action: 'resolve' }        move it through the queue with a note
+//   POST { action: 'grant_helper' }   grant the role in one language. Admins only
+//   POST { action: 'revoke_helper' }  take it away. Admins only
 //
 // The audit is a read and nothing more: it has no actions of its own, because
 // everything it finds is fixed in the editor or on the team and tag pages. It
@@ -22,14 +26,27 @@
 // already change in the editor. Section 10 item 1's "an admin has full control"
 // is about an admin overriding a poster's work, not about keeping a poster out.
 //
-// **Nothing here writes an audit row**, and that is deliberate rather than
-// forgotten. Phase 7 set the line: what is logged is what changes somebody
+// **The two helper actions are admins only, and nothing else here is.** 7i says
+// the role is granted by an admin, and it is a different kind of act from
+// working the queue: it hands somebody standing write access to every
+// translation in a language, across every posting, rather than fixing one
+// sentence. The tab is absent for a job poster, per deviation 34, and both
+// actions refuse here regardless, because a hidden control stops nobody.
+//
+// **Nothing in the queue writes an audit row**, and that is deliberate rather
+// than forgotten. Phase 7 set the line: what is logged is what changes somebody
 // else's world, and what is not is an admin editing wording, "which is a row
 // with an updated_at on it already". A resolution is stronger than that: 015
 // stores resolved_by, resolved_at, and the note on the report itself, precisely
 // "so a row cannot quietly leave the queue without an accountable trail". A
 // second copy in the audit log would be a second place to look and a second
 // place to disagree.
+//
+// **Granting and revoking are the exception, and both are logged.** They are
+// squarely the first half of that line, and a revoke leaves nothing behind to
+// read: migration 023 has no revoked state, so the row is deleted and the log is
+// the only record that the role was ever held. That is why the reason is
+// required in both directions rather than only on the way out.
 //
 // **An interface report is refused an edit here**, per 7i. The dictionaries are
 // files; the wording is a code change and a deploy. The page says so, and this
@@ -41,6 +58,7 @@ import {
   params,
   pageRange,
   enumParam,
+  isAdmin,
   isUuid,
   defaultLocale,
   activeLocales,
@@ -49,6 +67,13 @@ import { FIELD, validateText } from '../_lib/validate.js';
 import { unavailable } from '../_lib/maintenance.js';
 import { LIMITS, limited, recordFailures, subjectForUser } from '../_lib/rate-limit.js';
 import { supabase, T } from '../_lib/supabase.js';
+import { AUDIT, auditStaff } from '../_lib/audit.js';
+// The invite picker, reused rather than copied. 8.5's reader is already exactly
+// what this needs and for the same reason: enough to be sure you have the right
+// person, which is a name, a username, and a picture, and no account detail at
+// all. Writing a second thin applicant search here would be two places to keep
+// the same escaping decisions in step.
+import { searchInviteApplicants } from '../_lib/invites.js';
 import {
   PAGE_SIZE,
   REPORT_STATUSES,
@@ -69,6 +94,15 @@ import {
   auditLocale,
   listNeedsTranslation,
 } from '../_lib/translation-audit.js';
+import {
+  PAGE_SIZE as HELPER_PAGE_SIZE,
+  fetchHelper,
+  fetchHelperAccount,
+  grantHelper,
+  helperLocalesFor,
+  listHelpers,
+  revokeHelper,
+} from '../_lib/translation-helpers.js';
 
 /** Long enough for a paragraph of explanation, short of an essay. */
 const NOTE_MAX = 2000;
@@ -85,6 +119,15 @@ const NOTE_MAX = 2000;
  */
 const WORDING_MAX = 12000;
 
+/**
+ * The ceiling on a grant or revoke reason.
+ *
+ * Shorter than a resolution note on purpose. This one is a sentence about a
+ * person, read a year later off a list, and the dialog says as much: 8.8's
+ * access reasons are bounded the same way and for the same reason.
+ */
+const HELPER_REASON_MAX = 300;
+
 export default async function handler(req, res) {
   if (methodNotAllowed(req, res, ['GET', 'HEAD', 'POST'])) return;
 
@@ -97,7 +140,7 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'POST') return await write(req, res, session);
-    return await read(req, res);
+    return await read(req, res, session);
   } catch (cause) {
     return failInternal(res, cause, 'admin translations');
   }
@@ -107,7 +150,7 @@ export default async function handler(req, res) {
  * Reading
  * ---------------------------------------------------------------------- */
 
-async function read(req, res) {
+async function read(req, res, session) {
   const search = params(req);
   const source = await defaultLocale();
 
@@ -122,6 +165,10 @@ async function read(req, res) {
   }
 
   if (search.get('view') === 'audit') return await audit(res, search, source);
+  if (search.get('view') === 'helpers') {
+    if (!adminOnly(res, session)) return;
+    return await helpers(res, search, source);
+  }
 
   const { from, to, page, size } = pageRange(search, { size: PAGE_SIZE, max: 100 });
 
@@ -225,10 +272,94 @@ async function audit(res, search, source) {
 }
 
 /* -------------------------------------------------------------------------
+ * Translation helpers, per 7i
+ * ---------------------------------------------------------------------- */
+
+/**
+ * The admins only guard, written here rather than with requireAdmin.
+ *
+ * requireAdmin re-reads the session, and this route has already read one: the
+ * rest of it is open to a job poster, so the guard is per view and per action
+ * rather than at the door. Same 403 and the same sentence, so a caller cannot
+ * tell the two apart.
+ */
+function adminOnly(res, session) {
+  if (isAdmin(session.user)) return true;
+  fail(res, ERR.FORBIDDEN, 'Only an admin can do that.');
+  return false;
+}
+
+/**
+ * Who holds the helper role, and who could be given it.
+ *
+ * The search is on the same view rather than on one of its own, like the queue's
+ * ?id=: it is the same page asking a second question about the same subject, and
+ * a separate view name would need the same admin guard written twice.
+ */
+async function helpers(res, search, source) {
+  const term = search.get('search');
+  if (term !== null) {
+    const applicants = await searchInviteApplicants(term);
+    // What each of them already helps with, so the picker states it rather than
+    // inferring it from the page of the list that happens to be loaded.
+    const held = await helperLocalesFor(applicants.map((applicant) => applicant.id));
+
+    return ok(res, {
+      applicants: applicants.map((applicant) => ({
+        ...applicant,
+        helps_with: held.get(applicant.id) ?? [],
+      })),
+    });
+  }
+
+  const locales = await activeLocales();
+  const { from, to, page, size } = pageRange(search, { size: HELPER_PAGE_SIZE, max: 100 });
+
+  const { rows, total } = await listHelpers({
+    locale: helperLocale(search.get('locale'), locales),
+    from,
+    to,
+  });
+
+  return ok(res, {
+    helpers: rows,
+    total,
+    page,
+    page_size: size,
+    pages: Math.max(1, Math.ceil(total / size)),
+    // The languages the role can be granted in, which is every active language
+    // except the default one. The default is what everything is translated
+    // *from*, and 014's own check constraint refuses a translation row for it,
+    // so a helper in English would be somebody with a role over nothing.
+    grantable: locales.filter((locale) => !locale.is_default),
+    source_locale: source,
+  });
+}
+
+/**
+ * The language a filter or a grant is about.
+ *
+ * Checked against the active languages rather than gftvjobs_locales, unlike the
+ * queue's own filter: a report against a deactivated language still deserves an
+ * answer, while granting somebody a role in a language the site has stopped
+ * serving is a role over nothing.
+ */
+function helperLocale(wanted, locales) {
+  const code = String(wanted ?? '').trim();
+  if (!code) return null;
+
+  const found = locales.find((locale) => locale.code === code && !locale.is_default);
+  return found ? found.code : null;
+}
+
+/* -------------------------------------------------------------------------
  * Writing
  * ---------------------------------------------------------------------- */
 
-const ACTIONS = ['edit', 'resolve'];
+const ACTIONS = ['edit', 'resolve', 'grant_helper', 'revoke_helper'];
+
+/** The two that are about a person rather than about a report. */
+const HELPER_ACTIONS = ['grant_helper', 'revoke_helper'];
 
 /** Why an edit was refused, as a sentence rather than a code the page invents. */
 const REFUSALS = {
@@ -252,6 +383,13 @@ async function write(req, res, session) {
 
   const subjects = [subjectForUser('staff', session.user.id)];
   if (await limited(res, 'admin', subjects)) return;
+
+  if (HELPER_ACTIONS.includes(action)) {
+    if (!adminOnly(res, session)) return;
+    return await helperAction(res, session, action, body, () =>
+      recordFailures('admin', subjects, LIMITS.admin)
+    );
+  }
 
   const reportId = String(body.report_id ?? '');
   if (!isUuid(reportId)) return fail(res, ERR.BAD_REQUEST, 'That is not a report id.');
@@ -362,4 +500,99 @@ async function resolve(res, session, report, body, source, done) {
 
   const updated = await fetchReport(report.id, source);
   return ok(res, { report: updated });
+}
+
+/**
+ * Grant or revoke the helper role in one language, per 7i.
+ *
+ * **A reason is required in both directions**, which is one more than 7i asks
+ * for: it says granting requires one. Revoking gets the same requirement because
+ * of what a revoke does here — migration 023 has no revoked state, so the row is
+ * deleted and the audit row is the only record left that the role was ever held.
+ * 8.8 could afford an optional reason on the way in because its denied row
+ * survives to be read; this cannot.
+ *
+ * **A revoke does not need the account to still exist.** Deleting an applicant
+ * cascades their helper rows, so the ordinary case is handled by the database,
+ * but the row is what is being deleted here and reading the account first would
+ * turn a tidy up into a 404.
+ */
+async function helperAction(res, session, action, body, done) {
+  const userId = String(body.user_id ?? '');
+  if (!isUuid(userId)) return fail(res, ERR.BAD_REQUEST, 'That is not an account id.');
+
+  const locales = await activeLocales();
+  const locale = helperLocale(body.locale, locales);
+  if (!locale) {
+    return fail(res, ERR.BAD_REQUEST, 'That is not a language somebody can help with.', {
+      details: { locale: FIELD.INVALID },
+    });
+  }
+
+  const reason = validateText(body.reason, HELPER_REASON_MAX, { required: true });
+  if (!reason.ok) {
+    return fail(res, ERR.BAD_REQUEST, 'Say why, so whoever reads this list later knows.', {
+      details: { reason: reason.code },
+    });
+  }
+
+  if (action === 'revoke_helper') {
+    const removed = await revokeHelper(userId, locale);
+    if (!removed) {
+      return fail(res, ERR.NOT_FOUND, 'That account does not help with that language.');
+    }
+
+    await done();
+    await auditStaff(
+      session.user,
+      AUDIT.TRANSLATION_HELPER_REVOKED,
+      { locale },
+      {
+        targetTable: T.translationHelpers,
+        targetId: userId,
+        reason: reason.value,
+      }
+    );
+
+    return ok(res, { revoked: true, locale });
+  }
+
+  const account = await fetchHelperAccount(userId);
+  if (!account) return fail(res, ERR.NOT_FOUND, 'That account could not be found.');
+
+  // A deactivated account cannot sign in, so granting it the role would put
+  // somebody on the list who cannot open the helper area. Refused rather than
+  // warned about: 8.9 is where an account is reactivated, and doing it in the
+  // other order costs nothing.
+  if (!account.is_active) {
+    return fail(res, ERR.BAD_REQUEST, 'That account is deactivated. Reactivate it first.', {
+      details: { user_id: FIELD.INVALID, reason: 'account_deactivated' },
+    });
+  }
+
+  const existing = await fetchHelper(userId, locale);
+
+  await grantHelper({
+    userId,
+    locale,
+    note: reason.value,
+    staffId: session.user.id,
+  });
+
+  await done();
+  await auditStaff(
+    session.user,
+    AUDIT.TRANSLATION_HELPER_GRANTED,
+    // Whether this was a first grant or a rewritten reason, because the row
+    // itself no longer says: a second grant re-stamps granted_at, so the log is
+    // the only place the difference survives.
+    { locale, username: account.username, regranted: Boolean(existing) },
+    {
+      targetTable: T.translationHelpers,
+      targetId: userId,
+      reason: reason.value,
+    }
+  );
+
+  return ok(res, { granted: true, locale, regranted: Boolean(existing) });
 }

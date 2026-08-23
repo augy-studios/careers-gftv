@@ -47,13 +47,37 @@
 //   the team and tag pages, and every row carries the way through. Building a
 //   second editing surface here would be a second set of validation to keep in
 //   step with 8.2's.
+//
+// The third tab is 7i's other half: who is allowed to do this work. 8.11 puts it
+// here rather than in applicant users because "granting is what turns a
+// community member into a contributor, so it belongs beside the queue their work
+// arrives in".
+//
+//   **It is admins only, and the tab is absent rather than disabled**, per
+//   deviation 34. The panel is removed from the document for a job poster, not
+//   hidden, and the route refuses both actions regardless.
+//
+//   **A reason is required in both directions**, which is one more than 7i asks
+//   for. A revoke deletes the row, so the audit log is the only record left that
+//   somebody ever held the role.
+//
+//   **The counts beside a helper are that language's**, because the role is.
+//   Somebody granted two languages is two rows with two sets of numbers.
 
 import { api } from './api.js';
 import { t } from './i18n.js';
 import { escapeHtml } from './markdown.js';
 import { createDialog } from './dialog.js';
+import { confirmAction } from './danger-confirm.js';
 import { formatDate } from './format.js';
-import { mountAdminPage, adminMessage, emptyRow, runAction, adminLocales } from './admin-shell.js';
+import {
+  mountAdminPage,
+  adminMessage,
+  emptyRow,
+  runAction,
+  adminLocales,
+  isAdminUser,
+} from './admin-shell.js';
 
 const PATH = '/admin/translations';
 
@@ -67,8 +91,17 @@ const RESOLVED = ['fixed', 'rejected'];
 const TARGETS = ['job', 'department', 'tag', 'interface'];
 const ORIGINS = ['form', 'annotation'];
 
-/** The two halves of 8.11, as tabs. */
-const TABS = ['queue', 'audit'];
+/**
+ * The two halves of 8.11, plus 7i's roster.
+ *
+ * The third is admins only and is filtered out of this list for everybody else
+ * by availableTabs, which is what stops a job poster reaching it by typing
+ * ?tab=helpers as well as by clicking.
+ */
+const TABS = ['queue', 'audit', 'helpers'];
+
+/** How long to wait after a keystroke before searching for somebody. */
+const SEARCH_DELAY = 250;
 
 /**
  * Migration 032's three states, and the three things it audits.
@@ -87,16 +120,27 @@ let payload = null;
 let state = { status: '', locale: '', target: '', origin: '', page: 1 };
 let auditPayload = null;
 let auditState = { locale: '', target: '', state: '', page: 1 };
+let helperPayload = null;
+let helperState = { locale: '', page: 1 };
 let tab = 'queue';
 let detailDialog = null;
+let helperPicker = null;
+let searchTimer = 0;
 
 async function boot() {
   const context = await mountAdminPage({ current: PATH });
   if (!context) return;
 
+  // Deviation 34: an admin only control is absent, never disabled. Removed
+  // rather than hidden, so nothing in it is reachable by a keyboard, by a find
+  // in page, or by an accessibility tree that ignores an aria-hidden it cannot
+  // see. The route refuses regardless.
+  if (!isAdminUser()) document.querySelector('#helpersPanel')?.remove();
+
   readStateFromUrl();
   drawFilters();
   drawAuditFilters();
+  drawHelperFilters();
   applyTabVisibility();
   drawTabs();
 
@@ -121,15 +165,38 @@ async function boot() {
     runAction(loadAudit, 'needs translation load');
   });
 
+  document.querySelector('#helperFilters')?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    helperState.locale = document.querySelector('#helperLocale').value;
+    helperState.page = 1;
+    writeStateToUrl();
+    runAction(loadHelpers, 'translation helpers load');
+  });
+
+  document.querySelector('#grantHelper')?.addEventListener('click', () => openHelperPicker());
+
   await loadCurrentTab();
 
   document.addEventListener('gftv:localechange', () => {
     drawFilters();
     drawAuditFilters();
+    drawHelperFilters();
     drawTabs();
     draw();
     drawAudit();
+    drawHelpers();
   });
+}
+
+/**
+ * The tabs this caller has.
+ *
+ * A job poster gets two. The third is filtered out here rather than only in the
+ * strip, so ?tab=helpers in the address bar lands on the queue instead of on an
+ * empty panel that then asks the route a question it will refuse.
+ */
+function availableTabs() {
+  return TABS.filter((name) => name !== 'helpers' || isAdminUser());
 }
 
 function readStateFromUrl() {
@@ -141,7 +208,7 @@ function readStateFromUrl() {
 
   const page = Math.max(1, Number(search.get('page')) || 1);
 
-  tab = pick('tab', TABS) || 'queue';
+  tab = pick('tab', availableTabs()) || 'queue';
 
   state = {
     // 'all' is not a status. It is the way out of the default view, which shows
@@ -168,6 +235,8 @@ function readStateFromUrl() {
     state: pick('state', AUDIT_STATES),
     page,
   };
+
+  helperState = { locale: search.get('locale') ?? '', page };
 }
 
 function writeStateToUrl() {
@@ -179,6 +248,10 @@ function writeStateToUrl() {
       if (auditState[name]) search.set(name, auditState[name]);
     }
     if (auditState.page > 1) search.set('page', String(auditState.page));
+  } else if (tab === 'helpers') {
+    search.set('tab', 'helpers');
+    if (helperState.locale) search.set('locale', helperState.locale);
+    if (helperState.page > 1) search.set('page', String(helperState.page));
   } else {
     for (const name of ['status', 'locale', 'target', 'origin']) {
       if (state[name]) search.set(name, state[name]);
@@ -217,7 +290,8 @@ function drawTabs() {
     // Open reports, which is what the sidebar badge counts too.
     { name: 'queue', id: 'tabQueue', key: 'admin.tabReports', count: payload?.counts?.open },
     { name: 'audit', id: 'tabAudit', key: 'admin.tabAudit', count: auditPayload?.total },
-  ];
+    { name: 'helpers', id: 'tabHelpers', key: 'admin.tabHelpers', count: helperPayload?.total },
+  ].filter((entry) => availableTabs().includes(entry.name));
 
   holder.innerHTML = counts
     .map(
@@ -265,12 +339,16 @@ function drawTabs() {
 function applyTabVisibility() {
   const queuePanel = document.querySelector('#queuePanel');
   const auditPanel = document.querySelector('#auditPanel');
+  // Absent altogether for a job poster, which is why this is optional rather
+  // than a panel that is always there and always hidden.
+  const helpersPanel = document.querySelector('#helpersPanel');
   if (queuePanel) queuePanel.hidden = tab !== 'queue';
   if (auditPanel) auditPanel.hidden = tab !== 'audit';
+  if (helpersPanel) helpersPanel.hidden = tab !== 'helpers';
 }
 
 function selectTab(name) {
-  if (!TABS.includes(name) || name === tab) return;
+  if (!availableTabs().includes(name) || name === tab) return;
 
   tab = name;
   writeStateToUrl();
@@ -287,7 +365,9 @@ function selectTab(name) {
  * before those edits is the wrong one.
  */
 function loadCurrentTab() {
-  return tab === 'audit' ? loadAudit() : load();
+  if (tab === 'audit') return loadAudit();
+  if (tab === 'helpers') return loadHelpers();
+  return load();
 }
 
 /**
@@ -397,7 +477,7 @@ function draw() {
           <th scope="col">${escapeHtml(t('admin.colLanguage'))}</th>
           <th scope="col">${escapeHtml(t('admin.colReport'))}</th>
           <th scope="col">${escapeHtml(t('admin.colStatus'))}</th>
-          <th scope="col">${escapeHtml(t('admin.colRaised'))}</th>
+          <th scope="col">${escapeHtml(t('admin.colReported'))}</th>
           <th scope="col"><span class="visually-hidden">${escapeHtml(
             t('admin.colActions')
           )}</span></th>
@@ -771,6 +851,426 @@ function drawAuditPager() {
     loadAudit,
     'needs translation page'
   );
+}
+
+/* -------------------------------------------------------------------------
+ * Translation helpers, per 7i
+ * ---------------------------------------------------------------------- */
+
+/**
+ * The one filter this tab has.
+ *
+ * The same language list the audit offers, and for the same reason: the default
+ * language is what everything is translated from, 014 refuses a translation row
+ * for it, and a helper in English would hold a role over nothing. Unlike the
+ * audit this one has an "any language" option, because the list is of people
+ * rather than of work and "who helps us at all" is a question somebody asks.
+ */
+function drawHelperFilters() {
+  const select = document.querySelector('#helperLocale');
+  if (!select) return;
+
+  const list = [
+    { value: '', label: t('admin.anyLanguage') },
+    ...grantableLocales().map((locale) => ({ value: locale.code, label: locale.native_name })),
+  ];
+
+  select.innerHTML = list
+    .map(
+      (entry) =>
+        `<option value="${escapeHtml(entry.value)}"${
+          entry.value === helperState.locale ? ' selected' : ''
+        }>${escapeHtml(entry.label)}</option>`
+    )
+    .join('');
+}
+
+/** Every language somebody can be granted: active, and not the default one. */
+function grantableLocales() {
+  return adminLocales().filter((locale) => !locale.is_default);
+}
+
+async function loadHelpers() {
+  const search = new URLSearchParams({ view: 'helpers' });
+  if (helperState.locale) search.set('locale', helperState.locale);
+  search.set('page', String(helperState.page));
+
+  const result = await api(`/api/admin/translations?${search.toString()}`);
+
+  if (!result.ok) {
+    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    return;
+  }
+
+  helperPayload = result.data;
+  drawHelpers();
+  drawTabs();
+}
+
+function drawHelpers() {
+  const list = document.querySelector('#helperList');
+  if (!list || !helperPayload) return;
+
+  // No second language configured, which is the same real state the audit
+  // handles: there is nobody to grant anything to yet, and the grant button
+  // would open a picker with an empty language select.
+  if (grantableLocales().length === 0) {
+    list.innerHTML = emptyRow(t('admin.auditNeedsSecondLanguage'));
+    document.querySelector('#grantHelper')?.setAttribute('hidden', '');
+    return;
+  }
+
+  const rows = helperPayload.helpers ?? [];
+
+  if (rows.length === 0) {
+    list.innerHTML = emptyRow(
+      helperState.locale
+        ? t('admin.noHelpersInLanguage', { language: localeName(helperState.locale) })
+        : t('admin.noHelpers')
+    );
+    drawHelperPager();
+    return;
+  }
+
+  list.innerHTML = `
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th scope="col">${escapeHtml(t('admin.colHelper'))}</th>
+          <th scope="col">${escapeHtml(t('admin.colLanguage'))}</th>
+          <th scope="col">${escapeHtml(t('admin.colDrafted'))}</th>
+          <th scope="col">${escapeHtml(t('admin.colReported'))}</th>
+          <th scope="col">${escapeHtml(t('admin.colGranted'))}</th>
+          <th scope="col"><span class="visually-hidden">${escapeHtml(
+            t('admin.colActions')
+          )}</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(helperRowMarkup).join('')}
+      </tbody>
+    </table>`;
+
+  list.querySelectorAll('[data-helper]').forEach((row) => {
+    const key = row.getAttribute('data-helper');
+    const helper = rows.find((entry) => `${entry.user_id}|${entry.locale}` === key);
+    if (!helper) return;
+
+    row.querySelector('[data-revoke]')?.addEventListener('click', () => {
+      runAction(() => revoke(helper), 'revoke helper');
+    });
+  });
+
+  drawHelperPager();
+}
+
+function helperRowMarkup(helper) {
+  const name = helper.applicant?.display_name ?? t('admin.deletedAccount');
+  const username = helper.applicant?.username ?? '';
+
+  return `
+    <tr data-helper="${escapeHtml(`${helper.user_id}|${helper.locale}`)}">
+      <td>
+        <span class="admin-row-title">${escapeHtml(name)}</span>
+        <span class="admin-sub muted">${
+          username ? escapeHtml(`@${username}`) : ''
+        }${
+          helper.applicant && !helper.applicant.is_active
+            ? ` &middot; ${escapeHtml(t('admin.helperDeactivated'))}`
+            : ''
+        }</span>
+      </td>
+      <td>${escapeHtml(localeName(helper.locale))}</td>
+      <td class="tabular">${escapeHtml(countLabel(helper.drafted))}</td>
+      <td class="tabular">${escapeHtml(countLabel(helper.raised))}${
+        helper.raised_open
+          ? ` <span class="admin-sub muted">${escapeHtml(
+              t('admin.helperOpenReports', { count: helper.raised_open })
+            )}</span>`
+          : ''
+      }</td>
+      <td>
+        <span class="tabular">${escapeHtml(formatDate(helper.granted_at))}</span>
+        <span class="admin-sub muted">${escapeHtml(
+          helper.granted_by
+            ? t('admin.grantedBy', { who: helper.granted_by })
+            : t('admin.grantedByGone')
+        )}</span>
+      </td>
+      <td class="admin-row-actions">
+        <button type="button" class="btn btn-quiet small" data-revoke>${escapeHtml(
+          t('admin.revokeHelper')
+        )}</button>
+      </td>
+    </tr>`;
+}
+
+/**
+ * A count, or a dash when it could not be read.
+ *
+ * Never a zero for an unknown. Zero in the drafted column is a claim that
+ * somebody has done nothing, which is the one thing on this page an admin might
+ * act on, and a failed count is not entitled to make it.
+ */
+function countLabel(value) {
+  return value === null || value === undefined ? '—' : String(value);
+}
+
+function drawHelperPager() {
+  drawPagerInto(
+    '#helperPager',
+    helperState,
+    helperPayload?.pages ?? 1,
+    loadHelpers,
+    'translation helpers page'
+  );
+}
+
+/* -------------------------------------------------------------------------
+ * Granting and revoking
+ * ---------------------------------------------------------------------- */
+
+/**
+ * Find somebody and grant them the role.
+ *
+ * The language is chosen in the same dialog as the person, and before them: the
+ * role is granted per language, so "who" is not a complete answer and a picker
+ * that asked for it alone would have to ask again afterwards.
+ *
+ * The search is the invite picker's, which shows a name, a username, and a
+ * picture and nothing else. That is deliberate on both pages: enough to be sure
+ * you have the right person, and no account detail, which is 8.9's and is admins
+ * only for reasons of its own.
+ */
+function openHelperPicker() {
+  const locales = grantableLocales();
+  if (locales.length === 0) return;
+
+  helperPicker = createDialog({
+    id: 'helperPicker',
+    titleKey: 'admin.grantHelper',
+    className: 'admin-composer-dialog',
+    bodyHtml: `
+      <div class="modal-body">
+        <p class="muted">${escapeHtml(t('admin.grantHelperBody'))}</p>
+
+        <div class="field">
+          <label for="grantLocale">${escapeHtml(t('admin.helperLanguage'))}</label>
+          <select id="grantLocale">${locales
+            .map(
+              (locale) =>
+                `<option value="${escapeHtml(locale.code)}"${
+                  locale.code === helperState.locale ? ' selected' : ''
+                }>${escapeHtml(locale.native_name)}</option>`
+            )
+            .join('')}</select>
+        </div>
+
+        <div class="field">
+          <label for="helperSearch">${escapeHtml(t('admin.findPeople'))}</label>
+          <input id="helperSearch" type="search" autocomplete="off" data-autofocus>
+        </div>
+
+        <div id="helperResults" class="admin-people" aria-live="polite"></div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-quiet" data-close-dialog>${escapeHtml(
+            t('danger.cancel')
+          )}</button>
+        </div>
+      </div>`,
+  });
+
+  const search = helperPicker.element.querySelector('#helperSearch');
+
+  search?.addEventListener('input', () => {
+    window.clearTimeout(searchTimer);
+    searchTimer = window.setTimeout(() => {
+      runAction(() => searchApplicants(search.value), 'helper search');
+    }, SEARCH_DELAY);
+  });
+
+  // Changing the language redraws the results, because the "already a helper"
+  // badge on each of them is about the language chosen. A badge left over from
+  // the previous choice would say somebody holds a role they do not.
+  helperPicker.element.querySelector('#grantLocale')?.addEventListener('change', () => {
+    if (search?.value.trim()) runAction(() => searchApplicants(search.value), 'helper search');
+  });
+
+  helperPicker.open();
+}
+
+async function searchApplicants(term) {
+  const holder = helperPicker?.element.querySelector('#helperResults');
+  if (!holder) return;
+
+  if (!term.trim()) {
+    holder.innerHTML = '';
+    return;
+  }
+
+  const result = await api(
+    `/api/admin/translations?view=helpers&search=${encodeURIComponent(term)}`
+  );
+
+  if (!result.ok) {
+    holder.innerHTML = emptyRow(result.error?.message ?? t('error.unexpected'));
+    return;
+  }
+
+  const found = result.data.applicants ?? [];
+
+  if (found.length === 0) {
+    holder.innerHTML = emptyRow(t('admin.noPeopleFound'));
+    return;
+  }
+
+  const locale = helperPicker.element.querySelector('#grantLocale')?.value ?? '';
+
+  holder.innerHTML = found
+    .map((applicant) => {
+      // Already a helper in the language currently chosen, as the route says
+      // rather than as this page could guess: the list behind it is paged and
+      // may be filtered to one language, so somebody granted on page two would
+      // read as new. Granting again is allowed and rewrites the reason, so this
+      // is a note rather than a block: what it stops is an admin adding
+      // somebody twice without noticing.
+      const already = (applicant.helps_with ?? []).includes(locale);
+
+      return `
+        <div class="admin-person">
+          <span class="admin-person-name">${escapeHtml(
+            applicant.display_name ?? applicant.username
+          )}</span>
+          <span class="muted">${escapeHtml(`@${applicant.username}`)}</span>
+          ${
+            already
+              ? `<span class="badge badge-open">${escapeHtml(t('admin.alreadyAHelper'))}</span>`
+              : ''
+          }
+          <button type="button" class="btn btn-secondary small"
+                  data-grant="${escapeHtml(applicant.id)}">${escapeHtml(
+                    t('admin.grantTheRole')
+                  )}</button>
+        </div>`;
+    })
+    .join('');
+
+  holder.querySelectorAll('[data-grant]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const applicant = found.find((row) => row.id === button.getAttribute('data-grant'));
+      if (!applicant) return;
+
+      // The language is read at click time rather than at draw time, so
+      // changing the select after searching grants what is on screen now.
+      const chosen = helperPicker.element.querySelector('#grantLocale')?.value ?? locale;
+      helperPicker.close();
+      runAction(() => grant(applicant, chosen), 'grant helper');
+    });
+  });
+}
+
+/**
+ * Grant the role, after asking why.
+ *
+ * The reason is checked here as well as at the route. The route is the one that
+ * decides, but a request that comes back refused after the dialog has closed
+ * costs somebody the sentence they typed, and confirmAction has no required
+ * field of its own to lean on.
+ */
+async function grant(applicant, locale) {
+  const language = localeName(locale);
+  const name = applicant.display_name ?? applicant.username;
+
+  const answer = await confirmAction({
+    title: t('admin.confirmGrantHelper', { name, language }),
+    body: t('admin.confirmGrantHelperBody', { language }),
+    consequences: [t('admin.helperCannotPublish'), t('admin.helperEditsEverything', { language })],
+    confirmLabel: t('admin.grantTheRole'),
+    field: {
+      label: t('admin.reasonRequired'),
+      hint: t('admin.helperReasonHint'),
+      multiline: true,
+      maxLength: 300,
+    },
+  });
+
+  if (answer === null) return;
+
+  if (!answer.value) {
+    adminMessage('error', t('admin.helperReasonNeeded'));
+    return;
+  }
+
+  const result = await api('/api/admin/translations', {
+    method: 'POST',
+    body: {
+      action: 'grant_helper',
+      user_id: applicant.id,
+      locale,
+      reason: answer.value,
+    },
+  });
+
+  if (!result.ok) {
+    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    return;
+  }
+
+  adminMessage('ok', t('admin.helperGranted', { name, language }));
+  await loadHelpers();
+}
+
+/**
+ * Take the role away.
+ *
+ * Not a three step confirmation. 7g fixes those for what cannot be undone, and
+ * this can: the row is deleted, and granting it again is one dialog. What is
+ * genuinely lost is why they were on the list, which is exactly what the
+ * required reason and the audit row preserve.
+ */
+async function revoke(helper) {
+  const language = localeName(helper.locale);
+  const name = helper.applicant?.display_name ?? t('admin.deletedAccount');
+
+  const answer = await confirmAction({
+    title: t('admin.confirmRevokeHelper', { name, language }),
+    body: t('admin.confirmRevokeHelperBody', { language }),
+    consequences: [t('admin.revokeKeepsTranslations'), t('admin.revokeIsLoggedOnly')],
+    confirmLabel: t('admin.revokeHelper'),
+    danger: true,
+    field: {
+      label: t('admin.reasonRequired'),
+      hint: t('admin.revokeReasonHint'),
+      multiline: true,
+      maxLength: 300,
+    },
+  });
+
+  if (answer === null) return;
+
+  if (!answer.value) {
+    adminMessage('error', t('admin.helperReasonNeeded'));
+    return;
+  }
+
+  const result = await api('/api/admin/translations', {
+    method: 'POST',
+    body: {
+      action: 'revoke_helper',
+      user_id: helper.user_id,
+      locale: helper.locale,
+      reason: answer.value,
+    },
+  });
+
+  if (!result.ok) {
+    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    return;
+  }
+
+  adminMessage('ok', t('admin.helperRevoked', { name, language }));
+  await loadHelpers();
 }
 
 /* -------------------------------------------------------------------------
