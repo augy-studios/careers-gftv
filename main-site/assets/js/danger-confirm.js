@@ -38,8 +38,18 @@ const FOCUSABLE =
  *   confirmLabel: string,
  *   username: string,
  *   irreversible?: string,
- *   skipPassword?: boolean
+ *   skipPassword?: boolean,
+ *   skipUsername?: boolean
  * }} options
+ *   skipUsername drops step 2, so the steps are "read what this does" and
+ *   "prove it is you". Added 23 August 2026, when deviation 38 was reversed: an
+ *   admin deleting somebody else's posting or account types their own password
+ *   rather than the slug or username of the thing being deleted. The password
+ *   is the stronger of the two, because typing an identifier proves you can
+ *   read the row in front of you and a password proves who you are. The
+ *   applicant's own danger zone passes neither flag and still walks all three
+ *   steps, per 7g.
+ *
  *   skipPassword drops step 3 and resolves with a null password. It is for an
  *   action that is serious enough to need reading and typing but is not a
  *   credentialled one, which in this build means withdrawing an application:
@@ -53,7 +63,13 @@ const FOCUSABLE =
 export function confirmDangerousAction(options) {
   return new Promise((resolve) => {
     const previousFocus = document.activeElement;
-    const totalSteps = options.skipPassword ? 2 : 3;
+    // Which steps this run actually shows. Two of the three are optional and
+    // never both: an action asking for neither an identifier nor a password
+    // would be an ordinary "are you sure", which is what confirmAction is for.
+    const steps = [1, options.skipUsername ? null : 2, options.skipPassword ? null : 3].filter(
+      (value) => value !== null
+    );
+    const totalSteps = steps.length;
     let step = 1;
 
     const wrap = document.createElement('div');
@@ -125,8 +141,14 @@ export function confirmDangerousAction(options) {
         section.hidden = Number(section.getAttribute('data-step')) !== step;
       });
 
-      stepLabel.textContent = t('danger.stepOf', { step, total: totalSteps });
-      advance.textContent = step === totalSteps ? options.confirmLabel : t('danger.continue');
+      // Its position among the steps being shown, not its number in the full
+      // sequence, so a password step reads as "step 2 of 2" rather than 3 of 2.
+      stepLabel.textContent = t('danger.stepOf', {
+        step: steps.indexOf(step) + 1,
+        total: totalSteps,
+      });
+      advance.textContent =
+        step === steps[steps.length - 1] ? options.confirmLabel : t('danger.continue');
 
       const focusTarget =
         step === 2 ? usernameInput : step === 3 ? passwordInput : advance;
@@ -142,7 +164,16 @@ export function confirmDangerousAction(options) {
 
     advance.addEventListener('click', () => {
       if (step === 1) {
-        step = 2;
+        step = options.skipUsername ? 3 : 2;
+
+        // Both skipped. Not reachable from anything in this build, and handled
+        // so that a caller passing both flags gets a confirmation rather than a
+        // dialog with no way forward.
+        if (options.skipUsername && options.skipPassword) {
+          close({ password: null });
+          return;
+        }
+
         render();
         return;
       }

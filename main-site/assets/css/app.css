@@ -4756,3 +4756,18 @@ ul.field-hint {
 .admin-history li .tabular {
   margin-left: auto;
 }
+
+/* The generated password and how it leaves the page, 8.9. Masked, with the copy
+   button beside it rather than under it: the two are one action. */
+.password-handoff {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.password-handoff input {
+  flex: 1 1 14rem;
+  font-family: var(--font-mono, monospace);
+  letter-spacing: 0.05em;
+}

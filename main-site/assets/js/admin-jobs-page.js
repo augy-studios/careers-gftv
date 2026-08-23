@@ -387,22 +387,24 @@ async function remove(job) {
     title: t('admin.deleteJobTitle', { title: job.title }),
     consequences,
     confirmLabel: t('admin.deleteJobConfirm'),
-    // The slug rather than the title: a title is easy to copy by accident from
-    // the row above, and a slug has to be read off the posting being deleted.
     username: job.slug,
     irreversible: t('admin.deleteJobIrreversible'),
-    // Nothing here verifies a password, and the endpoint does not ask for one:
-    // the caller is already a staff session with is_admin, re-checked on the
-    // request. What the third step would add is a second prompt for the same
-    // credential the session already proves.
-    skipPassword: true,
+    // **Deviation 38 reversed, 23 August 2026.** This used to ask for the
+    // posting's slug and no password, on the argument that the session already
+    // proves who the caller is. It does, and that is the wrong thing for this
+    // step to prove: a session is a cookie in a browser somebody may have
+    // walked away from, and permanent deletion destroys funnel history that
+    // 8.4 depends on. The password is asked for here and verified server side
+    // in the same request as the delete, never as a separate "was that right"
+    // call, per 7g.
+    skipUsername: true,
   });
 
   if (!confirmed) return;
 
   const result = await api('/api/admin/jobs', {
     method: 'POST',
-    body: { action: 'delete', id: job.id, confirm: job.slug },
+    body: { action: 'delete', id: job.id, password: confirmed.password },
   });
 
   if (!result.ok) {

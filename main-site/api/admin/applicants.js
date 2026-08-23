@@ -24,15 +24,15 @@
 //   **Forcing a reset and unlinking Telegram require one**, per 8.9: "both
 //   logged with the admin's id and a required reason".
 //
-//   **Deleting does not require one.** It is behind 7g's three step
-//   confirmation instead, where the admin types the account's username exactly,
-//   which is a stronger guard than a sentence somebody satisfies with a full
-//   stop. The reason is recorded when it is given.
+//   **Deleting does not require one.** It is behind the confirmation instead,
+//   where the admin types their own password, which is a stronger guard than a
+//   sentence somebody satisfies with a full stop. The reason is recorded when
+//   it is given.
 //
-// The three step confirmation from 7g is the client's, in danger-confirm.js,
-// and what this end re-checks is the part a browser cannot be trusted with: the
-// typed username has to match the account being deleted. Reaching step three in
-// a browser proves nothing here.
+// The confirmation is the client's, in danger-confirm.js, and what this end
+// re-checks is the part a browser cannot be trusted with: the admin's own
+// password, verified against the bcrypt hash in the same request as the delete.
+// Reaching the last step in a browser proves nothing here.
 
 import { ok, fail, ERR, methodNotAllowed, failInternal, readJson } from '../_lib/respond.js';
 import { T } from '../_lib/supabase.js';
@@ -41,7 +41,15 @@ import { AUDIT, auditStaff, recordAudit } from '../_lib/audit.js';
 import { FIELD, validateText } from '../_lib/validate.js';
 import { checkPasswordStrength } from '../_lib/password.js';
 import { unavailable } from '../_lib/maintenance.js';
-import { LIMITS, limited, recordFailures, subjectForUser } from '../_lib/rate-limit.js';
+import {
+  LIMITS,
+  limited,
+  recordFailures,
+  clearAll,
+  subjectForUser,
+  subjectForIp,
+} from '../_lib/rate-limit.js';
+import { verifyRealmPassword } from '../_lib/accounts.js';
 import {
   PAGE_SIZE,
   listApplicants,
@@ -180,7 +188,7 @@ async function write(req, res, session) {
     case 'unlink_telegram':
       return unlink(res, session, account, detail.telegram, reason.value, done);
     default:
-      return remove(res, session, account, body, reason.value, done);
+      return remove(req, res, session, account, body, reason.value, done);
   }
 }
 
@@ -281,24 +289,35 @@ async function unlink(res, session, account, telegram, reason, done) {
 /**
  * Delete an account permanently.
  *
- * Step two of 7g's confirmation, re-checked: the admin types the account's
- * username exactly. Not their own, and not the display name, which is easy to
- * copy off the row above by accident. The same rule 8.2 applies to deleting a
- * posting by its slug.
+ * **The admin types their own password, and this verifies it**, per the
+ * reversal of deviation 38 on 23 August 2026. Typing the account's username
+ * proved only that the person could read the row in front of them; this
+ * destroys somebody else's history, and the last step should prove who is
+ * doing it. Verified in the same request as the deletion, never through a
+ * separate endpoint answering "that password was correct", which 7g forbids.
  *
  * The audit row is written before the delete and carries the staff realm, so
  * the log distinguishes "this person deleted their own account" from "an admin
  * deleted it". Both are `account_deleted`, because they are the same event from
  * the account's point of view, and the actor is what tells them apart.
  */
-async function remove(res, session, account, body, reason, done) {
-  const typed = String(body.confirm_username ?? '').trim();
+async function remove(req, res, session, account, body, reason, done) {
+  // The danger bucket and its hour long lock, per 7g. The same shape the
+  // applicant's own danger zone uses, applied to a staff session being guessed
+  // at, and checked before the bcrypt round so a locked out caller costs
+  // nothing.
+  const dangerSubjects = [subjectForUser('staff', session.user.id), subjectForIp(req)];
+  if (await limited(res, 'danger', dangerSubjects)) return;
 
-  if (typed !== account.username) {
-    return fail(res, ERR.BAD_REQUEST, 'That username did not match.', {
-      details: { confirm_username: FIELD.INVALID },
+  const correct = await verifyRealmPassword('staff', session.user.id, body.password);
+  if (!correct) {
+    await recordFailures('danger', dangerSubjects, LIMITS.danger);
+    return fail(res, ERR.UNAUTHORISED, 'That password was not right.', {
+      details: { password: FIELD.INVALID },
     });
   }
+
+  await clearAll('danger', dangerSubjects);
 
   await recordAudit({
     realm: 'staff',

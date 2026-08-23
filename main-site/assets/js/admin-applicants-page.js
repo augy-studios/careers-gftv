@@ -506,19 +506,68 @@ async function unlinkTelegram(account, telegram) {
 }
 
 /**
+ * The alphabet a generated password is drawn from.
+ *
+ * Alphanumeric, minus the characters people confuse when reading one out: no
+ * capital O against zero, and no capital I or lowercase l against one. It is
+ * meant to be copied rather than read, and this is for the times the copy fails
+ * and somebody has to say it down a phone.
+ */
+const PASSWORD_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+
+/** How long a generated password is. Well past the 10 character minimum. */
+const PASSWORD_LENGTH = 16;
+
+/**
+ * A password nobody chose.
+ *
+ * crypto.getRandomValues rather than Math.random, and rejection sampling rather
+ * than a modulo, so every character is equally likely. A modulo over a 256 value
+ * byte with a 56 character alphabet would make the first 32 letters slightly
+ * more common than the rest, which is a small bias in a password that is one of
+ * two things standing between an account and whoever is guessing at it.
+ */
+function generatePassword() {
+  const out = [];
+  const bytes = new Uint8Array(PASSWORD_LENGTH * 2);
+
+  while (out.length < PASSWORD_LENGTH) {
+    window.crypto.getRandomValues(bytes);
+    for (const byte of bytes) {
+      if (out.length >= PASSWORD_LENGTH) break;
+      if (byte >= 256 - (256 % PASSWORD_ALPHABET.length)) continue;
+      out.push(PASSWORD_ALPHABET[byte % PASSWORD_ALPHABET.length]);
+    }
+  }
+
+  return out.join('');
+}
+
+/**
  * Set somebody's password.
  *
- * Two fields and a warning, in its own dialog rather than through confirmAction,
- * because this one needs a password box and a reason box together and the shared
- * confirmation carries one field by design.
+ * **The admin does not choose it.** Sixteen random characters are generated in
+ * the browser, shown masked, and handed over with a copy button. Three reasons,
+ * and the third is the one that decided it:
  *
- * The password is shown as typed rather than masked. It has to be read aloud or
- * copied to the person it belongs to, and an admin who cannot see what they
- * typed is an admin who hands over a typo. Nothing is echoed back afterwards:
- * only a bcrypt hash is stored, so there is nothing to show later even if the
- * page wanted to.
+ *   A password somebody types for another person is a password they have seen
+ *   and will remember, and often a pattern they use elsewhere.
+ *
+ *   A generated one cannot be a typo. The person on the other end is already
+ *   locked out; handing them a password with a wrong character locks them out
+ *   twice.
+ *
+ *   Masked, because this is an admin screen that may be shared or looked over.
+ *   The copy button is how it leaves the page. If the clipboard refuses, and it
+ *   does in some browsers without a user gesture it trusts, the field is
+ *   revealed rather than leaving somebody with nothing to pass on.
+ *
+ * Nothing is echoed back afterwards: only a bcrypt hash is stored, so there is
+ * nothing to show later even if the page wanted to.
  */
 async function setPassword(account) {
+  const generated = generatePassword();
+
   const dialog = createDialog({
     id: 'setPasswordDialog',
     titleKey: 'admin.setPassword',
@@ -534,7 +583,16 @@ async function setPassword(account) {
           <label for="newPassword">${escapeHtml(
             t('admin.newPasswordFor', { name: account.display_name })
           )}</label>
-          <input id="newPassword" type="text" autocomplete="off" data-autofocus>
+          <div class="password-handoff">
+            <input id="newPassword" type="password" readonly
+                   value="${escapeHtml(generated)}" autocomplete="off">
+            <button type="button" class="btn btn-secondary small" data-copy>${escapeHtml(
+              t('admin.copyPassword')
+            )}</button>
+            <button type="button" class="btn btn-quiet small" data-regenerate>${escapeHtml(
+              t('admin.regeneratePassword')
+            )}</button>
+          </div>
           <p class="field-hint">${escapeHtml(t('admin.newPasswordHint'))}</p>
           <p class="field-error" data-error-for="password" hidden></p>
         </div>
@@ -557,6 +615,30 @@ async function setPassword(account) {
       </div>`,
   });
 
+  const field = dialog.element.querySelector('#newPassword');
+
+  dialog.element.querySelector('[data-copy]')?.addEventListener('click', () => {
+    runAction(async () => {
+      try {
+        await navigator.clipboard.writeText(field.value);
+        adminMessage('ok', t('admin.passwordCopied'));
+      } catch {
+        // Blocked, or no clipboard at all over plain http. Showing it is the
+        // fallback: an admin who can neither copy nor read the password has
+        // nothing to hand over, which is worse than a value on screen they
+        // asked for.
+        field.type = 'text';
+        field.select();
+        adminMessage('error', t('admin.passwordCopyFailed'));
+      }
+    }, 'copy password');
+  });
+
+  dialog.element.querySelector('[data-regenerate]')?.addEventListener('click', () => {
+    field.value = generatePassword();
+    field.type = 'password';
+  });
+
   dialog.element.querySelector('[data-save]')?.addEventListener('click', () => {
     runAction(async () => {
       const root = dialog.element;
@@ -570,7 +652,7 @@ async function setPassword(account) {
         body: {
           action: 'set_password',
           applicant_id: account.id,
-          password: root.querySelector('#newPassword').value,
+          password: field.value,
           reason: root.querySelector('#passwordReason').value.trim(),
         },
       });
@@ -616,16 +698,16 @@ async function remove(account) {
       t('admin.deleteConsequenceForms'),
     ],
     confirmLabel: t('admin.deleteAccount'),
-    // Their username, typed exactly. Not the display name, which is easy to
-    // copy off the row above by accident, and not the admin's own.
     username: account.username,
     irreversible: t('admin.deleteConsequenceIrreversible'),
-    // The same call deviation 38 made for deleting a posting: the caller is
-    // already a staff session with is_admin, re-checked on the request, so the
-    // third step would be a second prompt for the credential the session
-    // already proves. The applicant's own danger zone still asks for all three,
-    // because there the password is what proves it is them.
-    skipPassword: true,
+    // **Deviation 38 reversed, 23 August 2026.** Deleting somebody else's
+    // account asks for the admin's own password rather than for the account's
+    // username. Typing a username proves you can read the row in front of you;
+    // a password proves who you are, and this is a staff member destroying
+    // somebody else's history. The endpoint verifies it against the bcrypt hash
+    // in the same request as the deletion, per 7g's rule that a client side
+    // "the password was correct" signal is never accepted.
+    skipUsername: true,
   });
 
   if (!confirmed) return;
@@ -634,7 +716,7 @@ async function remove(account) {
     {
       action: 'delete',
       applicant_id: account.id,
-      confirm_username: account.username,
+      password: confirmed.password,
       reason: null,
     },
     'admin.accountDeleted',

@@ -57,7 +57,15 @@ import {
   publishBlockers,
   deletionImpact,
 } from '../_lib/admin-jobs.js';
-import { LIMITS, limited, recordFailures, subjectForUser } from '../_lib/rate-limit.js';
+import {
+  LIMITS,
+  limited,
+  recordFailures,
+  clearAll,
+  subjectForUser,
+  subjectForIp,
+} from '../_lib/rate-limit.js';
+import { verifyRealmPassword } from '../_lib/accounts.js';
 
 export default async function handler(req, res) {
   if (methodNotAllowed(req, res, ['GET', 'HEAD', 'POST'])) return;
@@ -191,7 +199,7 @@ async function write(req, res, session) {
     case 'duplicate':
       return duplicateJob(res, session, body, done);
     default:
-      return deleteJob(res, session, body, done);
+      return deleteJob(req, res, session, body, done);
   }
 }
 
@@ -501,15 +509,22 @@ async function duplicateJob(res, session, body, done) {
 /**
  * Permanent deletion. Admins only, per 8.2.
  *
- * The client puts it behind the three step confirmation from 7g, and this
- * re-checks the role and asks for the slug to have been typed, so a request
- * arriving without the interface still cannot delete a posting by id alone.
+ * **The caller types their own password, and this verifies it.** Deviation 38
+ * used to say the opposite: the slug typed exactly, and no password, because
+ * the session already proves who is asking. It does, and that turned out to be
+ * the wrong thing for the last step to prove. A session is a cookie in a
+ * browser somebody may have walked away from, and this endpoint destroys the
+ * funnel history 8.4 depends on. Reversed on 23 August 2026.
+ *
+ * Verified here, in the same request as the deletion, never through a separate
+ * endpoint that answers "the password was correct". 7g forbids that shape and
+ * api/account/danger/delete.js is the other place that follows the rule.
  *
  * The audit row is written before the delete, per 7g and the note in migration
  * 012: actor_id has no foreign key precisely so a record can outlive what it
  * describes, and the row here has to outlive the posting.
  */
-async function deleteJob(res, session, body, done) {
+async function deleteJob(req, res, session, body, done) {
   if (!isAdmin(session.user)) {
     return fail(res, ERR.FORBIDDEN, 'Only an admin can permanently delete a posting.');
   }
@@ -526,14 +541,21 @@ async function deleteJob(res, session, body, done) {
   if (readError) throw readError;
   if (!job) return fail(res, ERR.NOT_FOUND, 'That posting could not be found.');
 
-  // Typed exactly, like the username in the applicant's own danger zone. The
-  // slug rather than the title, because a title is easy to copy by accident
-  // from the row above and a slug has to be read off the posting being deleted.
-  if (String(body.confirm ?? '').trim() !== job.slug) {
-    return fail(res, ERR.BAD_REQUEST, 'Type the posting web address exactly to confirm.', {
-      details: { confirm: FIELD.MISMATCH },
+  // The danger bucket, not the admin one, and locked for an hour after four
+  // wrong passwords: 7g's rule for the applicant's danger zone applies to a
+  // staff session being guessed at just as much.
+  const dangerSubjects = [subjectForUser('staff', session.user.id), subjectForIp(req)];
+  if (await limited(res, 'danger', dangerSubjects)) return;
+
+  const correct = await verifyRealmPassword('staff', session.user.id, body.password);
+  if (!correct) {
+    await recordFailures('danger', dangerSubjects, LIMITS.danger);
+    return fail(res, ERR.UNAUTHORISED, 'That password was not right.', {
+      details: { password: FIELD.INVALID },
     });
   }
+
+  await clearAll('danger', dangerSubjects);
 
   const impact = await deletionImpact(id);
 

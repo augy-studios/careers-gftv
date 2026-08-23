@@ -1340,8 +1340,8 @@
   "admin.setPassword": "替对方设置密码",
   "admin.setPasswordCost": "替他人设置密码是此处唯一无法在记录上挽回的操作。一旦您知道对方的密码，这份记录就无法再证明某项操作是对方本人所为，而不是您。",
   "admin.setPasswordPrefer": "「要求设置新密码」能达到同样目的，且没有这项代价。只有在那个方式行不通时才使用此项。",
-  "admin.newPasswordFor": "为 {name} 设置的新密码",
-  "admin.newPasswordHint": "输入时会直接显示，因为您需要转告对方。至少 10 个字符。对方一登录就会被要求更换，所有登录状态和受信任设备现在就会失效。",
+  "admin.newPasswordFor": "给 {name} 的新密码",
+  "admin.newPasswordHint": "由系统生成，共十六个字符，并预设隐藏，因为这个画面可能被他人看到。请复制后转告对方：保存后就无法再次显示。对方一登录就会被要求更换，所有登录状态和受信任设备现在就会失效。",
   "admin.passwordSet": "{name} 的密码已设置。请立即转告，之后无法再次显示。",
   "admin.reasonMissing": "此项必须填写原因。",
   "admin.deleteAccount": "永久删除",
@@ -1372,5 +1372,10 @@
   "audit.applicant_reactivated": "登录已恢复",
   "audit.applicant_password_set": "管理员设置了其密码",
   "audit.applicant_reset_forced": "被要求设置新密码",
-  "audit.applicant_telegram_unlinked": "Telegram 关联被解除"
+  "audit.applicant_telegram_unlinked": "Telegram 关联被解除",
+  "admin.viewsIndicative": "打开次数以每个浏览会话每则职位计算一次，并非独立访客人数。请视为兴趣程度的粗略参考，而不是实际人数。",
+  "admin.copyPassword": "复制",
+  "admin.regeneratePassword": "重新生成",
+  "admin.passwordCopied": "已复制。请立即转告，之后无法再次显示。",
+  "admin.passwordCopyFailed": "无法复制，因此改为直接显示。请在关闭前先记下。"
 }

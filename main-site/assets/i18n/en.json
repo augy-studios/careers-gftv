@@ -1340,8 +1340,8 @@
   "admin.setPassword": "Set their password",
   "admin.setPasswordCost": "Setting somebody's password is the one action here that cannot be taken back in the record. Once you know their password, this log can no longer show that they did something themselves rather than you.",
   "admin.setPasswordPrefer": "Requiring a new password does the same job without that cost. Use this only when that will not work.",
-  "admin.newPasswordFor": "The new password for {name}",
-  "admin.newPasswordHint": "Shown as you type, because you have to pass it on. At least 10 characters. They will be asked to replace it the moment they sign in, and every session and trusted device ends now.",
+  "admin.newPasswordFor": "A new password for {name}",
+  "admin.newPasswordHint": "Generated here, sixteen characters, and hidden because this screen may be looked at by somebody else. Copy it and pass it on: it cannot be shown again once this is saved. They will be asked to replace it the moment they sign in, and every session and trusted device ends now.",
   "admin.passwordSet": "The password for {name} has been set. Pass it on now, because it cannot be shown again.",
   "admin.reasonMissing": "A reason is required for this one.",
   "admin.deleteAccount": "Delete permanently",
@@ -1372,5 +1372,10 @@
   "audit.applicant_reactivated": "Sign in was allowed again",
   "audit.applicant_password_set": "An admin set their password",
   "audit.applicant_reset_forced": "Was required to set a new password",
-  "audit.applicant_telegram_unlinked": "Telegram was unlinked"
+  "audit.applicant_telegram_unlinked": "Telegram was unlinked",
+  "admin.viewsIndicative": "Opens are counted once per posting per browsing session and are not unique people. Read them as a rough measure of interest rather than as a headcount.",
+  "admin.copyPassword": "Copy",
+  "admin.regeneratePassword": "Generate another",
+  "admin.passwordCopied": "Copied. Pass it on now, because it cannot be shown again.",
+  "admin.passwordCopyFailed": "That could not be copied, so it is shown instead. Take it down before closing this."
 }

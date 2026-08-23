@@ -33,6 +33,12 @@ import { createDialog } from './dialog.js';
 import { confirmAction } from './danger-confirm.js';
 import { formatDate } from './format.js';
 import { mountAdminPage, adminMessage, emptyRow, runAction } from './admin-shell.js';
+import {
+  loadBuildStatus,
+  isFeatureShipped,
+  phaseForFeature,
+  unavailableSentence,
+} from './build-status.js';
 
 const PATH = '/admin/admins';
 
@@ -41,12 +47,18 @@ const SEARCH_DELAY = 250;
 
 let accounts = [];
 let selfId = null;
+let buildStatus = null;
 let picker = null;
 let searchTimer = null;
 
 async function boot() {
   const context = await mountAdminPage({ current: PATH });
   if (!context) return;
+
+  // For the one sentence on this page that describes something not built yet.
+  // Cached by build-status.js, so this is the same object admin-shell already
+  // fetched rather than a second request.
+  buildStatus = await loadBuildStatus();
 
   document.querySelector('#grantAccess')?.addEventListener('click', () => {
     runAction(openPicker, 'grant access');
@@ -127,6 +139,7 @@ function rowMarkup(account) {
         <span class="admin-sub muted">${escapeHtml(
           t(account.is_admin ? 'admin.roleAdminOpens' : 'admin.rolePosterOpens')
         )}</span>
+        ${docsNote()}
       </td>
       <td>
         <span class="badge ${account.has_access ? 'badge-open' : 'badge-closed'}">${escapeHtml(
@@ -171,6 +184,21 @@ function rowMarkup(account) {
         }
       </td>
     </tr>`;
+}
+
+/**
+ * The line under what a role opens, when the place it opens does not exist yet.
+ *
+ * 8.8 asks for the sentence about the docs site in as many words, and the docs
+ * site is two phases away. Written as the phase sentence from the feature map
+ * rather than as prose, so nothing here hardcodes a phase number, per 0c, and
+ * the note disappears on its own the day docs_site ships.
+ */
+function docsNote() {
+  if (!buildStatus || isFeatureShipped(buildStatus, 'docs_site')) return '';
+
+  const phase = phaseForFeature(buildStatus, 'docs_site');
+  return `<span class="admin-sub muted">${escapeHtml(unavailableSentence(phase))}</span>`;
 }
 
 /**
