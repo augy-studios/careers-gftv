@@ -5,21 +5,21 @@
 // reader who has found one switcher already understands the other.
 //
 // The choice lives in localStorage and nowhere else. It is not in the URL, by
-// decision, which has one consequence worth knowing about rather than
+// decision, which has one consequence worth knowing about instead of
 // discovering later: a link shared by a Mandarin reader opens in whatever
 // language the recipient has stored, and search engines only ever see the
 // English version of a page. Section 3a of the specification records that.
 //
-// Strings live in /assets/i18n/{locale}.json rather than in this file, so a
+// Strings live in /assets/i18n/{locale}.json and not in this file, so a
 // wording fix does not mean touching code. English is always loaded as the
-// fallback, so a key missing from the Chinese dictionary shows English rather
-// than a raw key or an empty element.
+// fallback, so a key missing from the Chinese dictionary shows English and
+// not a raw key or an empty element.
 
 const APP_KEY = 'gftv-careers';
 
 export const LOCALES = [
   { id: 'en', label: 'English', native: 'English', htmlLang: 'en' },
-  // 华文 rather than 中文 or 简体中文: Singapore names the written language
+  // 华文 over 中文 or 简体中文: Singapore names the written language
   // 华文, and GFTV is a Singapore organisation. zh-Hans-SG tags the document as
   // Singapore Simplified Chinese, which is what the copy actually is. Prefix
   // matching means anything keyed on zh or zh-Hans still applies.

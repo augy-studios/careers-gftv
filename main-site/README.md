@@ -4,7 +4,7 @@ The Careers@GFTV portal itself: a static frontend with no build step, plus
 Vercel serverless functions under `api/`.
 
 Vercel's root directory for this project is set to `main-site`, which is why
-`api/` lives inside this directory rather than at the repo root.
+`api/` lives inside this directory and not at the repo root.
 
 **Current phase: 6 of 15, Applicant dashboard.** Live: the shell, the home page,
 `/status`, registering and signing in, passkeys, recovery codes, account
@@ -18,8 +18,8 @@ renders the placeholder. See [/status](https://careers.globalfurry.tv/status).
 
 **Every role listed on this site is voluntary and unpaid**, and the interface
 says so on the home page, the registration page, the footer, the manifest, and
-in every link embed. Written as a statement about the postings that exist
-rather than a promise about the future: `gftvjobs_jobs.is_paid` exists so a
+in every link embed. Written as a statement about the postings that exist,
+not a promise about the future: `gftvjobs_jobs.is_paid` exists so a
 paid posting can say otherwise for itself, and the commitment types
 (`full_time`, `part_time`, `contract`, `internship`, `volunteer`) describe how
 much time a role takes, not whether it pays. A full time volunteer is a real
@@ -137,7 +137,7 @@ main-site/
                       the access flag on the request, per section 8
     ratings/          upsert a rating for a posting, from the handoff modal
     job-page.js       the server rendered posting page. The one route in this
-                      portal that returns HTML rather than JSON.
+                      portal that returns HTML instead of JSON.
 ```
 
 ## Local development
@@ -186,7 +186,7 @@ first in `assets/js/avatar.js`.
 endpoint works.** `gftvjobs-avatars`, public, a 256 KB file size limit,
 `image/webp` only, and no policies on `storage.objects`. The SQL is in
 [AVATARS.md](AVATARS.md) section 1. An account with no picture renders its
-initial instead, which is the ordinary case rather than a failure, so a missing
+initial instead, which is the ordinary case, not a failure, so a missing
 bucket looks like nobody having uploaded anything until somebody tries.
 
 **[AVATARS.md](AVATARS.md)** is the guide, and its first section changes a
@@ -202,7 +202,7 @@ Two things in it that are easy to get wrong and are worth repeating here:
   4.5 MB of request body.
 - **`readJson` caps bodies at 64 KB**, which is right for JSON and far too small
   for an image. `api/account/avatar.js` reads the raw body with its own cap
-  rather than raising that default globally.
+  instead of raising that default globally.
 
 The shape is forced by section 2. The browser never receives an anon key, so it
 cannot upload to Storage directly the way a Supabase app normally would. The
@@ -224,7 +224,7 @@ the `Referer` header on the next request, and any proxy log in between. A POST
 that goes nowhere useful is the right failure.
 
 The search forms on `/` and `/search` are the exception, and it is a feature
-rather than an oversight: with JavaScript off, a native GET there lands on
+and not an oversight: with JavaScript off, a native GET there lands on
 `/search?q=...`, which is exactly the right page. That fallback is checked.
 
 ## The two auth realms
@@ -262,7 +262,7 @@ section 9 of the specification.
 
 One route in this table is not under `api/` as far as a reader is concerned.
 `vercel.json` rewrites `/jobs/:id` to `api/job-page.js`, which renders the
-posting page as HTML rather than JSON. It is the only server rendered page in
+posting page as HTML, not JSON. It is the only server rendered page in
 the portal, per section 4, and the reason is link embeds: an unfurler reads the
 markup as delivered and does not run JavaScript.
 
@@ -277,17 +277,17 @@ markup as delivered and does not run JavaScript.
 | `api/public/job` | one posting by uuid or by slug, in one language | 4 |
 | | The slug form is section 9's "slug to uuid lookup for the redirect". It is the same route because the only difference is the shape the caller passed. `application_form_url` is not selected from the database by any of this, so it cannot reach a public payload. | |
 | `api/public/jobs.json` | the openings feed, rewritten to `api/public/jobs-feed.js` | 4 |
-| | The one endpoint with no `{ ok, data }` envelope. Its callers are strangers rather than this site, and somebody pointing a script at a URL ending in `.json` expects the openings at the top level. Errors still use the envelope. | |
+| | The one endpoint with no `{ ok, data }` envelope. Its callers are strangers, not this site, and somebody pointing a script at a URL ending in `.json` expects the openings at the top level. Errors still use the envelope. | |
 | `/jobs/:id` | the posting page, rewritten to `api/job-page.js`. HTML, not JSON | 4 |
 | `api/translations/report` | report a translation problem | 4 |
 | `api/translations/mine` | the reader's own reports, with what an admin decided about each. 7h's other half: a reporter who never hears anything again learns that reporting is shouting into a hole | 6 |
 | `api/translations/*` | helper drafting, annotations, suggestion queue | 8 |
 | `api/applications/start` | logs the analytics row, upserts the tracking row, returns the prefilled form URL and the analytics row id | 5 |
-| | **The one route in the build that emits a Google Form URL.** A logged out request is 401 and writes nothing. The cooldown, the closing date, the global toggle, and an unanswered prompt are all enforced here rather than by hiding the button. | |
+| | **The one route in the build that emits a Google Form URL.** A logged out request is 401 and writes nothing. The cooldown, the closing date, the global toggle, and an unanswered prompt are all enforced here and not by hiding the button. | |
 | `api/applications/respond` | records the Yes or No from the modal, and starts the cooldown on a Yes | 5 |
 | `api/applications/pending` | the applicant's unanswered prompts. Called on every page of the portal | 5 |
 | `api/applications/mine` | the applicant's tracking rows, optionally for one posting. What the Apply button and the board's cooldown badge are drawn from | 5 |
-| | Thin by default, which is what those two callers want. `?with_jobs=true` adds the posting summaries and the bucket counts for `/account/applications`, and only then does the locale mean anything. Widened rather than duplicated; opt-in so the board does not pay for it. | |
+| | Thin by default, which is what those two callers want. `?with_jobs=true` adds the posting summaries and the bucket counts for `/account/applications`, and only then does the locale mean anything. Widened instead of duplicated; opt-in so the board does not pay for it. | |
 | `api/applications/withdraw` | 7e. Clears `applied_at` and `cooldown_until` together, and answers any outstanding prompt for that posting as No, because a pending prompt blocks a fresh handoff and 7e is explicit that somebody who pulls out is not locked out | 6 |
 | `api/ratings/upsert` | one rating per applicant per posting, from the handoff modal | 5 |
 | `api/saved/mine` | thin by default, `?with_jobs=true&filter=` for `/account/saved` | 6 |
@@ -329,20 +329,20 @@ Shared helpers live in `api/_lib/`:
 | `totp.js` | RFC 6238, for the staff realm's existing authenticator app. |
 | `webauthn.js` | Passkeys, both realms, both ceremonies. |
 | `rate-limit.js` | The table backed limiter and every limit in one place. |
-| `validate.js` | Input validation, returning codes rather than English so the client renders them in either language. |
-| `jobs.js` | The board's query string parameter names, parsed defensively, and the public shape of a posting. Also the `ts_headline` sanitiser: that string is the one field the browser assigns as markup, and everything except `<mark>` is escaped here rather than in the client. |
+| `validate.js` | Input validation, returning codes instead of English so the client renders them in either language. |
+| `jobs.js` | The board's query string parameter names, parsed defensively, and the public shape of a posting. Also the `ts_headline` sanitiser: that string is the one field the browser assigns as markup, and everything except `<mark>` is escaped here and not in the client. |
 | `settings.js` | Reading `gftvjobs_settings`, cached for a minute. A settings read never fails a request and never falls back to the permissive value: if the reapply cooldown cannot be read the answer is 90 days, not zero. |
 | `job-detail.js` | One posting, read and resolved into a language, and the visibility rules from 7g. The public column list lives here as an allowlist, so `application_form_url` is never selected at all. Also the embed line: the admin's own `og_description`, or the first sentence of the description, with sentence detection that knows Han script ends a sentence with `。` and English does not. |
 | `page-shell.js` | The HTML document a serverless function sends. The only copy of the `<head>` in this repo that is not an HTML file, so **when `index.html`'s head changes, change this too.** |
 | `dashboard.js` | The account area's shared reads: posting summaries for a set of ids in one language, and the three buckets My applications filters by. Deliberately never filters on the posting's status, per 7g. |
 | `tasks.js` | The tasks read model, and the one place that adds up the badge count across both sources. |
 | `avatars.js` | The Storage half of avatars: the bucket, the magic byte check, turning a public URL back into an object path, and the upload order AVATARS.md fixes. |
-| `admin.js` | The dashboard's shared server side: the two roles from 10 item 2, the admins only guard, the query string helpers, slugs, and the active language list read from `gftvjobs_locales` rather than hardcoded. |
+| `admin.js` | The dashboard's shared server side: the two roles from 10 item 2, the admins only guard, the query string helpers, slugs, and the active language list read from `gftvjobs_locales` instead of hardcoded. |
 | `admin-jobs.js` | The admin's posting read and write model. Its own column list, wider than the public one on purpose: `job-detail.js` exists so a public payload cannot be widened by an edit to shaping code, and an admin summary must not be built by relaxing it. |
 | `admin-applications.js` | The pipeline: the nine statuses, the bucket counts, a status change with its event row, waiving a cooldown, and the CSV. Nothing here writes `applied_at` or `cooldown_until`, per 7f. |
 | `admin-tasks.js` | Raising and resolving tasks, and the auto-raise a posting's question set triggers when somebody applies. Every path writes `questions` exactly once. |
 | `questions.js` | The question sets in 7g, both directions: what the composer may store, and what a reply may contain. A reply is validated against the set stored on that task and never against what the browser sent back. |
-| `maintenance.js` | 8.12's switches: the overrides, the denylist that is in code rather than in a setting, and `unavailable()`, the shared guard every flippable route calls so that off means off including the API. |
+| `maintenance.js` | 8.12's switches: the overrides, the denylist that is in code, not in a setting, and `unavailable()`, the shared guard every flippable route calls so that off means off including the API. |
 | `apply.js` | The apply flow's server side, shared by the four `api/applications/*` routes. Reads the form URL and the prefill map, which `job-detail.js` deliberately never selects; resolves a per language form; builds the prefilled address from the session; and holds the rules about what a start click may and may not move. |
 
 Every endpoint returning human readable content takes a locale, `en` or `zh`,
@@ -373,7 +373,7 @@ they went through with it. It stores no answers and no files.
 
 Meanwhile, in the browser: the modal opens in the same tick as the click, and
 only then, after a paint and at least 800ms, does the form open in a new tab. A
-blocked `window.open` is detected rather than fought, and the modal offers a
+blocked `window.open` is detected, not fought, and the modal offers a
 real anchor instead, which is a fresh gesture and always works.
 
 **Three things that look like bugs and are not:**
@@ -421,9 +421,9 @@ Section 7f fixes it at three months. Migration `029` makes it the
 `reapply_cooldown_days` setting instead, defaulting to 90, editable from the
 admin settings page in phase 8, and enforced by `api/_lib/settings.js`.
 
-Days rather than months, because zero has to be expressible and so does a
+Days over months, because zero has to be expressible and so does a
 fortnight. The cost, stated plainly: 90 days is not exactly three months, so an
-application on 4 March reopens on 2 June rather than 4 June. The interface never
+application on 4 March reopens on 2 June instead of 4 June. The interface never
 shows the number, only the date it produced, so nobody sees the unit.
 
 **Zero switches the cooldown off**, and what that means precisely matters:
@@ -434,15 +434,15 @@ shows the number, only the date it produced, so nobody sees the unit.
 - Existing `cooldown_until` values are **ignored, not cleared**. `isInCooldown()`
   answers false while the setting is zero, so turning it off takes effect at
   once, and setting it back to 90 restores every cooldown that was running
-  rather than having silently destroyed them.
+  and has not silently destroyed them.
 
-`api/applications/start.js` asks `isInCooldown()` rather than comparing
+`api/applications/start.js` asks `isInCooldown()` instead of comparing
 `cooldown_until` to the clock itself, since that comparison alone misses the
 disabled case, and `api/applications/mine.js` resolves the same answer for the
 client so the browser never has to know the setting exists.
 
 Raising the setting does not extend a cooldown somebody is already serving.
-`cooldown_until` stays stored rather than computed on read, exactly as migration
+`cooldown_until` stays stored and not computed on read, exactly as migration
 `006` says, so a policy change applies to the next application and not
 retroactively. Admins can still waive a single row, per 7f.
 
@@ -477,7 +477,7 @@ posting resolve at its uuid, per the visibility rule in `api/_lib/job-detail.js`
 **A dashboard row is not a job card**, and `assets/js/account-row.js` says why at
 length. A card advertises a role and is built from a public search result; a row
 is a posting the reader already has a relationship with, so it carries state and
-actions rather than a summary and tag pills. Do not merge the two.
+actions, not a summary and tag pills. Do not merge the two.
 
 Two decisions in here that look like omissions:
 
@@ -497,7 +497,7 @@ Two decisions in here that look like omissions:
 Section 8, built in phase 7. Seven pages under `/admin`, sharing a sidebar and
 a session guard from `assets/js/admin-shell.js`.
 
-It sits under the public header rather than carrying its own, exactly as
+It sits under the public header instead of carrying its own, exactly as
 `/admin/login` and `/admin/security` have since phase 2. A second header would
 mean two brands, two theme buttons, and two language switchers on one page. What
 the dashboard's own top bar carries is the one thing the public header cannot
@@ -514,7 +514,7 @@ things.
 | Permanently deleting a posting | yes | the control is **absent**, not disabled |
 | Staff access and applicant accounts, phase 8 | yes | not listed in the sidebar |
 
-Absent rather than disabled is deliberate: section 0c's disabled state means
+Absent, not disabled, is deliberate: section 0c's disabled state means
 "this is coming in a later phase", and using it for "you are not allowed" would
 make a permission look like a build status. Every route re-checks `is_admin` on
 the request regardless, per section 8, so a hidden control is a courtesy and
@@ -569,7 +569,7 @@ long answer, choice, and checkbox. Four rules run through all of it:
 
 - **The set is frozen once sent.** Editing it would orphan answers already given,
   so `questions` is written when a task is raised and never updated. A posting's
-  template is *copied* onto each task rather than referenced, which is what makes
+  template is *copied* onto each task instead of referenced, which is what makes
   editing the template safe: it changes only what the next applicant is asked.
 - **Answers are validated against the set stored on that task**, never against
   what the browser sends back. `checkAnswers` takes the stored set as its second
@@ -583,12 +583,12 @@ long answer, choice, and checkbox. Four rules run through all of it:
 
 A posting's set auto-raises its task where 7a already writes the tracking row, in
 `api/applications/start.js`. It is deliberately never bolted onto the handoff
-modal: 7c calls that modal a light tap on the shoulder rather than an ambush, and
+modal: 7c calls that modal a light tap on the shoulder and not an ambush, and
 a required form hanging off it would make dismissing it cost something.
 
 ## Maintenance switches
 
-0c and 8.12, built in phase 7 rather than with the rest of the settings in 8.10,
+0c and 8.12, built in phase 7 instead of with the rest of the settings in 8.10,
 because a lever for turning a broken feature off is worth having before the
 phases that add the most surface.
 
@@ -625,7 +625,7 @@ possible behaviours. `boot()` now awaits it before the first gating pass.
 **Two of the switches are the header's own controls.** `language_switcher` and
 `theme_switcher` sit at phase 1 in the feature map, so an admin can turn the
 globe or the palette off the same way as anything else. Off disables the button
-with the maintenance sentence rather than removing it; whatever language and
+with the maintenance sentence without removing it; whatever language and
 theme the reader already had stay applied, since both are read from
 `localStorage` before first paint. What is switched off is the ability to
 change them.
@@ -667,17 +667,17 @@ function defaults to published on its own, and never mentioning the parameter is
 what stops a caller asking this endpoint for drafts.
 
 State is written back with `history.replaceState`, per section 4. One
-consequence worth knowing rather than discovering: `replaceState` creates no
+consequence worth knowing up front, not discovering: `replaceState` creates no
 history entry, so pressing back after applying four filters leaves the board
-rather than undoing one filter. That is the specified behaviour.
+and does not undo one filter. That is the specified behaviour.
 
 **Search works differently per language, and has to.** English keeps the
 weighted `tsvector`, ranked with `ts_rank_cd` and highlighted with
 `ts_headline`. Chinese is matched by substring against the translation row's
 generated `search_text`, because Postgres cannot segment Han script and a
 `tsvector` would hold one token per run of characters. Both find what is there;
-only English orders it by relevance. The FAQ says so in both languages rather
-than leaving a reader to conclude Chinese search is broken.
+only English orders it by relevance. The FAQ says so in both languages instead
+of leaving a reader to conclude Chinese search is broken.
 
 ## Passkeys
 
@@ -718,7 +718,7 @@ Three consequences worth knowing before somebody reports them as bugs:
   passkey.** Section 5c made one recovery code a full account credential when
   there was no second factor to protect. Now there is, so the forgot password
   flow asks for the passkey or a 2FA backup code as well, enforced by
-  `gftvjobs_password_resets.second_factor_at` rather than by the screen order.
+  `gftvjobs_password_resets.second_factor_at` and not by the screen order.
   An account with no passkey is unaffected. Somebody who has lost both goes to
   the admin reset path 5c item 5 requires, which is phase 8.
 
@@ -760,7 +760,7 @@ Three things worth knowing before changing it:
   `LIGHT_FROM_HOUR` and `LIGHT_UNTIL_HOUR` in `theme.js` and the two numbers in
   every head together.
 - **A tab left open across a boundary re-resolves itself.** `theme.js` schedules
-  one timer to the next 09:00 or 18:00 rather than polling, and re-checks on
+  one timer to the next 09:00 or 18:00 instead of polling, and re-checks on
   `visibilitychange` because a sleeping laptop fires its timer late. The theme
   modal listens for `gftv:modechange` and redraws.
 - **The device clock is the only input.** No timezone is asked for, sent, or
@@ -783,7 +783,7 @@ order, with no way to skip ahead:
 
 Built in phase 2 for removing a passkey, which turns part of the second factor
 off and is the same kind of action 7g already lists. Phase 6 used it for the
-danger zone proper rather than writing a second one, and added one option to it:
+danger zone proper in place of writing a second one, and added one option to it:
 
 **`skipPassword` drops step 3 and resolves with a null password.** It is for an
 action serious enough to need reading and typing but not a credentialled one,
@@ -803,7 +803,7 @@ in both.
 `theme.css`: Han characters fall past the Latin families to the platform
 default, which is PingFang SC on Apple, Microsoft YaHei on Windows, and Noto
 Sans CJK SC on Android and Linux. What makes that correct is the `lang`
-attribute rather than the stack. Han characters are shared with Japanese, and
+attribute, not the stack. Han characters are shared with Japanese, and
 a browser with no language to go on may pick a Japanese face that draws a
 number of them differently, so every page sets `lang="zh-Hans-SG"` in the
 pre-paint script. If that ever stops being set, the Chinese renders with the
@@ -828,7 +828,7 @@ tagged `zh-Hans-SG`. Check any new copy against that list.
 Adding or changing a string:
 
 1. Add the key to **both** `en.json` and `zh.json`. English is the fallback
-   layer, so a key missing from `zh.json` renders English rather than a blank
+   layer, so a key missing from `zh.json` renders English instead of a blank
    element, but a key missing from `en.json` renders as the raw key.
 2. Reference it with `data-i18n="key"` for text, `data-i18n-attr="title:key"`
    for attributes, or `data-i18n-html="key"` for a string containing a link.
@@ -841,7 +841,7 @@ Adding or changing a string:
 
 **A missing key renders as its own name on screen**, in both languages, and
 nothing used to say so. `t()` falls back to the key deliberately, so a missing
-string degrades to something searchable rather than to a blank element, but
+string degrades to something searchable and not to a blank element, but
 that kindness is also why `footer.buildStatus` sat in the footer from phase 1
 reading "footer.buildStatus". Two things catch it now:
 
@@ -849,11 +849,11 @@ reading "footer.buildStatus". Two things catch it now:
   every literal `t('...')`, and the `key:` entries in the NAV and FOOTER
   tables, and exits non-zero on anything not in `en.json`. It also lists keys
   built at runtime, which it cannot check, and keys nothing references, which
-  is information rather than an error.
+  is information, not an error.
 - **`t()` warns to the console** once per key when a key is missing and the
   English dictionary has already loaded.
 
-Neither catches the other failure: a string written by JavaScript rather than
+Neither catches the other failure: a string written by JavaScript instead of
 carried on a `data-i18n` attribute, rendered before the dictionary loads. That
 is what put `theme.timeBasedNote` on screen. Anything that calls `t()` outside
 `translateDom` has to re-run on `gftv:localechange`, and both modals now do.
@@ -914,7 +914,7 @@ is wrong:
 ## Fonts
 
 Proxima Nova is the GFTV branding font. It is licensed and is not on Google
-Fonts, so it is self hosted rather than pulled from a CDN. That is also what
+Fonts, so it is self hosted instead of pulled from a CDN. That is also what
 the offline requirement needs: a font from a third party host cannot be
 precached and would leave an installed copy of the site unstyled.
 
@@ -962,7 +962,7 @@ reaches people quickly.
 would otherwise hold live instead. Vercel validates `vercel.json` against a
 schema that rejects any property it does not know, inside a `redirects` or
 `rewrites` entry as well as at the root, so a `$comment` key beside a `source`
-fails the build rather than being ignored. Two entries are worth explaining:
+fails the build and is not ignored. Two entries are worth explaining:
 
 - **`/admin/docs` is a 302, not a 301.** Section 8a keeps the route as a
   redirect to the docs site so an old bookmark and any link written into the
@@ -972,9 +972,9 @@ fails the build rather than being ignored. Two entries are worth explaining:
 - **`/admin/:path*` sends everything to the placeholder, and every real page
   under `/admin` wins anyway**, because Vercel matches the filesystem before it
   consults rewrites. That rule is what keeps section 0c's promise that a staff
-  member clicking an unbuilt section gets the phase sentence rather than an
+  member clicking an unbuilt section gets the phase sentence instead of an
   empty screen. It is also the rule phase 3 learned the hard way, so **check it
-  on a deployment rather than locally**: a route returning 200 is not evidence
+  on a deployment and not locally**: a route returning 200 is not evidence
   its rewrite works.
 
 ## The service worker

@@ -8,10 +8,10 @@
 // Three of those are live and are this module's business: the department
 // dropdown in the hero, the openings grid, and the department list. The value
 // cards and the numbered steps are ordinary markup with data-i18n attributes,
-// because they are copy rather than data and the shell already retranslates
+// because they are copy, not data, and the shell already retranslates
 // them on a language change.
 //
-// The hero search box submits to /search rather than searching in place. There
+// The hero search box submits to /search instead of searching in place. There
 // is one browse surface, per section 4, and it is not this page.
 
 import { api } from './api.js';
@@ -27,7 +27,7 @@ const LATEST_COUNT = 6;
 
 const el = {};
 
-// What the grid can show. Two lists rather than one, because which of them is
+// What the grid can show. Two lists and not one, because which of them is
 // drawn is a setting and either can arrive first: 8.10's featured roles come
 // from the settings endpoint and the latest openings from the board's own.
 let latest = [];
@@ -145,7 +145,7 @@ function renderDepartments(departments) {
  *
  * The hero fields lose their data-i18n attribute while a setting is overriding
  * them and get it back when it is cleared, so emptying the field on the
- * settings page restores the written copy rather than freezing the last value
+ * settings page restores the written copy without freezing the last value
  * on screen.
  */
 async function loadSiteCopy() {
@@ -209,12 +209,12 @@ async function loadLatest() {
  *
  * That is migration 012's own rule for the setting, written down where the
  * decision is visible: "Empty means show the latest published postings
- * instead." One grid rather than two sections, because a home page with a
+ * instead." One grid in place of two sections, because a home page with a
  * featured row and a latest row shows the same three postings twice on a board
  * this size.
  *
  * The heading changes with it, and changes by swapping the dictionary key
- * rather than the text, so a language change still retranslates it.
+ * and not the text, so a language change still retranslates it.
  */
 function drawOpenings() {
   if (!el.latest) return;

@@ -31,7 +31,7 @@ import { t } from './i18n.js';
 // signed in to a page saying "not built yet" was worse than sending them to the
 // one staff page that worked.
 //
-// It stays a single destination rather than honouring a ?redirect=, unlike the
+// It stays a single destination instead of honouring a ?redirect=, unlike the
 // applicant sign in. A staff member arriving at /admin unauthenticated is
 // redirected here by the dashboard shell with the path they wanted, and phase 8
 // can carry that through; what it must not do meanwhile is send somebody to a
@@ -44,12 +44,12 @@ const AFTER_SIGN_IN = '/admin';
  * session.
  *
  * The recording is the point, and it is why every success path calls this
- * rather than setting window.location itself. api.js keeps a flag saying this
+ * and not by setting window.location itself. api.js keeps a flag saying this
  * browser has seen a staff session, and shell.js only offers the Admin item in
  * the public header when that flag is set, so that ordinary readers cost no
  * request. Nothing set the flag on the way *in*: this page asks staffSession()
  * on load, which on a fresh browser answers no and clears it, and the dashboard
- * asks /api/admin/me rather than the session route. The header therefore
+ * asks /api/admin/me and not the session route. The header therefore
  * offered no way back to /admin on a browser that had just signed in.
  */
 function goToDashboard() {
@@ -216,7 +216,7 @@ function boot() {
 
     if (!result.ok) {
       // An expired challenge cannot be answered, only started again. Send them
-      // back to the password step rather than leaving them typing codes at a
+      // back to the password step instead of leaving them typing codes at a
       // token that is gone.
       if (result.error.details?.reason === 'challenge_expired') {
         challenge = null;

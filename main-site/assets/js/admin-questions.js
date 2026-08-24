@@ -8,22 +8,22 @@
 // the job editor and read from the same gftvjobs_locales, and it shows at a
 // glance which languages a question is still missing."
 //
-// Four rules it has to make visible rather than merely obey:
+// Four rules it has to make visible and not merely obey:
 //
 //   **Once sent, the set is frozen**, and "the composer says so before the send
 //   rather than after". So the warning is above the send button, not in the
 //   confirmation that follows it.
 //
 //   **Option values are language independent and the answer stores the value.**
-//   The value field is therefore its own input rather than something generated
+//   The value field is therefore its own input instead of something generated
 //   from the English label, because an English label typed today and edited
 //   tomorrow would silently change what every answer means.
 //
 //   **A blank language falls back to one that was written**, so a question with
-//   only English is legal and is drawn with a marker rather than refused.
+//   only English is legal and is drawn with a marker, not refused.
 //
 //   **The cap is twenty**, which is enforced by the server and by migration 031.
-//   The control disappears at twenty rather than failing on save.
+//   The control disappears at twenty instead of failing on save.
 
 import { t } from './i18n.js';
 import { hydrateIcons, iconMarkup } from './icons.js';
@@ -39,7 +39,7 @@ const LIST_TYPES = ['choice', 'checkbox'];
 /**
  * Mount a composer into an element.
  *
- * The component owns its own state and hands it back on demand rather than
+ * The component owns its own state and hands it back on demand without
  * writing into a form: a question set is nested and ordered, and the shape a
  * form serialises to is neither.
  *
@@ -283,9 +283,9 @@ export function mountQuestionComposer(root, options = {}) {
         if (!option) return;
 
         row.querySelector('[data-option-field="value"]')?.addEventListener('input', (event) => {
-          // Narrowed as it is typed rather than refused on save. The value is
+          // Narrowed as it is typed, not refused on save. The value is
           // language independent by definition, so anything outside this set is
-          // a mistake rather than a choice.
+          // a mistake and not a choice.
           option.value = event.target.value.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 80);
           if (option.value !== event.target.value) event.target.value = option.value;
           notify();
@@ -349,7 +349,7 @@ export function mountQuestionComposer(root, options = {}) {
      *
      * Not for sending anywhere. It exists so a caller that redraws the panel
      * around this component, which the editor does on every language tab
-     * switch, can hand the state back rather than losing a question somebody
+     * switch, can hand the state back without losing a question somebody
      * had started. value() filters, and filtering on a redraw would delete the
      * row somebody was in the middle of writing.
      */

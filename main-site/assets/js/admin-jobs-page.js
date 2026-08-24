@@ -19,7 +19,7 @@
 //
 // And the rule that shapes every control on a row: **a posting is never deleted
 // as part of taking it down.** Close and archive are on the row; permanent
-// deletion is admins only, is absent rather than disabled for a job poster, and
+// deletion is admins only, is absent instead of disabled for a job poster, and
 // goes behind the three step confirmation with a count of what it takes.
 
 import { api } from './api.js';
@@ -251,7 +251,7 @@ function rowMarkup(job) {
 /**
  * The per language state, as a row of small pills.
  *
- * A language with no row at all is absent and is drawn faintly rather than left
+ * A language with no row at all is absent and is drawn faintly, not left
  * out, because "nobody has started the Chinese" is the state this column exists
  * to make visible and an empty cell says nothing.
  */
@@ -292,7 +292,7 @@ function actionsMarkup(job) {
       ${iconMarkup('copy', { size: 15 })}<span>${escapeHtml(t('admin.duplicate'))}</span>
     </button>
     ${
-      // Absent for a job poster rather than disabled, per 8.2. The route checks
+      // Absent for a job poster, not disabled, per 8.2. The route checks
       // the role again regardless.
       isAdminUser()
         ? `<button type="button" class="btn btn-quiet small danger" data-delete>` +
@@ -327,7 +327,7 @@ async function changeStatus(job, status) {
   });
 
   if (!result.ok) {
-    // The publish rules come back as a list of reasons rather than a sentence,
+    // The publish rules come back as a list of reasons in place of a sentence,
     // so the page can say which ones and in the reader's language.
     const blockers = result.error?.details?.blockers;
     if (Array.isArray(blockers)) {
@@ -363,7 +363,7 @@ async function duplicate(job) {
 /**
  * Permanent deletion, behind the three step confirmation from 7g.
  *
- * Step 1 names exactly what goes with it, counted from the database rather than
+ * Step 1 names exactly what goes with it, counted from the database instead of
  * described, per 8.2. The password step is kept: this is not the applicant's
  * own withdrawal, which deviation 25 made a two step action because it is
  * reversible. Deleting a posting is not reversible and takes other people's

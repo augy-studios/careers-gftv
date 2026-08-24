@@ -9,7 +9,7 @@
 // the middle of something going wrong, so four sentences on it are not
 // decoration and should not be trimmed:
 //
-//   **An override survives a deploy**, because it is a row rather than a file.
+//   **An override survives a deploy**, because it is a row and not a file.
 //   **Nothing turns itself back on.** A feature left off is left off until
 //   somebody comes back for it.
 //   **This is not the applications toggle**, which is a policy choice and lives
@@ -17,7 +17,7 @@
 //   two it is is the one thing somebody turned away actually wants to know.
 //   **The note is public** and is shown to applicants exactly as typed.
 //
-// The denylist is shown greyed with its reason rather than hidden, so an admin
+// The denylist is shown greyed with its reason instead of hidden, so an admin
 // looking for the sign in switch finds out why there is not one instead of
 // concluding the page is broken.
 
@@ -32,7 +32,7 @@ import { mountAdminPage, adminMessage, emptyRow } from './admin-shell.js';
 /**
  * The note's cap, matching NOTE_MAX in api/_lib/maintenance.js.
  *
- * Written here rather than fetched because a maxlength on the field is a
+ * Written here, not fetched, because a maxlength on the field is a
  * courtesy, not the enforcement: the endpoint validates it regardless, and a
  * field that let somebody type a thousand characters and then refused the save
  * would be worse than one that stopped them at the limit.
@@ -242,16 +242,16 @@ function drawDenied() {
  * The endpoint sends the reason in English, like every message from this API,
  * and the dictionary wins when it has an entry, exactly as api.js already does
  * for error messages. That way a denylist entry added in code shows up here
- * immediately, in English, rather than as a missing key.
+ * immediately, in English, and not as a missing key.
  */
 /**
  * Where in the site a feature appears, per 8.12: each switch shows "its current
  * state, and where in the site it appears".
  *
- * Empty when the dictionary has no line for it, rather than the raw key. A
+ * Empty when the dictionary has no line for it, and never the raw key. A
  * feature key added to build-status.json without a line here is a missing
  * sentence, and printing "saved_jobs" under the heading would look like a bug
- * rather than like the omission it is.
+ * instead of the omission it is.
  */
 function whereFor(key) {
   const lookup = `featureWhere.${key}`;

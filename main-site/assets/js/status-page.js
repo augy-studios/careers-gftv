@@ -7,7 +7,7 @@
 // Everything on the page comes from /assets/build-status.json. Nothing here
 // hardcodes a phase number, a phase name, or a status.
 //
-// The page builds its own markup rather than carrying data-i18n attributes,
+// The page builds its own markup instead of carrying data-i18n attributes,
 // so it redraws on a language change instead of being retranslated in place.
 
 import {
@@ -40,7 +40,7 @@ function render(status) {
   const phases = status.phases ?? [];
 
   if (phases.length === 0) {
-    // The file did not load. Drop the skeletons rather than leaving them
+    // The file did not load. Drop the skeletons instead of leaving them
     // pulsing forever, which would suggest something is still on its way.
     list.replaceChildren();
     list.removeAttribute('aria-busy');
@@ -113,7 +113,7 @@ function render(status) {
  * /status as currently unavailable with its note, since that page is already
  * where somebody goes to find out what is going on."
  *
- * Above the phase list rather than inside it, because it is a different kind of
+ * Above the phase list and not inside it, because it is a different kind of
  * fact: the list says what has been built, and this says what is working. The
  * two are deliberately not merged, for the same reason an override never edits
  * build-status.json.

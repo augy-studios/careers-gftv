@@ -14,13 +14,13 @@
 //
 //   **The source wording sits beside the field being written**, so a translator
 //   is never working from memory. Below 1024px it collapses to a disclosure
-//   above each field rather than a second column, which is a CSS decision and is
+//   above each field instead of a second column, which is a CSS decision and is
 //   in app.css.
 //
 //   **A tab says whether that language is complete, in progress, or absent.**
 //   Complete means is_ready, which the database will only accept with a title, a
 //   summary, and a description, so the same three are validated here and shown
-//   inline rather than left to fail on a constraint.
+//   inline and not left to fail on a constraint.
 //
 //   **The embed line shows what the unfurl will look like**, and shows the
 //   fallback, the first sentence of the description, when it is left empty. The
@@ -67,7 +67,7 @@ let dirty = false;
 
 /**
  * Whether the slug has been typed by hand, and so must stop following the
- * title. Module state rather than a flag on the input, because drawShared
+ * title. Module state, not a flag on the input, because drawShared
  * rebuilds that input on every redraw. See maybeSuggestSlug.
  */
 let slugTouched = false;
@@ -86,8 +86,8 @@ async function boot() {
 
   // ?locale= opens on that language's tab. Nothing on this page writes it; the
   // translation queue in 8.11 does, when it sends somebody here for a correction
-  // a single textarea cannot make. Checked against gftvjobs_locales rather than
-  // trusted, so a stale link opens on the default tab rather than on a tab that
+  // a single textarea cannot make. Checked against gftvjobs_locales instead of
+  // trusted, so a stale link opens on the default tab and not on a tab that
   // does not exist.
   const wanted = search.get('locale');
   if (wanted && adminLocales().some((locale) => locale.code === wanted)) {
@@ -470,7 +470,7 @@ function readSections() {
  * What the link will look like unfurled, per 8.2.
  *
  * Including the fallback: an empty og_description gives the first sentence of
- * the description, which is usually right, and showing that rather than an
+ * the description, which is usually right, and showing that in place of an
  * empty box is what stops somebody filling the field in unnecessarily.
  */
 function drawEmbedPreview() {
@@ -684,7 +684,7 @@ function readShared() {
     }
   }
 
-  // raw() rather than value(), so a question with the label half typed survives
+  // raw() over value(), so a question with the label half typed survives
   // the redraw instead of being filtered out of existence.
   job.task_questions = questionComposer?.raw() ?? job.task_questions ?? [];
 }
@@ -705,7 +705,7 @@ function wireShared(holder) {
     slugTouched = true;
   });
 
-  // The toggle clears the date to null rather than leaving it empty, per 8.2:
+  // The toggle clears the date to null instead of leaving it empty, per 8.2:
   // "a 'no closing date' toggle that clears it to null, so an admin cannot
   // leave it empty by accident and cannot be blocked by a required validator".
   const noDeadline = holder.querySelector('#jobNoDeadline');
@@ -733,7 +733,7 @@ function wireShared(holder) {
  * existing tags first and only offers to create a new one when nothing matches,
  * so the tag list does not fill up with near duplicates".
  *
- * A datalist rather than a custom combobox. It matches existing tags as you
+ * A datalist, not a custom combobox. It matches existing tags as you
  * type, it is keyboard and screen reader native, and the "create a new one"
  * case is what happens when what was typed matches nothing, which is exactly the
  * rule 8.2 describes.
@@ -787,7 +787,7 @@ async function addTagByName(raw) {
     return;
   }
 
-  // Nothing matched, so this is the create case. Confirmed rather than silent:
+  // Nothing matched, so this is the create case. Confirmed and never silent:
   // 8.7 exists because near duplicate tags are the thing that fills the list up,
   // and a tag created by a typo is exactly that.
   const confirmed = await confirmAction({
@@ -901,9 +901,9 @@ function collect() {
   readTabBody();
   readShared();
 
-  // Re-read rather than trusting what readShared stored, because this is the
-  // one place a malformed map has to become a field error rather than being
-  // left alone.
+  // Re-read instead of trusting what readShared stored, because this is the
+  // one place a malformed map has to become a field error and not be left
+  // alone.
   let prefill = null;
   const prefillRaw = document.querySelector('#jobPrefill')?.value?.trim();
   if (prefillRaw) {
@@ -1037,7 +1037,7 @@ async function publish() {
 
 function showFieldError(field, code) {
   // Translation errors come back prefixed with their language, so the message
-  // lands on the tab it belongs to rather than on whichever one is open.
+  // lands on the tab it belongs to and not on whichever one is open.
   const [maybeLocale, maybeField] = field.split('.');
   const target = maybeField ? maybeField : field;
 
@@ -1074,7 +1074,7 @@ function clone(value) {
  * failure, because the obvious next move is to try again and then leave.
  *
  * The message is deliberately the generic one. Whatever went wrong here is a
- * fault in this page rather than something the admin can act on, and the
+ * fault in this page, not something the admin can act on, and the
  * console still carries the real cause for whoever reads it.
  */
 function runAction(action, label) {
@@ -1116,14 +1116,14 @@ document.addEventListener('click', (event) => {
  *
  * **It saves first.** The preview reads the database, so previewing unsaved
  * edits would show the previous version and quietly look like the edits had not
- * worked. If the save fails the tab is closed rather than left pointing at
+ * worked. If the save fails the tab is closed instead of left pointing at
  * something stale.
  *
  * **The tab is opened before the await, not after.** A `window.open` that
- * follows an await is a popup rather than a click for every browser that counts
+ * follows an await is a popup and not a click for every browser that counts
  * them, and gets blocked. Phase 5 hit exactly this in the apply handoff and
  * settled it the same way: open synchronously, navigate once the work is done,
- * and treat a null return as blocked rather than as an error.
+ * and treat a null return as blocked, not as an error.
  */
 async function openPreview() {
   if (!job.id) {
@@ -1139,7 +1139,7 @@ async function openPreview() {
   await save();
 
   if (!tab) {
-    // Blocked. The link is offered instead rather than a dead end, and it is
+    // Blocked. The link is offered in place of a dead end, and it is
     // the same address the tab would have gone to.
     adminMessage('error', t('admin.previewBlocked'));
     return;

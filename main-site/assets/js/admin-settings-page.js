@@ -104,7 +104,7 @@ function draw() {
 /**
  * The applications toggle.
  *
- * Drawn rather than a static control because the wording is the state: the card
+ * Drawn instead of a static control because the wording is the state: the card
  * says what is true now, what it means for a reader, and how long it takes to
  * be true everywhere. A checkbox with a label would say the first of those.
  */
@@ -141,7 +141,7 @@ function drawApplications() {
  * One field per active language for a per locale setting.
  *
  * The default language is first and is the one every other falls back to, which
- * the hint under it says rather than leaving to be discovered when a Chinese
+ * the hint under it says and does not leave to be discovered when a Chinese
  * reader sees an English title.
  */
 function drawTextFields(key, selector, options) {
@@ -194,7 +194,7 @@ function localeField(key, locale, options) {
 /**
  * The featured list, in the order it will appear, and a picker for adding one.
  *
- * Ordered rather than a set of checkboxes because the order is the editorial
+ * Ordered in place of a set of checkboxes because the order is the editorial
  * decision: 8.10 calls it "featured job selection" and the home page renders
  * them in this order, so a list where the admin cannot say which is first is
  * half the control.
@@ -296,7 +296,7 @@ function drawFeatured() {
  *
  * Called before every redraw and before every save, so the two can never
  * disagree about what the admin typed. The featured list is already in state,
- * because it is edited by its own controls rather than by a field.
+ * because it is edited by its own controls, not by a field.
  */
 function collect() {
   if (!state) return;
@@ -309,7 +309,7 @@ function collect() {
     if (!TEXT_KEYS.includes(key) || !locale) return;
 
     const value = field.value.trim();
-    // A blank field is an absent translation rather than an empty string, so a
+    // A blank field is an absent translation and not an empty string, so a
     // reader falls back to the default language instead of a blank heading.
     if (value) state.settings[key][locale] = value;
   });
@@ -376,7 +376,7 @@ function showFieldErrors(details) {
  *
  * Both directions are confirmed, and the note is offered in both directions
  * too, unlike a maintenance flip where only the off direction carries one. The
- * reason is what the note is for here: it goes into the audit log rather than
+ * reason is what the note is for here: it goes into the audit log instead of
  * onto the site, and "reopening after the recruitment freeze" is as much worth
  * recording as the closing was.
  */

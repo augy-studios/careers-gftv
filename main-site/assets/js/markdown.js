@@ -6,7 +6,7 @@
 //
 //   **Everything is escaped before any pattern runs.** A posting containing a
 //   literal <script> renders as those five characters, and the patterns below
-//   can only ever match marks an admin typed rather than markup they smuggled
+//   can only ever match marks an admin typed and not markup they smuggled
 //   in. Nothing here has to decide whether a tag is safe, because no tag ever
 //   reaches it.
 //
@@ -26,7 +26,7 @@
  * Paragraphs, with any run of bulleted lines becoming a list.
  *
  * Blank lines separate paragraphs. A single newline inside a paragraph is a
- * line break rather than a new paragraph, which is what an admin typing into a
+ * line break, not a new paragraph, which is what an admin typing into a
  * textarea means by pressing return once.
  *
  * @param {unknown} value
@@ -64,7 +64,7 @@ export function renderProse(value) {
  * bullet mark is tolerated and removed, so an admin who typed one does not get
  * two.
  *
- * A single line is a paragraph rather than a list of one, since a bulleted list
+ * A single line is a paragraph instead of a list of one, since a bulleted list
  * with one item reads as a formatting mistake.
  *
  * @param {unknown} value
@@ -92,7 +92,7 @@ export function renderLines(value) {
 export function inline(text) {
   return (
     escapeHtml(text)
-      // [label](https://example.com). The address is checked rather than
+      // [label](https://example.com). The address is checked and never
       // trusted: a javascript: URL inside a link is the one thing this subset
       // could otherwise be used to smuggle, and escaping the text does nothing
       // about an href.

@@ -9,7 +9,7 @@
 // phase 13, and a generator that invents a directory to put its output in is a
 // decision made in the wrong place.
 //
-// **Why the file is embedded rather than linked.** A plain link would have to
+// **Why the file is embedded instead of linked.** A plain link would have to
 // point at a path that serves the raw file, and that path is then the thing
 // people share, bookmark, and script against: a second public surface for a
 // file whose only supported entry point is the guide page that explains what it
@@ -50,7 +50,7 @@ const OUT = flagValue('--out') ?? flagValue('--check');
  * Every script in tests/ starts by saying what it does, so there is no second
  * place to keep a summary that could fall out of step with the file it
  * describes. A script that starts with something else gets no description
- * rather than a wrong one.
+ * and not a wrong one.
  */
 function describe(source) {
   const lines = source.split('\n');
@@ -83,7 +83,7 @@ function usage(source) {
   for (const line of lines) {
     if (!line.startsWith('//')) break;
     const text = line.replace(/^\/\//, '');
-    // Indented, and a command rather than prose. Every script here writes its
+    // Indented, and a command, not prose. Every script here writes its
     // example invocations indented under the description, and the indent alone
     // also catches the wrapped lines of an explanation, which are not commands.
     if (/^ {3,}\S/.test(text) && /\b(node|npx|npm)\b/.test(text)) found.push(text.trim());
@@ -110,7 +110,7 @@ for (const name of files) {
     // So a reader can tell two versions apart, and so --check has something to
     // compare that does not change when only this generator changes.
     sha256: createHash('sha256').update(source).digest('hex'),
-    // base64 rather than the raw string, so the JSON is not something a
+    // base64 over the raw string, so the JSON is not something a
     // markdown pipeline or a template engine will try to interpret on the way
     // through. The client decodes it before making the blob.
     content: Buffer.from(source, 'utf8').toString('base64'),

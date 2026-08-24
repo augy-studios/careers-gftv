@@ -1,4 +1,4 @@
-// A modal, built by JavaScript rather than written into a page.
+// A modal, built by JavaScript instead of written into a page.
 //
 // The theme modal and the language modal in shell.js are written into the DOM
 // by that file and wired there, because there is exactly one of each and they
@@ -14,7 +14,7 @@
 // scroll.
 //
 // Phase 12's polish pass should move shell.js's two modals onto this, so there
-// is one implementation rather than two that agree today. That is a refactor of
+// is one implementation, not two that agree today. That is a refactor of
 // working code and did not belong in the same change as the page it was written
 // for.
 

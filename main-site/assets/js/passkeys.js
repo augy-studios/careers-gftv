@@ -1,6 +1,6 @@
 // Passkeys, browser side.
 //
-// WebAuthn is a browser API rather than a library, so this file is only the
+// WebAuthn is a browser API and not a library, so this file is only the
 // conversion work around it: the server speaks base64url JSON, and
 // navigator.credentials speaks ArrayBuffer. Roughly eighty lines, which is why
 // nothing is bundled here. The site has no build step, and adding one so a
@@ -16,7 +16,7 @@
 /**
  * Whether this browser can do passkeys at all.
  *
- * Feature detected rather than assumed, because the answer decides whether the
+ * Feature detected, not assumed, because the answer decides whether the
  * account page offers to register one. Offering a control that cannot work is
  * exactly what section 0c says not to do.
  */

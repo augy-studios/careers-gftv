@@ -4,7 +4,7 @@ The documentation site for Careers@GFTV, served at
 `docs.careers.globalfurry.tv`.
 
 **Status: not built yet.** The site's foundations ship in phase 13 and its
-content in phase 14, so that it documents what was actually built rather than
+content in phase 14, so that it documents what was actually built, not
 what was planned. This directory currently holds the scaffold only: this README
 and an empty `content/`. See
 [the build status page](https://careers.globalfurry.tv/status).
@@ -20,8 +20,8 @@ per section 16a of the specification.
 1. How to use the Careers@GFTV portal.
 2. How to use the Careers@GFTV Telegram bot.
 3. Helping with translations: what a translation helper can do and how to
-   volunteer. Public on purpose, since a helper is a language speaker rather
-   than a staff member and cannot read a gated page.
+   volunteer. Public on purpose, since a helper is a language speaker and
+   not a staff member, and cannot read a gated page.
 
 **Staff, signed in:**
 
@@ -47,7 +47,7 @@ tokens, and no real applicant data.
 ## The test scripts in the developer guide
 
 The developer guide hands a reader the scripts in [`tests/`](../tests/) directly,
-rather than telling them to go and find the repository. **The pages that do it
+instead of telling them to go and find the repository. **The pages that do it
 are phase 14's and are not written yet.** What is here now is the one piece that
 does not depend on how the site is built:
 
@@ -95,7 +95,7 @@ which is a different host; password plus a code still does.
 
 - Content is markdown with front matter, and the front matter carries a
   required `access` key of `public`, `poster`, `admin`, or `developer`. A page
-  with no `access` key fails the build rather than defaulting to either.
+  with no `access` key fails the build and does not default to either.
 - Two pipelines, because a gated page cannot be a file on the CDN. Public pages
   live in `content/` and are converted to static HTML at deploy time by a small
   Node script using a shared layout. Gated pages live in `api/_content/`, where
@@ -167,8 +167,8 @@ Rules that will not change:
 Once this site has a service worker of its own, **bump its `VERSION` on every
 change to this site**, the same rule the portal follows. Any edit under
 `docs-site/` is a new build, and a worker that has not been bumped keeps
-serving the previous one to returning readers. Treat it as part of the change
-rather than a separate step.
+serving the previous one to returning readers. Treat it as part of the change,
+not a separate step.
 
 ## Deployment
 

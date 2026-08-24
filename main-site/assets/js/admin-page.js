@@ -6,7 +6,7 @@
 // straight into any bucket, and carry the same bucket tabs into the applicant
 // tracking page."
 //
-// The bucket tabs here are links rather than tabs, and that is the difference
+// The bucket tabs here are links, not tabs, and that is the difference
 // worth stating: on the tracking page they filter the list underneath them, and
 // here there is no list to filter. Drawing them as tabs that navigate would be
 // a control that lies about what it does, so each one is a link to the tracking
@@ -78,7 +78,7 @@ function drawPostings() {
   const counts = payload?.postings ?? {};
 
   // Each tile links where an admin would go next after reading it, which is
-  // what makes a number on a dashboard useful rather than decorative.
+  // what makes a number on a dashboard useful and not decorative.
   const tiles = [
     { key: 'published', value: counts.published, href: '/admin/jobs?status=published' },
     { key: 'draft', value: counts.draft, href: '/admin/jobs?status=draft' },
@@ -96,7 +96,7 @@ function drawPostings() {
     )
     .join('');
 
-  // The one number that is a queue rather than a count: drafts that cannot be
+  // The one number that is a queue and not a count: drafts that cannot be
   // published because they have no application form yet. Shown only when there
   // are any, since a zero here is not news.
   const blocked = document.querySelector('#adminBlockedDrafts');

@@ -148,7 +148,7 @@ export async function toAvatarWebp(file, size = 512) {
 
   if (!blob || blob.type !== 'image/webp') {
     // Every browser this site supports encodes WebP. If one does not, refuse
-    // rather than silently uploading a PNG the bucket will reject anyway.
+    // instead of silently uploading a PNG the bucket will reject anyway.
     throw new Error('this browser cannot produce WebP');
   }
 

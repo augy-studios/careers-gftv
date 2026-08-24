@@ -15,7 +15,7 @@
             var k = "gftv-careers";
             var m = localStorage.getItem(k + ".mode") || "light";
 
-            // Time based mode, per gftv-theme.md. Resolved here rather than
+            // Time based mode, per gftv-theme.md. Resolved here instead of
             // in theme.js because theme.js runs after first paint, and an
             // evening reader would otherwise watch a white page turn dark.
             // Keep the two hours in step with LIGHT_FROM_HOUR and
@@ -132,7 +132,7 @@
                     <button type="button" class="btn btn-quiet" id="bulkTask"
                             data-i18n="admin.raiseTask">Raise a task</button>
                     <!-- Admins only, per the decision of 23 August 2026, and
-                         absent rather than disabled for a job poster, per
+                         absent instead of disabled for a job poster, per
                          deviation 34. The page removes it on load when the
                          signed in staff member is not an admin, and the route
                          refuses the action either way. -->

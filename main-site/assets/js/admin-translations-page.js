@@ -3,7 +3,7 @@
 // The queue of everything somebody has told us reads wrongly, and the tooling to
 // act on it. One queue for both origins, per 7i: a form report from the foot of
 // a posting and a helper's in-place annotation land in the same table and are
-// worked through the same list, distinguished by a badge rather than by a tab.
+// worked through the same list, distinguished by a badge and not by a tab.
 //
 // What this page has to get right is not the list. It is the panel, and four
 // things in it:
@@ -31,17 +31,17 @@
 //
 // The second tab is the other half of 8.11, the needs-translation audit: what
 // nobody has translated yet, whether or not a reader has complained. It is on
-// this page rather than one of its own because the two are the same question
+// this page instead of one of its own because the two are the same question
 // asked from opposite ends, and somebody who has just fixed a reported sentence
 // is the person best placed to see what else in that language is missing.
 //
-//   **The audit is per language**, and the language is chosen rather than
+//   **The audit is per language**, and the language is chosen, not
 //   filtered. All of them at once would need a language column on every row and
 //   a count that answers nothing.
 //
 //   **A finished translation is not on the list at all**, so an empty list is
 //   the real answer to "what is left in Chinese" and the page says it in those
-//   words rather than as "no results".
+//   words instead of as "no results".
 //
 //   **The audit has no actions.** Everything on it is fixed in the editor or on
 //   the team and tag pages, and every row carries the way through. Building a
@@ -49,11 +49,11 @@
 //   step with 8.2's.
 //
 // The third tab is 7i's other half: who is allowed to do this work. 8.11 puts it
-// here rather than in applicant users because "granting is what turns a
+// here and not in applicant users because "granting is what turns a
 // community member into a contributor, so it belongs beside the queue their work
 // arrives in".
 //
-//   **It is admins only, and the tab is absent rather than disabled**, per
+//   **It is admins only, and the tab is absent instead of disabled**, per
 //   deviation 34. The panel is removed from the document for a job poster, not
 //   hidden, and the route refuses both actions regardless.
 //
@@ -107,7 +107,7 @@ const SEARCH_DELAY = 250;
  * Migration 032's three states, and the three things it audits.
  *
  * No `interface` here, unlike the queue's targets: the dictionaries are files
- * rather than rows, per 7i, so nothing in the database can say whether a key has
+ * and not rows, per 7i, so nothing in the database can say whether a key has
  * been translated. `npm run check-i18n` is what answers that.
  */
 const AUDIT_STATES = ['missing', 'drafted', 'thin'];
@@ -132,7 +132,7 @@ async function boot() {
   if (!context) return;
 
   // Deviation 34: an admin only control is absent, never disabled. Removed
-  // rather than hidden, so nothing in it is reachable by a keyboard, by a find
+  // instead of hidden, so nothing in it is reachable by a keyboard, by a find
   // in page, or by an accessibility tree that ignores an aria-hidden it cannot
   // see. The route refuses regardless.
   if (!isAdminUser()) document.querySelector('#helpersPanel')?.remove();
@@ -191,7 +191,7 @@ async function boot() {
 /**
  * The tabs this caller has.
  *
- * A job poster gets two. The third is filtered out here rather than only in the
+ * A job poster gets two. The third is filtered out here and not only in the
  * strip, so ?tab=helpers in the address bar lands on the queue instead of on an
  * empty panel that then asks the route a question it will refuse.
  */
@@ -227,8 +227,8 @@ function readStateFromUrl() {
 
   // The two tabs share the names of the filters they have in common, so a
   // language chosen on one is the language the other opens on. Only the active
-  // tab's are written back, so the query string says what is on screen rather
-  // than carrying a set of filters for a list nobody is looking at.
+  // tab's are written back, so the query string says what is on screen and
+  // does not carry a set of filters for a list nobody is looking at.
   auditState = {
     locale: search.get('locale') ?? '',
     target: pick('target', AUDIT_TARGETS),
@@ -270,7 +270,7 @@ function writeStateToUrl() {
 /**
  * The tab strip.
  *
- * Manual activation rather than automatic: the arrow keys move focus along the
+ * Manual activation over automatic: the arrow keys move focus along the
  * strip and Enter or Space opens the tab focus is on. Each tab is a request, and
  * arrowing across a strip that fetches on every keypress is how a keyboard user
  * ends up waiting for two lists they did not ask for.
@@ -301,7 +301,7 @@ function drawTabs() {
         ` aria-selected="${tab === entry.name}"` +
         ` tabindex="${tab === entry.name ? '0' : '-1'}">` +
         `<span>${escapeHtml(t(entry.key))}</span>` +
-        // A count that has not been read yet is absent rather than zero. A zero
+        // A count that has not been read yet is absent, not zero. A zero
         // on the audit tab would say the translation is finished.
         (entry.count === null || entry.count === undefined
           ? ''
@@ -339,8 +339,8 @@ function drawTabs() {
 function applyTabVisibility() {
   const queuePanel = document.querySelector('#queuePanel');
   const auditPanel = document.querySelector('#auditPanel');
-  // Absent altogether for a job poster, which is why this is optional rather
-  // than a panel that is always there and always hidden.
+  // Absent altogether for a job poster, which is why this is optional and not
+  // a panel that is always there and always hidden.
   const helpersPanel = document.querySelector('#helpersPanel');
   if (queuePanel) queuePanel.hidden = tab !== 'queue';
   if (auditPanel) auditPanel.hidden = tab !== 'audit';
@@ -373,7 +373,7 @@ function loadCurrentTab() {
 /**
  * The four filter selects.
  *
- * The language list comes from gftvjobs_locales through the shell rather than
+ * The language list comes from gftvjobs_locales through the shell instead of
  * from a constant, for the reason 8.2 gives about the editor's tabs: a language
  * added later should appear without touching this file.
  */
@@ -447,7 +447,7 @@ async function load() {
   payload = result.data;
   draw();
   // The open count on the tab beside it, so the number is the same one the
-  // sidebar badge shows rather than a second reading of the same thing.
+  // sidebar badge shows and not a second reading of the same thing.
   drawTabs();
 }
 
@@ -531,7 +531,7 @@ function rowMarkup(report) {
 /**
  * The four counts, as a line above the table.
  *
- * A null is a count that could not be read and is drawn as a dash rather than as
+ * A null is a count that could not be read and is drawn as a dash instead of as
  * a zero, per the rule api/admin/me.js states about the sidebar badge: a zero is
  * a claim, and a failed request does not entitle us to make one.
  */
@@ -555,7 +555,7 @@ function drawPager() {
 /**
  * One pager, used by both tabs.
  *
- * The state object is passed rather than its page number, because the button
+ * The state object is passed in place of its page number, because the button
  * moves it: two lists paging independently is two page numbers, and reading one
  * while writing the other is how a next button starts sending somebody to the
  * other tab's page three.
@@ -601,7 +601,7 @@ function targetLabel(report) {
  *
  * A null field is not a gap in the data: 7h's form defaults to "the whole
  * posting" precisely because a reporter may not know which field they mean, and
- * that is the answer rather than a missing one.
+ * that is the answer, not a missing one.
  */
 function fieldLabel(report) {
   if (report.target_type === 'interface') return t('admin.target_interface');
@@ -706,7 +706,7 @@ async function loadAudit() {
 
   // The language the route answered with, which is not always the one asked
   // for: a code this site does not have falls back to the first other language
-  // rather than to nothing. Taking it back means the select and the sentences
+  // instead of to nothing. Taking it back means the select and the sentences
   // under it name what is actually on screen.
   if (auditPayload.locale) auditState.locale = auditPayload.locale;
 
@@ -798,7 +798,7 @@ function auditRowMarkup(row) {
  * about it gets a dash: the state column has already said what is wrong with it,
  * which is that nobody has marked it ready.
  *
- * The list is capped rather than wrapped, per deviation 45: nothing in an admin
+ * The list is capped, not wrapped, per deviation 45: nothing in an admin
  * table wraps except a title, and a translation missing every optional field
  * would otherwise widen the row past the page.
  */
@@ -863,8 +863,8 @@ function drawAuditPager() {
  * The same language list the audit offers, and for the same reason: the default
  * language is what everything is translated from, 014 refuses a translation row
  * for it, and a helper in English would hold a role over nothing. Unlike the
- * audit this one has an "any language" option, because the list is of people
- * rather than of work and "who helps us at all" is a question somebody asks.
+ * audit this one has an "any language" option, because the list is of people,
+ * not of work, and "who helps us at all" is a question somebody asks.
  */
 function drawHelperFilters() {
   const select = document.querySelector('#helperLocale');
@@ -1130,10 +1130,10 @@ async function searchApplicants(term) {
   holder.innerHTML = found
     .map((applicant) => {
       // Already a helper in the language currently chosen, as the route says
-      // rather than as this page could guess: the list behind it is paged and
+      // instead of as this page could guess: the list behind it is paged and
       // may be filtered to one language, so somebody granted on page two would
       // read as new. Granting again is allowed and rewrites the reason, so this
-      // is a note rather than a block: what it stops is an admin adding
+      // is a note, not a block: what it stops is an admin adding
       // somebody twice without noticing.
       const already = (applicant.helps_with ?? []).includes(locale);
 
@@ -1161,7 +1161,7 @@ async function searchApplicants(term) {
       const applicant = found.find((row) => row.id === button.getAttribute('data-grant'));
       if (!applicant) return;
 
-      // The language is read at click time rather than at draw time, so
+      // The language is read at click time and not at draw time, so
       // changing the select after searching grants what is on screen now.
       const chosen = helperPicker.element.querySelector('#grantLocale')?.value ?? locale;
       helperPicker.close();
@@ -1337,7 +1337,7 @@ function panelMarkup(report) {
  * rather than dropped". Detached does not mean wrong. The words were on the page
  * when somebody selected them, and the most likely reason they are not there now
  * is that the sentence around them has since been rewritten, which is worth
- * knowing rather than hiding.
+ * knowing and not hiding.
  */
 function quoteMarkup(report) {
   if (report.origin !== 'annotation') return '';
@@ -1631,7 +1631,7 @@ async function saveResolution(report) {
 
   // Checked here as well as by the route and by migration 015's constraint. The
   // point is not a third guard, it is that somebody finds out before the request
-  // rather than after it.
+  // and not after it.
   if (RESOLVED.includes(status) && !note) {
     showErrors(root, { note: 'required' });
     adminMessage('error', t('admin.resolutionNeedsNote'));

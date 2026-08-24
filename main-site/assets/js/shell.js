@@ -3,7 +3,7 @@
 //
 //   <script type="module" src="/assets/js/shell.js"></script>
 //
-// The chrome is rendered here rather than copied into every HTML file, since a
+// The chrome is rendered here instead of copied into every HTML file, since a
 // header duplicated across twenty files is a header that drifts. Page content
 // stays in the HTML.
 //
@@ -47,9 +47,9 @@ import { resumePendingPrompt } from './apply-prompt.js';
  * ---------------------------------------------------------------------- */
 
 // Every entry is a real route. A route belonging to a later phase renders the
-// placeholder page rather than a dead link, per section 0c, so nothing here is
+// placeholder page in place of a dead link, per section 0c, so nothing here is
 // disabled or hidden.
-// Labels are dictionary keys rather than text. translateDom fills them in and
+// Labels are dictionary keys, not text. translateDom fills them in and
 // refills them whenever the language changes, so nothing here is written twice.
 const NAV = [
   { href: '/search', key: 'nav.findRole', icon: 'search' },
@@ -81,7 +81,7 @@ const FOOTER = [
       { href: '/about', key: 'footer.about' },
       { href: '/faq', key: 'footer.faq' },
       { href: '/status', key: 'footer.buildStatus' },
-      // The privacy notice and the terms are GFTV wide rather than specific to
+      // The privacy notice and the terms are GFTV wide, not specific to
       // this portal, so they live on the central policy site and open in a new
       // tab. /privacy and /terms still resolve, as redirects in vercel.json,
       // for anyone who types them or follows an older link.
@@ -103,7 +103,7 @@ const FOOTER = [
  * One footer link. An external one opens in a new tab, carries rel="noopener"
  * so the new tab cannot reach back through window.opener, and says out loud
  * that it opens a new tab, since a link that moves you somewhere unexpected
- * without warning is a WCAG 3.2.5 problem rather than a style choice.
+ * without warning is a WCAG 3.2.5 problem, not a style choice.
  */
 function footerLink(link) {
   if (!link.external) {
@@ -141,14 +141,14 @@ function renderHeader() {
         <span data-icon="menu" data-icon-size="22"></span>
       </button>
 
-      <!-- The language control is its own button rather than a section inside
+      <!-- The language control is its own button instead of a section inside
            the theme modal. Someone who reads only Mandarin and lands on the
            English site cannot be expected to find a switch labelled "Theme",
            whereas a globe is legible without reading anything.
 
            Both carry a feature key, so 8.12 can switch either off from the
            maintenance page. Off disables the button with the maintenance
-           sentence rather than removing it, per 0c: a control that vanishes
+           sentence without removing it, per 0c: a control that vanishes
            looks like a site that has lost a feature, and a disabled one with
            the reason on it says what has actually happened. Whatever language
            and theme the reader already had stay applied, because both live in
@@ -243,7 +243,7 @@ function renderThemeModal() {
         </button>
       </div>
       <p class="modal-section-label" data-i18n="theme.mode"></p>
-      <!-- Three options, not two. The third is a preference rather than a
+      <!-- Three options, not two. The third is a preference and not a
            mode: it resolves to light or dark from the device clock, and
            data-mode is still only ever one of those two. Part of
            gftv-theme.md, and optional for an app that wants the two button
@@ -273,7 +273,7 @@ function renderThemeModal() {
 // Each language is named in its own script, never translated. A reader looking
 // for Chinese looks for the characters, not for the English word "Chinese",
 // so both options read the same whichever language the interface is currently
-// in. That is why these two labels are hardcoded rather than dictionary keys.
+// in. That is why these two labels are hardcoded instead of dictionary keys.
 function renderLanguageModal() {
   const wrap = document.createElement('div');
   wrap.className = 'modal-backdrop hidden';
@@ -419,7 +419,7 @@ function wireThemeModal(modal) {
   const panel = modal.querySelector('.modal');
   let lastFocus = null;
 
-  // The label is a dictionary key rather than theme.label, so the swatch names
+  // The label is a dictionary key and not theme.label, so the swatch names
   // follow the language. translateDom refills them on every change, which is
   // why the grid is built once here and never rebuilt.
   grid.innerHTML = COLOR_THEMES.map(
@@ -522,7 +522,7 @@ function wireThemeModal(modal) {
   sync();
 
   // The clock can move the mode under a tab that is just sitting open. When it
-  // does, theme.js says so and the modal redraws rather than showing yesterday
+  // does, theme.js says so and the modal redraws instead of showing yesterday
   // evening's answer.
   document.addEventListener('gftv:modechange', sync);
 
@@ -613,7 +613,7 @@ function wireLanguageModal(modal) {
  * The nav is drawn before the session is known, so the signed out state is
  * what paints first and this quietly replaces it. That way a slow session
  * check never delays the page, and somebody signed out sees the right thing
- * immediately rather than a flicker.
+ * immediately, with no flicker.
  */
 async function reflectApplicantSession() {
   const nav = document.querySelector('#siteNav');
@@ -634,10 +634,10 @@ async function reflectApplicantSession() {
     '<span data-icon="user" data-icon-size="18"></span>' +
     // Classed so app.css can cap it. A display name is arbitrary text of
     // arbitrary length dropped into a fixed width bar, and it is the one nav
-    // item that may be cut short rather than allowed to push the row around.
+    // item that may be cut short and not allowed to push the row around.
     `<span class="nav-account-name"></span>`;
   // The display name is data, not a dictionary string, so it is set as text
-  // rather than through data-i18n and is never passed through innerHTML.
+  // instead of through data-i18n and is never passed through innerHTML.
   account.lastElementChild.textContent = session.user.display_name;
 
   const signOut = document.createElement('button');
@@ -650,7 +650,7 @@ async function reflectApplicantSession() {
   signOut.addEventListener('click', async () => {
     signOut.disabled = true;
     await api('/api/auth/applicant/logout', { method: 'POST', locale: false });
-    // A reload rather than a redirect, so somebody signing out from a posting
+    // A reload, not a redirect, so somebody signing out from a posting
     // stays on it, signed out.
     window.location.reload();
   });
@@ -721,7 +721,7 @@ async function reflectStaffSession(known = null) {
 /**
  * Whether the layer is on, in this browser, across pages.
  *
- * localStorage rather than a session or a column: it is a reading preference
+ * localStorage over a session or a column: it is a reading preference
  * about this browser, like the theme and the language, and a helper who turns it
  * on to work through a posting should not find it off again on the next one.
  */
@@ -757,13 +757,13 @@ function setAnnotating(on) {
  *
  * **The module is loaded only when the layer is switched on.** 7i: "To everyone
  * else the attributes are inert markup and the layer does not load at all." The
- * dynamic import is what makes that literally true rather than a claim about
+ * dynamic import is what makes that literally true and not a claim about
  * behaviour: annotate.js is never fetched by a reader who cannot use it.
  *
  * The server is still asked before the toggle is drawn, because a hint is a
  * hint: a revoked helper has a stale flag in localStorage and gets no toggle,
- * and the endpoint answers `can: false` rather than refusing, since not holding
- * a role is a state rather than an error.
+ * and the endpoint answers `can: false` instead of refusing, since not holding
+ * a role is a state, not an error.
  */
 async function offerAnnotationLayer() {
   if (!hasHelperHint() && !hasStaffHint()) return;
@@ -812,7 +812,7 @@ async function offerAnnotationLayer() {
       context.canSuggest ? 'annotate.toggle' : 'annotate.toggleReadOnly'
     }"></span>`;
 
-  // Beside the account item rather than first: this is a tool somebody turns on
+  // Beside the account item instead of first: this is a tool somebody turns on
   // while reading, not a way to somewhere else.
   const signOut = nav.querySelector('.nav-signout');
   if (signOut) signOut.before(button);
@@ -821,7 +821,7 @@ async function offerAnnotationLayer() {
   hydrateIcons(nav);
   translateNewChrome(nav);
 
-  // The state is on the button rather than in a variable, so aria-pressed and
+  // The state is on the button, not in a variable, so aria-pressed and
   // what is actually running cannot disagree. A screen reader announces the
   // change from the pressed state itself; the title carries the Alt and S
   // shortcut, which is the one thing a pressed state cannot say.
@@ -853,7 +853,7 @@ async function offerAnnotationLayer() {
     setAnnotating(next);
     apply(next).catch((cause) => {
       // A failed dynamic import is the realistic case: offline, or a deploy
-      // mid-session. The switch goes back rather than sitting on with nothing
+      // mid-session. The switch goes back instead of sitting on with nothing
       // behind it, which would be a control that did nothing.
       console.error('[careers-gftv] annotation layer:', cause);
       button.setAttribute('aria-pressed', 'false');
@@ -870,7 +870,7 @@ async function offerAnnotationLayer() {
  * A staff session the dashboard proved, held for whichever of the two arrives
  * second.
  *
- * The listener is registered at module scope rather than inside boot() on
+ * The listener is registered at module scope, not inside boot(), on
  * purpose. boot() awaits the dictionary and the build status file before it
  * reaches its own reflect call, and the dashboard shell awaits one request, so
  * either can finish first. Registered here, the event is never missed; held in
@@ -903,13 +903,13 @@ function translateNewChrome(root) {
  * The portal title from 8.10, in the header and the footer.
  *
  * The name is a dictionary key by default, and a setting when somebody has
- * written one. Applied in three passes rather than one, which is what makes it
+ * written one. Applied in three passes instead of one, which is what makes it
  * arrive without a flash of the old name: what this browser saw last time goes
  * on immediately, the network answer replaces it when it lands, and a language
  * change asks again because the wording is per language.
  *
- * Clearing the setting restores the dictionary rather than leaving the last
- * value on screen, which is why the data-i18n attribute is put back rather than
+ * Clearing the setting restores the dictionary instead of leaving the last
+ * value on screen, which is why the data-i18n attribute is put back and not
  * simply overwritten. Without that, emptying the field on the settings page
  * would look like a save that did nothing.
  */
@@ -954,8 +954,8 @@ async function boot() {
   //
   // Not awaited as part of the same expression as loadBuildStatus, because a
   // failure to read the overrides must leave the site working with everything
-  // on rather than holding the page: that is the direction to fail in, and it
-  // is why the loader resolves to an empty map rather than rejecting.
+  // on instead of holding the page: that is the direction to fail in, and it
+  // is why the loader resolves to an empty map and never rejects.
   await loadFeatureOverrides();
 
   const paint = () => {
@@ -967,8 +967,8 @@ async function boot() {
 
   paint();
 
-  // These render their own strings rather than carrying data-i18n attributes,
-  // so they are redrawn on a language change rather than retranslated in place.
+  // These render their own strings instead of carrying data-i18n attributes,
+  // so they are redrawn on a language change and not retranslated in place.
   document.addEventListener('gftv:localechange', paint);
 
   // The portal title, per 8.10. Not awaited: the header is already drawn and
@@ -1001,8 +1001,8 @@ async function boot() {
   });
 
   // 7c: the outstanding apply prompt follows the applicant across the portal
-  // rather than living on the posting they started from, so the check runs on
-  // every page. It shares the session request above rather than making its own,
+  // instead of living on the posting they started from, so the check runs on
+  // every page. It shares the session request above and does not make its own,
   // and does nothing at all for a logged out reader.
   //
   // **Except inside the staff dashboard.** Being signed into both realms on one

@@ -71,7 +71,7 @@ function boot() {
     ticket = result.data.ticket;
     whose = result.data.username;
 
-    // Each step replaces the one before it rather than appearing below it, so
+    // Each step replaces the one before it and does not appear below it, so
     // there is one thing on screen to do and the spent code is not still
     // sitting in a field.
     document.querySelector('#step1').hidden = true;

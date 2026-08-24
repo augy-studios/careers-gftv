@@ -18,7 +18,7 @@
 //   and a single reply box.** One round, per 7g: once the reply is in, the box
 //   is replaced by what they wrote.
 //
-//   **Resolved items collapse under a recently completed section rather than
+//   **Resolved items collapse under a recently completed section instead of
 //   vanishing**, so somebody can check what they already dealt with.
 //
 // **Phase 7 added the questions**, per 7g. An info request may now carry up to
@@ -32,19 +32,19 @@
 //
 //   **The labels arrive resolved into one language and the values do not.** The
 //   server reads the set in the reader's language, per 7g, and an answer stores
-//   the option's value rather than its label, because the label is per language
+//   the option's value and not its label, because the label is per language
 //   and the value is not. So every input's value attribute is the stored value
 //   and the visible text is the label, which is what a radio group is for.
 //
 //   **The one round rule is unchanged.** Questions and free text go in one
 //   submission, and a task that has been answered refuses a second reply. The
 //   server checks every required question, so the required attributes here are
-//   a convenience rather than the rule.
+//   a convenience, not the rule.
 //
 // Deep links: /account/tasks?task={task_id} opens a specific item, and the
 // parameter is stripped with history.replaceState once it has been handled, per
 // 7g. Ownership is validated on the server by scoping the query to the session,
-// so the parameter names a row rather than granting access to one.
+// so the parameter names a row without granting access to one.
 
 import { api } from './api.js';
 import { t } from './i18n.js';
@@ -252,7 +252,7 @@ function replyFormMarkup(item, isOpen) {
 /**
  * One question, drawn for its type.
  *
- * The two list types are a fieldset of radios or checkboxes rather than a
+ * The two list types are a fieldset of radios or checkboxes in place of a
  * select, deliberately: a select hides its options behind a tap, and these are
  * short lists somebody is meant to read before choosing. It is also the shape
  * that lets a checkbox question be answered with nothing at all, which is legal
@@ -323,7 +323,7 @@ function questionMarkup(item, question) {
  *
  * A checkbox question always sends an array, including an empty one, so the
  * server can tell "nothing ticked" from "not asked". A text question with
- * nothing typed sends nothing at all rather than an empty string.
+ * nothing typed sends nothing at all, not an empty string.
  */
 function collectAnswers(form, item) {
   const answers = {};
@@ -357,9 +357,9 @@ function collectAnswers(form, item) {
  *
  * Shown to the applicant for the same reason the reply text is: somebody who
  * answered five questions a week ago should be able to reread what they said
- * rather than wondering whether it went anywhere.
+ * instead of wondering whether it went anywhere.
  *
- * The answers arrive as stored, which means option values rather than labels, so
+ * The answers arrive as stored, which means option values and not labels, so
  * each one is looked up in the question's own options. That lookup is the whole
  * reason the values are language independent: the same stored answer reads
  * correctly whichever language this page is in.
@@ -408,7 +408,7 @@ function answersGivenMarkup(item) {
  * An admin raised task carries its own, written by a person. A prompt has none
  * to carry: the analytics row knows a posting and a time, so the sentence is a
  * dictionary string built from the posting's title, which is why the server
- * sends null rather than inventing English.
+ * sends null instead of inventing English.
  */
 function itemTitle(item) {
   if (item.source === 'prompt') {
@@ -434,7 +434,7 @@ function raisedLine(item) {
 /**
  * Only an open info request with no reply on it yet. One round, per 7g.
  *
- * responded_at rather than response_text, since phase 7: a reply that answered
+ * responded_at over response_text, since phase 7: a reply that answered
  * three questions and wrote nothing in the box leaves the text null, and the
  * older check would have offered the form again to somebody who had already
  * answered. The server refuses it either way.
@@ -521,7 +521,7 @@ async function sendReply(form, taskId) {
   setWorking(form, true);
 
   const item = findItem(taskId);
-  // The free text box, which is the last textarea in the form rather than the
+  // The free text box, which is the last textarea in the form, not the
   // first: a long answer question is also a textarea, and named ones come first.
   const text = form.querySelector('textarea[name="text"]')?.value ?? '';
 

@@ -136,7 +136,7 @@ function draw() {
 function languageMarkup(tag) {
   return `<span class="admin-langs">${adminLocales()
     .map((locale) => {
-      // Named mark rather than state: the module already has a state object
+      // Named mark, not state: the module already has a state object
       // holding the filters, and one shadowing the other inside a map is the
       // sort of thing that reads correctly and edits wrongly.
       const mark = locale.is_default
@@ -245,7 +245,7 @@ function openEditor(tag) {
         id: tag?.id ?? null,
         name: root.querySelector('#tagName').value.trim(),
         description: root.querySelector('#tagDescription').value.trim(),
-        // The default is null rather than a grey, so a tag with no colour is
+        // The default is null instead of a grey, so a tag with no colour is
         // styled by the theme and follows it into dark mode. A stored grey would
         // not, which is the whole reason the column is nullable.
         colour: root.querySelector('#tagNoColour').checked
@@ -283,7 +283,7 @@ function openEditor(tag) {
 /**
  * Merge this tag into another, per 8.7.
  *
- * The direction is stated rather than implied: the tag whose row was clicked is
+ * The direction is stated and not implied: the tag whose row was clicked is
  * the one that disappears, and the panel says so twice, because a merge run the
  * wrong way round cannot be undone by running it again.
  */
@@ -355,7 +355,7 @@ async function remove(tag) {
   const confirmed = await confirmAction({
     title: t('admin.deleteTagConfirm', { name: tag.name }),
     // The join rows cascade, so the postings survive and lose the tag. Worth
-    // knowing before rather than after: a published posting that loses its last
+    // knowing before, not after: a published posting that loses its last
     // tag cannot be republished until it gets another.
     consequences: count > 0 ? [t('admin.deleteTagImpact', { count })] : [],
     confirmLabel: t('admin.delete'),

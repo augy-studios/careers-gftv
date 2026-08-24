@@ -3,15 +3,15 @@
 //
 // Section 2 forbids writing to gftvhello_users, so the password, the
 // authenticator app, and the backup codes that go with them are not ours to
-// change. They belong to gftv.asia and the page says so rather than showing
+// change. They belong to gftv.asia and the page says so instead of showing
 // controls that could not work.
 //
 // What is left is what this portal actually owns: passkeys, in
-// gftvjobs_staff_passkeys, and trusted devices. It exists now rather than in
+// gftvjobs_staff_passkeys, and trusted devices. It exists now instead of in
 // phase 7 because a staff member who can sign in with a passkey but has
 // nowhere to register one has a feature only a developer can operate.
 //
-// Phase 7 should absorb this into the dashboard shell rather than building a
+// Phase 7 should absorb this into the dashboard shell instead of building a
 // second copy of it.
 
 import { api, staffSession } from './api.js';

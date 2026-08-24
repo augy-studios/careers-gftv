@@ -11,7 +11,7 @@
 //
 // The active toggle is where the rule bites, and the page has to make that
 // legible: a department with a missing name can exist, it just cannot be
-// switched on. So the checkbox refuses rather than the save, and the reason
+// switched on. So the checkbox refuses, not the save, and the reason
 // names the language.
 
 import { api } from './api.js';
@@ -301,7 +301,7 @@ async function save(department, dialog) {
  *
  * Not a cascade: migration 005 sets a posting's department_id to null, so the
  * postings survive and lose their team. That still changes live postings, so the
- * count is confirmed rather than described, the same way 8.2 handles deleting a
+ * count is confirmed instead of described, the same way 8.2 handles deleting a
  * posting.
  */
 async function remove(department) {
@@ -309,7 +309,7 @@ async function remove(department) {
 
   const confirmed = await confirmAction({
     title: t('admin.deleteTeamConfirm', { name: department.name }),
-    // Counted rather than described, the same way 8.2 handles a posting: an
+    // Counted, not described, the same way 8.2 handles a posting: an
     // admin about to detach eleven postings should see the eleven.
     consequences:
       count > 0

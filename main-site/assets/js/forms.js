@@ -5,10 +5,10 @@
 // field revealable.
 //
 // The field error codes come from api/_lib/validate.js and are deliberately
-// codes rather than sentences, because the same endpoint answers a reader in
+// codes, not sentences, because the same endpoint answers a reader in
 // either language. This file maps a code to a dictionary key.
 //
-// Accessibility, which is the reason most of this exists rather than a class
+// Accessibility, which is the reason most of this exists in place of a class
 // toggle: the message is tied to the input with aria-describedby, the input is
 // marked aria-invalid, focus moves to the first field that failed, and the
 // summary is a live region so it is announced without stealing focus.
@@ -178,7 +178,7 @@ export function readForm(form) {
 /**
  * Wire the show and hide control on a password field.
  *
- * The button is inside the field rather than beside it, and it is a real
+ * The button is inside the field, not beside it, and it is a real
  * button so it is reachable by keyboard. aria-pressed says which state it is
  * in, which is what a screen reader announces.
  * @param {ParentNode} [root]

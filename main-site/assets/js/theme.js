@@ -184,8 +184,8 @@ function msUntilNextBoundary(now = new Date()) {
  * Re-resolve when the clock crosses a boundary, for a tab left open across six
  * in the evening.
  *
- * Scheduled to the boundary rather than polled every minute, so an idle tab
- * costs one timer rather than 1,440 wakeups a day. A laptop that sleeps
+ * Scheduled to the boundary instead of polled every minute, so an idle tab
+ * costs one timer and not 1,440 wakeups a day. A laptop that sleeps
  * through the boundary fires its timer late, which is what the visibility
  * listener is for: coming back to a tab re-checks straight away.
  */

@@ -15,8 +15,8 @@
 // a folder on its own, and it must render with no network. There is no
 // JavaScript in the output at all.
 //
-// The output is gitignored. Regenerate it rather than editing it, and edit
-// this file rather than the HTML.
+// The output is gitignored. Regenerate it instead of editing it, and edit
+// this file and not the HTML.
 
 const fs = require('fs');
 const path = require('path');
@@ -267,7 +267,7 @@ code{font-family:var(--mono);font-size:.875em}
       <li><strong>Read the Chinese first, English second.</strong> The question is whether the Chinese reads naturally to a Singaporean reader, not whether it matches the English word for word.</li>
       <li><strong>Send corrections as a list of reference codes.</strong> Each row has one, like <code>T4</code> or <code>S31</code>. Write the code and your replacement wording. No need to explain unless the reason is not obvious.</li>
     </ol>
-    <p>The Chinese should be Singapore Mandarin rather than Mainland usage: 义工 not 志愿者, 华文 not 中文, 电邮 not 电子邮件, 营运 not 运营, 合约 not 合同. Flag anything that reads as Mainland or Taiwanese. The Chinese below renders in your own device's font, which is exactly what a reader will see.</p>
+    <p>The Chinese should be Singapore Mandarin, not Mainland usage: 义工 not 志愿者, 华文 not 中文, 电邮 not 电子邮件, 营运 not 运营, 合约 not 合同. Flag anything that reads as Mainland or Taiwanese. The Chinese below renders in your own device's font, which is exactly what a reader will see.</p>
   </div>
 
   ${sections}

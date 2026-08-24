@@ -380,7 +380,7 @@ function historyMarkup(detail) {
  * A readable name for an audit action, or the action itself.
  *
  * The dictionary carries the ones that can land on an applicant's account, and
- * falls back to the stored name for anything else rather than printing a raw
+ * falls back to the stored name for anything else instead of printing a raw
  * key. Phase 9 adds cron actions and phase 11 adds Telegram ones, and neither
  * should make this list wrong the day they ship.
  */
@@ -510,7 +510,7 @@ async function unlinkTelegram(account, telegram) {
  *
  * Alphanumeric, minus the characters people confuse when reading one out: no
  * capital O against zero, and no capital I or lowercase l against one. It is
- * meant to be copied rather than read, and this is for the times the copy fails
+ * meant to be copied, not read, and this is for the times the copy fails
  * and somebody has to say it down a phone.
  */
 const PASSWORD_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
@@ -521,8 +521,8 @@ const PASSWORD_LENGTH = 16;
 /**
  * A password nobody chose.
  *
- * crypto.getRandomValues rather than Math.random, and rejection sampling rather
- * than a modulo, so every character is equally likely. A modulo over a 256 value
+ * crypto.getRandomValues over Math.random, and rejection sampling in place of
+ * a modulo, so every character is equally likely. A modulo over a 256 value
  * byte with a 56 character alphabet would make the first 32 letters slightly
  * more common than the rest, which is a small bias in a password that is one of
  * two things standing between an account and whoever is guessing at it.
@@ -560,7 +560,7 @@ function generatePassword() {
  *   Masked, because this is an admin screen that may be shared or looked over.
  *   The copy button is how it leaves the page. If the clipboard refuses, and it
  *   does in some browsers without a user gesture it trusts, the field is
- *   revealed rather than leaving somebody with nothing to pass on.
+ *   revealed and not left with nothing to pass on.
  *
  * Nothing is echoed back afterwards: only a bcrypt hash is stored, so there is
  * nothing to show later even if the page wanted to.
@@ -701,7 +701,7 @@ async function remove(account) {
     username: account.username,
     irreversible: t('admin.deleteConsequenceIrreversible'),
     // **Deviation 38 reversed, 23 August 2026.** Deleting somebody else's
-    // account asks for the admin's own password rather than for the account's
+    // account asks for the admin's own password and not for the account's
     // username. Typing a username proves you can read the row in front of you;
     // a password proves who you are, and this is a staff member destroying
     // somebody else's history. The endpoint verifies it against the bcrypt hash

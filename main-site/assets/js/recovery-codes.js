@@ -15,7 +15,7 @@
 //   else until the checkbox confirming they have been saved is ticked. That is
 //   deliberate friction and is not a bug to be smoothed away later.
 //
-// The dialog is built here rather than sitting in every page's markup, because
+// The dialog is built here instead of sitting in every page's markup, because
 // three separate flows raise it: registering, resetting a password, and
 // regenerating from the security page.
 
@@ -106,7 +106,7 @@ export function showRecoveryCodes({ codes, set = 'recovery' }) {
       } catch {
         // Clipboard access is refused in some browsers unless the page is
         // focused, and over plain http. Select the list instead so the person
-        // can copy it themselves rather than being told it failed.
+        // can copy it themselves and not be told it failed.
         selectText(wrap.querySelector('.code-list'));
         note.textContent = t('codes.copyManually');
       }
@@ -175,7 +175,7 @@ function downloadCodes(codes, set) {
     t('codes.fileFooter'),
   ].join('\r\n');
 
-  // A blob rather than a data URL, so a long list is not capped by URL length,
+  // A blob over a data URL, so a long list is not capped by URL length,
   // and CRLF line endings so the file opens correctly in Notepad as well as
   // everywhere else.
   const blob = new Blob([body], { type: 'text/plain;charset=utf-8' });
@@ -188,7 +188,7 @@ function downloadCodes(codes, set) {
   link.click();
   link.remove();
 
-  // Released on the next tick rather than immediately, since Safari has been
+  // Released on the next tick, not immediately, since Safari has been
   // known to cancel a download whose object URL is revoked too soon.
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

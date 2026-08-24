@@ -11,10 +11,10 @@
 // truth is how a shared link stops matching the screen. readState() reads the
 // URL, everything renders from what it returns, and writeState() puts it back.
 //
-// Section 4 asks for history.replaceState as filters change rather than a
-// reload, which is what happens here. One consequence is worth stating rather
-// than discovering: replaceState creates no history entry, so pressing back
-// after applying four filters leaves the board rather than undoing one filter.
+// Section 4 asks for history.replaceState as filters change instead of a
+// reload, which is what happens here. One consequence is worth stating up
+// front, not discovering: replaceState creates no history entry, so pressing
+// back after applying four filters leaves the board and does not undo a filter.
 // That is the specified behaviour. popstate is still listened for, so arriving
 // through history from somewhere else redraws correctly.
 //
@@ -51,18 +51,18 @@ const PARAMS = Object.freeze({
 });
 
 // The four quick chips from section 4. Each one is a single parameter, which is
-// what lets a chip be toggled by comparing the URL rather than by keeping a
+// what lets a chip be toggled by comparing the URL instead of by keeping a
 // flag beside it.
 //
 // days is a fallback, not the source of truth. The real numbers come back with
 // the facets, so the chip a reader clicks and the count printed on it were made
-// from one number rather than two that agree today. These are here only for the
+// from one number, not two that agree today. These are here only for the
 // window between the page appearing and the facets landing, in which a chip is
 // already clickable and would otherwise apply no filter at all. Keep them in
 // step with CHIP_DAYS in api/public/facets.js.
 //
 // key: is the dictionary key. Named that way on purpose: check-i18n.js reads
-// this shape, so these four keys are checked rather than invisible to it.
+// this shape, so these four keys are checked and not invisible to it.
 const CHIPS = [
   { id: 'posted_today', key: 'search.chipPostedToday', param: PARAMS.postedWithin, from: 'posted_today', days: 1 },
   { id: 'posted_week', key: 'search.chipPostedWeek', param: PARAMS.postedWithin, from: 'posted_week', days: 7 },
@@ -154,7 +154,7 @@ function readState() {
 }
 
 /**
- * The query string for a state. Empty values are left out entirely rather than
+ * The query string for a state. Empty values are left out entirely instead of
  * written as blanks, so /search stays /search until something is actually
  * filtered and a shared link carries no noise.
  */
@@ -277,7 +277,7 @@ function showLoading() {
   el.pagination.replaceChildren();
   el.results.setAttribute('aria-busy', 'true');
 
-  // Skeletons rather than a spinner, per section 3: the shape of the answer is
+  // Skeletons over a spinner, per section 3: the shape of the answer is
   // known here, so the page does not jump when it arrives. Delayed by 250ms, so
   // a fast search is never seen to load.
   el.results.innerHTML = Array.from({ length: 4 })
@@ -324,10 +324,10 @@ function renderResults(state, data) {
   //   did you mean     nothing matched the words, but these are close. The RPC
   //                    says so with match_mode 'trigram'.
   //   nothing at all   not even a near miss, so offer the popular tags as a way
-  //                    back in rather than a dead end.
+  //                    back in, not a dead end.
   const nearMiss = data.match_mode === 'trigram' && jobs.length > 0;
 
-  // Announced rather than merely displayed. The results region is a live
+  // Announced, not merely displayed. The results region is a live
   // region, so a reader who cannot see the list still hears how many there are.
   const count = Number(data.total ?? 0);
   const countText = count === 1 ? t('search.resultCountOne') : t('search.resultCount', { count: formatCount(count) });
@@ -357,9 +357,9 @@ function renderResults(state, data) {
     el.notice.hidden = true;
   }
 
-  // No hydrateIcons pass. jobCard builds its icons as markup rather than as
+  // No hydrateIcons pass. jobCard builds its icons as markup instead of as
   // data-icon placeholders, precisely so a list of twenty cards is one string
-  // rather than twenty extra DOM walks.
+  // and not twenty extra DOM walks.
   renderJobCards(el.results, jobs, { showHeadline: Boolean(state.q) });
   renderPagination(data);
 
@@ -388,7 +388,7 @@ function renderEmpty(state) {
 
   wrap.append(heading, body);
 
-  // The way back in. Section 4 asks for the most popular tags here rather than
+  // The way back in. Section 4 asks for the most popular tags here in place of
   // an apology, because a reader who searched for something we do not have
   // still wants to know what we do.
   const popular = (facets?.tags ?? []).slice(0, 8);
@@ -564,7 +564,7 @@ function renderFilterPanel() {
   el.filterBody.replaceChildren();
 
   if (facetsState === 'loading') {
-    // A spinner rather than skeletons: the shape of a filter panel is not known
+    // A spinner instead of skeletons: the shape of a filter panel is not known
     // until its contents are, since it has as many rows as there are teams.
     // Delayed by 250ms, so a fast response is never seen to load.
     const waiting = document.createElement('p');
@@ -799,7 +799,7 @@ function locationGroup(state) {
   input.placeholder = t('search.locationPlaceholder');
   input.autocomplete = 'off';
 
-  // On change rather than on input. A substring match rebuilt on every
+  // On change, not on input. A substring match rebuilt on every
   // keystroke is a request per keystroke for a field somebody is halfway
   // through typing.
   input.addEventListener('change', () => updateState({ location: input.value.trim() }));
@@ -1038,7 +1038,7 @@ function renderSuggestions(groups) {
         option.append(count);
       }
 
-      // pointerdown rather than click, so the choice registers before the
+      // pointerdown instead of click, so the choice registers before the
       // document level pointerdown handler closes the list under it.
       option.addEventListener('pointerdown', (event) => {
         event.preventDefault();
@@ -1080,7 +1080,7 @@ function setActive(index) {
 /**
  * What selecting a suggestion does, which differs by kind.
  *
- * A title carries the posting's uuid, so it goes straight there rather than
+ * A title carries the posting's uuid, so it goes straight there without
  * running a search for the posting's own name and hoping it comes first. A tag
  * or a department carries a slug and becomes a filter.
  */
@@ -1230,7 +1230,7 @@ function wireForm() {
 
   el.sort?.addEventListener('change', () => updateState({ sort: el.sort.value }));
 
-  // A tag pill on a card filters rather than navigating, per section 4. The
+  // A tag pill on a card filters and does not navigate, per section 4. The
   // pill is a real link so that opening it in a new tab and copying its address
   // both work; this intercepts the ordinary click and applies it in place.
   el.results?.addEventListener('click', (event) => {
@@ -1253,8 +1253,8 @@ function syncControls(state) {
         choice.value = option.id;
         choice.textContent = t(option.key);
         // Relevance is the default whenever there is a query and newest when
-        // there is not, which is the RPC's rule and is mirrored here rather
-        // than guessed at.
+        // there is not, which is the RPC's rule and is mirrored here,
+        // not guessed at.
         choice.selected = option.id === (state.sort || (state.q ? 'relevance' : 'newest'));
         return choice;
       })
@@ -1277,7 +1277,7 @@ function draw() {
   renderChips();
   renderFilterPanel();
   // Section 4 offers recent searches under an empty search box, so they are
-  // drawn here rather than only on focus: a reader arriving at /search should
+  // drawn here and not only on focus: a reader arriving at /search should
   // see them without having to click into the field first. renderRecent hides
   // itself the moment there is a query, which is what keeps them from sitting
   // under a box that already has something in it.
@@ -1293,7 +1293,7 @@ function boot() {
   wireSuggestions();
   wireFilterSheet();
 
-  // Facets and the first search go together rather than in sequence. The
+  // Facets and the first search go together, not in sequence. The
   // results are what the reader came for, and they must not wait on the filter
   // panel's counts.
   loadFacets();
@@ -1304,7 +1304,7 @@ function boot() {
   window.addEventListener('popstate', draw);
 
   // Everything on this page is written by JavaScript, so a language change is a
-  // redraw rather than a retranslation. It also re-runs the search, which is
+  // redraw instead of a retranslation. It also re-runs the search, which is
   // the point: the postings themselves come back in the new language, and a
   // board that switched its chrome to Chinese while leaving the roles in
   // English would be the worst of both.

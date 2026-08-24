@@ -328,7 +328,7 @@ async function searchApplicants(term) {
 
   holder.innerHTML = people
     .map((person) => {
-      // Somebody already on one of the two lists is shown as such rather than
+      // Somebody already on one of the two lists is shown as such and not
       // offered again: a second invite to the same posting reads as a reminder
       // nobody asked for, and the endpoint refuses it anyway.
       const already = invites.find((row) => row.applicant_id === person.id);
@@ -467,7 +467,7 @@ async function sendPicked(action) {
  * Invite one person who is already shortlisted.
  *
  * Goes through the same confirmation as a bulk send. One person is still a real
- * person getting a message, and the row's note is carried across rather than
+ * person getting a message, and the row's note is carried across instead of
  * asked for again: it is why they are on the list.
  */
 async function send(action, rows, note) {

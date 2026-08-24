@@ -15,7 +15,7 @@
 //   next to the cooldown it clears, and the accept and reject controls say so.
 //
 //   **Accepting and rejecting need a message.** The composer opens with the
-//   status change rather than after it, because the message is part of the
+//   status change, not after it, because the message is part of the
 //   decision and not a follow up somebody might forget.
 //
 //   **A send to more than one person confirms who first**, per 8.5's rule for
@@ -178,7 +178,7 @@ function wireFilters() {
     const params = query();
     params.delete('page');
     params.set('format', 'csv');
-    // A plain navigation rather than a fetch: the browser's own download
+    // A plain navigation instead of a fetch: the browser's own download
     // handling is what turns a Content-Disposition into a saved file, and a
     // blob built in script would lose the filename the server chose.
     window.location.href = `/api/admin/applications?${params.toString()}`;
@@ -284,8 +284,8 @@ function drawList() {
  * Said out loud when the applicant box matched more people than one search
  * filters by.
  *
- * The applicant box is a real filter from part 7 of phase 8, across every page
- * rather than inside the one on screen, and the cost of that is a ceiling on
+ * The applicant box is a real filter from part 7 of phase 8, across every page,
+ * not inside the one on screen, and the cost of that is a ceiling on
  * how many people one search can name. A capped list with an exact looking
  * count under it is the sort of thing somebody makes a decision on, so it says
  * so, and it says it about the export too, which carries the same capped set.
@@ -399,7 +399,7 @@ function wireRows(root) {
 /**
  * Close the detail panel, if one is open.
  *
- * Through the dialog's own close rather than by removing the element: close is
+ * Through the dialog's own close instead of by removing the element: close is
  * what unlocks the page's scroll and puts focus back where it came from, and a
  * panel torn out of the document does neither.
  */
@@ -686,7 +686,7 @@ function wireBulkBar() {
     openTaskComposer(selectedRows());
   });
 
-  // Removed rather than hidden or disabled for a job poster, per deviation 34:
+  // Removed, not hidden or disabled, for a job poster, per deviation 34:
   // section 0c's disabled state means "coming in a later phase", and using it
   // for "you are not allowed" would make a permission look like a build status.
   const remove = document.querySelector('#bulkDelete');
@@ -756,12 +756,12 @@ async function applyBulk() {
  * confirmation with deviation 49's shape — read what it destroys, then prove it
  * is you with your own password.
  *
- * The panel is counted from the database rather than described, per 8.2's rule
+ * The panel is counted from the database instead of described, per 8.2's rule
  * for a posting, and it names the consequence that is easiest to miss: the
  * reapply cooldown lives on the row being deleted, so anybody serving one stops
  * serving it. Section 3's rule is that exactly three things write those columns
  * and a rejection is not a waive; this is the fourth way they stop applying, and
- * an admin should read that before it happens rather than find out when somebody
+ * an admin should read that before it happens and not find out when somebody
  * reapplies the same afternoon.
  *
  * What survives is worth saying too, and the panel says it: the 8.4 funnel is
@@ -784,7 +784,7 @@ async function deleteBulk() {
 
   const impact = measured.data.impact ?? {};
 
-  // A dash rather than a zero for a count that could not be read, and the route
+  // A dash, not a zero, for a count that could not be read, and the route
   // refuses the deletion on one. An admin shown a zero would believe there was
   // nothing attached to these rows.
   const count = (value) => (value === null || value === undefined ? '—' : value);
@@ -809,7 +809,7 @@ async function deleteBulk() {
     consequences,
     confirmLabel: t('admin.bulkDelete'),
     irreversible: t('admin.deleteRowsIrreversible'),
-    // Deviation 49. The admin types their own password rather than an identifier
+    // Deviation 49. The admin types their own password instead of an identifier
     // off the screen, and the route verifies it in the same request as the
     // delete. There is no single username to type here anyway: a selection is
     // several people, which is exactly why the identifier step is the wrong one.
@@ -955,7 +955,7 @@ function openDecisionComposer(rows, status, note) {
 /**
  * Raise a task, optionally carrying a question set, per 8.3 and 7g.
  *
- * The freeze warning is above the send button rather than in a confirmation
+ * The freeze warning is above the send button and not in a confirmation
  * after it, because 7g says "the composer says so before the send rather than
  * after". Once this closes there is no way to change what was asked.
  */
@@ -1022,7 +1022,7 @@ function openTaskComposer(rows) {
 
   // The posting the task is about, when every selected row is about the same
   // one. A send across two roles is a message about neither, so it hangs off no
-  // posting rather than off whichever row happened to be first: the task still
+  // posting instead of off whichever row happened to be first: the task still
   // reaches everybody, and nobody is told it concerns a role it does not.
   const jobId = rows.every((row) => row.job.id === rows[0].job.id) ? rows[0].job.id : null;
 

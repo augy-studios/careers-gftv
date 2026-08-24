@@ -16,7 +16,7 @@
             var k = "gftv-careers";
             var m = localStorage.getItem(k + ".mode") || "light";
 
-            // Time based mode, per gftv-theme.md. Resolved here rather than
+            // Time based mode, per gftv-theme.md. Resolved here instead of
             // in theme.js because theme.js runs after first paint, and an
             // evening reader would otherwise watch a white page turn dark.
             // Keep the two hours in step with LIGHT_FROM_HOUR and
@@ -164,7 +164,7 @@
             </section>
 
             <!-- Passkeys. The second factor that actually works today, which
-                 is why it sits above the Telegram one rather than below it. -->
+                 is why it sits above the Telegram one instead of below it. -->
             <section class="glass-card card stack" id="passkeySection">
                 <h2>
                     <span data-icon="shield" data-icon-size="18"></span>
@@ -228,7 +228,7 @@
                 <p data-i18n="security.twoFactorBody">
                     A code from the Careers@GFTV Telegram bot at every sign in.
                     The bot itself is a later phase, so the switch is here and
-                    turned off rather than missing.
+                    turned off, not missing.
                 </p>
                 <label class="check-row">
                     <input type="checkbox" data-feature="telegram_2fa" data-feature-hint>
@@ -238,8 +238,8 @@
                 </label>
             </section>
 
-            <!-- Password, with the two consequences stated before the button
-                 rather than discovered after it. -->
+            <!-- Password, with the two consequences stated before the button,
+                 not discovered after it. -->
             <section class="glass-card card stack">
                 <h2 data-i18n="security.passwordHeading">Change your password</h2>
                 <form method="post" class="form" id="changePasswordForm" novalidate>

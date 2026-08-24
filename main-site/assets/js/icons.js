@@ -10,7 +10,7 @@
 // later are hydrated by passing the new subtree to hydrateIcons(root).
 //
 // Every icon is a 24 by 24 viewBox. Keep them that way so sizing is one CSS
-// rule rather than a per icon adjustment.
+// rule instead of a per icon adjustment.
 
 const PATHS = {
   menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
@@ -36,7 +36,7 @@ const PATHS = {
   // status pill on /status, and the placeholder page eyebrow. All three read
   // from this one entry, so they cannot drift apart.
   // The head is a rectangle rotated to sit square on the handle, drawn as an
-  // explicit quad rather than with a transform so it scales with the viewBox.
+  // explicit quad and not with a transform so it scales with the viewBox.
   build:
     '<path d="M14.8 2.6 L20.4 8.2 L17.2 11.4 L11.6 5.8 Z"/>' +
     '<path d="M14.4 8.6 L4 19"/>',
@@ -51,7 +51,7 @@ const PATHS = {
   // Phase 2, the authentication pages.
   //
   // The eye is the show and hide control on a password field. There is one
-  // shape rather than an eye and a crossed out eye, because the button carries
+  // shape in place of an eye and a crossed out eye, because the button carries
   // aria-pressed and a visible label change already, and two shapes that
   // differ by a single stroke read as noise at 18 pixels.
   eye: '<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="3"/>',
@@ -67,7 +67,7 @@ const PATHS = {
   laptop: '<rect x="4" y="5" width="16" height="11" rx="1.5"/><path d="M2 19h20"/>',
   // Phase 3, the job board.
   //
-  // A pin rather than the globe for a posting's location. The globe already
+  // A pin, not the globe, for a posting's location. The globe already
   // means "language" everywhere else on this site, and one shape cannot carry
   // two meanings on the same page.
   pin: '<path d="M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>',
@@ -88,12 +88,12 @@ const PATHS = {
     '<path d="M2.5 20a6.5 6.5 0 0 1 13 0"/>' +
     '<path d="M16 5.2a3.5 3.5 0 0 1 0 6.6"/><path d="M17.5 14.4a6.5 6.5 0 0 1 4 5.6"/>',
   // A calendar, for the posted and closing dates. The clock is the commitment,
-  // which is a duration rather than a date, and the two sit next to each other.
+  // which is a duration, not a date, and the two sit next to each other.
   calendar:
     '<rect x="3.5" y="5" width="17" height="15" rx="2"/>' +
     '<path d="M3.5 10h17M8 3v4M16 3v4"/>',
   // The rating star, from the handoff modal in 7c. The only icon in this set
-  // that is ever filled rather than stroked: an empty star and a chosen star
+  // that is ever filled instead of stroked: an empty star and a chosen star
   // have to differ at a glance across a row of five, and a stroke weight change
   // does not carry that at 28px on a phone. app.css sets the fill on the
   // chosen ones and leaves the rest as outlines.
@@ -110,7 +110,7 @@ const PATHS = {
   // Phase 6, the account area.
   //
   // A bookmark, for saving a posting. The second icon in this set that is ever
-  // filled rather than stroked, and for the same reason as the star: saved and
+  // filled, not stroked, and for the same reason as the star: saved and
   // not saved have to differ at a glance on a card, and a stroke weight change
   // does not carry that. app.css fills it when the control is pressed.
   //
@@ -122,16 +122,16 @@ const PATHS = {
   // as the same thing at 18px.
   user: '<circle cx="12" cy="8" r="3.75"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/>',
   // Phase 7, the dashboard. Everything below is sidebar or toolbar furniture:
-  // small, stroked, and deliberately dull, because a dashboard is read rather
-  // than looked at and a screen of expressive icons is harder to scan.
+  // small, stroked, and deliberately dull, because a dashboard is read and
+  // not looked at, and a screen of expressive icons is harder to scan.
   //
-  // Bars rather than a line, for analytics. A line chart at 18px is a squiggle;
-  // three bars stay legible and say "counts" rather than "trend", which is what
+  // Bars over a line, for analytics. A line chart at 18px is a squiggle;
+  // three bars stay legible and say "counts", not "trend", which is what
   // 8.4's funnel actually is.
   chart: '<path d="M4 20V4"/><path d="M4 20h16"/><rect x="7" y="12" width="3" height="5"/>' +
     '<rect x="12" y="8" width="3" height="9"/><rect x="17" y="5" width="3" height="12"/>',
-  // A slider rather than a cog. The cog is what "build" already implies in this
-  // set, and settings here are values somebody adjusts rather than machinery.
+  // A slider in place of a cog. The cog is what "build" already implies in this
+  // set, and settings here are values somebody adjusts, not machinery.
   settings:
     '<path d="M4 8h10M18 8h2M4 16h4M12 16h8"/>' +
     '<circle cx="16" cy="8" r="2"/><circle cx="10" cy="16" r="2"/>',

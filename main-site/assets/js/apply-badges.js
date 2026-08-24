@@ -4,7 +4,7 @@
 // clicks through only to be turned away." The board and the home page both
 // render assets/js/job-card.js, so both call this after they render.
 //
-// It is a pass over cards that already exist rather than something job-card.js
+// It is a pass over cards that already exist and not something job-card.js
 // does itself, and that separation is on purpose. A card is built from a search
 // result, which is public, cacheable, and the same for everybody; this is per
 // applicant and per session. Folding it into the card would mean every renderer
@@ -66,7 +66,7 @@ export async function markAppliedCards(container) {
     if (!row?.in_cooldown) continue;
 
     // The badges row is where the paid and untranslated badges already sit, so
-    // this reads as one more fact about the posting rather than as a warning
+    // this reads as one more fact about the posting instead of a warning
     // bolted onto the card.
     const badges = card.querySelector('.job-card-badges');
     if (!badges || badges.querySelector('.badge-cooldown')) continue;

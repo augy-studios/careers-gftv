@@ -13,7 +13,7 @@
 // layer does not load at all." Nothing in here is on the path of an ordinary
 // reader, and nothing in here may ever become so.
 //
-// Seven things in it are decisions rather than plumbing:
+// Seven things in it are decisions, not plumbing:
 //
 //   **Off by default, and selection keeps working.** 7i: "A helper is a reader
 //   first, and text selection has to keep working normally for copying." So a
@@ -32,7 +32,7 @@
 //   container and this reads it.
 //
 //   **"By word" means by character in Chinese**, and that is not a shortcut.
-//   7i asks for the captured quote to be adjustable by word rather than by a
+//   7i asks for the captured quote to be adjustable by word instead of by a
 //   perfect drag, because touch selection is imprecise. Han script has no word
 //   boundaries for a browser to find, so the step there is one character, which
 //   is the unit somebody actually wants to nudge. The control says the same
@@ -225,7 +225,7 @@ function mayAnnotate(locale) {
 /**
  * The quote, and enough of what is around it to find it again.
  *
- * The offsets are counted in the container's own text rather than in the DOM, so
+ * The offsets are counted in the container's own text and not in the DOM, so
  * a span crossing two elements — a sentence with a bold word in the middle — is
  * one run of characters here, which is what the stored column looks like.
  */
@@ -371,9 +371,9 @@ function onKeyDown(event) {
     return;
   }
 
-  // `code` rather than `key`, because Alt and a letter produces a different
+  // `code` over `key`, because Alt and a letter produces a different
   // character on several layouts — Alt and S is ß on a Mac — and the shortcut is
-  // about the key somebody presses rather than what it would have typed.
+  // about the key somebody presses and not what it would have typed.
   if (!event.altKey || event.code !== 'KeyS') return;
   if (panel?.isConnected) return;
 
@@ -481,7 +481,7 @@ function whereLine() {
   return parts.filter(Boolean).join(' · ');
 }
 
-/** The field's name, from 8.11's own keys rather than a second set. */
+/** The field's name, from 8.11's own keys in place of a second set. */
 function fieldName(targetType, field) {
   for (const key of [`admin.field_${targetType}_${field}`, `admin.field_${field}`]) {
     const label = t(key);
@@ -548,7 +548,7 @@ function adjust(what) {
   else if (what === 'end-in') end = stepLeft(text, end);
   else if (what === 'end-out') end = stepRight(text, end);
 
-  // **Refused rather than clamped**, which is the difference between a control
+  // **Refused, not clamped**, which is the difference between a control
   // that has reached the end of its travel and one that does something silly at
   // it. Clamping turned "end one word earlier" on a single word into a one
   // character quote, which is not a thing anybody asked for and is a worse
@@ -635,7 +635,7 @@ async function send() {
   });
   panel.querySelector('[data-close]')?.focus();
 
-  // The span this one is about now has one more against it. Redrawn rather than
+  // The span this one is about now has one more against it. Redrawn instead of
   // incremented, because somebody else may have added one while this panel was
   // open and the count is the point of the underline.
   underlined = false;
@@ -738,7 +738,7 @@ function drawUnderline(jobId, locale, span) {
 
     // **A control only for somebody who could add to it.** Staff read the layer
     // and do not write to it, per deviation 52, so for them this is a mark on
-    // the page rather than a button that opens a box they cannot send. The title
+    // the page and not a button that opens a box they cannot send. The title
     // carries the count either way; the aria-label is only set where the role
     // is, because a role of button replaces the words inside it in the
     // accessibility tree and the sentence has to survive that.

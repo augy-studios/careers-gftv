@@ -218,7 +218,7 @@ body {
   margin-bottom: 0.75rem;
 }
 
-/* Signing out is a POST with a side effect, so it is a button rather than a
+/* Signing out is a POST with a side effect, so it is a button, not a
    link. It sits in the same list as the links and is styled with them, since
    the difference is in what it does, not in where it is. */
 .site-nav a,
@@ -245,7 +245,7 @@ body {
   cursor: pointer;
 }
 
-/* 7i's layer, on or off. A pressed state rather than a separate "turn it off"
+/* 7i's layer, on or off. A pressed state instead of a separate "turn it off"
    item, because it is one switch and somebody needs to see which way it is
    set from across the header. */
 .site-nav .nav-suggest[aria-pressed='true'] {
@@ -315,7 +315,7 @@ body {
   /* The drawer gives this width: 100% so it fills a column. On a row that makes
      it demand the whole nav and crush everything beside it, and because the
      button only exists once somebody is signed in, the signed out header looks
-     perfectly fine. Reset it here rather than scoping the rule above, so the
+     perfectly fine. Reset it here in place of scoping the rule above, so the
      two layouts stay readable side by side. */
   .site-nav .nav-signout {
     width: auto;
@@ -323,8 +323,8 @@ body {
 }
 
 /* An applicant's display name is arbitrary text of arbitrary length sitting in
-   a fixed width bar, so it is the one nav item allowed to be cut short. Capped
-   rather than wrapped: a name that wraps takes the row with it. */
+   a fixed width bar, so it is the one nav item allowed to be cut short. Capped,
+   not wrapped: a name that wraps takes the row with it. */
 .nav-account-name {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -424,7 +424,7 @@ body {
  * Disabled control pattern, section 0c
  *
  * A control for a feature that has not shipped stays visible and disabled
- * rather than hidden, with the reason on it. Hiding it teaches people the
+ * instead of hidden, with the reason on it. Hiding it teaches people the
  * feature does not exist. Showing it disabled tells them it is coming.
  *
  * The reason is set by build-status.js as both the accessible name and a
@@ -652,7 +652,7 @@ body[data-scroll-locked='true'] {
   overflow: hidden;
 }
 
-/* Any table anywhere scrolls inside its own container rather than pushing the
+/* Any table anywhere scrolls inside its own container without pushing the
    page sideways. Section 3 also requires admin tables to reflow to cards below
    640px, which lands with the admin dashboard in phase 6. */
 .table-scroll {
@@ -667,7 +667,7 @@ body[data-scroll-locked='true'] {
  * nothing to gain from two columns and a great deal to lose: a password and
  * its confirmation side by side is how people confirm a typo.
  *
- * Inputs inherit the 16px root size rather than setting their own. Anything
+ * Inputs inherit the 16px root size instead of setting their own. Anything
  * smaller makes iOS Safari zoom the page on focus, which is jarring and leaves
  * the layout scrolled sideways.
  * ------------------------------------------------------------------------ */
@@ -730,7 +730,7 @@ select:disabled {
   cursor: not-allowed;
 }
 
-/* The show and hide control sits inside the field rather than beside it, so
+/* The show and hide control sits inside the field, not beside it, so
    the input keeps its full width on a 320px screen. */
 .input-with-button {
   position: relative;
@@ -764,7 +764,7 @@ select:disabled {
   margin-bottom: 0.25rem;
 }
 
-/* A checkbox and its label as one target. align-items: start rather than
+/* A checkbox and its label as one target. align-items: start over
    center, so a label that wraps to two lines keeps the box beside its first
    line instead of floating in the middle. */
 .check-row {
@@ -1096,7 +1096,7 @@ select:disabled {
   margin-top: 1.5rem;
 }
 
-/* Browse by department. A grid of links rather than a dropdown, because the
+/* Browse by department. A grid of links instead of a dropdown, because the
    list is short and a visible list is a list somebody can read. */
 .department-grid {
   display: grid;
@@ -1141,7 +1141,7 @@ select:disabled {
 
 .department-name {
   font-weight: 600;
-  /* A long department name wraps rather than pushing the count off the card,
+  /* A long department name wraps without pushing the count off the card,
      per section 3's no horizontal scrolling rule. */
   min-width: 0;
   overflow-wrap: anywhere;
@@ -1154,7 +1154,7 @@ select:disabled {
 }
 
 /* How applying works. An ordered list, so the sequence is carried by the
-   markup rather than only by the numbers being visible. */
+   markup and not only by the numbers being visible. */
 .step-list {
   display: grid;
   grid-template-columns: 1fr;
@@ -1251,7 +1251,7 @@ select:disabled {
   }
 }
 
-/* The suggestion list overlays the page rather than pushing it down. A list
+/* The suggestion list overlays the page instead of pushing it down. A list
    that reflows the results every time it opens and closes is a list nobody can
    aim at. */
 .suggestions {
@@ -1539,7 +1539,7 @@ select:disabled {
 }
 
 @media (min-width: 1024px) {
-  /* Not a sheet any more. Sticky rather than fixed, so it follows a long
+  /* Not a sheet any more. Sticky, not fixed, so it follows a long
      result list down the page without covering it. */
   .filter-panel {
     position: sticky;
@@ -1595,7 +1595,7 @@ select:disabled {
   border-color: var(--border-strong);
 }
 
-/* The whole card is clickable through the title's link rather than by wrapping
+/* The whole card is clickable through the title's link instead of by wrapping
    everything in an anchor, because the tag pills inside it are links too and
    nested anchors are invalid. Everything that must stay clickable in its own
    right is lifted above this with position and z-index below. */
@@ -1609,7 +1609,7 @@ select:disabled {
 .job-card-title {
   font-size: 1.125rem;
   line-height: 1.35;
-  /* A long title wraps rather than widening the card. uuids and tag names get
+  /* A long title wraps and does not widen the card. uuids and tag names get
      the same treatment, per section 3. */
   overflow-wrap: anywhere;
 }
@@ -1641,7 +1641,7 @@ select:disabled {
   letter-spacing: 0.02em;
 }
 
-/* Unpaid is the ordinary case here, so it is quiet rather than a warning. It
+/* Unpaid is the ordinary case here, so it is quiet, not a warning. It
    is stated on every card because a job board that says it once at the top is
    a job board somebody scrolls past. */
 .badge-unpaid {
@@ -1734,7 +1734,7 @@ select:disabled {
   gap: 0.375rem;
   list-style: none;
   /* Above the stretched title link, so a tag pill is clickable in its own
-     right rather than opening the posting. */
+     right and does not open the posting. */
   position: relative;
   z-index: 1;
 }
@@ -1782,7 +1782,7 @@ select:disabled {
  * Search inputs
  *
  * input[type='search'] was not in the element list the phase 2 forms styled,
- * since nothing until now used one. Added rather than given a class, so every
+ * since nothing until now used one. Added instead of given a class, so every
  * search field on the site matches every other input without remembering to.
  * ------------------------------------------------------------------------ */
 
@@ -1812,8 +1812,8 @@ input[type='search']::-webkit-search-cancel-button {
  * Phase 4: the job posting page
  *
  * One column at every width. A posting is prose, and prose in two columns on a
- * wide screen is harder to read rather than easier, so the page stays a single
- * measure and the width is capped rather than filled.
+ * wide screen is harder to read, not easier, so the page stays a single
+ * measure and the width is capped instead of filled.
  *
  * The page arrives from a serverless function, per section 4, but nothing here
  * knows that: the markup it renders carries the same classes the rest of the
@@ -1863,7 +1863,7 @@ input[type='search']::-webkit-search-cancel-button {
 }
 
 /* The one line version of the unpaid notice, per section 4's rule that the
-   fact is stated where it is read rather than once at the top of the site. The
+   fact is stated where it is read and not once at the top of the site. The
    full paragraph is further down, immediately above the Apply button. */
 .job-unpaid-short {
   margin: 0;
@@ -1871,7 +1871,7 @@ input[type='search']::-webkit-search-cancel-button {
   font-size: 0.9375rem;
 }
 
-/* Every fact about the posting, one per row. A row rather than a wrapped inline
+/* Every fact about the posting, one per row. A row in place of a wrapped inline
    list, because each carries a label as well as a value and a label separated
    from its value by a line wrap is worse than a taller list. */
 .job-detail-meta {
@@ -1930,7 +1930,7 @@ input[type='search']::-webkit-search-cancel-button {
   list-style: none;
 }
 
-/* Archived is a state rather than a warning: the posting is being kept for the
+/* Archived is a state, not a warning: the posting is being kept for the
    applicant who asked for it, not flagged at them. */
 .badge-archived {
   background: var(--surface-active);
@@ -1963,7 +1963,7 @@ input[type='search']::-webkit-search-cancel-button {
 
 .job-section p {
   margin: 0;
-  /* Capped rather than filled. Beyond about seventy characters a line is hard
+  /* Capped, not filled. Beyond about seventy characters a line is hard
      to track back from, and this page can be much wider than that. */
   max-width: 42rem;
   color: var(--text-muted-strong);
@@ -2132,10 +2132,10 @@ input[type='search']::-webkit-search-cancel-button {
 /* ---------------------------------------------------------------------------
  * The Apply control, 7a and 7f
  *
- * A slot rather than a button, because one posting is six different controls
+ * A slot instead of a button, because one posting is six different controls
  * depending on this reader's history with it. assets/js/apply.js decides which,
- * and writes data-apply-state on the slot so the shape of each is here rather
- * than in the JavaScript.
+ * and writes data-apply-state on the slot so the shape of each is here and
+ * not in the JavaScript.
  * ------------------------------------------------------------------------ */
 
 .apply-slot {
@@ -2172,7 +2172,7 @@ input[type='search']::-webkit-search-cancel-button {
   font-weight: 600;
 }
 
-/* The cooldown, per 7f. A panel rather than a disabled button: the sentence is
+/* The cooldown, per 7f. A panel instead of a disabled button: the sentence is
    two clauses long and reads badly inside a control, and a disabled button is
    dropped from the accessibility tree in some browsers, which would hide the
    only explanation on the page from exactly the readers who need it most. */
@@ -2222,7 +2222,7 @@ input[type='search']::-webkit-search-cancel-button {
  * is what 7c asks for. Focus trapping and the backdrop come free and correct,
  * and a browser will never mistake an in-page dialog for a popup to block.
  *
- * It is styled to look like the other three rather than like a browser default:
+ * It is styled to look like the other three and not like a browser default:
  * same glass card, same head, same close control in the corner, so a reader who
  * has opened the theme picker has already learned how to leave this.
  * ------------------------------------------------------------------------ */
@@ -2264,7 +2264,7 @@ input[type='search']::-webkit-search-cancel-button {
 /* The indeterminate progress indicator, shown only while the tab is opening.
    Presentational: the header beside it carries aria-live and says the same
    thing in words, so this adds nothing for a screen reader and is hidden from
-   one rather than announced as a second, wordless status. */
+   one instead of announced as a second, wordless status. */
 .apply-progress {
   height: 3px;
   margin: 0 0 1rem;
@@ -2333,7 +2333,7 @@ input[type='search']::-webkit-search-cancel-button {
 :root[data-mode='light'] {
   /* Yellow enough to read as a star, with an outline dark enough to clear 3:1
      against a light surface. The fill alone does not, which is why every star
-     keeps its stroke rather than being a flat shape. */
+     keeps its stroke and is never a flat shape. */
   --star-on: #eda600;
   --star-edge: var(--warn);
 }
@@ -2440,7 +2440,7 @@ input[type='search']::-webkit-search-cancel-button {
     max-height: 90dvh;
     top: auto;
     bottom: 0;
-    /* Bottom rather than centred, so margin: auto above is deliberately undone
+    /* Bottom, not centred, so margin: auto above is deliberately undone
        on this axis. It still fills the width, so there is nothing to centre. */
     margin: 0;
     border-radius: var(--radius) var(--radius) 0 0;
@@ -2493,14 +2493,14 @@ input[type='search']::-webkit-search-cancel-button {
   display: flex;
   flex-direction: column;
   gap: 0.125rem;
-  /* A display name is arbitrary text of arbitrary length. It wraps rather than
+  /* A display name is arbitrary text of arbitrary length. It wraps without
      pushing the avatar off the row, per section 3. */
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
 /* The avatar, or the initial standing in for one. Most accounts will never set
-   a picture, so the fallback is the ordinary case rather than an error state. */
+   a picture, so the fallback is the ordinary case, not an error state. */
 .avatar {
   display: inline-flex;
   align-items: center;
@@ -2536,7 +2536,7 @@ input[type='search']::-webkit-search-cancel-button {
   font-size: 2.25rem;
 }
 
-/* The second level of navigation. A scrolling row on a phone rather than a
+/* The second level of navigation. A scrolling row on a phone instead of a
    wrapped block, because six items wrapped onto three lines push the page
    itself below the fold on a 360px screen. */
 .account-nav {
@@ -2572,7 +2572,7 @@ input[type='search']::-webkit-search-cancel-button {
   color: var(--brand-text);
 }
 
-/* The count of open items, per 7g. Hidden at zero rather than shown as a
+/* The count of open items, per 7g. Hidden at zero and never shown as a
    nought: a badge is an invitation, and one saying nothing is waiting is
    noise. */
 .account-badge {
@@ -2851,7 +2851,7 @@ input[type='search']::-webkit-search-cancel-button {
 }
 
 /* The posting a task is about, nested inside the task's own row. Indented and
-   quieter, so it reads as context rather than as a second item in the list. */
+   quieter, so it reads as context, not as a second item in the list. */
 .task-job {
   padding-left: 0.75rem;
   border-left: 2px solid var(--border);
@@ -2974,7 +2974,7 @@ input[type='search']::-webkit-search-cancel-button {
 }
 
 /* 7g: "a clearly separated danger zone at the bottom". Separated by a border
-   and a heading rather than by red everywhere, which would make the section
+   and a heading instead of by red everywhere, which would make the section
    easy to stop seeing. */
 .danger-zone {
   border-color: var(--danger);
@@ -3062,7 +3062,7 @@ input[type='search']::-webkit-search-cancel-button {
  *
  * Section 8 asks for the gftv.asia link shortener's layout: sidebar, header,
  * card and table patterns, and the same empty and loading states. What that
- * means here is a two column layout under the site's own header rather than a
+ * means here is a two column layout under the site's own header in place of a
  * second one: /admin/login and /admin/security have sat under the public header
  * since phase 2, and giving the dashboard its own would put two brands, two
  * theme buttons, and two language switchers on one page.
@@ -3086,12 +3086,12 @@ input[type='search']::-webkit-search-cancel-button {
 
 .admin-content {
   /* minmax(0, 1fr) above plus this is what lets a wide table scroll inside its
-     own container rather than stretching the grid column. */
+     own container without stretching the grid column. */
   min-width: 0;
 }
 
 /* The sidebar sticks, because a dashboard is a place somebody moves between
-   sections rather than reads top to bottom. */
+   sections and not one they read top to bottom. */
 .admin-sidebar {
   position: sticky;
   top: 1rem;
@@ -3212,12 +3212,12 @@ input[type='search']::-webkit-search-cancel-button {
 }
 
 /* The dashboard's banner is prepended to #adminPage, which **is** .admin-layout
-   rather than something inside it, so without this it becomes a third grid item
+   and not something inside it, so without this it becomes a third grid item
    and takes the first cell: the sidebar was pushed into column two and rendered
    at the content's full width, and the content dropped into column one of the
    next row at 14rem wide. The page came out inside out.
 
-   Spanning both columns is also the right answer rather than only the safe one.
+   Spanning both columns is also the right answer, not only the safe one.
    The banner is about the whole dashboard and not about the section being
    looked at, so it belongs above both columns, which is where prepending it to
    the layout was always trying to put it. .account-maintenance-banner needs no
@@ -3479,7 +3479,7 @@ input[type='search']::-webkit-search-cancel-button {
  * ------------------------------------------------------------------------ */
 
 /* The editor is one column, and the panel of shared settings sits underneath
- * the language tabs rather than beside them.
+ * the language tabs instead of beside them.
  *
  * It was a two column grid first, and that was wrong twice over. The dashboard
  * already gives up 14rem to the sidebar, so a third of what remains is narrow
@@ -3505,8 +3505,8 @@ input[type='search']::-webkit-search-cancel-button {
   padding: 1.25rem;
 }
 
-/* The shared settings, laid out across the width rather than down it. auto-fit
- * rather than a fixed count, so this needs no breakpoint of its own: the
+/* The shared settings, laid out across the width and not down it. auto-fit
+ * over a fixed count, so this needs no breakpoint of its own: the
  * columns appear when there is room for an 18rem field and collapse to one when
  * there is not. */
 #editorShared {
@@ -3518,10 +3518,10 @@ input[type='search']::-webkit-search-cancel-button {
 
 /* The three that are not a single short field: the tag picker, which fills up
  * sideways, the prefill map, which is JSON on one line, and the question
- * composer, which is a panel rather than a control. All three read badly in a
+ * composer, which is a panel, not a control. All three read badly in a
  * column sized for a text input.
  *
- * Marked with a class in the markup rather than selected with :has(), because
+ * Marked with a class in the markup instead of selected with :has(), because
  * the markup is ours to label and a layout rule that depends on what a field
  * happens to contain is one rename away from silently not applying. */
 #editorShared .field-wide {
@@ -3548,7 +3548,7 @@ input[type='search']::-webkit-search-cancel-button {
 
 /* 8.2: the source wording sits beside the field being written, "so a translator
    is never working from memory". Below 1024px it collapses to a disclosure
-   above each field rather than a second column, which is the media query at the
+   above each field in place of a second column, which is the media query at the
    foot of this block. */
 .editor-field.has-source {
   display: grid;
@@ -3902,7 +3902,7 @@ input[type='search']::-webkit-search-cancel-button {
 }
 
 /* A feature that is off is marked by a border as well as by the switch, so the
-   state is legible while scanning rather than only by reading each control. */
+   state is legible while scanning and not only by reading each control. */
 .feature-switch.is-off {
   border-inline-start: 4px solid var(--warn);
 }
@@ -4066,7 +4066,7 @@ input[type='search']::-webkit-search-cancel-button {
      breakpoint on. */
 
   /* 8.2: below 1024px the source wording collapses to a block above each field
-     rather than a second column. Above it rather than below, because a
+     instead of a second column. Above it and not below, because a
      translator reads the source and then types. */
   .editor-field.has-source {
     display: flex;
@@ -4083,7 +4083,7 @@ input[type='search']::-webkit-search-cancel-button {
     position: static;
   }
 
-  /* The sidebar becomes a disclosure rather than a permanent column: twelve
+  /* The sidebar becomes a disclosure, not a permanent column: twelve
      items above every page is most of a phone screen before the page starts. */
   .admin-layout:not(.nav-open) .admin-sidebar {
     display: none;
@@ -4132,7 +4132,7 @@ input[type='search']::-webkit-search-cancel-button {
  * inline-flex box sized by its own content.
  *
  * So the rule is the other way round from ordinary prose. **Everything in these
- * tables that is a shape rather than a sentence refuses to wrap**, the columns
+ * tables that is a shape and not a sentence refuses to wrap**, the columns
  * take the width they need, and the one genuinely flexible column, the title,
  * absorbs what is left. When even that is not enough the container scrolls
  * sideways, which .admin-list already allows and which section 3 permits
@@ -4168,7 +4168,7 @@ input[type='search']::-webkit-search-cancel-button {
 }
 
 /* Below these the container scrolls. Chosen to fit the widest ordinary row
-   rather than the widest possible one: a very long posting title still wraps,
+   instead of the widest possible one: a very long posting title still wraps,
    which is correct, because a title is a sentence. */
 .admin-jobs-table {
   min-width: 62rem;
@@ -4199,7 +4199,7 @@ input[type='search']::-webkit-search-cancel-button {
 }
 
 /* A hint that the row continues past the edge, on the scrolling container
-   rather than on the table, so it appears only when there is something to
+   and not on the table, so it appears only when there is something to
    scroll to. */
 .admin-list {
   scrollbar-width: thin;
@@ -4244,7 +4244,7 @@ input[type='search']::-webkit-search-cancel-button {
  * that scrolls sideways, which is where the extra width goes.
  *
  * One value, as a custom property, so a table with a genuine reason to be
- * tighter can raise or lower it in one place rather than by overriding a
+ * tighter can raise or lower it in one place without overriding a
  * selector. The per table minimums above still win where they are wider, since
  * they are the same property on a more specific selector.
  * ------------------------------------------------------------------------ */
@@ -4261,7 +4261,7 @@ table td {
   min-width: var(--cell-min);
 }
 
-/* The select-all and per-row tick boxes are a control rather than a column of
+/* The select-all and per-row tick boxes are a control, not a column of
    text, and a floor under them would push every other column sideways for
    nothing. */
 .admin-table .admin-select-col {
@@ -4269,7 +4269,7 @@ table td {
 }
 
 /* The same, for a tick box column that does not carry the class. In its own
-   rule rather than in the list above, because one unsupported selector in a
+   rule instead of in the list above, because one unsupported selector in a
    comma separated list invalidates the whole rule, and losing the line above
    in a browser without :has() would be worse than not catching this case. */
 table th:has(> input[type='checkbox']:only-child),
@@ -4327,7 +4327,7 @@ table td:has(> input[type='checkbox']:only-child) {
 
 /* Moving between two pages of the same area.
  *
- * Every page here is a real document rather than a view swapped in by script,
+ * Every page here is a real document and not a view swapped in by script,
  * so /account and /account/saved are two navigations and the browser paints the
  * second one straight over the first. Inside one area that reads as a jolt: the
  * chrome either side of the change is identical, so the only thing the eye
@@ -4434,8 +4434,8 @@ table td:has(> input[type='checkbox']:only-child) {
   margin-bottom: 0.75rem;
 }
 
-/* The featured roles, in the order they will appear. Numbered rather than
-   bulleted because the order is the decision being made. */
+/* The featured roles, in the order they will appear. Numbered, not
+   bulleted, because the order is the decision being made. */
 .admin-chosen-list {
   display: flex;
   flex-direction: column;
@@ -4461,7 +4461,7 @@ table td:has(> input[type='checkbox']:only-child) {
   max-width: 8rem;
 }
 
-/* A list of hints reads as prose rather than as a checklist: no bullets, and
+/* A list of hints reads as prose instead of as a checklist: no bullets, and
    the same muted size the single line version already uses. */
 ul.field-hint {
   list-style: none;
@@ -4502,7 +4502,7 @@ ul.field-hint {
   stroke-linecap: round;
 }
 
-/* Hairlines, and in the border token rather than in text ink: a gridline that
+/* Hairlines, in the border token and not in text ink: a gridline that
    competes with the data is worse than no gridline. */
 .chart-grid {
   stroke: var(--border);
@@ -4622,7 +4622,7 @@ ul.field-hint {
   font-size: 0.875rem;
 }
 
-/* The "check the form" flag from 8.4. A word and a badge rather than a coloured
+/* The "check the form" flag from 8.4. A word and a badge in place of a coloured
    cell, so it survives being read by somebody who cannot see the colour. */
 .admin-flag {
   display: inline-flex;
@@ -4642,7 +4642,7 @@ ul.field-hint {
  * ------------------------------------------------------------------------ */
 
 /* An invite on the applicant's own outstanding tasks. It reads as an offer
-   rather than as a warning, so it takes the brand's own emphasis rather than
+   not as a warning, so it takes the brand's own emphasis instead of
    the amber an info request uses to say somebody is waiting on you. */
 .badge-task-invite {
   background: var(--callout-ok-bg);
@@ -4680,8 +4680,8 @@ ul.field-hint {
 }
 
 /* Who a send is going to, kept on screen while the search list underneath it
-   changes. A chip rather than a row, because this is a choice being assembled
-   rather than a list being read. */
+   changes. A chip in place of a row, because this is a choice being assembled
+   and not a list being read. */
 .admin-chips {
   display: flex;
   flex-wrap: wrap;
@@ -4708,7 +4708,7 @@ ul.field-hint {
  * .admin-people already existed for the tracking page, where its children are
  * list items. The two pickers put a label or a div in it instead, because a
  * checkbox needs a label around it and a search result needs a button beside
- * it, so the row styling is on the child class rather than on the element.
+ * it, so the row styling is on the child class, not on the element.
  * ------------------------------------------------------------------------ */
 
 .admin-person {
@@ -4724,7 +4724,7 @@ ul.field-hint {
   border-bottom: none;
 }
 
-/* A picker inside a dialog scrolls rather than growing past the fold. The list
+/* A picker inside a dialog scrolls instead of growing past the fold. The list
    is capped at twenty results, which is still taller than a phone. */
 .admin-composer-dialog .admin-people {
   max-height: 18rem;
@@ -4735,7 +4735,7 @@ ul.field-hint {
  * The applicant account panel, 8.9
  *
  * Three short lists in one dialog: what they have applied to, what they have
- * been invited to, and what has been done to the account. Rows rather than
+ * been invited to, and what has been done to the account. Rows over
  * tables, because each one is three facts and a date, and a table of three
  * columns inside a modal is a table nobody can read on a phone.
  * ------------------------------------------------------------------------ */
@@ -4769,7 +4769,7 @@ ul.field-hint {
 }
 
 /* The generated password and how it leaves the page, 8.9. Masked, with the copy
-   button beside it rather than under it: the two are one action. */
+   button beside it and not under it: the two are one action. */
 .password-handoff {
   display: flex;
   align-items: center;
@@ -4793,14 +4793,14 @@ ul.field-hint {
  * below.
  * ------------------------------------------------------------------------ */
 
-/* The four status counts above the table. A line rather than four stat cards:
+/* The four status counts above the table. A line instead of four stat cards:
    this is context for the list under it, not the point of the page. */
 .admin-counts {
   margin: 0 0 0.75rem;
   font-size: 0.9375rem;
 }
 
-/* Wording as it stands, and a suggestion. Quoted rather than boxed as a field,
+/* Wording as it stands, and a suggestion. Quoted, not boxed as a field,
    because none of it is editable: the one editable thing on the panel is the
    textarea, and it must not be mistaken for one of these. */
 .admin-quote {
@@ -4810,7 +4810,7 @@ ul.field-hint {
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   background: var(--surface-active);
   /* A posting's description arrives with its line breaks and keeps them. It is
-     markdown in the database and is shown here as the source rather than
+     markdown in the database and is shown here as the source instead of
      rendered, because what is being compared is the text somebody would edit. */
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -4900,7 +4900,7 @@ ul.field-hint {
 /* ---------------------------------------------------------------------------
  * The helper area, 7i
  *
- * Almost all of it is borrowed rather than new: the rows are .account-row, the
+ * Almost all of it is borrowed and not new: the rows are .account-row, the
  * filters are .admin-toolbar, and the fields are the job editor's
  * .editor-field.has-source, which already collapses its source column to a
  * block above the field below 1024px. What is left is the card the editor sits
@@ -4916,7 +4916,7 @@ ul.field-hint {
 }
 
 /* Focused when the editor opens, so a keyboard lands on the thing that just
-   replaced the list rather than at the top of the document. The outline is the
+   replaced the list instead of at the top of the document. The outline is the
    page's own; what is suppressed is nothing. */
 .helper-editor-title {
   margin: 0.5rem 0 0;
@@ -4945,7 +4945,7 @@ ul.field-hint {
 
 /* Wrapping the body of a section so it can carry a marker put a block between
    .job-section and its paragraphs, which took the gap between them with it.
-   Given back here rather than by unwrapping: the marker has to sit on one
+   Given back here and not by unwrapping: the marker has to sit on one
    element holding the whole field. */
 .job-section-body {
   display: flex;
@@ -4954,7 +4954,7 @@ ul.field-hint {
 }
 
 /* The small control near the selection. Absolutely positioned in the document
-   rather than fixed, so it stays with the words when the page scrolls a little,
+   and not fixed, so it stays with the words when the page scrolls a little,
    and repositioned on scroll for when it does not. */
 .annotate-hint {
   position: absolute;
@@ -5020,8 +5020,8 @@ ul.field-hint {
   font-size: 0.8125rem;
 }
 
-/* The captured span, with what is either side of it kept muted. Quoted rather
-   than boxed as a field, for the reason the admin panel gives about its own:
+/* The captured span, with what is either side of it kept muted. Quoted, not
+   boxed as a field, for the reason the admin panel gives about its own:
    none of it is editable, and the two textareas under it are. */
 .annotate-quote {
   margin: 0;
@@ -5054,7 +5054,7 @@ ul.field-hint {
   border: 1px solid var(--border);
 }
 
-/* A quiet underline, per 7i, with the count on it. Dotted rather than solid:
+/* A quiet underline, per 7i, with the count on it. Dotted instead of solid:
    this marks text somebody has commented on, and a solid rule under a sentence
    reads as a link. */
 .annotate-underline {
@@ -5087,7 +5087,7 @@ ul.field-hint {
 }
 
 @media (min-width: 1024px) {
-  /* Beside the text rather than under it, per 7i: "On a wide screen the
+  /* Beside the text and not under it, per 7i: "On a wide screen the
      suggestion opens in a panel beside the text." Anchored to the right edge
      and clear of the sticky header. */
   .annotate-panel {

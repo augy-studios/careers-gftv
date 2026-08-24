@@ -11,7 +11,7 @@
 //
 //   **Signed out is a redirect to /admin/login**, carrying where you were.
 //   Section 8's access check is re-applied by every route, so this redirect is
-//   about not showing somebody an empty dashboard rather than about security.
+//   about not showing somebody an empty dashboard, not about security.
 //
 //   **The role decides what is drawn and never what is allowed.** api/admin/me
 //   answers with is_admin read off the gftvhello row on that request. Every
@@ -109,14 +109,14 @@ let buildStatus = null;
  * Guard the page, draw the chrome, and hand back who is signed in.
  *
  * @param {{ current: string }} options the path of the page being drawn, for
- *        aria-current. Passed in rather than read from the address bar, so a
+ *        aria-current. Passed in instead of read from the address bar, so a
  *        page is never wrong about which item is its own.
  * @returns {Promise<{ staff: object, locales: object[], counts: object }|null>}
  *          null when the page is being replaced by a redirect.
  */
 export async function mountAdminPage(options) {
   // The overrides are loaded alongside, so a control belonging to a switched
-  // off feature is drawn correctly the first time rather than flickering.
+  // off feature is drawn correctly the first time without flickering.
   const [result, status] = await Promise.all([
     api('/api/admin/me', { locale: false }),
     loadBuildStatus().then(async (loaded) => {
@@ -131,9 +131,9 @@ export async function mountAdminPage(options) {
     // 401 and 403 both mean "not somebody who can be here". The sign in page
     // is the right answer to both: a staff member without portal access needs
     // to know they are signed in and still cannot get in, and the login page
-    // says so rather than a dashboard drawn empty.
+    // says so instead of a dashboard drawn empty.
     //
-    // The path comes from the address bar rather than from options.current.
+    // The path comes from the address bar, not from options.current.
     // current is which sidebar item to mark, which is not the same question:
     // the editor marks Postings, so a session that expired inside it recorded
     // /admin/jobs and lost both the page and the id of the posting being
@@ -150,7 +150,7 @@ export async function mountAdminPage(options) {
   // The public header offers staff a way back to /admin, per deviation 20, and
   // only bothers asking about a staff session when this browser has seen one.
   // A successful /api/admin/me *is* that proof, so record it and hand the
-  // session straight to shell.js rather than making it ask again.
+  // session straight to shell.js instead of making it ask again.
   //
   // Without this the item never appears on the page somebody has just signed in
   // to: /admin/login clears the flag on load, when there is genuinely no
@@ -235,7 +235,7 @@ function renderSidebar(current) {
   // The documentation link, which leaves the portal. 8a: the staff manual lives
   // on the docs site, and this marks it as going somewhere else because the
   // reader signs in there separately, per 5h. /admin/docs is a redirect kept so
-  // an old bookmark still works, and is what this points at rather than the
+  // an old bookmark still works, and is what this points at in place of the
   // docs site's address, so the destination can move without a deploy here.
   const docs = document.createElement('a');
   docs.className = 'admin-nav-item admin-nav-external';
@@ -339,7 +339,7 @@ function renderMaintenanceBanner() {
 
 /**
  * The sentence for a feature that is switched off, for a page that wants to say
- * so in its own layout rather than through a disabled control.
+ * so in its own layout and not through a disabled control.
  */
 export function offSentence(featureKey) {
   return isFeatureOff(featureKey) ? maintenanceSentence(featureNote(featureKey)) : null;
@@ -403,13 +403,13 @@ export function emptyRow(text) {
  * detail panel had never worked and nobody could tell from looking at it. A
  * control that does nothing is indistinguishable from a control that is slow.
  *
- * It lives here rather than in each page because "every page phase 8 adds needs
+ * It lives here instead of in each page because "every page phase 8 adds needs
  * one" is exactly the kind of rule that gets followed four times and forgotten
  * on the fifth. `admin-job-editor.js` keeps its own copy for now; the two are
  * the same function and merging them is a phase 12 tidy up, not a phase 8 one.
  *
  * The message is deliberately generic: whatever went wrong is a fault in the
- * page rather than something the admin can act on, and the console still has
+ * page, not something the admin can act on, and the console still has
  * the real cause for whoever reads it.
  *
  * @param {() => unknown} action

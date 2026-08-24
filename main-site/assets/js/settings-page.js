@@ -3,7 +3,7 @@
 //
 // **Password, passkeys, recovery codes, and trusted devices are not on this
 // page.** They are on /account/security, which phase 2 built and which works,
-// and this links to it rather than growing a second copy. Two pages that both
+// and this links to it instead of growing a second copy. Two pages that both
 // change a password are two places for the rules about invalidating sessions to
 // drift.
 //
@@ -62,7 +62,7 @@ async function boot() {
   wireDangerZone();
   loadReports();
 
-  // The report list writes its own strings rather than carrying data-i18n
+  // The report list writes its own strings and does not carry data-i18n
   // attributes, because each line depends on the report's state.
   document.addEventListener('gftv:localechange', () => loadReports());
 }
@@ -86,8 +86,8 @@ function fillProfile() {
 /**
  * Show the password field only once an identifier has actually been edited.
  *
- * Bound to input on the two fields rather than checked at submit, so the reason
- * for the field appearing is visible while it happens rather than arriving as a
+ * Bound to input on the two fields instead of checked at submit, so the reason
+ * for the field appearing is visible while it happens and does not arrive as a
  * validation error after the button is pressed.
  */
 function syncPasswordField(form) {
@@ -170,7 +170,7 @@ function wireAvatar() {
   paintAvatar();
 
   if (!canEncodeWebp()) {
-    // Section 0c's pattern, applied to a capability rather than to a phase: the
+    // Section 0c's pattern, applied to a capability and not to a phase: the
     // control stays visible and says why it cannot work, because hiding it
     // teaches people the feature does not exist.
     choose.disabled = true;
@@ -350,7 +350,7 @@ function wireDangerZone() {
   button.addEventListener('click', async () => {
     // 7g's three steps, in order, with no way to skip ahead. The component is
     // the one phase 2 wrote for removing a passkey, which is what next-steps.md
-    // asked this phase to use rather than writing a second one.
+    // asked this phase to use in place of writing a second one.
     const confirmed = await confirmDangerousAction({
       title: t('settings.deleteTitle'),
       consequences: [
@@ -394,7 +394,7 @@ function wireDangerZone() {
  * 7g: "Show a final confirmation screen after the fact, not just a redirect to
  * the home page."
  *
- * The page is replaced rather than navigated away from, because a navigation
+ * The page is replaced, not navigated away from, because a navigation
  * here would land on a page that has to work out for itself that somebody was
  * just deleted, and would flash the signed out home page on the way.
  */

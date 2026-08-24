@@ -114,7 +114,7 @@ function translateError(error) {
 /**
  * The applicant session, fetched once per page.
  *
- * Returns null when nobody is signed in, which is a normal state rather than a
+ * Returns null when nobody is signed in, which is a normal state, not a
  * failure. Cached, because the header, the page, and anything else that asks
  * would otherwise each cost a request.
  */
@@ -244,7 +244,7 @@ export function noteHelperSession(seen) {
 export function staffSession() {
   return api('/api/auth/staff/session', { locale: false }).then((result) => {
     const data = result.ok ? result.data : { user: null };
-    // Maintained here rather than at the login page, so it is corrected by
+    // Maintained here instead of at the login page, so it is corrected by
     // whichever page next asks. A session that has lapsed clears the hint on
     // the next check and the link stops being offered.
     setStaffHint(Boolean(data?.user));

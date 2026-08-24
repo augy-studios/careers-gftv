@@ -15,7 +15,7 @@
             var k = "gftv-careers";
             var m = localStorage.getItem(k + ".mode") || "light";
 
-            // Time based mode, per gftv-theme.md. Resolved here rather than
+            // Time based mode, per gftv-theme.md. Resolved here instead of
             // in theme.js because theme.js runs after first paint, and an
             // evening reader would otherwise watch a white page turn dark.
             // Keep the two hours in step with LIGHT_FROM_HOUR and
@@ -90,10 +90,10 @@
                 <p class="callout" id="accountMessage" hidden></p>
 
                 <!--
-                    Not a helper. A page rather than a redirect, because
+                    Not a helper. A page, not a redirect, because
                     somebody who has been sent this address by an admin who has
                     not granted the role yet should find out what the role is
-                    rather than land back on their applications.
+                    and not land back on their applications.
                 -->
                 <div id="helperGate" hidden>
                     <div class="empty-state">
@@ -170,7 +170,7 @@
                     </div>
 
                     <!--
-                        The editor, in place of the list rather than in a dialog.
+                        The editor sits in place of the list, not in a dialog.
                         Ten fields with the source beside each one is a page, and
                         a modal that scrolls for two screens on a phone is the
                         pattern section 3 spends its effort avoiding.

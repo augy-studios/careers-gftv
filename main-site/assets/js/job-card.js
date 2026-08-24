@@ -6,7 +6,7 @@
 //
 // What section 4 says a card carries: title, department, location, commitment
 // type, posted date, closing date, and up to four tag pills. Clicking a tag
-// pill filters by that tag rather than opening the job.
+// pill filters by that tag and does not open the job.
 //
 // That last requirement is what shapes the markup. A card cannot be one big
 // anchor with more anchors inside it, because nested links are invalid and
@@ -43,7 +43,7 @@ export function jobCard(job, options = {}) {
   const posted = postedText(job.published_at);
   const commitment = commitmentLabel(job.commitment_type);
 
-  // Section 4: up to four. The rest are counted rather than dropped silently,
+  // Section 4: up to four. The rest are counted, not dropped silently,
   // so a posting with nine tags does not look like a posting with four.
   const tags = Array.isArray(job.tags) ? job.tags : [];
   const shown = tags.slice(0, 4);
@@ -69,8 +69,8 @@ export function jobCard(job, options = {}) {
       }
     </div>
 
-    <!-- 7g's save toggle. It sits outside the title's stretched link rather
-         than inside the badges row, because a control inside the area the
+    <!-- 7g's save toggle. It sits outside the title's stretched link and
+         not inside the badges row, because a control inside the area the
          stretched link covers is unreachable: the pseudo element in app.css
          paints over the whole card, and only things lifted above it on the z
          axis, like the tag pills, stay clickable. -->
@@ -192,7 +192,7 @@ function isDefaultLanguageReader() {
 }
 
 /**
- * Cut at a word boundary rather than mid word, and only when there is something
+ * Cut at a word boundary instead of mid word, and only when there is something
  * to cut. The server already caps the snippet; this is for the summary, which
  * arrives whole.
  */

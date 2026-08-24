@@ -6,7 +6,7 @@
 // if anything comes back." This is that script, imported by shell.js so it is
 // on every page without any page having to remember it.
 //
-// Why it exists at all, rather than the job page simply reopening its own
+// Why it exists at all, instead of the job page simply reopening its own
 // modal: the applicant may come back on a different device, or with the browser
 // cleared, or on a page that is not the posting. The prompt is state, not a
 // page, so the server has to be the one that knows.
@@ -52,7 +52,7 @@
 
 import { api, applicantSession } from './api.js';
 
-// The modal is imported on demand rather than at the top, and this is the one
+// The modal is imported on demand, not at the top, and this is the one
 // place in the build where that is worth doing. shell.js imports this file, so
 // it is on every page of the portal: the login page, the status page, the 404.
 // A static import would pull apply-dialog.js and its own three dependencies
@@ -71,7 +71,7 @@ function loadModal() {
 // everything this site stores in a browser is findable in one place.
 const CACHE_KEY = 'gftv-careers.pendingPrompt';
 
-// Which prompts this tab has already put on screen. sessionStorage rather than
+// Which prompts this tab has already put on screen. sessionStorage in place of
 // localStorage, deliberately: "next visit" is the unit 7c uses, and a new tab
 // or a browser reopened tomorrow is a new visit. localStorage would mean a
 // prompt dismissed once was never shown again on that device, which loses the
@@ -201,7 +201,7 @@ export async function resumePendingPrompt() {
   // stale, and then closing it again a moment later, is worse than waiting.
   //
   // Started here and awaited below, so the pending request and the module
-  // fetch run alongside each other rather than one after the other.
+  // fetch run alongside each other instead of one after the other.
   const fastPath =
     jobId && cached && cached.jobId === jobId && !alreadyShown(cached.id)
       ? loadModal().then((dialog) => {
@@ -230,7 +230,7 @@ export async function resumePendingPrompt() {
   if (prompts.length === 0) {
     writeCache(null);
     // The cache was wrong and the modal it opened is about a row the server
-    // says is answered. Close it rather than letting somebody answer a question
+    // says is answered. Close it and do not let somebody answer a question
     // twice.
     if (cached) document.querySelector('#applyDialog')?.close();
     stripPromptParam();

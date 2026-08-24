@@ -15,7 +15,7 @@
             var k = "gftv-careers";
             var m = localStorage.getItem(k + ".mode") || "light";
 
-            // Time based mode, per gftv-theme.md. Resolved here rather than
+            // Time based mode, per gftv-theme.md. Resolved here instead of
             // in theme.js because theme.js runs after first paint, and an
             // evening reader would otherwise watch a white page turn dark.
             // Keep the two hours in step with LIGHT_FROM_HOUR and
@@ -82,8 +82,8 @@
     </div>
     <a class="skip-link" href="#main" data-i18n="common.skipToContent">Skip to content</a>
 
-    <!-- Every string on this page is markup with a data-i18n attribute rather
-         than something JavaScript writes. That is deliberate: the page reads
+    <!-- Every string on this page is markup with a data-i18n attribute and
+         not something JavaScript writes. That is deliberate: the page reads
          correctly with no JavaScript and before the dictionary resolves, and
          the shell's ordinary retranslation handles a language change with no
          code of its own. -->
@@ -119,7 +119,7 @@
         </p>
         <p data-i18n="about.unpaidBody3">
             If a paid role is ever posted, that posting will say so on itself
-            rather than us quietly changing the wording here. That is a fact
+            instead of us quietly changing the wording here. That is a fact
             stored against each posting, not a sentence somebody remembered to
             update.
         </p>
@@ -143,7 +143,7 @@
             The whole site exists in both English and Chinese, including the
             postings themselves, and you can switch at any time with the globe
             in the header. Your choice is remembered in your browser. A posting
-            that has not been translated yet is still shown rather than hidden,
+            that has not been translated yet is still shown and not hidden,
             with a note saying it is in English only, because hiding a real
             opening from the people the translation exists to serve would be the
             worse failure.
@@ -152,9 +152,9 @@
         <h2 data-i18n="about.buildHeading">This site is still being built</h2>
         <p data-i18n="about.buildBody">
             Careers@GFTV is being released in phases, in public. Anything that
-            has not been built yet says so plainly on the control itself rather
-            than failing quietly or pretending, and the build status page lists
-            every phase and what it covers.
+            has not been built yet says so plainly on the control itself
+            instead of failing quietly or pretending, and the build status page
+            lists every phase and what it covers.
         </p>
         <p>
             <a class="btn btn-secondary" href="/status"

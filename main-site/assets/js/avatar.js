@@ -30,7 +30,7 @@ const MAX_BYTES = 256 * 1024;
  * Whether this browser can produce WebP at all.
  *
  * For the disabled control pattern in section 0c: a control that cannot work
- * says so rather than failing when it is pressed.
+ * says so instead of failing when it is pressed.
  */
 export function canEncodeWebp() {
   try {
@@ -48,7 +48,7 @@ export function canEncodeWebp() {
  * @param {File|Blob} file
  * @returns {Promise<Blob>}
  * @throws when the browser cannot encode WebP, or when the result is still too
- *         large at the lowest quality. Both are refusals rather than a silent
+ *         large at the lowest quality. Both are refusals, not a silent
  *         upload of something the bucket will reject.
  */
 export async function toAvatarWebp(file) {
@@ -73,7 +73,7 @@ export async function toAvatarWebp(file) {
 
     if (!blob || blob.type !== 'image/webp') {
       // Every browser this site supports encodes WebP. If one does not, refuse
-      // rather than silently uploading a PNG the bucket will reject anyway.
+      // instead of silently uploading a PNG the bucket will reject anyway.
       throw new AvatarError('unsupported');
     }
 

@@ -1,7 +1,7 @@
 // The sign in prompt, and the intent that survives it.
 //
 // Section 4, on what a logged out visitor sees: in place of the control, show
-// something that reads as the action rather than as a wall, and open "a small
+// something that reads as the action, not as a wall, and open "a small
 // sign in prompt explaining in one line that applications need an account, with
 // two equal options, log in and create an account, and a note that registration
 // takes a moment and needs no approval". Saving a job gets the same treatment,
@@ -37,7 +37,7 @@ const INTENT_KEY = 'gftv-careers.intent';
 /**
  * Remember what somebody was trying to do before they were sent to sign in.
  *
- * sessionStorage rather than localStorage. An intent is about this tab and this
+ * sessionStorage over localStorage. An intent is about this tab and this
  * moment, and one left in localStorage would fire again next week on a posting
  * the reader had forgotten about.
  *
@@ -106,7 +106,7 @@ let dialog = null;
  *
  * @param {{ intent: string, messageKey: string, target?: string|null }} options
  *        messageKey is the one line explaining why this particular action needs
- *        an account. It is passed in rather than fixed here, because "you need
+ *        an account. It is passed in instead of fixed here, because "you need
  *        an account to apply" and "you need an account so we can come back to
  *        you about a translation" are different sentences and a generic one
  *        would answer neither.
@@ -132,7 +132,7 @@ export function openSignInPrompt(options) {
     });
   }
 
-  // Rewritten every time it opens rather than once when it is built, so the
+  // Rewritten every time it opens and not once when it is built, so the
   // sentence follows the language and the redirect follows the page.
   //
   // The key is written onto the element as well as resolved. The dialog lives

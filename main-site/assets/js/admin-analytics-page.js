@@ -4,7 +4,7 @@
 // chart over time, and a CSV export. The counting is migration 033's, the
 // judgements are api/_lib/analytics.js's, and this file draws them.
 //
-// Three things about the drawing are decisions rather than style:
+// Three things about the drawing are decisions, not style:
 //
 //   **The floor sentence is on the page, not in a tooltip.** Every number in
 //   the yes column depends on somebody having told us they applied, and nobody
@@ -33,7 +33,7 @@ const PATH = '/admin/analytics';
 const STATUSES = ['draft', 'published', 'closed', 'archived'];
 
 /**
- * The sorts the table offers, in the order they are useful rather than the
+ * The sorts the table offers, in the order they are useful and not the
  * order the endpoint lists them: what an admin comes here to find is the
  * posting that is not working.
  */
@@ -78,7 +78,7 @@ async function boot() {
   });
 
   document.querySelector('#exportCsv')?.addEventListener('click', () => {
-    // A real navigation rather than a fetch, so the browser handles the file
+    // A real navigation instead of a fetch, so the browser handles the file
     // exactly as it would any download. The same query the table is showing, so
     // the export is the filtered set and not the page, per 8.3's rule.
     window.location.href = `/api/admin/analytics?${query({ format: 'csv' })}`;
@@ -130,7 +130,7 @@ function applyStateToFilters() {
  * The filters live in the address bar, like the board's own.
  *
  * Same reason section 4 gives for /search: a link somebody sends a colleague
- * opens what they were looking at. history.replaceState rather than pushState,
+ * opens what they were looking at. history.replaceState over pushState,
  * so changing a sort does not fill the back button with steps nobody wants to
  * walk back through.
  */
@@ -245,9 +245,9 @@ function rowMarkup(job) {
  *
  * The flag is 8.4's: "Flag any job with a high click count and a low yes rate,
  * since that usually means a broken or closed Google Form rather than a bad
- * posting." It is a word and an icon rather than a red cell, so a reader who
+ * posting." It is a word and an icon in place of a red cell, so a reader who
  * cannot see the colour gets the same warning, and it carries the reason as its
- * title rather than making somebody guess what the site is objecting to.
+ * title without making somebody guess what the site is objecting to.
  */
 function rateMarkup(job) {
   if (job.yes_rate === null) {
@@ -425,7 +425,7 @@ const CHART = { width: 720, height: 240, left: 40, right: 96, top: 16, bottom: 2
 /**
  * Three lines over time, per 8.4's "simple bar or line chart over time".
  *
- * Lines rather than bars, because ninety days of grouped bars on a dialog this
+ * Lines, not bars, because ninety days of grouped bars on a dialog this
  * wide is under three pixels a bar and the shape is what the reader is here
  * for. One y axis for all three series: they are counts of the same kind of
  * thing, and a second scale would make a line that is always lower look equal.
@@ -529,8 +529,8 @@ function chartMarkup(series) {
  * out which day it was. The crosshair snaps to the nearest day and the tooltip
  * reads all three series at once, because comparing them is the question.
  *
- * Pointer events rather than mouse events, so a touch drag reads the chart the
- * same way. The listener is on the figure rather than on the lines: a 2px line
+ * Pointer events in place of mouse events, so a touch drag reads the chart the
+ * same way. The listener is on the figure and not on the lines: a 2px line
  * is not a hit target.
  */
 function wireChart(root, series) {
@@ -561,7 +561,7 @@ function wireChart(root, series) {
 
     crosshair.setAttribute('x1', String(x));
     crosshair.setAttribute('x2', String(x));
-    // removeAttribute rather than .hidden = false. The hidden property is
+    // removeAttribute, not .hidden = false. The hidden property is
     // defined on HTMLElement and not on SVGElement, so assigning it to a
     // <line> or a <circle> sets an expando nobody reads and the crosshair
     // never appears. The attribute selector in theme.css does the hiding, and

@@ -20,7 +20,7 @@
 //      Nothing is awaited first. Somebody who watches the modal go up
 //      recognises it when they come back; somebody who meets it on return has
 //      been ambushed. openApplyDialog is therefore synchronous and takes a
-//      promise for the form URL rather than a URL.
+//      promise for the form URL, not a URL.
 //
 //   2. **At least 800ms, and after a paint, before window.open.** Long enough
 //      that the modal is visibly on screen before the new tab steals focus.
@@ -118,7 +118,7 @@ function build() {
   el.querySelector('[data-close-apply]').addEventListener('click', () => el.close());
 
   // Native <dialog> does not close on a backdrop click by itself. The click
-  // lands on the dialog element rather than on the inner wrapper, which is the
+  // lands on the dialog element and not on the inner wrapper, which is the
   // whole reason the content is wrapped.
   el.addEventListener('click', (event) => {
     if (event.target === el) el.close();
@@ -134,7 +134,7 @@ function build() {
     button.addEventListener('click', () => answer(button.getAttribute('data-answer')));
   });
 
-  // Everything in here is written by JavaScript rather than carrying data-i18n
+  // Everything in here is written by JavaScript instead of carrying data-i18n
   // attributes, because the wording depends on which state the modal is in as
   // well as on the language. So a language change is a redraw.
   document.addEventListener('gftv:localechange', () => {
@@ -168,7 +168,7 @@ export function openApplyDialog(options) {
   if (!dialog) dialog = build();
 
   // Only ever one at a time, per 7c. A second prompt waits for the next page
-  // load rather than stacking.
+  // load without stacking.
   if (dialog.open) return;
 
   state = {
@@ -209,7 +209,7 @@ export function applyDialogOpen() {
  * Say that a prompt has been put in front of the applicant.
  *
  * apply-prompt.js keeps the once-a-visit ledger and listens for this. It
- * announces rather than writing to that ledger directly for two reasons: this
+ * announces instead of writing to that ledger directly for two reasons: this
  * module is imported on demand and that one is on every page, so the dependency
  * only runs in the direction that already exists, and the modal opened by a
  * handoff is not opened by apply-prompt.js at all. Leaving the handoff out was
@@ -279,12 +279,12 @@ async function handOff(ready) {
   render();
 
   // After a paint and after 800ms from opening, whichever is later. Two frames
-  // rather than one: the first is scheduled before the browser has laid the
+  // and not one: the first is scheduled before the browser has laid the
   // dialog out, the second runs after it has.
   //
-  // Read from mine rather than from state past this point. The modal can be
+  // Read from mine and not from state past this point. The modal can be
   // closed inside either await, which sets state to null, and reading
-  // state.openedAt after that would throw rather than simply stopping.
+  // state.openedAt after that would throw instead of simply stopping.
   await nextPaint();
   const waited = Date.now() - mine.openedAt;
   if (waited < TAB_DELAY_MS) await wait(TAB_DELAY_MS - waited);
@@ -384,7 +384,7 @@ function render() {
   const panel = dialog;
 
   panel.querySelector('#applyDialogTitle').textContent = headerText();
-  // Written here rather than through data-i18n, because nothing in this modal
+  // Written here instead of through data-i18n, because nothing in this modal
   // is reached by translateDom: it is all redrawn on a language change instead.
   panel.querySelector('[data-close-apply]').setAttribute('aria-label', t('common.close'));
   panel.querySelector('#applyProgress').hidden = state.phase !== 'redirecting';
@@ -458,7 +458,7 @@ function ledeText() {
 /**
  * Five stars as a real radio group, per 7c: visually hidden inputs and labels,
  * so arrow keys move between them and a screen reader reads a group of five
- * choices rather than a row of clickable spans.
+ * choices, not a row of clickable spans.
  */
 function renderStars(panel) {
   panel.querySelector('#applyRatingLegend').textContent = t('apply.rateLegend');
@@ -490,7 +490,7 @@ function onRatingChange(event) {
   const value = Number(input.value);
   state.rating = value;
 
-  // Updated in place rather than by redrawing the row, and that is not a
+  // Updated in place, not by redrawing the row, and that is not a
   // micro-optimisation. Arrow keys move focus between radios in a group and
   // check as they go, so a redraw here would rip the focused element out from
   // under somebody arrowing from one star to five, five times in a row.

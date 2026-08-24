@@ -57,7 +57,7 @@ let statePromise = null;
 // click, because 7c requires the modal to open in the same tick as the click
 // and an await before showModal is exactly what breaks it. Until the session
 // check lands the honest answer is "not known yet", and the click handler takes
-// the slow path for it rather than guessing.
+// the slow path for it instead of guessing.
 let signedIn = null;
 
 // Whether the applicant answered No in the modal on this visit. Not read back
@@ -166,7 +166,7 @@ function paint(slot) {
 
   if (state === 'cooldown') {
     // 7f asks for a disabled state carrying the whole sentence. It is rendered
-    // as a panel rather than as a disabled <button> for two reasons: the
+    // as a panel and not as a disabled <button> for two reasons: the
     // sentence is two clauses long and reads badly inside a control, and a
     // disabled button is dropped from the accessibility tree in some browsers,
     // which would hide the only explanation on the page.
@@ -197,7 +197,7 @@ function paint(slot) {
   // saidNo is 7c's "offers a line to reopen the form", after an explicit No.
   // The button is the way back in, since a second handoff is a second row and
   // there is nothing to reopen that is not simply applying again, so the line
-  // says what state they are in rather than pretending to be a different
+  // says what state they are in without pretending to be a different
   // control.
   slot.innerHTML = `
     ${
@@ -313,7 +313,7 @@ async function start() {
   }
 
   // A refusal names its reason, and the client has its own wording for each so
-  // the sentence is in the reader's language rather than the API's English.
+  // the sentence is in the reader's language, not the API's English.
   const reason = result.error?.details?.reason;
   const key = reason ? `apply.refused_${reason}` : null;
   const translated = key ? t(key) : null;
@@ -350,7 +350,7 @@ function reopenPrompt() {
  * ---------------------------------------------------------------------- */
 
 /**
- * Section 4, and the part of it that is a rule rather than a nicety: "do not
+ * Section 4, and the part of it that is a rule, not a nicety: "do not
  * auto-start the handoff. There is no user gesture behind a post-login
  * redirect, so the new tab would be blocked and the modal would appear out of
  * nowhere. Land them on the posting with the Apply button now active, scrolled

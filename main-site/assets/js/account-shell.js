@@ -10,7 +10,7 @@
 //
 //   **Signed out is a redirect, not a message.** Every page here is private, and
 //   somebody who has been signed out by a session expiring wants to be back
-//   where they were rather than told they cannot be. The ?redirect= is validated
+//   where they were instead of told they cannot be. The ?redirect= is validated
 //   by api/_lib/redirects.js on the way back in, so nothing here has to be
 //   trusted.
 //
@@ -37,7 +37,7 @@ import {
 // what did I keep, what do you need from me, then the account itself.
 //
 // The helper area sits between the two halves of that, because it is the one
-// item that is neither: it is work somebody does for us rather than something we
+// item that is neither: it is work somebody does for us, not something we
 // need from them. It appears only for an account that holds the role in at least
 // one language, per 7i, which is why it is not in this table.
 const ACCOUNT_NAV = [
@@ -65,7 +65,7 @@ let navWired = false;
  * Guard the page, draw the account navigation, and hand back the session.
  *
  * @param {{ current: string }} options the path of the page being drawn, used
- *        for aria-current. Passed in rather than read from the address bar so a
+ *        for aria-current. Passed in instead of read from the address bar so a
  *        page is never wrong about which item is its own.
  * @returns {Promise<{ user: object }|null>} null when the page is being replaced
  *          by a redirect, in which case the caller should stop.
@@ -74,7 +74,7 @@ export async function mountAccountPage(options) {
   const session = await applicantSession();
 
   if (!session?.user) {
-    // replace rather than assign: somebody signed out who presses back should
+    // replace over assign: somebody signed out who presses back should
     // not land on the page that just bounced them.
     window.location.replace(`/login?redirect=${encodeURIComponent(options.current)}`);
     return null;
@@ -161,19 +161,19 @@ function requirePasswordChange(user, current) {
  * built after the phase 7 verification run found the gap it leaves. Without it
  * the failure is silent in the worst way: /account's tiles read their counts
  * from endpoints that answer 503 when the feature is off, and the tile
- * deliberately shows nothing rather than claiming zero, so Saved roles rendered
+ * deliberately shows nothing and never claims zero, so Saved roles rendered
  * with a blank count line and no reason anywhere on the page.
  *
  * Three decisions in it:
  *
- *   **It names what is off**, rather than counting. The staff banner says "3
+ *   **It names what is off**, without counting. The staff banner says "3
  *   features" because an admin is about to open the page that lists them; an
  *   applicant has no such page and a number tells them nothing. featureName
  *   already carries a reader-facing name for every key.
  *
  *   **It skips anything admin_*.** Whether the staff dashboard is available is
  *   not an applicant's business and is not something they could act on. The
- *   filter is on the key prefix rather than a second list, so a feature added
+ *   filter is on the key prefix in place of a second list, so a feature added
  *   to the map is covered by whichever side of it the name puts it.
  *
  *   **It shows the notes, and links to /status for the rest.** The note is the
@@ -209,8 +209,8 @@ async function renderMaintenanceBanner() {
 
   document.querySelector('#accountPage')?.prepend(bar);
 
-  // Redrawn rather than retranslated: the feature names and the note are
-  // written here rather than carried on data-i18n attributes.
+  // Redrawn, not retranslated: the feature names and the note are
+  // written here instead of carried on data-i18n attributes.
   document.addEventListener('gftv:localechange', () => renderMaintenanceBanner(), { once: true });
 }
 
@@ -244,7 +244,7 @@ function renderAccountNav(current, items = ACCOUNT_NAV) {
   // language was first applied. Later changes reach them through shell.js's own
   // retranslation pass, which walks the whole document.
   //
-  // Registered once rather than on every draw. The navigation is drawn a second
+  // Registered once and not on every draw. The navigation is drawn a second
   // time when the helper roster comes back, and a listener per draw would
   // retranslate and repaint the badge twice for every language change from then
   // on.
@@ -284,7 +284,7 @@ export function helperRoster({ refresh = false } = {}) {
       // here because this is the one call that asks the question directly, and
       // an account page is where somebody finds out they have been granted
       // anything. Cleared when the answer is no, so a revoked role stops
-      // offering the layer on the next account page rather than on the next
+      // offering the layer on the next account page instead of on the next
       // browser.
       if (result.ok) noteHelperSession(locales.length > 0);
       return locales;
@@ -296,9 +296,9 @@ export function helperRoster({ refresh = false } = {}) {
 /**
  * Add the helper item once we know whether there is one to add.
  *
- * Drawn after the rest rather than waited for, so the navigation is on screen
+ * Drawn after the rest instead of waited for, so the navigation is on screen
  * immediately for the overwhelming majority of accounts that will never have this
- * item. The redraw is the whole list rather than an insertion, because the item
+ * item. The redraw is the whole list and not an insertion, because the item
  * has to land in the middle of it and rebuilding six links is cheaper to reason
  * about than splicing one in.
  */
@@ -326,8 +326,8 @@ function translateWithin(root) {
  * The name and picture at the top of every account page.
  *
  * The avatar is optional and always has been: gftvjobs_users.avatar_url is
- * nullable and most accounts will never set one. The fallback is the initial
- * rather than a stock silhouette, and the alt text is the display name, per
+ * nullable and most accounts will never set one. The fallback is the initial,
+ * not a stock silhouette, and the alt text is the display name, per
  * AVATARS.md, so the page reads correctly when the image does not load.
  */
 export function renderAccountIdentity(user) {
@@ -365,7 +365,7 @@ function initialNode(user) {
   const span = document.createElement('span');
   span.className = 'avatar-initial';
   span.setAttribute('aria-hidden', 'true');
-  // The first character of the display name, which is a grapheme rather than a
+  // The first character of the display name, which is a grapheme and not a
   // code unit: a name starting with an emoji or a surrogate pair would
   // otherwise render as half a character.
   span.textContent = [...String(user.display_name ?? '?')][0] ?? '?';
@@ -454,7 +454,7 @@ function paintBadge(count) {
   const badge = document.querySelector('#accountTaskBadge');
   if (!badge) return;
 
-  // A failed count hides the badge rather than showing a zero. "0" is a claim
+  // A failed count hides the badge instead of showing a zero. "0" is a claim
   // about the state of somebody's inbox and we do not have one to make.
   if (count === null || count === 0) {
     badge.hidden = true;

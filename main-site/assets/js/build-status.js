@@ -8,13 +8,13 @@
 // step.
 //
 // Phase names and descriptions live in that JSON in both languages, as name
-// and name_zh, because they are content rather than interface strings and
+// and name_zh, because they are content, not interface strings, and
 // three separate consumers read them. Everything else here comes from the
 // dictionaries in assets/i18n.
 //
 // Every render function is idempotent. The shell calls them again on a
 // language change, so a second call must replace what the first produced
-// rather than stack on top of it.
+// instead of stacking on top of it.
 
 import { hydrateIcons } from './icons.js';
 import { t, getLocale } from './i18n.js';
@@ -45,8 +45,8 @@ let cache = null;
 let inFlight = null;
 
 /**
- * Load the status file once per page. Falls back to a minimal shape rather
- * than throwing, so a network blip never takes the whole page down with it.
+ * Load the status file once per page. Falls back to a minimal shape instead
+ * of throwing, so a network blip never takes the whole page down with it.
  * @returns {Promise<object>}
  */
 export function loadBuildStatus() {
@@ -79,7 +79,7 @@ export function loadBuildStatus() {
  * ---------------------------------------------------------------------- */
 
 // Which shipped features are switched off right now, and the public note on
-// each. Deliberately a second, separate load rather than something folded into
+// each. Deliberately a second, separate load instead of something folded into
 // the file above, per section 9: the phase list is a static file three
 // consumers already read, and this is the one thing the browser needs that a
 // static file cannot answer.
@@ -87,7 +87,7 @@ export function loadBuildStatus() {
 // **A failure leaves everything on.** That is the direction to fail in. A
 // client that blanked a control it could not get a status for would turn a
 // settings blip into a site that looks broken, which is precisely the state
-// this exists to describe rather than to cause.
+// this exists to describe, not to cause.
 let overridesCache = null;
 let overridesInFlight = null;
 
@@ -132,7 +132,7 @@ export function featureNote(featureKey) {
  * ---------------------------------------------------------------------- */
 
 /**
- * A localised field from a phase entry. Falls back to English rather than
+ * A localised field from a phase entry. Falls back to English instead of
  * showing nothing, on the same principle as the dictionary lookup: a phase
  * added without a translation should read in English, not disappear.
  * @param {object} phase
@@ -197,7 +197,7 @@ function shippedSignature(status) {
  * no colour shouting. Removed entirely once every phase has shipped.
  *
  * Idempotent: any bar already on the page is removed first, so a language
- * change redraws rather than stacking a second bar above the first.
+ * change redraws without stacking a second bar above the first.
  *
  * @param {object} status
  */
@@ -211,7 +211,7 @@ export function renderPhaseNotice(status) {
   try {
     dismissed = localStorage.getItem(NOTICE_KEY);
   } catch {
-    // Private browsing with storage blocked. Show the notice rather than fail.
+    // Private browsing with storage blocked. Show the notice instead of failing.
   }
   if (dismissed === signature) return;
 
@@ -306,7 +306,7 @@ export function applyFeatureGating(status, root = document) {
     }
 
     if (el.hasAttribute('data-feature-hint')) {
-      // Replace rather than append, so a language change rewrites the hint.
+      // Replace, not append, so a language change rewrites the hint.
       const existing = el.nextElementSibling;
       if (existing?.classList.contains('feature-hint')) {
         existing.textContent = sentence;
@@ -351,7 +351,7 @@ let explainerTimer = null;
  * The small panel a disabled control opens. It explains and does nothing else.
  */
 export function showFeatureExplainer(sentence, phase, status) {
-  // A null phase means this is a maintenance sentence rather than a phase one,
+  // A null phase means this is a maintenance sentence and not a phase one,
   // so there is no phase to describe underneath it. Saying what phase 6 covers
   // to somebody whose saved roles are temporarily off would be answering a
   // question they did not ask with something that is not true of their case.
@@ -391,7 +391,7 @@ export function showFeatureExplainer(sentence, phase, status) {
 
 // Which feature key an unbuilt route belongs to. One static placeholder page
 // serves every one of them, and works out where it is from the path, so
-// vercel.json needs a single rewrite target rather than one page per route.
+// vercel.json needs a single rewrite target in place of one page per route.
 //
 // Longest prefix wins, so /account/saved resolves before /account.
 const ROUTE_FEATURES = [
@@ -415,7 +415,7 @@ const ROUTE_FEATURES = [
   // section gets the same message rather than an empty screen." The ones phase
   // 7 built resolve to their own key and never reach the placeholder, because
   // they are real pages; they are listed anyway so the sidebar can gate itself
-  // from the same map rather than from a second list.
+  // from the same map and not from a second list.
   ['/admin/docs', 'admin_docs'],
   ['/admin/translations', 'admin_translations'],
   ['/admin/analytics', 'admin_analytics'],

@@ -42,7 +42,7 @@ function boot() {
   const forgotLink = document.querySelector('#forgotLink');
   if (forgotLink) forgotLink.href = withRedirect('/forgot-password');
 
-  // Somebody already signed in does not need this page. Say so rather than
+  // Somebody already signed in does not need this page. Say so instead of
   // showing a form that would sign them in as themselves again.
   applicantSession().then((session) => {
     if (!session?.user) return;
@@ -221,7 +221,7 @@ function boot() {
    * Where a completed sign in goes.
    *
    * 5c: a warning below three, and somebody with no recovery codes at all
-   * cannot get back in alone. That last case is worth a stop rather than a
+   * cannot get back in alone. That last case is worth a stop and not a
    * badge they will scroll past on their way out.
    */
   function finish(data) {

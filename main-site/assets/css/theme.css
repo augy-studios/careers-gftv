@@ -17,7 +17,7 @@
  *     and honours prefers-reduced-motion.
  *
  * One documented departure from gftv-theme.md: the font is Proxima Nova, the
- * GFTV branding font, rather than Inter. --font is still the single point of
+ * GFTV branding font, in place of Inter. --font is still the single point of
  * control and no component sets font-family of its own, so the rule that
  * mattered is unchanged.
  */
@@ -26,7 +26,7 @@
  * Font
  *
  * Proxima Nova is licensed and is not on Google Fonts, so it is self hosted
- * rather than pulled from a CDN. That is also what the offline requirement in
+ * instead of pulled from a CDN. That is also what the offline requirement in
  * section 14 needs: a font from a third party host cannot be precached by the
  * service worker and would leave installed copies of the site unstyled.
  *
@@ -92,7 +92,7 @@
    * is why a modal and a theme change felt like two different products. This is
    * the single value they now share.
    *
-   * **220ms rather than the theme switch's 250ms**, which is the one thing here
+   * **220ms, not the theme switch's 250ms**, which is the one thing here
    * worth reading twice. The theme switch is what somebody pointed at when they
    * asked for everything to feel the same, and it was itself the outlier: the
    * non-negotiable rule in gftv-theme.md is 150 to 220ms, and the body's
@@ -104,7 +104,7 @@
    *
    * What deliberately does *not* use it: hovers, focus rings, and the two fill
    * toggles on the star and the bookmark. Those are feedback on a thing the
-   * pointer is already touching, where this duration reads as lag rather than
+   * pointer is already touching, where this duration reads as lag, not
    * as polish. They stay at 0.15s to 0.18s, which is inside the same rule. The
    * star pair was at 0.12s, under the 150ms floor, and was corrected while this
    * was being done.
@@ -143,7 +143,7 @@
    page load. Set by the pre-paint script, cleared by i18n.js, and cleared by a
    timeout in that same script if anything goes wrong.
 
-   visibility rather than display, so layout is already computed when the page
+   visibility over display, so layout is already computed when the page
    appears and nothing jumps. The attribute is never set for the default
    language, and never set at all without JavaScript, so neither path can leave
    a reader looking at nothing. */
@@ -174,7 +174,7 @@
  * left the form on screen under its own thank you. Those three rules are now
  * redundant and are phase 12's to remove.
  *
- * !important is right here rather than heavy handed: hidden is a statement
+ * !important is right here and not heavy handed: hidden is a statement
  * about whether the element exists for the reader at all, and nothing about how
  * a component lays out should be able to overrule it.
  *
@@ -344,7 +344,7 @@
  * thin 2px line legible on a dark surface, and it was the mid greens that gave
  * way first. Both sets pass the same six checks, including deuteranopia and
  * protanopia separation, which is why the greens are teal-leaning and the
- * second series is an orange rather than the red that would read as an error.
+ * second series is an orange instead of the red that would read as an error.
  *
  * Not the status tokens. --ok, --warn, and --danger mean something on this
  * site, and a series that borrowed one would be claiming a posting is broken
@@ -452,7 +452,7 @@ a:active {
   font-weight: 600;
 }
 
-/* The footer link lists are navigation rather than prose, even though they are
+/* The footer link lists are navigation, not prose, even though they are
    marked up as lists. */
 .site-footer ul a {
   font-weight: 400;
@@ -488,7 +488,7 @@ svg {
   flex: none;
 }
 
-/* Long words, uuids, and tag names wrap rather than pushing the layout. */
+/* Long words, uuids, and tag names wrap instead of pushing the layout. */
 h1,
 h2,
 h3,
@@ -665,7 +665,7 @@ h4 {
 @media (prefers-reduced-motion: reduce) {
   /* One deliberate exception to the blanket rule further down, which stops
      every animation. A loading indicator that does not move indicates nothing,
-     so these slow down rather than stopping. Both are small, localised, and
+     so these slow down and do not stop. Both are small, localised, and
      constant, which is not what the reduced motion guidance is aimed at: that
      targets large sweeps, parallax, and anything that moves the page under a
      reader. */
@@ -924,9 +924,9 @@ a.chip:visited {
    and the third spans the row beneath them: three equal columns put the longer
    label in a box too narrow to read at 320px, and the full width row also says
    visually that this one is a different kind of choice, a rule for picking a
-   mode rather than a mode.
+   mode, not a mode itself.
 
-   Lives here rather than in app.css because it is part of the shared theme
+   Lives here instead of in app.css because it is part of the shared theme
    system now, and theme.css is what implements that. */
 .mode-btn-wide {
   grid-column: 1 / -1;
@@ -1007,7 +1007,7 @@ a.chip:visited {
   border-color: transparent;
 }
 
-/* The tick marks the active language. Hidden rather than removed, so the rows
+/* The tick marks the active language. Hidden, not removed, so the rows
    do not change width when the choice moves and the list does not jump. */
 .locale-check {
   visibility: hidden;

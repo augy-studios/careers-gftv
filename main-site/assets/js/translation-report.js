@@ -16,7 +16,7 @@
 //   **The form asks what is wrong, not what kind of thing is wrong.** The same
 //   control is meant to appear on interface strings later, and a reader who
 //   spots a bad label in the navigation should not have to work out that it is
-//   a dictionary key rather than part of a posting before they can complain
+//   a dictionary key and not part of a posting before they can complain
 //   about it. That is why target_type is decided by the caller and never asked.
 //
 //   **The reporter may write in either language.** The language select says
@@ -30,7 +30,7 @@
 //
 // This module is deliberately not specific to the posting page. Phase 8's
 // annotation layer writes to the same table and phase 6 will show a reader
-// their own reports; both should call openReportDialog rather than building a
+// their own reports; both should call openReportDialog instead of building a
 // second form.
 
 import { api, applicantSession } from './api.js';
@@ -72,7 +72,7 @@ export function openReportDialog(target) {
 
   if (!dialog) dialog = buildDialog();
 
-  // Redrawn on every open rather than once. The language select has to default
+  // Redrawn on every open, not once. The language select has to default
   // to the version being read *now*, and the reader may have switched since the
   // dialog was last built.
   renderForm();
@@ -83,7 +83,7 @@ export function openReportDialog(target) {
  * Wire a control that opens the form, going through the sign in prompt when
  * there is no session.
  *
- * The session is checked when the control is clicked rather than when the page
+ * The session is checked when the control is clicked instead of when the page
  * loads, so the control appears immediately and does not wait on a request that
  * changes nothing for most readers.
  *
@@ -171,8 +171,8 @@ function buildDialog() {
 
   built.panel.querySelector('#reportForm').addEventListener('submit', submit);
 
-  // The two selects are written by JavaScript rather than carrying data-i18n
-  // attributes, so a language change is a redraw rather than a retranslation.
+  // The two selects are written by JavaScript instead of carrying data-i18n
+  // attributes, so a language change is a redraw, not a retranslation.
   document.addEventListener('gftv:localechange', () => {
     if (current) renderForm({ keepInput: true });
   });

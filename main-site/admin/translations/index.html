@@ -15,7 +15,7 @@
             var k = "gftv-careers";
             var m = localStorage.getItem(k + ".mode") || "light";
 
-            // Time based mode, per gftv-theme.md. Resolved here rather than
+            // Time based mode, per gftv-theme.md. Resolved here instead of
             // in theme.js because theme.js runs after first paint, and an
             // evening reader would otherwise watch a white page turn dark.
             // Keep the two hours in step with LIGHT_FROM_HOUR and
@@ -95,7 +95,7 @@
                 <section id="queuePanel" role="tabpanel" aria-labelledby="tabQueue">
                     <p class="callout note" data-i18n="admin.translationsInterfaceNote">
                         Wording in the interface itself, the navigation and the
-                        buttons, lives in the code rather than the database. A report
+                        buttons, lives in the code, not the database. A report
                         about one of those shows its key and is fixed by editing
                         assets/i18n and deploying.
                     </p>
@@ -156,7 +156,7 @@
 
                 <!--
                     The helpers tab, per 7i and 8.11. Admins only: the panel is
-                    removed from the page rather than hidden for a job poster,
+                    removed from the page instead of hidden for a job poster,
                     per deviation 34, and the route refuses either way.
                 -->
                 <section id="helpersPanel" role="tabpanel" aria-labelledby="tabHelpers" hidden>

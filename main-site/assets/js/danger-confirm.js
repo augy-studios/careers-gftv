@@ -18,7 +18,7 @@
 // action, so it belongs behind the same ritual as the rest of them.
 //
 // Phase 6 owns the danger zone proper: deleting an account, unlinking
-// Telegram, disabling Telegram 2FA. It should use this rather than write a
+// Telegram, disabling Telegram 2FA. It should use this instead of writing a
 // second one, and the shape of the options below is meant to take those
 // without changing.
 
@@ -44,7 +44,7 @@ const FOCUSABLE =
  *   skipUsername drops step 2, so the steps are "read what this does" and
  *   "prove it is you". Added 23 August 2026, when deviation 38 was reversed: an
  *   admin deleting somebody else's posting or account types their own password
- *   rather than the slug or username of the thing being deleted. The password
+ *   and not the slug or username of the thing being deleted. The password
  *   is the stronger of the two, because typing an identifier proves you can
  *   read the row in front of you and a password proves who you are. The
  *   applicant's own danger zone passes neither flag and still walks all three
@@ -142,7 +142,7 @@ export function confirmDangerousAction(options) {
       });
 
       // Its position among the steps being shown, not its number in the full
-      // sequence, so a password step reads as "step 2 of 2" rather than 3 of 2.
+      // sequence, so a password step reads as "step 2 of 2", not 3 of 2.
       stepLabel.textContent = t('danger.stepOf', {
         step: steps.indexOf(step) + 1,
         total: totalSteps,
@@ -167,7 +167,7 @@ export function confirmDangerousAction(options) {
         step = options.skipUsername ? 3 : 2;
 
         // Both skipped. Not reachable from anything in this build, and handled
-        // so that a caller passing both flags gets a confirmation rather than a
+        // so that a caller passing both flags gets a confirmation instead of a
         // dialog with no way forward.
         if (options.skipUsername && options.skipPassword) {
           close({ password: null });
@@ -264,7 +264,7 @@ export function confirmDangerousAction(options) {
  * you. They also block the whole thread. The three step confirmation above
  * already had the right shell, the focus trap, the Escape and backdrop
  * behaviour, and the scroll lock, so this is that component with the steps
- * taken out rather than a second implementation.
+ * taken out, not a second implementation.
  *
  * Not a replacement for `confirmDangerousAction`. That one exists because 7g
  * fixes three steps for anything irreversible, and nothing here may be used to
@@ -290,7 +290,7 @@ export function confirmDangerousAction(options) {
  *          value is the field's text, trimmed, or null when it was left empty
  *          or there is no field. Empty and absent are the same thing to every
  *          caller here, and a caller that ever needs to tell them apart should
- *          say so rather than have this guess.
+ *          say so and not have this guess.
  */
 export function confirmAction(options) {
   return new Promise((resolve) => {

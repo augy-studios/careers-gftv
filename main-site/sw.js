@@ -12,8 +12,8 @@
 // takes control, clears any cache left by an earlier worker, and then stays out
 // of the way entirely.
 //
-// It is registered rather than left out so that the update path in phase 10 is
-// an ordinary service worker update rather than a first install on browsers
+// It is registered instead of left out so that the update path in phase 10 is
+// an ordinary service worker update and not a first install on browsers
 // that already have the template's worker from this domain.
 //
 // BUMP VERSION ON EVERY CHANGE TO THIS SITE. Not once per phase, and not only
@@ -27,7 +27,7 @@
 // the files that exist as well. A precache entry naming a deleted file makes
 // cache.addAll reject and the whole install fail.
 
-const VERSION = 'careers-gftv-phase8-v69';
+const VERSION = 'careers-gftv-phase8-v70';
 
 self.addEventListener('install', () => {
   // Nothing to precache yet.

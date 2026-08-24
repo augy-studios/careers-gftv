@@ -12,16 +12,16 @@
 //    controls."
 //   "They cannot make a translation live. Only an admin sets is_ready."
 //
-// Six things here are decisions rather than layout:
+// Six things here are decisions, not layout:
 //
 //   **The list is the audit, and the search is the way past it.** A finished
 //   translation is not in migration 032's view at all, by design, so a list
 //   alone would answer "what has nobody written" and never "the Chinese on this
 //   posting reads wrongly", which is the sentence the whole role exists for. The
-//   search box is above the list rather than below it for that reason: it is not
+//   search box is above the list and not below it for that reason: it is not
 //   a filter on what is left, it is the other question.
 //
-//   **The editor replaces the list rather than opening in a dialog.** Ten fields
+//   **The editor replaces the list instead of opening in a dialog.** Ten fields
 //   with the source wording beside each one is a page. The admin queue can use a
 //   dialog because it edits one field; a modal that scrolls for two screens on a
 //   phone is the pattern section 3 spends its effort avoiding.
@@ -39,13 +39,13 @@
 //   a label, and this page has a heading already.
 //
 //   **The field and state names are 8.11's own keys.** This page reads
-//   admin.field_*, admin.auditState_*, and admin.target_* rather than a second
+//   admin.field_*, admin.auditState_*, and admin.target_* in place of a second
 //   set under helper.*. They are the same nine field names and the same three
 //   states, seen from the other side, and two translations of "Not started" is
 //   two things to keep in step and one place for them to disagree.
 //
 //   **Leaving the editor with unsaved work asks first.** The list and the editor
-//   are the same page, so Back is a redraw rather than a navigation and nothing
+//   are the same page, so Back is a redraw, not a navigation, and nothing
 //   in the browser would otherwise warn anybody.
 
 import { api } from './api.js';
@@ -130,8 +130,8 @@ async function boot() {
     drawList();
     drawResults();
 
-    // The editor is rebuilt rather than retranslated, because every label in it
-    // is written here rather than carried on a data-i18n attribute. What is on
+    // The editor is rebuilt instead of retranslated, because every label in it
+    // is written here and not carried on a data-i18n attribute. What is on
     // screen is read back into the model first: somebody switching the site's
     // language mid-edit is not asking to have their draft thrown away, and a
     // helper working between two languages is exactly the person who does this.
@@ -152,7 +152,7 @@ async function boot() {
  * and would otherwise be told they are not a helper: they are, and the site is
  * having a bad afternoon.
  *
- * The overrides are awaited rather than read straight off the cache, per the
+ * The overrides are awaited, never read straight off the cache, per the
  * trap phase 7 left: isFeatureOff answers "no" to a cache nothing has filled,
  * which looks exactly like nothing being switched off.
  */
@@ -172,8 +172,8 @@ async function drawGate() {
     (note ? `<p class="muted">${escapeHtml(note)}</p>` : '') +
     `</div>`;
 
-  // Redrawn rather than retranslated, like the maintenance banner above it: the
-  // sentence and the admin's note are written here rather than carried on a
+  // Redrawn, not retranslated, like the maintenance banner above it: the
+  // sentence and the admin's note are written here instead of carried on a
   // data-i18n attribute, so shell.js's own pass cannot reach them.
   document.addEventListener('gftv:localechange', () => drawGate(), { once: true });
 }
@@ -362,7 +362,7 @@ function drawList() {
       countsMarkup() +
       `<p class="muted admin-empty">${escapeHtml(
         // A finished translation is not in the view at all, so an empty list is
-        // the real answer rather than "no results".
+        // the real answer and not "no results".
         filtered ? t('admin.noAuditMatches') : t('admin.auditFinished', { language })
       )}</p>`;
     drawPager();
@@ -640,7 +640,7 @@ function drawEditor() {
   wireEditor(view);
   drawSections();
 
-  // Focus rather than only scroll. The list this replaced is gone from the
+  // Focus, not just scroll. The list this replaced is gone from the
   // document, so a keyboard user who pressed Translate would otherwise be left
   // at the top of the page with no idea anything had happened.
   const heading = view.querySelector('.helper-editor-title');
@@ -671,8 +671,8 @@ function livenessMarkup() {
  * One field, with the source wording beside it.
  *
  * 8.2's rule for the admin editor, and the same markup, so the two read the same
- * and the responsive collapse below 1024px is the one already written rather
- * than a second one.
+ * and the responsive collapse below 1024px is the one already written and not
+ * a second one.
  */
 function fieldMarkup(field) {
   const id = `helperField-${field.name}`;
@@ -718,7 +718,7 @@ function fieldMarkup(field) {
 /**
  * The sections builder, for a posting.
  *
- * The admin queue hands sections to the job editor rather than editing them,
+ * The admin queue hands sections to the job editor instead of editing them,
  * because one textarea cannot edit a jsonb array honestly. That reasoning is
  * about the textarea: a helper has no job editor to be sent to, and a posting
  * whose sections are untranslated would sit on their list with no way to clear
@@ -919,7 +919,7 @@ function closeEditor({ silent = false } = {}) {
  * Ask before throwing away something half written.
  *
  * The list and the editor are the same page, so nothing in the browser would
- * warn anybody: Back here is a redraw rather than a navigation. Answers true
+ * warn anybody: Back here is a redraw and not a navigation. Answers true
  * when there is nothing to lose, so every caller may simply await it.
  */
 async function confirmDiscard() {
@@ -950,7 +950,7 @@ async function save() {
   const values = { ...editing.current };
 
   if (editing.target_type === 'job') {
-    // Sent whole rather than as a patch: the builder's whole point is that the
+    // Sent whole, not as a patch: the builder's whole point is that the
     // count may change, so "the sections that are on screen" is the value.
     values.sections = sections;
   }
@@ -973,7 +973,7 @@ async function save() {
   }
 
   // A save that changed nothing is answered without a write, so the row is not
-  // touched and no audit line is written. Said rather than swallowed: pressing
+  // touched and no audit line is written. Said and not swallowed: pressing
   // Save and seeing "saved" for a form nobody edited teaches somebody that the
   // message means nothing.
   if (result.data?.saved === false) {
@@ -982,7 +982,7 @@ async function save() {
     return;
   }
 
-  // Redrawn from what is stored rather than from what the browser hoped it
+  // Redrawn from what is stored instead of from what the browser hoped it
   // wrote, which is what shows a helper that the row now exists and that the
   // ready flag they cannot touch is still where it was.
   editing = result.data?.target ?? editing;
@@ -1006,7 +1006,7 @@ function showErrors(root, details) {
     const node = root.querySelector(`[data-error-for="${CSS.escape(name)}"]`);
     if (!node) continue;
 
-    // The reason a save was refused is a code of its own rather than a field
+    // The reason a save was refused is a code of its own, not a field
     // code, and the sentence for it is the server's. The field errors beside it
     // are the ones this page can name.
     const label = t(`field.${code}`);

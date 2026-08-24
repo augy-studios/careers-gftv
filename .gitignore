@@ -22,7 +22,7 @@ gftv-official.md
 *.log
 .claude
 
-# Generated review sheet for the Chinese copy. Regenerate rather than commit.
+# Generated review sheet for the Chinese copy. Regenerate instead of committing.
 zh-review.html
 
 # Throwaway postings so the job board has something to render during

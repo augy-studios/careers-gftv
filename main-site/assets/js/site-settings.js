@@ -41,7 +41,7 @@ let requestedLocale = null;
 export function loadSiteSettings() {
   const locale = getLocale();
 
-  // A language change makes the previous answer wrong rather than stale: the
+  // A language change makes the previous answer wrong, not stale: the
   // wording is resolved server side, so it is a different payload.
   if (request && requestedLocale === locale) return request;
 
@@ -67,7 +67,7 @@ export function loadSiteSettings() {
  * The portal title this browser saw last time, for the language being drawn.
  *
  * Read before the network answers, so the header is right on the second visit
- * rather than after a flash of the old name. Empty when nothing is stored,
+ * and not after a flash of the old name. Empty when nothing is stored,
  * which means "use the dictionary".
  *
  * @param {string} [locale]

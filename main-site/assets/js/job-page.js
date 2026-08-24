@@ -7,8 +7,8 @@
 //
 // **There is no fetch on this page.** The posting is already in the document
 // when this module runs, in every language it is ready in, which is what makes
-// the globe instant here: switching language is a redraw from memory rather
-// than a round trip. It also means the posting is on screen in one paint on a
+// the globe instant here: switching language is a redraw from memory instead
+// of a round trip. It also means the posting is on screen in one paint on a
 // slow connection, which is the case that matters on a phone at a convention.
 //
 // What is deliberately not here, and where it went:
@@ -29,7 +29,7 @@
 //             posting.
 //
 // Language: everything on this page is written by JavaScript, so a language
-// change is a redraw rather than a retranslation, exactly as on the board. That
+// change is a redraw, not a retranslation, exactly as on the board. That
 // is also why nothing here caches a formatter or a label.
 
 import { t, getLocale, DEFAULT_LOCALE } from './i18n.js';
@@ -45,12 +45,12 @@ import { mountApply } from './apply.js';
 import { saveButtonMarkup, mountSaveButtons } from './save-button.js';
 // The posting body's small markdown subset. Its own module because it is pure,
 // has no DOM in it, and is the one part of this page that can be exercised
-// without a browser. Phase 7's editor preview should use it rather than write
+// without a browser. Phase 7's editor preview should use it instead of writing
 // a second renderer.
 import { renderProse, renderLines, escapeHtml } from './markdown.js';
 
 // Where the board was, so "back to results" returns to it with the query string
-// intact rather than to a bare /search. sessionStorage rather than a parameter
+// intact and not to a bare /search. sessionStorage over a parameter
 // on the link: a posting's address has one canonical form, per section 4, and
 // hanging the reader's filters off it would make two.
 const LAST_SEARCH_KEY = 'gftv-careers.lastSearch';
@@ -115,7 +115,7 @@ function draw() {
       // Phase 7's staff preview. The posting underneath is rendered exactly as
       // a reader would see it, which is the entire point, so the one thing this
       // page owes the person looking at it is an unmissable statement that
-      // nobody else can. Above the title rather than beside it: a preview that
+      // nobody else can. Above the title, not beside it: a preview that
       // has to be noticed is not a badge.
       payload?.preview
         ? `<div class="callout warn job-preview-banner" role="status">
@@ -197,7 +197,7 @@ function draw() {
     }
 
     <div class="job-actions">
-      <!-- Apply is a slot rather than a button, because it is six different
+      <!-- Apply is a slot instead of a button, because it is six different
            things depending on this reader's history with this posting: the
            ordinary button, a cooldown notice, an unanswered prompt, a closed
            state, a paused state, or the button with a line above it. assets/js/
@@ -238,11 +238,11 @@ function draw() {
 
     ${
       // Extra sections beyond the fixed fields, per migration 019. Array order
-      // is display order, and the headings are content rather than interface
+      // is display order, and the headings are content, not interface
       // strings, so they are translated on the translation row and arrive here
       // already in the right language.
-      // The heading is content here rather than an interface string, so the
-      // marker covers the whole section rather than the body alone: a helper
+      // The heading is content here, not an interface string, so the
+      // marker covers the whole section instead of the body alone: a helper
       // fixing a heading is fixing the same jsonb array as one fixing a
       // paragraph under it, and `sections` is the field either way.
       (content.sections ?? [])
@@ -269,7 +269,7 @@ function draw() {
   holder.removeAttribute('aria-busy');
 
   // Which language the words above are actually in, for 7i's annotation layer.
-  // On the container rather than on every marker, because it is one fact about
+  // On the container instead of on every marker, because it is one fact about
   // the whole posting and repeating it eleven times is eleven chances for one of
   // them to disagree after a fallback.
   holder.setAttribute('data-tr-locale', contentLocale(untranslated));
@@ -285,20 +285,20 @@ function draw() {
     title: content.title ?? '',
     isOpen: job.is_open === true,
     isArchived: job.is_archived === true,
-    // From the inlined payload rather than a request, so the button is right at
+    // From the inlined payload, not a request, so the button is right at
     // first paint. The server checks it again on every apply.
     applicationsOpen: payload.applications_open !== false,
   });
 
   // Same treatment, and for the same reason: a language change replaces the
   // control, and the saved state is per applicant so it is filled in afterwards
-  // rather than held for.
+  // and never held for.
   mountSaveButtons(holder);
 
   // The back link above the posting is in the document the function sent, so it
   // ships pointing at a bare /search. Section 4 wants it to return to the board
   // with the previous query string intact, and only the browser knows what that
-  // was, so it is corrected here rather than rendered server side.
+  // was, so it is corrected here instead of rendered server side.
   const topBack = document.querySelector('#backToResults');
   if (topBack) topBack.href = backTarget();
 
@@ -331,7 +331,7 @@ function badge(className, text) {
  * annotation layer walks up from the selection to find it, so the helper never
  * types an identifier."
  *
- * One attribute rather than three, because the layer wants all of it or none of
+ * One attribute, not three, because the layer wants all of it or none of
  * it and three lookups per selection is three chances to find half an answer.
  * Inert markup to everybody else, per 7i: nothing reads it unless the layer is
  * loaded, and the layer loads for granted helpers and staff only.
@@ -352,7 +352,7 @@ function tr(field, type = 'job', id = payload?.job?.id) {
  * Which language the words on this page are actually in.
  *
  * Not the same as the interface language, and the difference is the whole reason
- * this is written down rather than assumed: a reader in Chinese looking at a
+ * this is written down and not assumed: a reader in Chinese looking at a
  * posting with no ready Chinese translation is reading English, and a suggestion
  * filed against zh would point the queue at a row that does not exist. Migration
  * 015 allows a report against the default language for exactly this case, per its
@@ -492,7 +492,7 @@ function reportTarget() {
  * people expect and puts the link into whichever app they actually use. On a
  * desktop it usually is not there, so the fallback is the clipboard with a
  * confirmation, and the fallback to that is saying plainly that it did not
- * work rather than silently doing nothing.
+ * work instead of silently doing nothing.
  */
 async function share() {
   const { content } = contentForLocale();
@@ -539,7 +539,7 @@ function shareNote(text) {
  *
  * The referrer is the whole address including the query string on a same
  * origin navigation, which is exactly what section 4 asks the back link to
- * reproduce. Stored rather than read each time, so following a tag from one
+ * reproduce. Stored, not read each time, so following a tag from one
  * posting to another and back still returns to the board they started on.
  */
 function rememberSearch() {
@@ -571,7 +571,7 @@ function backTarget() {
 async function resumeIntent() {
   // 7h and section 4: intent survives the sign in round trip. Somebody who
   // clicked report, signed in, and came back gets the form they were reaching
-  // for rather than a page that has forgotten what they were doing.
+  // for and not a page that has forgotten what they were doing.
   //
   // Only the report intent resumes here, and only because reopening a form is
   // harmless. Nothing that opens a tab or writes a row may, per section 4:
@@ -588,7 +588,7 @@ async function resumeIntent() {
  * Tell the server this posting was opened, per 8.4.
  *
  * **Once per session per posting**, which is 007's rule for the event and the
- * reason the guard is a sessionStorage key rather than a flag in this module:
+ * reason the guard is a sessionStorage key instead of a flag in this module:
  * a reader who opens a posting, goes back to the board, and returns has not
  * viewed it twice in any sense an admin cares about, and this page is a real
  * document that reloads every time.
@@ -637,7 +637,7 @@ function boot() {
   rememberSearch();
   recordView();
 
-  // Drawn on the language being applied rather than immediately. shell.js
+  // Drawn on the language being applied, not immediately. shell.js
   // fetches the dictionary before it dispatches this, and drawing first would
   // put raw keys on screen for a moment: every label on this page comes from
   // t(), and the payload arrives without any of them.

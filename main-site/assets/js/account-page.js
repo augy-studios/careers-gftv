@@ -10,7 +10,7 @@
 // it, and a way back to the board. Everything on it is read from the endpoints
 // the other pages already use, and it owns no state of its own.
 //
-// The counts are drawn as they arrive rather than all at once. Three requests
+// The counts are drawn as they arrive instead of all at once. Three requests
 // that each answer one tile is three tiles that fill in independently, which is
 // better than a page that waits for the slowest of them.
 
@@ -64,7 +64,7 @@ async function boot() {
 
   // Every string on these tiles is written by JavaScript, because each carries a
   // number. A language change is a redraw, and the counts already in hand are
-  // reused rather than fetched again.
+  // reused and not fetched again.
   document.addEventListener('gftv:localechange', () => draw());
 }
 
@@ -106,7 +106,7 @@ function tileMarkup(tile, index) {
  *
  * Three states, and the third is the reason this is a function. Undefined means
  * the request has not landed; null means it failed, and the tile says nothing
- * rather than claiming zero, because "0 saved roles" is a statement about
+ * instead of claiming zero, because "0 saved roles" is a statement about
  * somebody's account that a failed request does not entitle us to make.
  */
 function countText(tile, count) {

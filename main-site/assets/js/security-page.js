@@ -9,7 +9,7 @@
 //   5d "Account settings lists trusted devices with when each was added and
 //      last used, a revoke button per device, and a revoke all."
 //
-// Also here, and disabled through the section 0c pattern rather than hidden:
+// Also here, and disabled through the section 0c pattern, not hidden:
 // the Telegram two factor toggle. Its delivery half cannot work until the bot
 // ships in phase 11, so the control says that on itself instead of pretending.
 
@@ -61,7 +61,7 @@ async function boot() {
   wireDeviceButtons();
 
   // Somebody sent here by the sign in page because they have no codes left
-  // gets the reason on screen rather than an unexplained warning badge.
+  // gets the reason on screen instead of an unexplained warning badge.
   if (new URL(window.location.href).searchParams.get('codes') === 'none') {
     const banner = document.querySelector('#noCodesBanner');
     if (banner) banner.hidden = false;
@@ -167,7 +167,7 @@ function wirePasswordForm() {
 
     form.reset();
     // 5d: changing the password revokes every trusted device. The list on this
-    // page has to reflect that immediately rather than after a reload.
+    // page has to reflect that immediately, not after a reload.
     showFormMessage(form, 'ok', t('auth.passwordChanged'));
     await loadDevices();
   });
@@ -178,7 +178,7 @@ function wirePasswordForm() {
  *
  * Adding or removing a passkey and revoking a device all changed the second
  * factor, and the endpoints now ask for the password to prove the session is
- * being used by the person who owns it rather than by whoever found the
+ * being used by the person who owns it and not by whoever found the
  * laptop. Read at the moment of the action and never stored.
  */
 function passwordFrom(id) {
@@ -208,8 +208,8 @@ async function loadPasskeys() {
   const add = document.querySelector('#addPasskey');
   if (!list) return;
 
-  // A browser that cannot do this is told so, and the button goes rather than
-  // sitting there failing. That is a genuine incapability rather than an
+  // A browser that cannot do this is told so, and the button goes instead of
+  // sitting there failing. That is a genuine incapability, not an
   // unshipped phase, so it is not the section 0c disabled pattern.
   if (!passkeysSupported()) {
     document.querySelector('#passkeyUnsupported')?.removeAttribute('hidden');
@@ -292,7 +292,7 @@ async function loadPasskeys() {
         return;
       }
       // Removing the last one turns the second factor off, which changes how
-      // signing in works. Say so here rather than letting it be discovered at
+      // signing in works. Say so here and do not leave it to be discovered at
       // the next sign in.
       if (removed.data.second_factor_off) showPasskeyError(t('security.passkeyLastRemoved'));
       await loadPasskeys();

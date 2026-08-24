@@ -2,7 +2,7 @@
 //
 // Who can open this dashboard, and the one lever that decides it. Everything
 // else about a staff account belongs to gftv.asia, and the page says so in a
-// callout rather than leaving somebody to find out by looking for a control
+// callout instead of leaving somebody to find out by looking for a control
 // that is not there.
 //
 // Four things the drawing has to get right:
@@ -23,7 +23,7 @@
 //   developer guide is a mistake that is easier to make than to notice".
 //
 //   **Nobody revokes their own access.** The control is absent for the signed
-//   in account rather than disabled, per deviation 34: this is a permission,
+//   in account, not disabled, per deviation 34: this is a permission,
 //   not an unbuilt feature. The endpoint refuses it as well.
 
 import { api } from './api.js';
@@ -57,7 +57,7 @@ async function boot() {
 
   // For the one sentence on this page that describes something not built yet.
   // Cached by build-status.js, so this is the same object admin-shell already
-  // fetched rather than a second request.
+  // fetched and not a second request.
   buildStatus = await loadBuildStatus();
 
   document.querySelector('#grantAccess')?.addEventListener('click', () => {
@@ -74,7 +74,7 @@ async function load() {
 
   if (!result.ok) {
     // A job poster who typed the URL gets a 403 here, and the honest thing is
-    // to say so rather than draw an empty table. The sidebar does not offer
+    // to say so instead of drawing an empty table. The sidebar does not offer
     // them the item at all, per deviation 34.
     adminMessage('error', result.error?.message ?? t('error.unexpected'));
     return;
@@ -191,7 +191,7 @@ function rowMarkup(account) {
  *
  * 8.8 asks for the sentence about the docs site in as many words, and the docs
  * site is two phases away. Written as the phase sentence from the feature map
- * rather than as prose, so nothing here hardcodes a phase number, per 0c, and
+ * in place of prose, so nothing here hardcodes a phase number, per 0c, and
  * the note disappears on its own the day docs_site ships.
  */
 function docsNote() {
@@ -202,7 +202,7 @@ function docsNote() {
 }
 
 /**
- * Three facts rather than a tick.
+ * Three facts, not a tick.
  *
  * An account with a passkey and no backup codes is one lost phone away from
  * being locked out of both realms, and an account with neither is signing in
@@ -322,7 +322,7 @@ async function setState(account, state) {
  * The only way into this portal for somebody who is neither an admin nor an
  * editor at gftv.asia, which is a real case: whoever is running a recruitment
  * round is not necessarily either of those things. Account creation is still
- * gftv.asia's, so this searches rather than offers to make one, and it says so
+ * gftv.asia's, so this searches and does not offer to make one, and it says so
  * when nothing matches.
  */
 function openPicker() {

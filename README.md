@@ -28,12 +28,12 @@ is sent. Everything else stays a static page with a client side fetch.
 The site is built and released in public, one phase at a time. `main` is always
 deployable, and the interface is honest about what is not there yet: a control
 for an unshipped feature stays visible and disabled with the reason on it,
-rather than being hidden.
+and is never hidden.
 
 Since phase 7 there is a second reason a control can be disabled, and the two
 are never conflated. A feature that has shipped can be switched off temporarily
 by an admin, for an outage or while something is being fixed, and it says so in
-its own words rather than borrowing the phase sentence. Telling somebody a
+its own words instead of borrowing the phase sentence. Telling somebody a
 feature they used last week "will be available in Phase 6" would be a lie about
 a shipped feature, and it would make a real outage indistinguishable from an
 unbuilt one.
@@ -200,7 +200,7 @@ Three things to know before the first run, all of which
   Production is only the default because usually there is not one.
 - **A clean run is not full coverage.** Anything needing SQL, a second staff
   account, a redeploy, a real Google Form, or a person on a keyboard is skipped
-  rather than silently passed, and the count at the end says how many.
+  not silently passed, and the count at the end says how many.
 
 Alongside them are three small debug scripts, each the shortest way to reproduce
 one specific failure. They are kept as much for the shape as for the bug.

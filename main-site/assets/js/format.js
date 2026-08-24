@@ -16,7 +16,7 @@
 import { t, getLocale } from './i18n.js';
 
 // Intl wants a BCP 47 tag, and our locale ids are not quite that. Both are
-// Singapore, which is the point: dates read as 19 Aug 2026 rather than in the
+// Singapore, which is the point: dates read as 19 Aug 2026 and not in the
 // American order, in either language.
 const INTL_LOCALE = {
   en: 'en-SG',
@@ -46,8 +46,8 @@ export function formatDate(value) {
 /**
  * How many whole days from now until a timestamp. Negative for the past.
  *
- * Counted in calendar days rather than in 24 hour blocks, so a posting closing
- * at nine tomorrow morning says it closes tomorrow rather than today, which is
+ * Counted in calendar days instead of in 24 hour blocks, so a posting closing
+ * at nine tomorrow morning says it closes tomorrow, not today, which is
  * what a reader means by the word.
  */
 export function daysUntil(value) {
@@ -67,8 +67,8 @@ export function daysUntil(value) {
  * What a card says about when a posting closes.
  *
  * The null case is the whole reason this function exists. Section 4: where
- * closes_at is null, show "Open until filled" in place of a date rather than
- * leaving the field blank or printing "null".
+ * closes_at is null, show "Open until filled" in place of a date, and never
+ * leave the field blank or print "null".
  *
  * @param {string|null} closesAt
  * @returns {{ text: string, urgent: boolean, openEnded: boolean }}
@@ -127,7 +127,7 @@ export function postedText(publishedAt) {
 
 /**
  * A number, grouped for the reader's language. Result counts and tag counts go
- * through this rather than being interpolated raw, so 1,204 does not read as
+ * through this instead of being interpolated raw, so 1,204 does not read as
  * 1204 in one language and 1,204 in the other.
  * @param {number} value
  */
@@ -140,7 +140,7 @@ export function formatCount(value) {
 /**
  * The five keys migration 021 allows, in the order a picker offers them.
  *
- * Added in phase 7 for the editor, which needs the list rather than one label,
+ * Added in phase 7 for the editor, which needs the list, not one label,
  * per the note in section 6 of next-steps: the commitment picker is "limited to
  * migration 021's five keys". It lives here beside commitmentLabel so the list
  * and the wording cannot drift, and widening it is a new numbered migration
@@ -159,7 +159,7 @@ export const COMMITMENTS = Object.freeze([
  *
  * The column holds a key from migration 021's fixed set and never a label, so
  * the wording is a dictionary entry like any other interface string. An unknown
- * key returns an empty string rather than the key itself: a raw commitment key
+ * key returns an empty string and not the key itself: a raw commitment key
  * on a card would look like a bug to a reader, and the card simply omits the
  * line instead.
  *

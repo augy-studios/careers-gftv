@@ -4,7 +4,7 @@
 // newest first, with status, the date they applied, and the cooldown state where
 // one is active."
 //
-// Four things on this page are requirements rather than choices:
+// Four things on this page are requirements, not choices:
 //
 //   **Bucket tabs with live counts**, so somebody can filter to what they have
 //   submitted, what they started and never finished, and what is closed out. The
@@ -15,7 +15,7 @@
 //   archived role.** That is the visibility rule in 7g, and it is why this list
 //   never filters on the posting's status.
 //
-//   **An unanswered prompt reopens the modal in place** rather than sending
+//   **An unanswered prompt reopens the modal in place** instead of sending
 //   somebody to the posting to find it. openApplyDialog takes mode: 'resume' and
 //   mounts on any page, which is exactly what that requirement needs. There is
 //   no second modal.
@@ -24,7 +24,7 @@
 //   7e: "Make clear on screen that withdrawing here does not delete their Google
 //   Form response, and that they should contact the team if they need it
 //   removed." The portal never had the response, and the panel says so before
-//   the button rather than after.
+//   the button and not after.
 
 import { api } from './api.js';
 import { t } from './i18n.js';
@@ -58,10 +58,10 @@ async function boot() {
 
   await load();
 
-  // Everything on this page writes its own strings rather than carrying
+  // Everything on this page writes its own strings instead of carrying
   // data-i18n attributes, because the wording depends on the row's state as
   // well as on the language. So a language change is a redraw, and it redraws
-  // from the payload already in hand rather than fetching again.
+  // from the payload already in hand without fetching again.
   document.addEventListener('gftv:localechange', () => {
     if (payload) draw();
   });
@@ -81,7 +81,7 @@ async function load() {
 
   // Every bucket is fetched, not just the one being shown, and the server
   // filters. The counts come back with it, so the tabs and the list are one
-  // answer rather than two that can disagree.
+  // answer, not two that can disagree.
   const result = await api(
     `/api/applications/mine?with_jobs=true&bucket=${encodeURIComponent(bucket)}`
   );
@@ -162,9 +162,9 @@ function drawTabs() {
 /**
  * Keep the tab in the address bar.
  *
- * replaceState rather than pushState, matching the board: pressing back after
- * flipping through four tabs leaves the page rather than undoing one tab, and
- * that is the specified behaviour rather than an oversight.
+ * replaceState over pushState, matching the board: pressing back after
+ * flipping through four tabs leaves the page and does not undo one tab, and
+ * that is the specified behaviour, not an oversight.
  */
 function writeBucketToUrl() {
   try {
@@ -237,7 +237,7 @@ function canWithdraw(status) {
 function statusLabel(status) {
   const key = `status.${status}`;
   const label = t(key);
-  // An unknown status renders as nothing rather than as its own key. A status
+  // An unknown status renders as nothing instead of as its own key. A status
   // added in phase 7 without a dictionary entry should look plain, not broken.
   return label === key ? '' : label;
 }

@@ -2,7 +2,7 @@
 //
 // Section 5b: username, display name, email, password, confirm. Uniqueness on
 // username and email, clear inline validation, and the password minimum stated
-// on screen rather than discovered by failing.
+// on screen and not discovered by failing.
 //
 // The account is signed in on success, and the recovery code dialog is raised
 // immediately with the password still in hand. That order is from 5c: the
@@ -36,7 +36,7 @@ function boot() {
   const signInLink = document.querySelector('#signInLink');
   if (signInLink) signInLink.href = withRedirect('/login');
 
-  // Checked as they type rather than only on submit, because a mismatch found
+  // Checked as they type instead of only on submit, because a mismatch found
   // at the end means retyping both.
   const password = form.elements.namedItem('password');
   const confirm = form.elements.namedItem('password_confirm');
@@ -84,7 +84,7 @@ function boot() {
     setWorking(form, false);
 
     if (!generated.ok) {
-      // Rare, and worth being honest about rather than silently landing them
+      // Rare, and worth being honest about instead of silently landing them
       // on the board with no way back into the account.
       showFormMessage(form, 'warn', t('auth.codesLaterWarning'));
       window.setTimeout(() => {

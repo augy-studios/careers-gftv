@@ -15,7 +15,7 @@
             var k = "gftv-careers";
             var m = localStorage.getItem(k + ".mode") || "light";
 
-            // Time based mode, per gftv-theme.md. Resolved here rather than
+            // Time based mode, per gftv-theme.md. Resolved here instead of
             // in theme.js because theme.js runs after first paint, and an
             // evening reader would otherwise watch a white page turn dark.
             // Keep the two hours in step with LIGHT_FROM_HOUR and
@@ -59,7 +59,7 @@
          not canonicalised away: /search?q=editor and /search are different
          pages to a reader and should be to a crawler too. What must not happen
          is a second URL for the same listing, which is why /jobs redirects here
-         in vercel.json rather than rendering anything of its own. -->
+         in vercel.json instead of rendering anything of its own. -->
     <link rel="canonical" href="https://careers.globalfurry.tv/search">
 
     <meta property="og:type" content="website">
@@ -99,11 +99,11 @@
             </p>
         </div>
 
-        <!-- Not dismissible, and above the results rather than under them.
+        <!-- Not dismissible, and above the results, not under them.
              Somebody scanning a job board assumes a salary unless told
              otherwise, and finding out after an interview is the failure this
              prevents. Each card states its own answer as well, read from
-             is_paid rather than assumed. -->
+             is_paid and never assumed. -->
         <div class="callout warn board-notice">
             <p data-i18n="common.unpaidNotice">
                 Every role currently listed at GFTV is voluntary and unpaid,
@@ -140,8 +140,8 @@
             <div class="recent-searches" id="recentSearches" hidden></div>
         </form>
 
-        <!-- The four quick filters. These sit alongside the filter panel rather
-             than inside it, so the common cases are one tap away. -->
+        <!-- The four quick filters. These sit alongside the filter panel and
+             not inside it, so the common cases are one tap away. -->
         <ul class="chip-row quick-chips" id="quickChips"
             data-i18n-attr="aria-label:search.quickFilters"></ul>
 

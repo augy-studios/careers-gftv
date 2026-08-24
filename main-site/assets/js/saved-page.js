@@ -8,7 +8,7 @@
 // The unsave control is the same component the board and the posting page use,
 // so a reader unsaving from here presses the bookmark they already know. What
 // this page adds is the one thing a list needs and a card does not: the row
-// leaves the list when it is unsaved, rather than sitting there filled out with
+// leaves the list when it is unsaved, instead of sitting there filled out with
 // an empty bookmark on it.
 
 import { api } from './api.js';

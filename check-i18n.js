@@ -4,7 +4,7 @@
 // by the footer since phase 1, and theme.timeBasedNote. Both rendered their own
 // key on screen, in both languages, and nothing caught them because a missing
 // key is not an error anywhere. t() falls back to the key on purpose, so that a
-// missing string degrades to something searchable rather than to a blank
+// missing string degrades to something searchable and not to a blank
 // element, and the cost of that kindness is that it fails silently.
 //
 // This is the thing that makes it not silent. Run it before shipping:
@@ -36,7 +36,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// Resolved against this file rather than the working directory, so it behaves
+// Resolved against this file and not the working directory, so it behaves
 // the same whether it is run from the repo root or through npm run check-i18n
 // from main-site.
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -63,7 +63,7 @@ const DYNAMIC_FAMILIES = [
   // question type, an event source, a blocker code, a translation state.
   'admin.',
   // The maintenance switches in 8.12 are keyed by feature, and the feature list
-  // is build-status.json rather than anything in the source, so no literal
+  // is build-status.json instead of anything in the source, so no literal
   // names any of them.
   'featureName.',
   'featureWhere.',
@@ -139,7 +139,7 @@ for (const file of files) {
   // exotic: common.modeLight and common.modeDark are only ever reached through
   // one, and were reported as dead because of it.
   //
-  // Scoped to the call rather than to the whole file on purpose. Matching every
+  // Scoped to the call, not to the whole file, on purpose. Matching every
   // dotted string anywhere would pick up things like careers.globalfurry.tv and
   // report those as missing keys.
   for (const call of source.matchAll(/\bt\(/g)) {
@@ -180,7 +180,7 @@ if (missing.length > 0) {
 const missingZh = [...used.keys()].filter((k) => k in en && !(k in zh)).sort();
 if (missingZh.length > 0) {
   // Not fatal. English is the fallback layer by design, so these read in
-  // English rather than breaking, but a Chinese reader sees English.
+  // English instead of breaking, but a Chinese reader sees English.
   console.log(`\nIn en.json but not zh.json, so they read in English (${missingZh.length}):`);
   for (const key of missingZh) console.log(`  ${key}`);
 }

@@ -6,7 +6,7 @@
 // because a reader who has learned that the filled bookmark means saved should
 // not have to learn it twice.
 //
-// Two things about it are decisions rather than implementation:
+// Two things about it are decisions, not implementation:
 //
 //   **Saving completes on return from signing in, unlike applying.** Section 4
 //   says so explicitly, and the difference is deliberate: applying opens a tab
@@ -185,8 +185,8 @@ async function toggle(button, jobId, action) {
   button.removeAttribute('data-save-error');
   refreshSaved();
 
-  // Anything else on the page holding a saved list redraws from this rather
-  // than polling. /account/saved is the page that cares.
+  // Anything else on the page holding a saved list redraws from this instead
+  // of polling. /account/saved is the page that cares.
   document.dispatchEvent(
     new CustomEvent('gftv:savechange', {
       detail: { jobId, saved: action === 'save' },
@@ -248,8 +248,8 @@ function escapeAttr(value) {
   });
 }
 
-// The language change redraws the labels, which are written by JavaScript rather
-// than carried on data-i18n attributes, because the word depends on the state as
+// The language change redraws the labels, which are written by JavaScript and
+// not carried on data-i18n attributes, because the word depends on the state as
 // well as on the language.
 document.addEventListener('gftv:localechange', () => {
   document
