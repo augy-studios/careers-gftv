@@ -222,7 +222,8 @@ body {
    link. It sits in the same list as the links and is styled with them, since
    the difference is in what it does, not in where it is. */
 .site-nav a,
-.site-nav .nav-signout {
+.site-nav .nav-signout,
+.site-nav .nav-suggest {
   display: flex;
   align-items: center;
   gap: 0.625rem;
@@ -234,7 +235,8 @@ body {
   text-decoration: none;
 }
 
-.site-nav .nav-signout {
+.site-nav .nav-signout,
+.site-nav .nav-suggest {
   width: 100%;
   justify-content: flex-start;
   background: none;
@@ -243,12 +245,21 @@ body {
   cursor: pointer;
 }
 
+/* 7i's layer, on or off. A pressed state rather than a separate "turn it off"
+   item, because it is one switch and somebody needs to see which way it is
+   set from across the header. */
+.site-nav .nav-suggest[aria-pressed='true'] {
+  background: var(--surface-active);
+  color: var(--brand-text);
+}
+
 .site-nav a:visited {
   color: var(--text);
 }
 
 .site-nav a:hover,
-.site-nav .nav-signout:hover {
+.site-nav .nav-signout:hover,
+.site-nav .nav-suggest:hover {
   background: var(--surface-hover);
 }
 
@@ -4917,4 +4928,176 @@ ul.field-hint {
    them that a single quoted paragraph does not. */
 .helper-source-sections .editor-source-text + .editor-source-text {
   margin-top: 0.625rem;
+}
+
+/* ---------------------------------------------------------------------------
+ * The annotation layer, 7i
+ *
+ * Three pieces: the control that appears near a selection, the panel that opens
+ * from it, and the quiet underline on a span somebody has already raised.
+ *
+ * The panel is a bottom sheet below 1024px and a column beside the text above
+ * it, which is the same shape /search's filters and the handoff modal take, and
+ * for the same reason. What is different here is that it is **not modal**: 7i
+ * asks for the selection to stay visible above the sheet, so there is no
+ * backdrop, no scroll lock, and nothing covering the words being talked about.
+ * ------------------------------------------------------------------------ */
+
+/* Wrapping the body of a section so it can carry a marker put a block between
+   .job-section and its paragraphs, which took the gap between them with it.
+   Given back here rather than by unwrapping: the marker has to sit on one
+   element holding the whole field. */
+.job-section-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* The small control near the selection. Absolutely positioned in the document
+   rather than fixed, so it stays with the words when the page scrolls a little,
+   and repositioned on scroll for when it does not. */
+.annotate-hint {
+  position: absolute;
+  z-index: 80;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  /* Centred on the selection, which is what the left it is given means. */
+  transform: translateX(-50%);
+  padding: 0.4rem 0.7rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised, var(--surface));
+  box-shadow: var(--shadow) 0 6px 18px;
+  color: var(--text);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.annotate-hint[hidden] {
+  display: none;
+}
+
+.annotate-panel {
+  position: fixed;
+  z-index: 95;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: 70dvh;
+  border-radius: var(--radius) var(--radius) 0 0;
+  /* Notched phones, like the filter sheet. */
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.annotate-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.annotate-head h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.annotate-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+.annotate-where {
+  margin: 0;
+  font-size: 0.8125rem;
+}
+
+/* The captured span, with what is either side of it kept muted. Quoted rather
+   than boxed as a field, for the reason the admin panel gives about its own:
+   none of it is editable, and the two textareas under it are. */
+.annotate-quote {
+  margin: 0;
+  padding: 0.6rem 0.8rem;
+  border-left: 3px solid var(--border-strong);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--surface-active);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  max-height: 9rem;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+}
+
+.annotate-quote mark {
+  background: var(--callout-warn-bg);
+  color: var(--text);
+  border-radius: 2px;
+}
+
+.annotate-adjust {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  font-size: 0.8125rem;
+}
+
+.annotate-adjust .icon-btn {
+  border: 1px solid var(--border);
+}
+
+/* A quiet underline, per 7i, with the count on it. Dotted rather than solid:
+   this marks text somebody has commented on, and a solid rule under a sentence
+   reads as a link. */
+.annotate-underline {
+  background: none;
+  color: inherit;
+  text-decoration: underline dotted var(--warn);
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+
+.annotate-underline::after {
+  content: attr(data-count);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.1em;
+  margin-inline-start: 0.25em;
+  padding: 0 0.25em;
+  border-radius: 999px;
+  background: var(--callout-warn-bg);
+  color: var(--warn);
+  font-size: 0.7em;
+  font-weight: 700;
+  vertical-align: super;
+}
+
+.annotate-underline:focus-visible {
+  outline: 2px solid var(--brand-dark);
+  outline-offset: 2px;
+}
+
+@media (min-width: 1024px) {
+  /* Beside the text rather than under it, per 7i: "On a wide screen the
+     suggestion opens in a panel beside the text." Anchored to the right edge
+     and clear of the sticky header. */
+  .annotate-panel {
+    left: auto;
+    right: 1rem;
+    top: 5.5rem;
+    bottom: auto;
+    width: 24rem;
+    max-height: calc(100dvh - 7.5rem);
+    border-radius: var(--radius);
+    padding-bottom: 0;
+  }
 }

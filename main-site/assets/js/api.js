@@ -189,6 +189,52 @@ export function noteStaffSession(seen) {
 }
 
 /**
+ * Whether this browser has ever held a translation helper's session.
+ *
+ * The same hint the staff link uses, for the same reason and with the same
+ * limits. 7i's annotation layer is offered in the header on every page of the
+ * site, and asking the server "are you a helper" on every page load for every
+ * reader, to serve the handful of people who are, is the cost that pattern
+ * exists to avoid. With the hint the question is only asked by a browser that
+ * has seen the answer be yes at least once.
+ *
+ * **A hint, never an authority.** It decides whether to ask, and nothing else:
+ * the endpoints re-check the helper row and the staff session on every request,
+ * so a forged value here buys a toggle whose first request refuses it.
+ *
+ * **What it costs when it is wrong.** Somebody granted the role in another
+ * browser sees no toggle here until they open their account area once, which is
+ * where the roster is read and this is set. That is the same trade the staff
+ * hint makes, and the account area is where somebody finds out they have been
+ * granted anything.
+ */
+const HELPER_HINT_KEY = 'gftv-careers.helperSeen';
+
+export function hasHelperHint() {
+  try {
+    return localStorage.getItem(HELPER_HINT_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Record that this browser holds the helper role, for a caller that has just
+ * been told so.
+ *
+ * @param {boolean} seen
+ */
+export function noteHelperSession(seen) {
+  try {
+    if (seen) localStorage.setItem(HELPER_HINT_KEY, 'true');
+    else localStorage.removeItem(HELPER_HINT_KEY);
+  } catch {
+    // Storage blocked. The header never offers the layer, and the helper area
+    // still works by opening it.
+  }
+}
+
+/**
  * The staff session. Separate call, separate cookie, separate realm.
  *
  * The two realms are never merged into one "current user" anywhere in this

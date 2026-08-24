@@ -135,7 +135,7 @@ function draw() {
         ${job.is_archived ? badge('badge-archived', t('job.archivedBadge')) : ''}
       </div>
 
-      <h1>${escapeHtml(content.title ?? '')}</h1>
+      <h1${tr('title')}>${escapeHtml(content.title ?? '')}</h1>
 
       ${
         // The one line version of the unpaid notice, in the header where the
@@ -147,8 +147,18 @@ function draw() {
       }
 
       <ul class="job-detail-meta">
-        ${content.department ? meta('briefcase', t('job.department'), content.department.name) : ''}
-        ${meta('pin', t('job.location'), locationText(job, content))}
+        ${
+          content.department
+            ? meta(
+                'briefcase',
+                t('job.department'),
+                content.department.name,
+                '',
+                tr('name', 'department', content.department.id)
+              )
+            : ''
+        }
+        ${meta('pin', t('job.location'), locationText(job, content), '', locationMarker(job, content))}
         ${commitment ? meta('clock', t('job.commitment'), commitment) : ''}
         ${meta('users', t('job.openings'), openingsText(job))}
         ${posted ? meta('calendar', t('job.postedLabel'), posted) : ''}
@@ -164,14 +174,22 @@ function draw() {
 
     ${noticeFor(job, untranslated)}
 
-    ${content.summary ? `<p class="lede job-summary">${escapeHtml(content.summary)}</p>` : ''}
+    ${
+      content.summary
+        ? `<p class="lede job-summary"${tr('summary')}>${escapeHtml(content.summary)}</p>`
+        : ''
+    }
 
     ${
       // Where the unpaid paragraph belongs: the last thing read before the
       // Apply button. A paid posting says so for itself instead.
       job.is_paid
         ? content.compensation_note
-          ? section(t('job.compensation'), renderProse(content.compensation_note))
+          ? section(
+              t('job.compensation'),
+              renderProse(content.compensation_note),
+              tr('compensation_note')
+            )
           : ''
         : `<div class="callout note job-unpaid-notice"><p>${escapeHtml(
             t('job.unpaidNotice')
@@ -193,27 +211,46 @@ function draw() {
       <p class="share-note" id="shareNote" role="status" hidden></p>
     </div>
 
-    ${content.description ? section(t('job.aboutRole'), renderProse(content.description)) : ''}
+    ${
+      content.description
+        ? section(t('job.aboutRole'), renderProse(content.description), tr('description'))
+        : ''
+    }
     ${
       content.responsibilities
-        ? section(t('job.responsibilities'), renderLines(content.responsibilities))
+        ? section(
+            t('job.responsibilities'),
+            renderLines(content.responsibilities),
+            tr('responsibilities')
+          )
         : ''
     }
     ${
       content.requirements
-        ? section(t('job.requirements'), renderLines(content.requirements))
+        ? section(t('job.requirements'), renderLines(content.requirements), tr('requirements'))
         : ''
     }
-    ${content.nice_to_have ? section(t('job.niceToHave'), renderLines(content.nice_to_have)) : ''}
+    ${
+      content.nice_to_have
+        ? section(t('job.niceToHave'), renderLines(content.nice_to_have), tr('nice_to_have'))
+        : ''
+    }
 
     ${
       // Extra sections beyond the fixed fields, per migration 019. Array order
       // is display order, and the headings are content rather than interface
       // strings, so they are translated on the translation row and arrive here
       // already in the right language.
+      // The heading is content here rather than an interface string, so the
+      // marker covers the whole section rather than the body alone: a helper
+      // fixing a heading is fixing the same jsonb array as one fixing a
+      // paragraph under it, and `sections` is the field either way.
       (content.sections ?? [])
         .filter((entry) => entry && entry.heading && entry.body)
-        .map((entry) => section(entry.heading, renderProse(entry.body)))
+        .map(
+          (entry) =>
+            `<div${tr('sections')}>${section(entry.heading, renderProse(entry.body))}</div>`
+        )
         .join('')
     }
 
@@ -230,6 +267,13 @@ function draw() {
   `;
 
   holder.removeAttribute('aria-busy');
+
+  // Which language the words above are actually in, for 7i's annotation layer.
+  // On the container rather than on every marker, because it is one fact about
+  // the whole posting and repeating it eleven times is eleven chances for one of
+  // them to disagree after a fallback.
+  holder.setAttribute('data-tr-locale', contentLocale(untranslated));
+
   hydrateIcons(holder);
   wireActions(holder);
 
@@ -274,28 +318,72 @@ function badge(className, text) {
   return `<span class="badge ${className}">${escapeHtml(text)}</span>`;
 }
 
+/* -------------------------------------------------------------------------
+ * The markers 7i's annotation layer reads
+ * ---------------------------------------------------------------------- */
+
+/**
+ * Name what a piece of text on this page is, so a helper never has to.
+ *
+ * 7i: "Everything translatable on the site already carries an attribute naming
+ * its source: interface strings render inside elements with data-i18n="key", and
+ * content renders inside elements marked with its table, row, and field. The
+ * annotation layer walks up from the selection to find it, so the helper never
+ * types an identifier."
+ *
+ * One attribute rather than three, because the layer wants all of it or none of
+ * it and three lookups per selection is three chances to find half an answer.
+ * Inert markup to everybody else, per 7i: nothing reads it unless the layer is
+ * loaded, and the layer loads for granted helpers and staff only.
+ *
+ * **The id is never anything but a uuid from our own payload**, so this is not
+ * an escaping hazard, and the field names are literals in this file.
+ *
+ * @param {string} field the column, on the translation row
+ * @param {string} [type] job, department, or tag
+ * @param {string} [id] the row, defaulting to the posting being read
+ */
+function tr(field, type = 'job', id = payload?.job?.id) {
+  if (!id) return '';
+  return ` data-tr="${type}:${id}:${field}"`;
+}
+
+/**
+ * Which language the words on this page are actually in.
+ *
+ * Not the same as the interface language, and the difference is the whole reason
+ * this is written down rather than assumed: a reader in Chinese looking at a
+ * posting with no ready Chinese translation is reading English, and a suggestion
+ * filed against zh would point the queue at a row that does not exist. Migration
+ * 015 allows a report against the default language for exactly this case, per its
+ * own comment that "the English can be the wrong one".
+ */
+function contentLocale(untranslated) {
+  return untranslated ? DEFAULT_LOCALE : getLocale();
+}
+
 /**
  * One meta row. The label is read out as well as the value, unlike the board's
  * cards: a card is scanned and a posting is read, and "Remote" on its own is
  * ambiguous when it sits in a list of six other facts.
  */
-function meta(icon, label, value, extra = '') {
+function meta(icon, label, value, extra = '', marker = '') {
   if (!value) return '';
   return (
     `<li class="${extra}">` +
     `${iconMarkup(icon, { size: 16 })}` +
     `<span class="job-meta-label">${escapeHtml(label)}</span>` +
-    `<span class="job-meta-value">${escapeHtml(value)}</span>` +
+    `<span class="job-meta-value"${marker}>${escapeHtml(value)}</span>` +
     `</li>`
   );
 }
 
-function section(heading, bodyHtml) {
+function section(heading, bodyHtml, marker = '') {
   if (!bodyHtml) return '';
   return `
     <section class="job-section">
       <h2>${escapeHtml(heading)}</h2>
-      ${bodyHtml}
+      <div class="job-section-body"${marker}>${bodyHtml}</div>
     </section>`;
 }
 
@@ -310,6 +398,22 @@ function locationText(job, content) {
     parts.push(t('job.remote'));
   }
   return parts.join(' · ');
+}
+
+/**
+ * The location's marker, when the line is the posting's own words and nothing
+ * else.
+ *
+ * A remote posting has "Remote" appended from the dictionary, so the line on
+ * screen is content and interface joined by a separator. Marking it would invite
+ * a helper to select across the join and file a quote against `location` that is
+ * not in the column, which the queue would show as detached with no way for
+ * anybody to work out why. Unmarked is the honest state: the interface half is
+ * a code change and the content half is short enough to reach through 7h's form.
+ */
+function locationMarker(job, content) {
+  if (!content.location) return '';
+  return locationText(job, content) === content.location ? tr('location') : '';
 }
 
 function openingsText(job) {
@@ -329,7 +433,7 @@ function tagList(tags) {
         (tag) =>
           `<li><a class="chip chip-tag" href="/search?tags=${encodeURIComponent(
             tag.slug
-          )}">${escapeHtml(tag.name)}</a></li>`
+          )}"${tr('name', 'tag', tag.id)}>${escapeHtml(tag.name)}</a></li>`
       )
       .join('') +
     `</ul>`

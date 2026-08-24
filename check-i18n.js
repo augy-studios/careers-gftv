@@ -73,6 +73,10 @@ const DYNAMIC_FAMILIES = [
   // The helper area, 7i. helper.found_<state>, built from the three states
   // api/_lib/helper-area.js gives a search result.
   'helper.',
+  // The annotation layer, 7i. Its switch names itself and describes itself from
+  // a key chosen at runtime: what it says depends on whether the caller may
+  // suggest or only read, and on which way it is set.
+  'annotate.',
 ];
 
 // A dictionary key: dotted, no interpolation. Anything with a ${ in it came

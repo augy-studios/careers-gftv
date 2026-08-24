@@ -22,7 +22,7 @@
 //   it works, and it was built in phase 2. Linking to it is the whole of what
 //   this phase owes it.
 
-import { api, applicantSession } from './api.js';
+import { api, applicantSession, noteHelperSession } from './api.js';
 import { t } from './i18n.js';
 import { hydrateIcons } from './icons.js';
 import { escapeHtml } from './markdown.js';
@@ -278,9 +278,17 @@ function renderAccountNav(current, items = ACCOUNT_NAV) {
  */
 export function helperRoster({ refresh = false } = {}) {
   if (refresh || !helperPromise) {
-    helperPromise = api('/api/translations/helper', { locale: false }).then((result) =>
-      result.ok ? (result.data?.locales ?? []) : []
-    );
+    helperPromise = api('/api/translations/helper', { locale: false }).then((result) => {
+      const locales = result.ok ? (result.data?.locales ?? []) : [];
+      // The hint 7i's annotation layer reads on every page of the site. Set from
+      // here because this is the one call that asks the question directly, and
+      // an account page is where somebody finds out they have been granted
+      // anything. Cleared when the answer is no, so a revoked role stops
+      // offering the layer on the next account page rather than on the next
+      // browser.
+      if (result.ok) noteHelperSession(locales.length > 0);
+      return locales;
+    });
   }
   return helperPromise;
 }

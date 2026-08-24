@@ -111,6 +111,16 @@ export const LIMITS = Object.freeze({
   // because there is no legitimate reason to get your own password wrong four
   // times on the page that deletes your account.
   danger: { limit: 4, windowMs: 15 * 60 * 1000, lockMs: 60 * 60 * 1000 },
+  // A suggestion made in place, phase 8 and 7i. Five times the report bucket,
+  // and the difference is the whole point of the two: 7h's form is somebody who
+  // has read one posting and noticed one thing, and this is a helper working
+  // through a page marking every span that reads wrongly. Twelve would stop them
+  // halfway down their first posting.
+  //
+  // Per account rather than per IP, like apply and translate, and counted on
+  // success: there is no secret being guessed, and what is bounded is how many
+  // rows one account can add to 8.11's queue in an hour.
+  annotate: { limit: 60, windowMs: 60 * 60 * 1000, lockMs: 30 * 60 * 1000 },
   // A translation helper saving a row, phase 8 and 7i. Counted on success, like
   // the admin bucket and for the same reason: there is no secret being guessed,
   // and what is worth bounding is how many rows one account can rewrite in an

@@ -31,7 +31,14 @@ import {
   applyFeatureGating,
   renderPlaceholder,
 } from './build-status.js';
-import { api, applicantSession, staffSession, hasStaffHint } from './api.js';
+import {
+  api,
+  applicantSession,
+  staffSession,
+  hasStaffHint,
+  hasHelperHint,
+  noteHelperSession,
+} from './api.js';
 import { loadSiteSettings, cachedPortalTitle } from './site-settings.js';
 import { resumePendingPrompt } from './apply-prompt.js';
 
@@ -707,6 +714,158 @@ async function reflectStaffSession(known = null) {
   translateNewChrome(nav);
 }
 
+/* -------------------------------------------------------------------------
+ * 7i's annotation layer, and the switch that turns it on
+ * ---------------------------------------------------------------------- */
+
+/**
+ * Whether the layer is on, in this browser, across pages.
+ *
+ * localStorage rather than a session or a column: it is a reading preference
+ * about this browser, like the theme and the language, and a helper who turns it
+ * on to work through a posting should not find it off again on the next one.
+ */
+const ANNOTATE_KEY = 'gftv-careers.annotating';
+
+let annotateModule = null;
+
+function annotatingOn() {
+  try {
+    return localStorage.getItem(ANNOTATE_KEY) === 'on';
+  } catch {
+    return false;
+  }
+}
+
+function setAnnotating(on) {
+  try {
+    if (on) localStorage.setItem(ANNOTATE_KEY, 'on');
+    else localStorage.removeItem(ANNOTATE_KEY);
+  } catch {
+    // Storage blocked. The layer still works for this page load.
+  }
+}
+
+/**
+ * Offer the layer to somebody who may use it, per 7i.
+ *
+ * **Gated on a hint, exactly like the staff link above**, and for the same
+ * reason: this runs on every page of the site for every reader, and asking the
+ * server whether each of them is a translation helper would spend a request per
+ * page to serve the handful who are. api.js records the answer once an account
+ * page has read the roster, and staff already carry their own hint.
+ *
+ * **The module is loaded only when the layer is switched on.** 7i: "To everyone
+ * else the attributes are inert markup and the layer does not load at all." The
+ * dynamic import is what makes that literally true rather than a claim about
+ * behaviour: annotate.js is never fetched by a reader who cannot use it.
+ *
+ * The server is still asked before the toggle is drawn, because a hint is a
+ * hint: a revoked helper has a stale flag in localStorage and gets no toggle,
+ * and the endpoint answers `can: false` rather than refusing, since not holding
+ * a role is a state rather than an error.
+ */
+async function offerAnnotationLayer() {
+  if (!hasHelperHint() && !hasStaffHint()) return;
+
+  const nav = document.querySelector('#siteNav');
+  if (!nav || nav.querySelector('#navSuggest')) return;
+
+  const result = await api('/api/translations/annotations', { locale: false });
+
+  if (!result.ok) {
+    // The feature switched off from /admin/maintenance answers 503, and a
+    // network failure answers nothing. **The hint is left exactly as it was**
+    // either way: clearing it here would mean an outage quietly demoting every
+    // helper in the building, and they would each have to visit their account
+    // area to be recognised again once it came back.
+    return;
+  }
+
+  if (result.data?.can !== true) {
+    // A stale hint, which is what a revoked role looks like from here. Cleared,
+    // so the question is not asked again on every page of this browser.
+    noteHelperSession(false);
+    return;
+  }
+
+  if (result.data.realm === 'applicant') noteHelperSession(true);
+
+  const context = {
+    locales: result.data.locales ?? [],
+    // False for staff, per deviation 52: they get the underlines and not the
+    // box. It changes what the switch says as well as what it does, because
+    // "suggest corrections" would be the wrong name for what they are turning
+    // on.
+    canSuggest: result.data.can_suggest === true,
+    realm: result.data.realm,
+  };
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.id = 'navSuggest';
+  button.className = 'nav-suggest';
+  button.setAttribute('aria-pressed', 'false');
+  button.innerHTML =
+    '<span data-icon="globe" data-icon-size="18"></span>' +
+    `<span data-i18n="${
+      context.canSuggest ? 'annotate.toggle' : 'annotate.toggleReadOnly'
+    }"></span>`;
+
+  // Beside the account item rather than first: this is a tool somebody turns on
+  // while reading, not a way to somewhere else.
+  const signOut = nav.querySelector('.nav-signout');
+  if (signOut) signOut.before(button);
+  else nav.append(button);
+
+  hydrateIcons(nav);
+  translateNewChrome(nav);
+
+  // The state is on the button rather than in a variable, so aria-pressed and
+  // what is actually running cannot disagree. A screen reader announces the
+  // change from the pressed state itself; the title carries the Alt and S
+  // shortcut, which is the one thing a pressed state cannot say.
+  const apply = async (on) => {
+    button.setAttribute('aria-pressed', on ? 'true' : 'false');
+
+    // Set now and declared for later. The sentence depends on which way the
+    // switch is set, so it cannot live in the markup, and a title written once
+    // would still be in the old language after somebody used the globe.
+    const key = !context.canSuggest
+      ? 'annotate.readOnlyHint'
+      : on
+        ? 'annotate.toggleOnHint'
+        : 'annotate.toggleOffHint';
+    button.setAttribute('data-i18n-attr', `title:${key}`);
+    button.title = t(key);
+
+    if (!on) {
+      annotateModule?.stopAnnotating();
+      return;
+    }
+
+    annotateModule = annotateModule ?? (await import('./annotate.js'));
+    annotateModule.startAnnotating(context);
+  };
+
+  button.addEventListener('click', () => {
+    const next = button.getAttribute('aria-pressed') !== 'true';
+    setAnnotating(next);
+    apply(next).catch((cause) => {
+      // A failed dynamic import is the realistic case: offline, or a deploy
+      // mid-session. The switch goes back rather than sitting on with nothing
+      // behind it, which would be a control that did nothing.
+      console.error('[careers-gftv] annotation layer:', cause);
+      button.setAttribute('aria-pressed', 'false');
+      button.setAttribute('data-i18n-attr', 'title:annotate.toggleOffHint');
+      button.title = t('annotate.toggleOffHint');
+      setAnnotating(false);
+    });
+  });
+
+  await apply(annotatingOn());
+}
+
 /**
  * A staff session the dashboard proved, held for whichever of the two arrives
  * second.
@@ -834,6 +993,12 @@ async function boot() {
   // which it can: boot() awaits two fetches before reaching this line. Null
   // falls back to the hint and behaves exactly as it did before.
   reflectStaffSession(knownStaff);
+
+  // 7i's layer, for the handful of people who may use it. Not awaited, gated on
+  // a hint, and it loads no code at all for anybody else.
+  offerAnnotationLayer().catch((cause) => {
+    console.error('[careers-gftv] annotation layer:', cause);
+  });
 
   // 7c: the outstanding apply prompt follows the applicant across the portal
   // rather than living on the posting they started from, so the check runs on
