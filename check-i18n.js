@@ -70,6 +70,9 @@ const DYNAMIC_FAMILIES = [
   'featureDenied.',
   // tasks.type_<task type>, from the union in api/_lib/tasks.js.
   'tasks.',
+  // The helper area, 7i. helper.found_<state>, built from the three states
+  // api/_lib/helper-area.js gives a search result.
+  'helper.',
 ];
 
 // A dictionary key: dotted, no interpolation. Anything with a ${ in it came

@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title data-i18n="helper.pageTitle">Translating | Careers@GFTV</title>
+    <meta name="description" content="The translation helper area.">
+    <meta name="robots" content="noindex">
+
+    <meta name="theme-color" content="#ffffff">
+    <script>
+        (function () {
+            var k = "gftv-careers";
+            var m = localStorage.getItem(k + ".mode") || "light";
+
+            // Time based mode, per gftv-theme.md. Resolved here rather than
+            // in theme.js because theme.js runs after first paint, and an
+            // evening reader would otherwise watch a white page turn dark.
+            // Keep the two hours in step with LIGHT_FROM_HOUR and
+            // LIGHT_UNTIL_HOUR in theme.js.
+            if (m === "time") {
+                var h = new Date().getHours();
+                m = h >= 9 && h < 18 ? "light" : "dark";
+                document.documentElement.setAttribute("data-mode-preference", "time");
+            }
+            var c = localStorage.getItem(k + ".colorTheme") || "classic";
+            var l = localStorage.getItem(k + ".locale") || "en";
+            document.documentElement.setAttribute("data-mode", m);
+            document.documentElement.setAttribute("data-color-theme", c);
+            document.documentElement.setAttribute("data-locale", l);
+            document.documentElement.setAttribute("lang", l === "zh" ? "zh-Hans-SG" : "en");
+
+            if (l !== "en") {
+                document.documentElement.setAttribute("data-i18n-pending", "true");
+                setTimeout(function () {
+                    document.documentElement.removeAttribute("data-i18n-pending");
+                }, 1200);
+            }
+        })();
+    </script>
+
+    <link rel="stylesheet" href="/assets/css/theme.css">
+    <link rel="stylesheet" href="/assets/css/app.css">
+
+    <link rel="manifest" href="/manifest.json">
+    <link rel="canonical" href="https://careers.globalfurry.tv/account/translations">
+
+    <link rel="apple-touch-icon" href="/HLC-main.png">
+    <link rel="icon" href="/favicon.ico">
+    <link rel="shortcut icon" href="/favicon.ico">
+
+    <script type="module" src="/assets/js/shell.js"></script>
+    <script type="module" src="/assets/js/translations-page.js"></script>
+</head>
+
+<body>
+    <div class="boot-loader" aria-hidden="true">
+        <span class="spinner delayed"></span>
+    </div>
+    <a class="skip-link" href="#main" data-i18n="common.skipToContent">Skip to content</a>
+
+    <main class="page account-page" id="main">
+        <div class="loading-row" id="accountLoading">
+            <span class="spinner delayed"></span>
+            <span data-i18n="common.loading">Loading</span>
+        </div>
+
+        <div id="accountPage" hidden>
+            <div class="page-header account-header">
+                <div class="account-identity">
+                    <span class="avatar" id="accountAvatar"></span>
+                    <span>
+                        <h1 data-i18n="helper.heading">Translating</h1>
+                        <span class="muted" id="accountUsername"></span>
+                    </span>
+                </div>
+                <p class="lede" data-i18n="helper.lede">
+                    What is still waiting to be written in your language, and the
+                    place to write it. Nothing you save here goes live on its
+                    own.
+                </p>
+            </div>
+
+            <nav class="account-nav" id="accountNav"
+                 data-i18n-attr="aria-label:account.navLabel"></nav>
+
+            <div class="account-body">
+                <p class="callout" id="accountMessage" hidden></p>
+
+                <!--
+                    Not a helper. A page rather than a redirect, because
+                    somebody who has been sent this address by an admin who has
+                    not granted the role yet should find out what the role is
+                    rather than land back on their applications.
+                -->
+                <div id="helperGate" hidden>
+                    <div class="empty-state">
+                        <p data-i18n="helper.gateBody">
+                            This area is for translation helpers. The role is
+                            granted for one language at a time by an admin, and
+                            it lets you write and improve that language across
+                            the whole site.
+                        </p>
+                        <p class="muted" data-i18n="helper.gateAsk">
+                            Anyone can report a translation that reads wrongly
+                            from the link at the foot of any posting. That needs
+                            no role at all.
+                        </p>
+                    </div>
+                </div>
+
+                <div id="helperArea" hidden>
+                    <p class="callout note" data-i18n="helper.whatSavingDoes">
+                        You can write and rewrite this language freely, with no
+                        approval and no waiting. A posting stays a draft until an
+                        admin marks it ready, so nothing you write there reaches
+                        readers until somebody has read it. A team or tag name
+                        has no draft state and changes as soon as you save it.
+                    </p>
+
+                    <!--
+                        One tab per language somebody helps with, per 7i's
+                        "granted per language". Absent when there is only one,
+                        because a strip of one tab is a label.
+                    -->
+                    <div class="bucket-tabs" id="helperLangs" role="tablist" hidden
+                         data-i18n-attr="aria-label:helper.languagesLabel"></div>
+
+                    <div id="helperListView">
+                        <form class="admin-toolbar" id="helperSearch" role="search">
+                            <div class="field">
+                                <label for="helperQuery"
+                                       data-i18n="helper.findAnything">Find anything to translate</label>
+                                <input type="search" id="helperQuery" name="q"
+                                       autocomplete="off" maxlength="80">
+                                <p class="field-hint" data-i18n="helper.findHint">
+                                    Search by the name it has in English. A
+                                    translation that is already finished is not
+                                    on the list below, so this is how to go back
+                                    and improve one.
+                                </p>
+                            </div>
+                            <button class="btn btn-secondary" type="submit"
+                                    data-i18n="search.submit">Search</button>
+                        </form>
+
+                        <div class="account-list" id="helperResults" aria-live="polite"></div>
+
+                        <h2 id="helperLeft" tabindex="-1"
+                            data-i18n="helper.leftHeading">What is left</h2>
+
+                        <form class="admin-toolbar" id="helperFilters" role="search">
+                            <div class="field">
+                                <label for="helperTarget" data-i18n="admin.colTarget">About</label>
+                                <select id="helperTarget" name="target"></select>
+                            </div>
+                            <div class="field">
+                                <label for="helperState" data-i18n="admin.colState">State</label>
+                                <select id="helperState" name="state"></select>
+                            </div>
+                            <button class="btn btn-secondary" type="submit"
+                                    data-i18n="search.submit">Search</button>
+                        </form>
+
+                        <div class="account-list" id="helperList" aria-busy="true"
+                             aria-live="polite"></div>
+                        <div class="admin-pager" id="helperPager"></div>
+                    </div>
+
+                    <!--
+                        The editor, in place of the list rather than in a dialog.
+                        Ten fields with the source beside each one is a page, and
+                        a modal that scrolls for two screens on a phone is the
+                        pattern section 3 spends its effort avoiding.
+                    -->
+                    <div id="helperEditView" hidden></div>
+                </div>
+            </div>
+        </div>
+
+        <noscript>
+            <div class="callout warn">
+                <p>This page needs JavaScript.</p>
+            </div>
+        </noscript>
+    </main>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js');
+        }
+    </script>
+</body>
+
+</html>

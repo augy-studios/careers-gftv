@@ -405,6 +405,11 @@ const ROUTE_FEATURES = [
   ['/account/saved', 'saved_jobs'],
   ['/account/tasks', 'outstanding_tasks'],
   ['/account/settings', 'account_settings'],
+  // 7i's helper area. Listed before the bare /account entry matters not at all,
+  // since the longest prefix wins, but leaving it out would file the page under
+  // account_settings and describe the wrong feature the day either is switched
+  // off.
+  ['/account/translations', 'translation_helpers'],
   ['/account', 'account_settings'],
   // The dashboard's own sections, per 0c: "A staff member clicking an unbuilt
   // section gets the same message rather than an empty screen." The ones phase

@@ -111,6 +111,23 @@ export const LIMITS = Object.freeze({
   // because there is no legitimate reason to get your own password wrong four
   // times on the page that deletes your account.
   danger: { limit: 4, windowMs: 15 * 60 * 1000, lockMs: 60 * 60 * 1000 },
+  // A translation helper saving a row, phase 8 and 7i. Counted on success, like
+  // the admin bucket and for the same reason: there is no secret being guessed,
+  // and what is worth bounding is how many rows one account can rewrite in an
+  // hour.
+  //
+  // Per account and not per IP, like the apply bucket: GFTV runs stands at
+  // conventions where a room shares one address, and two helpers working through
+  // the same language at the same table is the situation this role exists to
+  // create rather than one to throttle.
+  //
+  // Looser than it looks. A helper translating a posting saves once per posting,
+  // not once per field, so a hundred is a morning's work on a board that has
+  // never had a hundred postings open. It is here because every write in this
+  // build is bounded, and because a helper holds standing write access to every
+  // translation in a language: a borrowed session should not be able to rewrite
+  // the whole of the Chinese before anybody notices.
+  translate: { limit: 100, windowMs: 60 * 60 * 1000, lockMs: 15 * 60 * 1000 },
   // Recording that a posting was opened, phase 8 and 8.4. The one bucket in
   // this list whose ceiling an ordinary reader could plausibly approach: a
   // browser fires one per posting per session, so somebody reading the whole

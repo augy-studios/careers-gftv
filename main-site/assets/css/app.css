@@ -4874,3 +4874,47 @@ ul.field-hint {
   border-color: var(--border);
   color: var(--text-light);
 }
+
+/* The fourth state, which only the helper area's search can be in: a
+   translation that is finished. It is the one badge in this family drawn in the
+   ok colour, and the reason the audit's own three are not is that every row on
+   *that* list is unfinished by construction. Here it is the answer to "have I
+   already done this one", and yes deserves to look like yes. */
+.badge-audit-done {
+  background: var(--callout-ok-bg);
+  border-color: var(--ok);
+  color: var(--ok);
+}
+
+/* ---------------------------------------------------------------------------
+ * The helper area, 7i
+ *
+ * Almost all of it is borrowed rather than new: the rows are .account-row, the
+ * filters are .admin-toolbar, and the fields are the job editor's
+ * .editor-field.has-source, which already collapses its source column to a
+ * block above the field below 1024px. What is left is the card the editor sits
+ * in, which has no equivalent because nothing else in the account area is a
+ * form of this size.
+ * ------------------------------------------------------------------------ */
+
+.helper-editor {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Focused when the editor opens, so a keyboard lands on the thing that just
+   replaced the list rather than at the top of the document. The outline is the
+   page's own; what is suppressed is nothing. */
+.helper-editor-title {
+  margin: 0.5rem 0 0;
+  font-size: 1.25rem;
+}
+
+/* The source's own sections, read only, above the builder that writes this
+   language's. Each one is a heading and a body, so they need the space between
+   them that a single quoted paragraph does not. */
+.helper-source-sections .editor-source-text + .editor-source-text {
+  margin-top: 0.625rem;
+}

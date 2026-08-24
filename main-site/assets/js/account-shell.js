@@ -35,6 +35,11 @@ import {
 
 // One entry per page, in the order somebody would use them: what have I done,
 // what did I keep, what do you need from me, then the account itself.
+//
+// The helper area sits between the two halves of that, because it is the one
+// item that is neither: it is work somebody does for us rather than something we
+// need from them. It appears only for an account that holds the role in at least
+// one language, per 7i, which is why it is not in this table.
 const ACCOUNT_NAV = [
   { href: '/account', key: 'account.navOverview', icon: 'grid' },
   { href: '/account/applications', key: 'account.navApplications', icon: 'briefcase' },
@@ -44,7 +49,17 @@ const ACCOUNT_NAV = [
   { href: '/account/security', key: 'account.navSecurity', icon: 'shield' },
 ];
 
+/** Where the helper item goes when there is one: after the tasks item. */
+const HELPER_NAV = {
+  href: '/account/translations',
+  key: 'account.navTranslations',
+  icon: 'globe',
+  after: '/account/tasks',
+};
+
 let cachedCount = null;
+let helperPromise = null;
+let navWired = false;
 
 /**
  * Guard the page, draw the account navigation, and hand back the session.
@@ -67,6 +82,10 @@ export async function mountAccountPage(options) {
 
   renderAccountNav(options.current);
   renderAccountIdentity(session.user);
+
+  // Not awaited. 7i's helper area is an item almost no account has, and the
+  // navigation must not wait on a request to find that out.
+  addHelperNav(options.current);
 
   document.querySelector('#accountLoading')?.remove();
   const page = document.querySelector('#accountPage');
@@ -199,20 +218,24 @@ async function renderMaintenanceBanner() {
  * The navigation
  * ---------------------------------------------------------------------- */
 
-function renderAccountNav(current) {
+function renderAccountNav(current, items = ACCOUNT_NAV) {
   const holder = document.querySelector('#accountNav');
   if (!holder) return;
 
-  holder.innerHTML = ACCOUNT_NAV.map((item) => {
-    const isCurrent = item.href === current;
-    return (
-      `<a href="${item.href}" class="account-nav-item"${isCurrent ? ' aria-current="page"' : ''}>` +
-      `<span data-icon="${item.icon}" data-icon-size="18"></span>` +
-      `<span data-i18n="${item.key}"></span>` +
-      (item.badge ? '<span class="account-badge" id="accountTaskBadge" hidden></span>' : '') +
-      `</a>`
-    );
-  }).join('');
+  holder.innerHTML = items
+    .map((item) => {
+      const isCurrent = item.href === current;
+      return (
+        `<a href="${item.href}" class="account-nav-item"${
+          isCurrent ? ' aria-current="page"' : ''
+        }>` +
+        `<span data-icon="${item.icon}" data-icon-size="18"></span>` +
+        `<span data-i18n="${item.key}"></span>` +
+        (item.badge ? '<span class="account-badge" id="accountTaskBadge" hidden></span>' : '') +
+        `</a>`
+      );
+    })
+    .join('');
 
   hydrateIcons(holder);
   translateWithin(holder);
@@ -220,10 +243,69 @@ function renderAccountNav(current) {
   // The items carry data-i18n attributes that were not in the document when the
   // language was first applied. Later changes reach them through shell.js's own
   // retranslation pass, which walks the whole document.
+  //
+  // Registered once rather than on every draw. The navigation is drawn a second
+  // time when the helper roster comes back, and a listener per draw would
+  // retranslate and repaint the badge twice for every language change from then
+  // on.
+  if (navWired) return;
+  navWired = true;
+
   document.addEventListener('gftv:localechange', () => {
-    translateWithin(holder);
+    const nav = document.querySelector('#accountNav');
+    if (nav) translateWithin(nav);
     paintBadge(cachedCount);
   });
+}
+
+/* -------------------------------------------------------------------------
+ * The helper area's navigation item, 7i
+ * ---------------------------------------------------------------------- */
+
+/**
+ * Which languages this account may help translate.
+ *
+ * Cached for the page, like applicantSession, because the navigation and the
+ * helper page itself both ask and neither should cost its own request.
+ *
+ * **An empty list is the answer for almost everybody, and it is not an error.**
+ * /api/translations/helper answers 200 with nothing in it for an ordinary
+ * account, so a failure here means the request itself failed or the feature is
+ * switched off, and both end the same way: no item, and the maintenance banner
+ * above says why if there is a why.
+ *
+ * @returns {Promise<Array<{ code: string, native_name: string, granted_at: string }>>}
+ */
+export function helperRoster({ refresh = false } = {}) {
+  if (refresh || !helperPromise) {
+    helperPromise = api('/api/translations/helper', { locale: false }).then((result) =>
+      result.ok ? (result.data?.locales ?? []) : []
+    );
+  }
+  return helperPromise;
+}
+
+/**
+ * Add the helper item once we know whether there is one to add.
+ *
+ * Drawn after the rest rather than waited for, so the navigation is on screen
+ * immediately for the overwhelming majority of accounts that will never have this
+ * item. The redraw is the whole list rather than an insertion, because the item
+ * has to land in the middle of it and rebuilding six links is cheaper to reason
+ * about than splicing one in.
+ */
+async function addHelperNav(current) {
+  const locales = await helperRoster();
+  if (locales.length === 0) return;
+
+  const items = [];
+  for (const item of ACCOUNT_NAV) {
+    items.push(item);
+    if (item.href === HELPER_NAV.after) items.push(HELPER_NAV);
+  }
+
+  renderAccountNav(current, items);
+  paintBadge(cachedCount);
 }
 
 function translateWithin(root) {
@@ -280,6 +362,68 @@ function initialNode(user) {
   // otherwise render as half a character.
   span.textContent = [...String(user.display_name ?? '?')][0] ?? '?';
   return span;
+}
+
+/* -------------------------------------------------------------------------
+ * Saying something, and surviving a throw
+ * ---------------------------------------------------------------------- */
+
+/**
+ * A line at the top of an account page, for something that is not about one
+ * form.
+ *
+ * The counterpart of adminMessage in admin-shell.js, and it reads #accountMessage
+ * for the same reason that one reads #adminMessage: a page with several panels
+ * has nowhere else to put "that saved" where somebody will see it. A page without
+ * the element gets nothing, which is why every caller may call it.
+ *
+ * @param {'ok'|'error'} kind
+ * @param {string} text
+ */
+export function accountMessage(kind, text) {
+  const holder = document.querySelector('#accountMessage');
+  if (!holder) return;
+
+  holder.className = `callout ${kind === 'ok' ? 'note' : 'danger'}`;
+  holder.setAttribute('role', kind === 'ok' ? 'status' : 'alert');
+  holder.textContent = text;
+  holder.hidden = false;
+
+  if (kind === 'ok') {
+    window.clearTimeout(holder.dataset.timer);
+    holder.dataset.timer = String(
+      window.setTimeout(() => {
+        holder.hidden = true;
+      }, 6000)
+    );
+  }
+}
+
+/**
+ * Run an async handler from a listener, and say so when it throws.
+ *
+ * The same guard admin-shell.js grew after phase 7 shipped two bare async click
+ * handlers whose rejections went to the console while the screen showed nothing
+ * at all. The account area had no equivalent, which was fine while every action
+ * here was a form submission with its own error line, and stops being fine the
+ * moment a page has buttons that fetch.
+ *
+ * @param {() => unknown} action
+ * @param {string} label for the console, naming what was being done
+ */
+export function runAction(action, label) {
+  try {
+    const result = action();
+    if (result && typeof result.catch === 'function') {
+      result.catch((cause) => {
+        console.error(`[careers-gftv] ${label}:`, cause);
+        accountMessage('error', t('error.unexpected'));
+      });
+    }
+  } catch (cause) {
+    console.error(`[careers-gftv] ${label}:`, cause);
+    accountMessage('error', t('error.unexpected'));
+  }
 }
 
 /* -------------------------------------------------------------------------
