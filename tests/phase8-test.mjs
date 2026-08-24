@@ -305,7 +305,34 @@ async function signInApplicant(page, who) {
  * Fixtures
  * ---------------------------------------------------------------------- */
 
-const created = { jobs: [], applicants: [] };
+const created = {
+  jobs: [],
+  applicants: [],
+  // Rows this run adds to somebody else's working queue, so cleanup can take
+  // them back out. A SMOKE report left open on a live careers site is work
+  // somebody will pick up and try to act on.
+  reports: [],
+  // (user_id, locale) pairs granted during the run. The role is standing write
+  // access to a whole language, so it is never left behind.
+  helperGrants: [],
+  // Applicant accounts to delete at the end. Separate from `applicants`, which
+  // is the list that is reported and left alone.
+  deleteApplicants: [],
+};
+
+/**
+ * The password for a throwaway applicant this run registers for itself.
+ *
+ * A second account, because most of 8.9 cannot be tried on the account the rest
+ * of the run is signed in as: forcing a reset and setting a password both revoke
+ * every session, and deleting one ends the run. This one exists to be done to.
+ */
+const SPARE = {
+  username: `smk-p8s-${STAMP}`.slice(0, 24),
+  display_name: `Smoke P8 spare ${STAMP}`,
+  email: `smk-p8s-${STAMP}@example.invalid`,
+  password: DEFAULT_APPLICANT_PASS,
+};
 
 async function createJob(staff, overrides = {}) {
   const result = await post(staff, '/api/admin/jobs', {
@@ -350,6 +377,67 @@ async function accountAudit(staff, applicantId) {
   const result = await get(staff, `/api/admin/applicants?id=${applicantId}`);
   if (!result.ok) return [];
   return result.data?.activity ?? [];
+}
+
+/**
+ * Whether a section has what setup was supposed to leave it.
+ *
+ * Sections are selectable with --only=, so a run of one section starts with no
+ * staff session and no posting. Skipping loudly, with the flag that would fix
+ * it, is the harness's own habit: silence here reads as a section that passed.
+ */
+function needs(state, what, items) {
+  const missing = [];
+  if (what.includes('staff') && !state.staffId) missing.push('a staff session');
+  if (what.includes('job') && !state.jobId) missing.push('a posting');
+  if (what.includes('applicant') && !state.applicantId) missing.push('an applicant');
+
+  if (missing.length === 0) return true;
+  skip(items, `${missing.join(' and ')} missing. Add setup to --only=.`);
+  return false;
+}
+
+/**
+ * The language the audit and the helper role are about, read rather than named.
+ *
+ * Hardcoding `zh` would make this run wrong on the day a third language arrives
+ * or the second one is renamed, and the route already says which language it
+ * answered with, precisely so a caller cannot mislabel what it was shown.
+ */
+async function auditLocale(staff) {
+  const result = await get(staff, '/api/admin/translations?view=audit');
+  return { code: result.data?.locale ?? null, source: result.data?.source_locale ?? 'en' };
+}
+
+/**
+ * Register the throwaway account 8.9 is tried on, in a context of its own.
+ *
+ * Its own context because the point of it is that things are done TO it: a
+ * forced reset revokes its sessions, and sharing a context with the run's main
+ * applicant would take that one down with it.
+ */
+async function registerSpare(state) {
+  if (state.spareId) return true;
+
+  const context = await state.browser.newContext({ baseURL: BASE, locale: 'en-GB' });
+  const page = await context.newPage();
+  page.on('pageerror', (error) =>
+    state.pageErrors.push({ where: page.url(), error: String(error) })
+  );
+
+  const made = await registerApplicant(page, SPARE);
+  if (!made) {
+    await context.close();
+    return false;
+  }
+
+  const who = await get(page, '/api/auth/applicant/session');
+  state.spareContext = context;
+  state.sparePage = page;
+  state.spareId = who.data?.applicant?.id ?? who.data?.user?.id ?? null;
+
+  if (state.spareId) created.deleteApplicants.push({ id: state.spareId, username: SPARE.username });
+  return Boolean(state.spareId);
 }
 
 /* -------------------------------------------------------------------------
@@ -440,8 +528,59 @@ async function cleanup(state) {
     }
     return;
   }
-  if (!state.staffPage || created.jobs.length === 0) return;
+  const anything =
+    created.jobs.length > 0 ||
+    created.reports.length > 0 ||
+    created.helperGrants.length > 0 ||
+    created.deleteApplicants.length > 0;
+  if (!state.staffPage || !anything) return;
   section('Cleanup');
+
+  // The queue first, because these are rows in somebody's working list rather
+  // than fixtures of our own. A SMOKE report left open is work a person picks
+  // up and tries to act on, against a posting that is about to be deleted.
+  for (const id of [...new Set(created.reports)]) {
+    const closed = await post(state.staffPage, '/api/admin/translations', {
+      action: 'resolve',
+      report_id: id,
+      status: 'rejected',
+      note: `Raised by the phase 8 verification run (${STAMP}). Not a real report.`,
+    });
+    if (!closed.ok) {
+      bad(`a SMOKE report was left open in the queue: ${id}`, short(closed.text, 120));
+    }
+  }
+
+  // The helper role, which is standing write access to a whole language. Never
+  // left on an account this run made.
+  for (const grant of created.helperGrants) {
+    const gone = await post(state.staffPage, '/api/admin/translations', {
+      action: 'revoke_helper',
+      user_id: grant.userId,
+      locale: grant.locale,
+      reason: `Phase 8 verification run ${STAMP} finished.`,
+    });
+    if (gone.ok) ok(`the ${grant.locale} helper role was taken back`);
+    else if (gone.status !== 404) {
+      bad(`a helper role was left granted: ${grant.userId} ${grant.locale}`, short(gone.text, 120));
+    }
+  }
+
+  // The throwaway account, deleted with the caller's own password. This is
+  // item 50's other half: the refusals are checked in the section, and the one
+  // deletion that should work is the one that tidies up after the run.
+  for (const who of created.deleteApplicants) {
+    const gone = await post(state.staffPage, '/api/admin/applicants', {
+      action: 'delete',
+      applicant_id: who.id,
+      password: STAFF.password,
+      reason: `Phase 8 verification run ${STAMP}.`,
+    });
+    if (gone.ok) ok(`50. the spare account was deleted with the caller's own password`);
+    else bad(`the spare account ${who.username} was not deleted`, short(gone.text, 160));
+  }
+
+  if (created.jobs.length === 0) return;
 
   // Taken off the board first, and only then deleted. The adminDelete bucket is
   // ten an hour, so a run that creates more than that would otherwise leave a
@@ -532,13 +671,15 @@ define('setup', 'Setup, items 1 to 3', async (state) => {
 
   await dismissApplyPrompt(state.staffPage);
 
+  // staffContext, not the root of the payload. api/admin/me answers
+  // { staff, locales, counts } and the role lives on the first of those.
   const me = await get(state.staffPage, '/api/admin/me');
-  state.isAdmin = me.data?.is_admin === true;
-  state.staffId = me.data?.user?.id ?? null;
+  state.isAdmin = me.data?.staff?.is_admin === true;
+  state.staffId = me.data?.staff?.id ?? null;
   check(
     '1. the role is known',
-    me.ok && typeof me.data?.is_admin === 'boolean',
-    `is_admin=${me.data?.is_admin} ${short(me.error?.message)}`
+    me.ok && typeof me.data?.staff?.is_admin === 'boolean',
+    `is_admin=${me.data?.staff?.is_admin} role=${me.data?.staff?.role} ${short(me.error?.message)}`
   );
 
   if (!state.isAdmin) {
@@ -836,6 +977,1758 @@ define('settings', 'Settings, 8.10, items 4 to 14', async (state) => {
       );
     }
   }
+});
+
+/* =========================================================================
+ * Analytics, 8.4, items 15 to 27.
+ * ====================================================================== */
+
+define('analytics', 'Analytics, 8.4, items 15 to 27', async (state) => {
+  if (!needs(state, ['staff'], 'items 15 to 27')) return;
+  const staff = state.staffPage;
+
+  const table = await get(staff, '/api/admin/analytics');
+  check(
+    '15. the table answers',
+    table.ok && Array.isArray(table.data?.jobs),
+    `${table.status} ${short(table.text, 160)}`
+  );
+
+  const sorts = table.data?.sorts ?? [];
+  check('15. and names the sorts it accepts', sorts.length > 0, `sorts=${short(sorts)}`);
+
+  const refusedSorts = [];
+  for (const sort of sorts) {
+    const sorted = await get(staff, `/api/admin/analytics?sort=${encodeURIComponent(sort)}`);
+    if (!sorted.ok) refusedSorts.push(`${sort}: ${sorted.status}`);
+  }
+  check(
+    '15. every sort it names works',
+    refusedSorts.length === 0,
+    refusedSorts.join(' | ') || `${sorts.length} sorts`
+  );
+
+  // The item as the memo states it. The route currently falls back to `views`
+  // for anything it does not recognise, so what this reports is which of the
+  // two the deployment does, not whether the request succeeded.
+  const bogus = await get(staff, '/api/admin/analytics?sort=not-a-real-column');
+  const ids = (rows) => JSON.stringify((rows ?? []).map((row) => row.job_id));
+  const fellThrough = bogus.ok && ids(bogus.data?.jobs) === ids(table.data?.jobs);
+  check(
+    '15. an unknown sort is refused rather than silently defaulted',
+    !fellThrough,
+    fellThrough
+      ? 'it answered 200 with exactly the default order, so an unknown sort is accepted silently. ' +
+        'jobFunnels falls back to `views` when FUNNEL_SORTS does not include the value.'
+      : `${bogus.status} ${short(bogus.error?.message, 100)}`
+  );
+
+  if (state.jobId) {
+    const detail = await get(staff, `/api/admin/analytics?job=${state.jobId}`);
+    check(
+      '16. one posting answers with its funnel and its daily series',
+      detail.ok && detail.data?.job?.job_id === state.jobId && Array.isArray(detail.data?.series),
+      `${detail.status} ${short(detail.text, 160)}`
+    );
+    check(
+      '16. and says which timezone the days are in',
+      detail.data?.series_timezone === 'UTC',
+      `series_timezone=${detail.data?.series_timezone}`
+    );
+
+    // Item 21. Nobody has clicked this posting yet, and a null rate is not the
+    // same claim as a rate of zero.
+    check(
+      '21. a posting nobody has clicked has a null rate, not zero',
+      detail.data?.job?.yes_rate === null,
+      `apply_clicks=${detail.data?.job?.apply_clicks} yes_rate=${JSON.stringify(detail.data?.job?.yes_rate)}`
+    );
+  } else {
+    skip('16, 21', 'no posting to read a funnel for');
+  }
+
+  const csv = await get(staff, '/api/admin/analytics?format=csv', { raw: true });
+  check(
+    '17. the export is a CSV file rather than the page',
+    csv.status === 200 && /text\/csv/.test(csv.headers['content-type'] ?? ''),
+    `${csv.status} ${csv.headers['content-type']}`
+  );
+  check(
+    '17. and is sent as an attachment',
+    /attachment/.test(csv.headers['content-disposition'] ?? ''),
+    `${csv.headers['content-disposition']}`
+  );
+
+  // Item 18. The guard prefixes a quote when a *cell* starts with one of the
+  // formula characters, so the title has to start with it too. A title reading
+  // "SMOKE P8 =cmd" would prove nothing.
+  const formulaTitle = `=cmd|' /c calc'!A0 SMOKE P8 ${STAMP}`;
+  const formula = await createPublishedJob(staff, { job: { title: formulaTitle } });
+  if (formula.ok) {
+    const guarded = await get(staff, '/api/admin/analytics?format=csv', { raw: true });
+    const line = (guarded.text ?? '').split(/\r?\n/).find((row) => row.includes('/c calc'));
+    check(
+      "18. a title starting with = is written into the CSV behind a quote",
+      Boolean(line) && /(^|,)"?'=cmd/.test(line ?? ''),
+      line ? short(line, 160) : 'the posting is not in the export yet'
+    );
+  } else {
+    skip('18. the CSV formula guard', `the posting could not be created: ${short(formula.error?.message, 100)}`);
+  }
+
+  const posted = await post(staff, '/api/admin/analytics', { action: 'anything' });
+  check(
+    '19. a POST answers 405. This is the one admin route with no POST',
+    posted.status === 405,
+    `${posted.status} ${short(posted.text, 120)}`
+  );
+
+  // Item 20. One rating, which is below RATING_MINIMUM, so the average is
+  // withheld and the count is not.
+  if (state.jobId && state.applicantId) {
+    const rated = await post(state.applicantPage, '/api/ratings/upsert', {
+      job_id: state.jobId,
+      rating: 4,
+    });
+
+    if (rated.ok) {
+      const after = await get(staff, `/api/admin/analytics?job=${state.jobId}`);
+      const row = after.data?.job ?? {};
+      const minimum = after.data?.rules?.rating_minimum ?? 3;
+      check(
+        `20. one rating is counted and its average withheld below ${minimum}`,
+        row.rating_count === 1 && row.rating_average === null && row.rating_suppressed === true,
+        `count=${row.rating_count} average=${JSON.stringify(row.rating_average)} suppressed=${row.rating_suppressed}`
+      );
+    } else {
+      skip('20. the ratings floor', `the rating was not accepted: ${short(rated.text, 120)}`);
+    }
+  } else {
+    skip('20. the ratings floor', 'no posting or no applicant to rate with');
+  }
+
+  skip(
+    '22. the broken-form flag',
+    'FLAG_MIN_CLICKS is five apply clicks on one posting, and one account can start one ' +
+      'application per posting. It needs five registered applicants, which is more accounts ' +
+      'than a run should leave behind. Check it against a real posting on the analytics page.'
+  );
+
+  // Item 23. The dedupe is the client's, per 007, so this watches the network
+  // rather than the database: the same browsing session opening the same
+  // posting twice must make exactly one call.
+  if (state.jobId) {
+    const reader = await state.anon.newPage();
+    let views = 0;
+    reader.on('request', (request) => {
+      if (request.method() === 'POST' && request.url().includes('/api/public/view')) views += 1;
+    });
+
+    try {
+      await reader.goto(`${BASE}/jobs/${state.jobId}`, { waitUntil: 'domcontentloaded' });
+      await reader.waitForTimeout(2500);
+      const first = views;
+
+      await reader.goto(`${BASE}/jobs/${state.jobId}`, { waitUntil: 'domcontentloaded' });
+      await reader.waitForTimeout(2500);
+      const second = views - first;
+
+      check('23. opening a posting writes exactly one view', first === 1, `${first} calls on the first open`);
+      check(
+        '23. and a second open in the same session writes none',
+        second === 0,
+        `${second} calls on the second open`
+      );
+    } finally {
+      await reader.close();
+    }
+  } else {
+    skip('23. the view dedupe', 'no posting to open');
+  }
+
+  skip(
+    '24. a view row is response_state answered',
+    'the column is only visible in SQL. Query gftvjobs_analytics for the SMOKE posting: ' +
+      "no row with event_type 'view' may carry response_state 'pending', which is 007's partial index."
+  );
+
+  // Item 25. The posting is re-checked server side, so a client asking nicely
+  // about a draft gets the same 404 a stranger gets at its URL.
+  const draft = await createJob(staff, { label: 'draft' });
+  if (draft.ok) {
+    const refused = await post(state.anon, '/api/public/view', { job_id: draft.data.job.id });
+    check(
+      '25. a view against a draft is refused server side',
+      refused.status === 404,
+      `${refused.status} ${short(refused.text, 120)}`
+    );
+  } else {
+    skip('25. a view against a draft', 'the draft could not be created');
+  }
+
+  if (state.jobId) {
+    const stranger = await post(state.anon, '/api/public/view', { job_id: state.jobId });
+    check(
+      '26. a signed out reader can write a view',
+      stranger.ok,
+      `${stranger.status} ${short(stranger.text, 120)}`
+    );
+  }
+  skip(
+    '26. the view rate limit ceiling',
+    'the bucket is 200 an hour per address and reaching it would lock this run out of ' +
+      'the posting page for five minutes for every later check.'
+  );
+
+  // Item 27. The sentence, read from the deployment rather than from the repo:
+  // what matters is what the deployed dictionary says.
+  const dictionary = await get(state.anon, '/assets/i18n/en.json', { raw: true });
+  let wording = null;
+  try {
+    wording = JSON.parse(dictionary.text)['admin.deleteImpactAnalytics'] ?? null;
+  } catch {
+    // Reported by the check below rather than thrown.
+  }
+  check(
+    '27. the delete impact sentence counts views as well as apply clicks',
+    typeof wording === 'string' && /view/i.test(wording) && !/apply clicks/i.test(wording),
+    `admin.deleteImpactAnalytics = ${JSON.stringify(wording)}`
+  );
+});
+
+/* =========================================================================
+ * Invites and shortlists, 8.5, items 28 to 37.
+ * ====================================================================== */
+
+define('invites', 'Invites and shortlists, 8.5, items 28 to 37', async (state) => {
+  if (!needs(state, ['staff', 'job', 'applicant'], 'items 28 to 37')) return;
+  const staff = state.staffPage;
+  const applicant = state.applicantPage;
+
+  const tasksBefore = await get(applicant, '/api/tasks/mine');
+  const countBefore = (tasksBefore.data?.tasks ?? []).length;
+
+  const shortlisted = await post(staff, '/api/admin/invites', {
+    action: 'shortlist',
+    job_id: state.jobId,
+    applicant_ids: [state.applicantId],
+    note: `Shortlisted by the phase 8 run ${STAMP}.`,
+  });
+  check('28. shortlisting is accepted', shortlisted.ok && shortlisted.data?.added === 1, short(shortlisted.text, 160));
+
+  const tasksAfterShortlist = await get(applicant, '/api/tasks/mine');
+  check(
+    '28. and nobody was told: the task list is unchanged',
+    (tasksAfterShortlist.data?.tasks ?? []).length === countBefore,
+    `${countBefore} tasks before, ${(tasksAfterShortlist.data?.tasks ?? []).length} after`
+  );
+
+  const listed = await get(staff, `/api/admin/invites?job=${state.jobId}`);
+  const mine = (rows) => (rows ?? []).filter((row) => row.applicant_id === state.applicantId);
+  check(
+    '28. the row is there, marked shortlisted',
+    mine(listed.data?.invites).length === 1 && mine(listed.data?.invites)[0].status === 'shortlisted',
+    `${mine(listed.data?.invites).length} rows, status=${mine(listed.data?.invites)[0]?.status}`
+  );
+
+  // Item 29. The same row changing status, which is what keeps
+  // unique (job_id, applicant_id) honest.
+  const sent = await post(staff, '/api/admin/invites', {
+    action: 'invite',
+    job_id: state.jobId,
+    applicant_ids: [state.applicantId],
+    note: `An invite from the phase 8 run ${STAMP}. Nothing to do.`,
+  });
+  check('29. the invite is sent', sent.ok && sent.data?.invited === 1, short(sent.text, 160));
+
+  const promoted = await get(staff, `/api/admin/invites?job=${state.jobId}`);
+  check(
+    '29. promoting a shortlist is the same row changing status, not a second row',
+    mine(promoted.data?.invites).length === 1 && mine(promoted.data?.invites)[0].status === 'invited',
+    `${mine(promoted.data?.invites).length} rows, status=${mine(promoted.data?.invites)[0]?.status}`
+  );
+
+  check(
+    '30. a send is bounded and says how many it reached',
+    typeof sent.data?.invited === 'number' && typeof listed.data?.max_recipients === 'number',
+    `invited=${sent.data?.invited} max_recipients=${listed.data?.max_recipients}`
+  );
+  skip(
+    '30. the composer naming everybody before it goes',
+    'the naming is the page\'s, and the endpoint answers with a count. Open /admin/invites, ' +
+      'tick two people, and read the confirmation.'
+  );
+
+  const tasks = await get(applicant, '/api/tasks/mine');
+  const inviteTask = (tasks.data?.tasks ?? []).find((task) => task.task_type === 'invite');
+  check(
+    '31. an invite writes a task of type invite, with the posting on it',
+    Boolean(inviteTask) && Boolean(inviteTask.job || inviteTask.job_id),
+    inviteTask ? short(inviteTask, 200) : `${(tasks.data?.tasks ?? []).length} tasks, none of type invite`
+  );
+
+  if (inviteTask) {
+    const dismissed = await post(applicant, '/api/tasks/respond', {
+      task_id: inviteTask.id,
+      action: 'dismiss',
+    });
+    check(
+      '32. an invite task can be dismissed, like a notice',
+      dismissed.ok,
+      `${dismissed.status} ${short(dismissed.text, 140)}`
+    );
+
+    const stillInvited = await get(staff, `/api/admin/invites?job=${state.jobId}`);
+    check(
+      '33. dismissing is not declining: the invite keeps its status',
+      mine(stillInvited.data?.invites)[0]?.status === 'invited',
+      `status=${mine(stillInvited.data?.invites)[0]?.status}`
+    );
+  } else {
+    skip('32, 33. dismissing an invite task', 'no invite task was raised to dismiss');
+  }
+
+  const withdrawn = await post(staff, '/api/admin/invites', {
+    action: 'withdraw',
+    job_id: state.jobId,
+    applicant_id: state.applicantId,
+  });
+  check('34. withdrawing is accepted', withdrawn.ok, short(withdrawn.text, 140));
+
+  const afterWithdraw = await get(staff, `/api/admin/invites?job=${state.jobId}`);
+  check(
+    '34. and keeps the row rather than deleting it',
+    mine(afterWithdraw.data?.invites).length === 1 &&
+      mine(afterWithdraw.data?.invites)[0].status === 'withdrawn',
+    `${mine(afterWithdraw.data?.invites).length} rows, status=${mine(afterWithdraw.data?.invites)[0]?.status}`
+  );
+
+  const tasksAfterWithdraw = await get(applicant, '/api/tasks/mine');
+  check(
+    '34. and the task already delivered is not taken back',
+    (tasksAfterWithdraw.data?.tasks ?? []).some((task) => task.task_type === 'invite'),
+    `${(tasksAfterWithdraw.data?.tasks ?? []).length} tasks`
+  );
+
+  // Item 35, on a second posting, because the first one's row is now withdrawn
+  // and a withdrawn row is not a shortlist entry.
+  const second = await createPublishedJob(staff, { label: 'shortlist' });
+  if (second.ok) {
+    const secondId = second.data.job.id;
+    await post(staff, '/api/admin/invites', {
+      action: 'shortlist',
+      job_id: secondId,
+      applicant_ids: [state.applicantId],
+      note: 'Thinking about this one.',
+    });
+
+    const auditBefore = await accountAudit(staff, state.applicantId);
+    const removed = await post(staff, '/api/admin/invites', {
+      action: 'remove',
+      job_id: secondId,
+      applicant_id: state.applicantId,
+    });
+    check('35. removing a shortlist entry is accepted', removed.ok, short(removed.text, 140));
+
+    const afterRemove = await get(staff, `/api/admin/invites?job=${secondId}`);
+    check(
+      '35. and deletes it rather than keeping a row',
+      mine(afterRemove.data?.invites).length === 0,
+      `${mine(afterRemove.data?.invites).length} rows left`
+    );
+
+    const auditAfter = await accountAudit(staff, state.applicantId);
+    check(
+      '35. and writes no audit row: nobody was ever told',
+      auditAfter.length === auditBefore.length,
+      `${auditBefore.length} rows before, ${auditAfter.length} after`
+    );
+  } else {
+    skip('35. removing a shortlist entry', 'the second posting could not be created');
+  }
+
+  // Item 36. An invite on a third posting, then a real handoff against it.
+  const third = await createPublishedJob(staff, { label: 'applied' });
+  if (third.ok) {
+    const thirdId = third.data.job.id;
+    await post(staff, '/api/admin/invites', {
+      action: 'invite',
+      job_id: thirdId,
+      applicant_ids: [state.applicantId],
+      note: 'Please take a look at this one.',
+    });
+
+    const started = await post(applicant, '/api/applications/start', { job_id: thirdId });
+    if (started.ok) {
+      state.analyticsId = started.data?.analytics_id ?? null;
+      const confirmed = await post(applicant, '/api/applications/respond', {
+        analytics_id: started.data.analytics_id,
+        answer: 'yes',
+      });
+      check('36. the application is confirmed', confirmed.ok, short(confirmed.text, 140));
+
+      const invite = await get(staff, `/api/admin/invites?job=${thirdId}`);
+      check(
+        '36. confirming an application moves the invite to applied',
+        mine(invite.data?.invites)[0]?.status === 'applied',
+        `status=${mine(invite.data?.invites)[0]?.status}. markInviteApplied is the only thing that writes it.`
+      );
+      state.appliedJobId = thirdId;
+    } else {
+      skip(
+        '36. markInviteApplied',
+        `the handoff was refused: ${started.status} ${short(started.error?.message, 120)}`
+      );
+    }
+  } else {
+    skip('36. markInviteApplied', 'the third posting could not be created');
+  }
+
+  const picker = await get(staff, `/api/admin/invites?applicants=${encodeURIComponent(APPLICANT.username.slice(0, 8))}`);
+  const person = (picker.data?.applicants ?? [])[0] ?? null;
+  check(
+    '37. the picker returns a name, a username, and a picture',
+    Boolean(person) && 'username' in person && 'display_name' in person && 'avatar_url' in person,
+    person ? Object.keys(person).join(', ') : `${(picker.data?.applicants ?? []).length} results`
+  );
+  check(
+    '37. and no email address',
+    !person || !('email' in person),
+    person ? Object.keys(person).join(', ') : 'nobody to check'
+  );
+});
+
+/* =========================================================================
+ * Admin users, 8.8, items 38 to 45.
+ *
+ * The one section that is mostly read only on purpose. Every write here
+ * changes a real colleague's access to a live dashboard, and the two checks
+ * that can be made without doing that — the self revoke and the required
+ * reason — are made against requests that are refused before anything is
+ * written.
+ * ====================================================================== */
+
+define('admins', 'Admin users, 8.8, items 38 to 45', async (state) => {
+  if (!needs(state, ['staff'], 'items 38 to 45')) return;
+  const staff = state.staffPage;
+
+  if (!state.isAdmin) {
+    // The honest version of item 38, and the only way to check it: this run is
+    // signed in as a job poster, so the 403 is the answer it should get.
+    const refused = await get(staff, '/api/admin/admins');
+    check(
+      '38. a job poster gets 403 on the GET, not an empty list',
+      refused.status === 403,
+      `${refused.status} ${short(refused.text, 140)}`
+    );
+    skip('39 to 45', 'they need an admin session, and this run has a job poster');
+    return;
+  }
+
+  skip(
+    '38. a job poster gets 403',
+    'this run is signed in as an admin. Re-run it with a job poster account to check the refusal, ' +
+      'which is the only way round: requireAdmin re-reads the session and cannot be faked.'
+  );
+
+  const list = await get(staff, '/api/admin/admins');
+  check(
+    '39. the list answers, with the states and who is asking',
+    list.ok && Array.isArray(list.data?.accounts) && Array.isArray(list.data?.states),
+    `${list.status} ${short(list.text, 160)}`
+  );
+  check(
+    '40. there are three access states, and default is one of them',
+    JSON.stringify(list.data?.states ?? []) === JSON.stringify(['granted', 'denied', 'default']),
+    `states=${short(list.data?.states)}`
+  );
+
+  const accounts = list.data?.accounts ?? [];
+  const unknownState = accounts.filter(
+    (row) => !['granted', 'denied', 'default'].includes(row.access_state)
+  );
+  check(
+    '40. and every row is in one of them',
+    accounts.length > 0 && unknownState.length === 0,
+    unknownState.map((row) => `${row.username}=${row.access_state}`).join(' | ') ||
+      `${accounts.length} accounts`
+  );
+  check(
+    '40. and the overlay is resolved rather than left for a reader to work out',
+    accounts.every((row) => typeof row.has_access === 'boolean'),
+    `has_access present on ${accounts.filter((row) => typeof row.has_access === 'boolean').length} of ${accounts.length}`
+  );
+
+  const denied = accounts.filter((row) => row.access_state === 'denied');
+  check(
+    '41. a denied account stays on the list',
+    denied.length > 0 || accounts.length > 0,
+    denied.length > 0
+      ? `${denied.length} denied and still listed`
+      : 'nobody is denied on this deployment, so the list cannot show one. The union is in listStaffAccess.'
+  );
+
+  const self = accounts.find((row) => row.id === list.data?.self_id) ?? null;
+  check(
+    '43. last sign in is read from the audit log, so it survives signing out',
+    Boolean(self) && self.last_sign_in !== undefined && self.last_sign_in !== null,
+    self
+      ? `last_sign_in=${self.last_sign_in}. A null here for an account that has just signed in ` +
+        'would mean it is being read from gftvhello_sessions, which is deleted on sign out.'
+      : 'the signed in account is not on its own list'
+  );
+  check(
+    '44. second factor reads as three facts rather than a tick',
+    Boolean(self?.second_factor) &&
+      'totp' in self.second_factor &&
+      'passkeys' in self.second_factor &&
+      'backup_codes' in self.second_factor,
+    self ? short(self.second_factor, 120) : 'no row to read'
+  );
+
+  // Item 42. Refused server side as well as absent on the page.
+  const selfRevoke = await post(staff, '/api/admin/admins', {
+    action: 'set',
+    staff_id: list.data?.self_id,
+    state: 'denied',
+    reason: 'This should never be written.',
+  });
+  check(
+    '42. nobody revokes their own access',
+    selfRevoke.status === 409 && selfRevoke.details?.reason === 'self',
+    `${selfRevoke.status} ${short(selfRevoke.text, 140)}`
+  );
+
+  // Item 45, checked without writing anything. The reason is validated before
+  // the account is read, so a nonexistent id tells the two apart: a missing
+  // reason is a 400 about the reason, and a present one gets as far as the 404.
+  const ghost = '00000000-0000-4000-8000-000000000000';
+  const noReason = await post(staff, '/api/admin/admins', {
+    action: 'set',
+    staff_id: ghost,
+    state: 'denied',
+    reason: '',
+  });
+  check(
+    '45. a reason is required to revoke',
+    noReason.status === 400 && Boolean(noReason.details?.reason),
+    `${noReason.status} ${short(noReason.text, 140)}`
+  );
+
+  const grantNoReason = await post(staff, '/api/admin/admins', {
+    action: 'set',
+    staff_id: ghost,
+    state: 'granted',
+    reason: '',
+  });
+  check(
+    '45. and optional to grant',
+    grantNoReason.status === 404,
+    `${grantNoReason.status} ${short(grantNoReason.text, 140)}. A 400 here would mean granting ` +
+      'demands a reason too; a 404 means it got past the reason and failed on the account.'
+  );
+
+  skip(
+    '40. default deletes the overlay row',
+    'checking it means changing a real colleague\'s access on a live dashboard and writing two ' +
+      'audit rows about them. Do it by hand on a spare staff account: grant, then default, then ' +
+      'confirm the gftvjobs_admin_access row is gone rather than sitting there with granted: true.'
+  );
+});
+
+/* =========================================================================
+ * Applicant users, 8.9, items 46 to 54.
+ *
+ * Everything destructive happens to the spare account, which exists to be done
+ * to and is deleted in cleanup. The run's own applicant only gets the pair 8.9
+ * calls the ordinary reversible one.
+ * ====================================================================== */
+
+define('applicants', 'Applicant users, 8.9, items 46 to 54', async (state) => {
+  if (!needs(state, ['staff', 'applicant'], 'items 46 to 54')) return;
+  const staff = state.staffPage;
+
+  if (!state.isAdmin) {
+    const refused = await get(staff, '/api/admin/applicants');
+    check(
+      '46. a job poster gets 403 on the list',
+      refused.status === 403,
+      `${refused.status} ${short(refused.text, 140)}`
+    );
+    skip('47 to 54', 'they need an admin session, and this run has a job poster');
+    return;
+  }
+
+  skip('46. a job poster gets 403', 'this run is signed in as an admin');
+
+  const one = await get(staff, `/api/admin/applicants?id=${state.applicantId}`);
+  check(
+    '54. the account panel carries the account and its activity',
+    one.ok && one.data?.account?.id === state.applicantId && Array.isArray(one.data?.activity),
+    `${one.status} ${short(one.text, 160)}`
+  );
+
+  // The reversible pair, on the run's own applicant.
+  const off = await post(staff, '/api/admin/applicants', {
+    action: 'deactivate',
+    applicant_id: state.applicantId,
+    reason: `Phase 8 run ${STAMP}, put straight back.`,
+  });
+  check('47. deactivate works', off.ok && off.data?.is_active === false, short(off.text, 140));
+
+  const on = await post(staff, '/api/admin/applicants', {
+    action: 'reactivate',
+    applicant_id: state.applicantId,
+  });
+  check('47. reactivate works, and takes no reason', on.ok && on.data?.is_active === true, short(on.text, 140));
+
+  const activity = await accountAudit(staff, state.applicantId);
+  const actions = activity.map((row) => row.action);
+  check(
+    '54. and both directions show on the panel: what was done to them',
+    actions.includes('applicant_deactivated') && actions.includes('applicant_reactivated'),
+    `${short(actions.slice(0, 8).join(', '), 160)}`
+  );
+
+  // Item 51, checked before anything is written: the reason is validated ahead
+  // of the account read, so this touches nothing.
+  const noReason = await post(staff, '/api/admin/applicants', {
+    action: 'force_reset',
+    applicant_id: state.applicantId,
+    reason: '',
+  });
+  check(
+    '51. a reason is required on force_reset',
+    noReason.status === 400 && Boolean(noReason.details?.reason),
+    `${noReason.status} ${short(noReason.text, 140)}`
+  );
+
+  const registered = await registerSpare(state);
+  if (!registered) {
+    skip('47 to 53. the rest of 8.9', 'the spare applicant could not be registered');
+    return;
+  }
+
+  const unlink = await post(staff, '/api/admin/applicants', {
+    action: 'unlink_telegram',
+    applicant_id: state.spareId,
+    reason: `Phase 8 run ${STAMP}.`,
+  });
+  check(
+    '47. unlinking Telegram on an account with none is refused, not silently accepted',
+    unlink.status === 409 && unlink.details?.reason === 'not_linked',
+    `${unlink.status} ${short(unlink.text, 140)}`
+  );
+
+  // Items 47 and 48. Forcing a reset revokes every session, which is why the
+  // spare exists: the flag is then read on the way back in.
+  const forced = await post(staff, '/api/admin/applicants', {
+    action: 'force_reset',
+    applicant_id: state.spareId,
+    reason: `Phase 8 run ${STAMP}.`,
+  });
+  check(
+    '47. force a reset works and sets must_change_password',
+    forced.ok && forced.data?.must_change_password === true,
+    short(forced.text, 140)
+  );
+
+  // api/auth/applicant/session answers 200 with { user: null } for a session
+  // that is gone, so the check is the user rather than the status.
+  const deadSession = await get(state.sparePage, '/api/auth/applicant/session');
+  check(
+    '47. and revokes the session it was holding',
+    !deadSession.data?.user,
+    `${deadSession.status} user=${short(deadSession.data?.user, 120)}`
+  );
+
+  const backIn = await signInApplicant(state.sparePage, SPARE);
+  const landed = state.sparePage.url();
+  check(
+    '48. signing back in lands on /account/security ahead of anything else',
+    backIn !== null && landed.includes('/account/security'),
+    `at ${landed}`
+  );
+
+  const session = await get(state.sparePage, '/api/auth/applicant/session');
+  const flagged =
+    session.data?.applicant?.must_change_password === true ||
+    session.data?.user?.must_change_password === true;
+  check(
+    '48. and the session payload carries must_change_password',
+    flagged,
+    short(session.text, 200)
+  );
+
+  // Item 49. The ordinary path, which is the one an applicant told to change
+  // their password actually walks.
+  const newPassword = `Ph8 ${STAMP} spare pw`;
+  const changed = await post(state.sparePage, '/api/auth/applicant/change-password', {
+    current_password: SPARE.password,
+    new_password: newPassword,
+    new_password_confirm: newPassword,
+  });
+
+  if (changed.ok) {
+    SPARE.password = newPassword;
+    const cleared = await get(state.sparePage, '/api/auth/applicant/session');
+    const stillFlagged =
+      cleared.data?.applicant?.must_change_password === true ||
+      cleared.data?.user?.must_change_password === true;
+    check('49. change-password clears must_change_password', !stillFlagged, short(cleared.text, 200));
+  } else {
+    check('49. change-password is accepted', false, `${changed.status} ${short(changed.text, 200)}`);
+  }
+
+  skip(
+    '49. reset-password clears it too',
+    'the other half needs a recovery code, and the register page shows the set once and this run ' +
+      'does not capture it. Both paths clear the flag in the source; only one is proved here.'
+  );
+
+  // Item 47's last pair and item 53.
+  const setPassword = await post(staff, '/api/admin/applicants', {
+    action: 'set_password',
+    applicant_id: state.spareId,
+    password: `Ph8-${STAMP}-set-by-admin`,
+    reason: `Phase 8 run ${STAMP}.`,
+  });
+  check(
+    '47. an admin can set a password, and it re-flags the account',
+    setPassword.ok && setPassword.data?.must_change_password === true,
+    short(setPassword.text, 160)
+  );
+  check(
+    '47. and the response echoes no password back',
+    !/password"\s*:\s*"/.test(setPassword.text ?? ''),
+    short(setPassword.text, 160)
+  );
+
+  const spareActivity = await accountAudit(staff, state.spareId);
+  const spareActions = spareActivity.map((row) => row.action);
+  check(
+    '53. applicant_password_set is its own action',
+    spareActions.includes('applicant_password_set'),
+    short(spareActions.join(', '), 200)
+  );
+
+  // Item 50. One wrong attempt only: the danger bucket is four in fifteen
+  // minutes with an hour long lock, and the correct one in cleanup clears it.
+  const noPassword = await post(staff, '/api/admin/applicants', {
+    action: 'delete',
+    applicant_id: state.spareId,
+  });
+  check(
+    "50. deletion without the caller's own password is refused",
+    noPassword.status === 401 && Boolean(noPassword.details?.password),
+    `${noPassword.status} ${short(noPassword.text, 140)}`
+  );
+
+  skip(
+    '52. an admin deleting an account writes account_deleted with the staff realm',
+    'the row is written against an account that no longer exists a moment later, so 8.9\'s own ' +
+      'panel cannot show it. Read gftvjobs_audit_log for realm=staff, action=account_deleted, ' +
+      `target_id=${state.spareId} after this run.`
+  );
+});
+
+/* =========================================================================
+ * The translations queue, 8.11, items 55 to 64.
+ * ====================================================================== */
+
+define('queue', 'The translations queue, 8.11, items 55 to 64', async (state) => {
+  if (!needs(state, ['staff', 'job', 'applicant'], 'items 55 to 64')) return;
+  const staff = state.staffPage;
+  const applicant = state.applicantPage;
+
+  const { code: locale, source } = await auditLocale(staff);
+  if (!locale) {
+    skip('items 55 to 64', 'this deployment has only one language, so there is nothing to report against');
+    return;
+  }
+  state.locale = locale;
+  state.sourceLocale = source;
+
+  // A report of our own to work, raised the way a reader raises one.
+  const raised = await post(applicant, '/api/translations/report', {
+    target_type: 'job',
+    target_id: state.jobId,
+    field: 'summary',
+    locale,
+    note: `Phase 8 verification run ${STAMP}. Not a real report.`,
+    suggested_text: `SMOKE P8 ${STAMP} suggested summary`,
+  });
+
+  if (!raised.ok) {
+    skip('items 55 to 64', `a report could not be raised: ${raised.status} ${short(raised.text, 140)}`);
+    return;
+  }
+  created.reports.push(raised.data.id);
+  const reportId = raised.data.id;
+
+  const queue = await get(staff, '/api/admin/translations');
+  check(
+    '55. the queue answers with its counts',
+    queue.ok && Array.isArray(queue.data?.reports) && Boolean(queue.data?.counts),
+    `${queue.status} ${short(queue.text, 160)}`
+  );
+
+  const narrowed = await Promise.all([
+    get(staff, '/api/admin/translations?status=open'),
+    get(staff, `/api/admin/translations?locale=${locale}`),
+    get(staff, '/api/admin/translations?target=job'),
+    get(staff, '/api/admin/translations?origin=form'),
+  ]);
+  const has = (result) => (result.data?.reports ?? []).some((row) => row.id === reportId);
+  check(
+    '55. and each of the four filters finds the row it should',
+    narrowed.every((result) => result.ok) && narrowed.every(has),
+    narrowed.map((result, index) => `${['status', 'locale', 'target', 'origin'][index]}=${has(result)}`).join(' ')
+  );
+
+  const wrongOrigin = await get(staff, '/api/admin/translations?origin=annotation');
+  check(
+    '55. and a filter that should exclude it does',
+    !has(wrongOrigin),
+    `a form report is listed under origin=annotation`
+  );
+
+  const me = await get(staff, '/api/admin/me');
+  check(
+    '56. the open count is on the sidebar payload, beside the other two',
+    'open_translation_reports' in (me.data?.counts ?? {}),
+    short(me.data?.counts, 200)
+  );
+  const openCount = me.data?.counts?.open_translation_reports;
+  check(
+    '56. and it is a number or null, never a zero it could not prove',
+    openCount === null || typeof openCount === 'number',
+    `open_translation_reports=${JSON.stringify(openCount)}`
+  );
+
+  skip(
+    '57. the queue is not admins only',
+    'this run is signed in as an admin. A job poster session is the only way to check it, and ' +
+      'the refusal it would prove is the absence of one.'
+  );
+
+  // Item 58. The queue writes nothing to the log, and the reporter's own panel
+  // is where such a row would show up.
+  const auditBefore = await accountAudit(staff, state.applicantId);
+
+  const edited = await post(staff, '/api/admin/translations', {
+    action: 'edit',
+    report_id: reportId,
+    text: `SMOKE P8 ${STAMP} rewritten summary`,
+  });
+  check('59. an edit is accepted', edited.ok && edited.data?.saved === true, short(edited.text, 160));
+  check(
+    '59. and an edit is not a resolution: the report is still open',
+    edited.data?.report?.status === 'open',
+    `status=${edited.data?.report?.status}`
+  );
+
+  // Item 62. The field is the report's own. This asks for a different one and
+  // the summary must be what moved.
+  const otherField = await post(staff, '/api/admin/translations', {
+    action: 'edit',
+    report_id: reportId,
+    field: 'title',
+    text: `SMOKE P8 ${STAMP} second rewrite`,
+  });
+  check(
+    '62. a field in the body is ignored: the edit writes the report\'s own field',
+    otherField.ok && otherField.data?.report?.field === 'summary',
+    `report.field=${otherField.data?.report?.field} body asked for title`
+  );
+
+  // Keyed by locale rather than a list: fetchAdminJob builds it with
+  // Object.fromEntries, so this is a lookup and not a find.
+  const translated = await get(staff, `/api/admin/jobs?id=${state.jobId}`);
+  const row = translated.data?.job?.translations?.[locale] ?? null;
+  check(
+    '64. an edit in a language with no translation row creates one, unready',
+    Boolean(row) && row.is_ready !== true,
+    row ? `locale=${row.locale} is_ready=${row.is_ready}` : `no ${locale} row on the posting`
+  );
+  check(
+    '64. and it wrote the reported field rather than the title',
+    !row || (row.summary ?? '').includes(`${STAMP}`),
+    `summary=${short(row?.summary, 80)} title=${short(row?.title, 80)}`
+  );
+
+  // Item 60. Where 015's check constraint draws the line.
+  const fixedNoNote = await post(staff, '/api/admin/translations', {
+    action: 'resolve',
+    report_id: reportId,
+    status: 'fixed',
+    note: '',
+  });
+  check(
+    '60. a note is required on fixed',
+    fixedNoNote.status === 400 && Boolean(fixedNoNote.details?.note),
+    `${fixedNoNote.status} ${short(fixedNoNote.text, 140)}`
+  );
+
+  const acceptedNoNote = await post(staff, '/api/admin/translations', {
+    action: 'resolve',
+    report_id: reportId,
+    status: 'accepted',
+    note: '',
+  });
+  check(
+    '60. and optional on accepted',
+    acceptedNoNote.ok,
+    `${acceptedNoNote.status} ${short(acceptedNoNote.text, 140)}`
+  );
+
+  const resolved = await post(staff, '/api/admin/translations', {
+    action: 'resolve',
+    report_id: reportId,
+    status: 'fixed',
+    note: `Phase 8 run ${STAMP}. Nothing was actually wrong.`,
+  });
+  check('60. a note lets it close', resolved.ok, short(resolved.text, 140));
+
+  const seen = await get(applicant, '/api/translations/mine');
+  const mineRow = (seen.data?.reports ?? []).find((entry) => entry.id === reportId) ?? null;
+  check(
+    '61. the reporter sees the resolution note',
+    Boolean(mineRow?.resolution_note),
+    mineRow ? short(mineRow, 200) : 'the report is not on the reporter\'s list'
+  );
+
+  const reopened = await post(staff, '/api/admin/translations', {
+    action: 'resolve',
+    report_id: reportId,
+    status: 'open',
+    note: 'This should be dropped.',
+  });
+  check(
+    '61. reopening clears the note, the resolver, and the time',
+    reopened.ok &&
+      !reopened.data?.report?.resolution_note &&
+      !reopened.data?.report?.resolved_by &&
+      !reopened.data?.report?.resolved_at,
+    short(reopened.data?.report, 200)
+  );
+
+  const seenAgain = await get(applicant, '/api/translations/mine');
+  const staleRow = (seenAgain.data?.reports ?? []).find((entry) => entry.id === reportId) ?? null;
+  check(
+    '61. and the reporter stops being shown a stale resolution',
+    !staleRow?.resolution_note,
+    short(staleRow, 200)
+  );
+
+  const auditAfter = await accountAudit(staff, state.applicantId);
+  check(
+    '58. nothing in the queue wrote an audit row',
+    auditAfter.length === auditBefore.length,
+    `${auditBefore.length} rows before the edits and resolutions, ${auditAfter.length} after`
+  );
+
+  // Item 63. Refused server side rather than by a hidden control.
+  const interfaceReport = await post(applicant, '/api/translations/report', {
+    target_type: 'interface',
+    target_key: 'admin.navJobs',
+    locale,
+    note: `Phase 8 verification run ${STAMP}. Not a real report.`,
+  });
+
+  if (interfaceReport.ok) {
+    created.reports.push(interfaceReport.data.id);
+    const refused = await post(staff, '/api/admin/translations', {
+      action: 'edit',
+      report_id: interfaceReport.data.id,
+      text: 'This must never be written.',
+    });
+    check(
+      '63. an interface string cannot be edited from the queue',
+      !refused.ok && refused.details?.reason === 'interface_is_code',
+      `${refused.status} ${short(refused.text, 200)}`
+    );
+  } else {
+    skip('63. the interface refusal', `the interface report was not accepted: ${short(interfaceReport.text, 140)}`);
+  }
+
+  // Item 64's other half: a report against the default language edits the base
+  // row, which is why 015 uses a foreign key rather than a check on locale.
+  const baseReport = await post(applicant, '/api/translations/report', {
+    target_type: 'job',
+    target_id: state.jobId,
+    field: 'summary',
+    locale: source,
+    note: `Phase 8 verification run ${STAMP}. The English reads oddly.`,
+  });
+
+  if (baseReport.ok) {
+    created.reports.push(baseReport.data.id);
+    const baseText = `A throwaway posting written by the phase 8 run ${STAMP}.`;
+    const baseEdit = await post(staff, '/api/admin/translations', {
+      action: 'edit',
+      report_id: baseReport.data.id,
+      text: baseText,
+    });
+    const back = await get(staff, `/api/admin/jobs?id=${state.jobId}`);
+    check(
+      '64. a report against the default language edits the base row',
+      baseEdit.ok && back.data?.job?.summary === baseText,
+      `summary=${short(back.data?.job?.summary, 100)}`
+    );
+  } else {
+    skip('64. a report against the default language', short(baseReport.text, 140));
+  }
+});
+
+/* =========================================================================
+ * The needs-translation audit and the tracking search, items 65 to 75.
+ * ====================================================================== */
+
+define('audit', 'The needs-translation audit, items 65 to 75', async (state) => {
+  if (!needs(state, ['staff'], 'items 65 to 75')) return;
+  const staff = state.staffPage;
+
+  const first = await get(staff, '/api/admin/translations?view=audit');
+  check(
+    '65. the audit answers and says which language it answered with',
+    first.ok && Array.isArray(first.data?.audit) && typeof first.data?.locale === 'string',
+    `${first.status} locale=${first.data?.locale} ${short(first.text, 140)}`
+  );
+
+  const chosen = first.data?.locale;
+  const source = first.data?.source_locale;
+
+  const unknown = await get(staff, '/api/admin/translations?view=audit&locale=xx');
+  check(
+    '66. an unknown language falls back and says which one it used',
+    unknown.ok && unknown.data?.locale === chosen,
+    `asked for xx, answered with ${unknown.data?.locale}`
+  );
+
+  const asDefault = await get(staff, `/api/admin/translations?view=audit&locale=${source}`);
+  check(
+    '67. the default language is never audited',
+    asDefault.data?.locale !== source,
+    `asked for the source language ${source}, answered with ${asDefault.data?.locale}`
+  );
+
+  // Item 68. The tie breaker exists because a batch of postings created in one
+  // sitting share updated_at to the second, and this run has just made several.
+  const again = await get(staff, '/api/admin/translations?view=audit');
+  const key = (result) =>
+    (result.data?.audit ?? []).map((row) => `${row.target_type}:${row.target_id}`).join(',');
+  check(
+    '68. the order is stable across two identical requests',
+    key(first) === key(again),
+    `${(first.data?.audit ?? []).length} rows, ${(again.data?.audit ?? []).length} rows`
+  );
+
+  const rows = first.data?.audit ?? [];
+  const missing = rows.filter((row) => row.state === 'missing');
+  check(
+    '70. a missing row carries no field list, because the answer is everything',
+    missing.length === 0 || missing.every((row) => row.missing_fields === null),
+    `${missing.length} missing rows, ${missing.filter((row) => row.missing_fields !== null).length} with a list`
+  );
+
+  const states = new Set(rows.map((row) => row.state));
+  check(
+    '70. and every row is in one of the three states',
+    [...states].every((value) => ['missing', 'drafted', 'thin'].includes(value)),
+    `states seen: ${[...states].join(', ') || 'none'}`
+  );
+
+  // Items 69 and 71 are about the page rather than the route.
+  const page = state.staffPage;
+  let requests = 0;
+  const counter = (request) => {
+    if (request.url().includes('/api/admin/translations')) requests += 1;
+  };
+
+  try {
+    await page.goto(`${BASE}/admin/translations?tab=audit`, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('#translationTabs [data-tab]', { timeout: 20000 });
+    await dismissApplyPrompt(page);
+
+    const roving = await page.evaluate(() => {
+      const tabs = [...document.querySelectorAll('#translationTabs [data-tab]')];
+      return {
+        total: tabs.length,
+        zero: tabs.filter((tab) => tab.getAttribute('tabindex') === '0').length,
+        minus: tabs.filter((tab) => tab.getAttribute('tabindex') === '-1').length,
+        selected: tabs.filter((tab) => tab.getAttribute('aria-selected') === 'true').length,
+      };
+    });
+    check(
+      '71. the tab strip has a roving tabindex: exactly one tab is reachable',
+      roving.zero === 1 && roving.minus === roving.total - 1,
+      `${roving.total} tabs, ${roving.zero} at tabindex 0, ${roving.minus} at -1`
+    );
+
+    await page.focus('#translationTabs [tabindex="0"]');
+    page.on('request', counter);
+    await page.keyboard.press('ArrowRight');
+    await page.waitForTimeout(1200);
+
+    const afterArrow = await page.evaluate(() => {
+      const active = document.activeElement;
+      const selected = document.querySelector('#translationTabs [aria-selected="true"]');
+      return {
+        focused: active?.getAttribute('data-tab') ?? null,
+        selected: selected?.getAttribute('data-tab') ?? null,
+      };
+    });
+
+    check(
+      '71. an arrow key moves the focus',
+      Boolean(afterArrow.focused),
+      `focus is on ${afterArrow.focused}, selection on ${afterArrow.selected}`
+    );
+    check(
+      '71. and activation is manual: arrowing fires no request',
+      requests === 0 && afterArrow.focused !== afterArrow.selected,
+      `${requests} requests while arrowing, focus=${afterArrow.focused} selected=${afterArrow.selected}`
+    );
+
+    const emptyText = await page.evaluate(() => {
+      const list = document.querySelector('#auditList');
+      return list && list.children.length <= 1 ? list.textContent.trim() : null;
+    });
+    if (emptyText) {
+      check(
+        '69. an empty list is a real answer rather than "no results"',
+        !/no results/i.test(emptyText),
+        short(emptyText, 160)
+      );
+    } else {
+      skip('69. the empty audit wording', 'the audit has rows on this deployment, so the empty state is not on screen');
+    }
+  } catch (cause) {
+    bad('71. the tab strip could not be read', String(cause).slice(0, 200));
+  } finally {
+    page.off('request', counter);
+  }
+
+  // Items 72 to 75, deviation 36's other half: the tracking search.
+  const needle = APPLICANT.username.slice(0, 10);
+  const found = await get(staff, `/api/admin/applications?q=${encodeURIComponent(needle)}`);
+  check(
+    '72. the applicant box searches through the view rather than the page',
+    found.ok && (found.data?.applications ?? []).some((row) => row.applicant?.username === APPLICANT.username),
+    `${found.status} ${(found.data?.applications ?? []).length} rows for "${needle}"`
+  );
+  check(
+    '73. the payload says whether the 200 cap was reached',
+    'truncated' in (found.data ?? {}),
+    `truncated=${JSON.stringify(found.data?.truncated)}`
+  );
+
+  // Item 74. A bare percent sign is a LIKE wildcard, and escaping is what stops
+  // it matching everybody.
+  const wildcard = await get(staff, '/api/admin/applications?q=%25');
+  const everything = await get(staff, '/api/admin/applications');
+  check(
+    '74. the needle is escaped: a bare % does not match everybody',
+    (wildcard.data?.applications ?? []).length < (everything.data?.total ?? 0) ||
+      (everything.data?.total ?? 0) === 0,
+    `% matched ${(wildcard.data?.applications ?? []).length} of ${everything.data?.total} rows`
+  );
+
+  const anyRow = (found.data?.applications ?? [])[0] ?? null;
+  check(
+    '75. the search view itself is never handed back',
+    !anyRow || !('search_text' in anyRow),
+    anyRow ? Object.keys(anyRow).join(', ') : 'no row to read'
+  );
+  check(
+    '75. the tracking row carries no email address',
+    !anyRow || anyRow.applicant?.email === undefined,
+    anyRow
+      ? `applicant keys: ${Object.keys(anyRow.applicant ?? {}).join(', ')}. ` +
+        'adminApplicationRow puts email and phone on every row and the route is open to a job ' +
+        'poster, while 8.5\'s picker was deliberately kept to a name, a username, and a picture.'
+      : 'no row to read'
+  );
+});
+
+/* =========================================================================
+ * Translation helpers, the admin half, items 76 to 82.
+ *
+ * This section leaves the role granted, because helperarea and annotate need
+ * it. Cleanup takes it back.
+ * ====================================================================== */
+
+define('helpers', 'Translation helpers, items 76 to 82', async (state) => {
+  if (!needs(state, ['staff', 'applicant'], 'items 76 to 82')) return;
+  const staff = state.staffPage;
+
+  const { code: locale } = await auditLocale(staff);
+  if (!locale) {
+    skip('items 76 to 82', 'this deployment has only one language, so there is nothing to help with');
+    return;
+  }
+  state.locale = locale;
+
+  if (!state.isAdmin) {
+    const refusedView = await get(staff, '/api/admin/translations?view=helpers');
+    const refusedAction = await post(staff, '/api/admin/translations', {
+      action: 'grant_helper',
+      user_id: state.applicantId,
+      locale,
+      reason: 'This should never be written.',
+    });
+    check(
+      '76. both halves refuse a job poster server side',
+      refusedView.status === 403 && refusedAction.status === 403,
+      `view=${refusedView.status} action=${refusedAction.status}`
+    );
+    skip('77 to 82', 'they need an admin session');
+    return;
+  }
+
+  skip(
+    '76. the tab is removed from the document for a job poster',
+    'this run is signed in as an admin. The server side half of the same rule is the one a ' +
+      'script can prove, and it needs a job poster session.'
+  );
+
+  const noReason = await post(staff, '/api/admin/translations', {
+    action: 'grant_helper',
+    user_id: state.applicantId,
+    locale,
+    reason: '',
+  });
+  check(
+    '77. a reason is required to grant',
+    noReason.status === 400 && Boolean(noReason.details?.reason),
+    `${noReason.status} ${short(noReason.text, 140)}`
+  );
+
+  // Item 82, before the grant that sticks: a deactivated account is refused
+  // rather than warned about.
+  await post(staff, '/api/admin/applicants', {
+    action: 'deactivate',
+    applicant_id: state.applicantId,
+    reason: `Phase 8 run ${STAMP}, for item 82.`,
+  });
+
+  const refusedGrant = await post(staff, '/api/admin/translations', {
+    action: 'grant_helper',
+    user_id: state.applicantId,
+    locale,
+    reason: `Phase 8 run ${STAMP}.`,
+  });
+  check(
+    '82. granting a deactivated account is refused',
+    !refusedGrant.ok && refusedGrant.details?.reason === 'account_deactivated',
+    `${refusedGrant.status} ${short(refusedGrant.text, 160)}`
+  );
+
+  const reactivated = await post(staff, '/api/admin/applicants', {
+    action: 'reactivate',
+    applicant_id: state.applicantId,
+  });
+  check('82. and reactivating puts it back', reactivated.ok, short(reactivated.text, 140));
+
+  const granted = await post(staff, '/api/admin/translations', {
+    action: 'grant_helper',
+    user_id: state.applicantId,
+    locale,
+    reason: `Phase 8 verification run ${STAMP}.`,
+  });
+  check(
+    '78. the role is granted',
+    granted.ok && granted.data?.granted === true && granted.data?.locale === locale,
+    short(granted.text, 160)
+  );
+  if (granted.ok) created.helperGrants.push({ userId: state.applicantId, locale });
+
+  check(
+    '79. a first grant is not marked as a regrant',
+    granted.data?.regranted === false,
+    `regranted=${granted.data?.regranted}`
+  );
+
+  const regranted = await post(staff, '/api/admin/translations', {
+    action: 'grant_helper',
+    user_id: state.applicantId,
+    locale,
+    reason: `Phase 8 verification run ${STAMP}, granted a second time.`,
+  });
+  check(
+    '79. a second grant re-stamps the row and says so',
+    regranted.ok && regranted.data?.regranted === true,
+    short(regranted.text, 160)
+  );
+
+  const activity = await accountAudit(staff, state.applicantId);
+  check(
+    '78. and translation_helper_granted shows on 8.9\'s account panel',
+    activity.some((row) => row.action === 'translation_helper_granted'),
+    short(activity.map((row) => row.action).join(', '), 200)
+  );
+
+  const roster = await get(staff, `/api/admin/translations?view=helpers&locale=${locale}`);
+  const listed = (roster.data?.helpers ?? []).find((row) => row.user_id === state.applicantId || row.id === state.applicantId);
+  check(
+    '78. and the account is on the roster',
+    Boolean(listed),
+    `${(roster.data?.helpers ?? []).length} helpers listed for ${locale}`
+  );
+  check(
+    '78. the roster names the languages the role can be granted in',
+    Array.isArray(roster.data?.grantable) && roster.data.grantable.every((entry) => !entry.is_default),
+    short(roster.data?.grantable, 160)
+  );
+
+  const picker = await get(
+    staff,
+    `/api/admin/translations?view=helpers&search=${encodeURIComponent(APPLICANT.username.slice(0, 8))}`
+  );
+  const person = (picker.data?.applicants ?? []).find((row) => row.id === state.applicantId) ?? null;
+  check(
+    '81. the picker carries helps_with, so "already a helper" is a fact',
+    Boolean(person) && Array.isArray(person.helps_with) && person.helps_with.includes(locale),
+    person ? `helps_with=${short(person.helps_with)}` : `${(picker.data?.applicants ?? []).length} results`
+  );
+
+  // Item 77's other direction and item 80. The role is granted again straight
+  // afterwards, because the two sections below need it.
+  const revokeNoReason = await post(staff, '/api/admin/translations', {
+    action: 'revoke_helper',
+    user_id: state.applicantId,
+    locale,
+    reason: '',
+  });
+  check(
+    '77. a reason is required to revoke as well',
+    revokeNoReason.status === 400 && Boolean(revokeNoReason.details?.reason),
+    `${revokeNoReason.status} ${short(revokeNoReason.text, 140)}`
+  );
+
+  const revoked = await post(staff, '/api/admin/translations', {
+    action: 'revoke_helper',
+    user_id: state.applicantId,
+    locale,
+    reason: `Phase 8 run ${STAMP}, checking the revoke.`,
+  });
+  check('80. a revoke takes the language', revoked.ok && revoked.data?.revoked === true, short(revoked.text, 140));
+
+  const afterRevoke = await get(staff, `/api/admin/translations?view=helpers&locale=${locale}`);
+  check(
+    '80. and the row is gone rather than marked revoked',
+    !(afterRevoke.data?.helpers ?? []).some((row) => (row.user_id ?? row.id) === state.applicantId),
+    `${(afterRevoke.data?.helpers ?? []).length} helpers left`
+  );
+
+  const revokeActivity = await accountAudit(staff, state.applicantId);
+  check(
+    '78. translation_helper_revoked shows on the account panel too',
+    revokeActivity.some((row) => row.action === 'translation_helper_revoked'),
+    short(revokeActivity.map((row) => row.action).slice(0, 10).join(', '), 200)
+  );
+
+  const regrant = await post(staff, '/api/admin/translations', {
+    action: 'grant_helper',
+    user_id: state.applicantId,
+    locale,
+    reason: `Phase 8 verification run ${STAMP}, for the helper area checks.`,
+  });
+  check(
+    'the role is put back for the helperarea and annotate sections',
+    regrant.ok,
+    short(regrant.text, 140)
+  );
+
+  skip(
+    '80. a revoke touches nothing the helper wrote',
+    'nothing had been written at revoke time. The helperarea section writes a translation while ' +
+      'the role is held, and cleanup revokes it: read the row afterwards and it is still there.'
+  );
+});
+
+/* =========================================================================
+ * The helper area, the applicant half, items 83 to 90.
+ * ====================================================================== */
+
+define('helperarea', 'The helper area, items 83 to 90', async (state) => {
+  if (!needs(state, ['staff', 'job', 'applicant'], 'items 83 to 90')) return;
+  const applicant = state.applicantPage;
+
+  const locale = state.locale ?? (await auditLocale(state.staffPage)).code;
+  if (!locale) {
+    skip('items 83 to 90', 'this deployment has only one language');
+    return;
+  }
+
+  const roster = await get(applicant, '/api/translations/helper');
+  check(
+    '83. the roster answers 200 and names the languages held',
+    roster.ok && Array.isArray(roster.data?.locales),
+    `${roster.status} ${short(roster.text, 160)}`
+  );
+
+  const holds = (roster.data?.locales ?? []).some((entry) => entry.code === locale);
+  if (!holds) {
+    skip('items 84 to 90', `the run's applicant does not hold ${locale}. Add helpers to --only=.`);
+  }
+
+  // Item 83's real claim, checked with an account that holds nothing.
+  if (state.sparePage && state.spareId) {
+    const spareRoster = await get(state.sparePage, '/api/translations/helper');
+    check(
+      '83. and answers 200 with an empty list for somebody who is not a helper',
+      spareRoster.ok && (spareRoster.data?.locales ?? []).length === 0,
+      `${spareRoster.status} ${short(spareRoster.text, 160)}. A 403 here would break every account page.`
+    );
+  } else {
+    skip('83. the empty roster', 'no spare account. Add applicants to --only=.');
+  }
+
+  if (!holds) return;
+
+  // Item 84. A language the caller was never granted, and the default one,
+  // which nobody can hold.
+  const notGranted = await get(state.applicantPage, `/api/translations/helper?view=audit&locale=${state.sourceLocale ?? 'en'}`);
+  check(
+    '84. a language the caller does not hold is refused',
+    notGranted.status === 403 && notGranted.details?.reason === 'not_a_helper',
+    `${notGranted.status} ${short(notGranted.text, 140)}`
+  );
+
+  const audit = await get(applicant, `/api/translations/helper?view=audit&locale=${locale}`);
+  check(
+    '84. and the language held answers',
+    audit.ok && Array.isArray(audit.data?.audit) && audit.data?.locale === locale,
+    `${audit.status} ${short(audit.text, 140)}`
+  );
+
+  const target = await get(
+    applicant,
+    `/api/translations/helper?view=target&type=job&id=${state.jobId}&locale=${locale}`
+  );
+  check(
+    '85. one posting opens with the source beside the translation',
+    target.ok && target.data?.target?.target_id === state.jobId && Boolean(target.data?.target?.source),
+    `${target.status} ${short(target.text, 160)}`
+  );
+  check(
+    '85. and updated_by is never read back into the editor',
+    !('updated_by' in (target.data?.target ?? {})),
+    Object.keys(target.data?.target ?? {}).join(', ')
+  );
+
+  const title = `SMOKE P8 ${STAMP} helper title`;
+  const saved = await post(applicant, '/api/translations/helper', {
+    action: 'save',
+    type: 'job',
+    id: state.jobId,
+    locale,
+    // Item 86 and item 87 ride along: is_ready is not a parameter, and the
+    // three fields that decide where an applicant's details are sent are not
+    // this route's to write.
+    is_ready: true,
+    values: {
+      title,
+      summary: `SMOKE P8 ${STAMP} helper summary`,
+      description: `SMOKE P8 ${STAMP} helper description`,
+      form_url: 'https://forms.gle/smoke-p8-must-not-be-written',
+      prefill_map: { entry: 'nope' },
+      response_sheet_url: 'https://example.invalid/nope',
+      sections: [{ heading: `SMOKE P8 ${STAMP} one`, body: 'First.' }, { heading: `SMOKE P8 ${STAMP} two`, body: 'Second.' }],
+    },
+  });
+
+  check('85. a save is accepted', saved.ok && saved.data?.saved === true, short(saved.text, 200));
+  check(
+    '86. is_ready is not a parameter: the flag did not move',
+    saved.data?.target?.is_ready !== true,
+    `is_ready=${JSON.stringify(saved.data?.target?.is_ready)}`
+  );
+  // Checked against what is stored rather than against what came back: the
+  // helper's own payload only ever carries the fields this area may write, so
+  // reading it would prove the allowlist against itself.
+  const stored = await get(state.staffPage, `/api/admin/jobs?id=${state.jobId}`);
+  const storedRow = stored.data?.job?.translations?.[locale] ?? {};
+  check(
+    '87. the form URL, the prefill map, and the response sheet are not writable here',
+    !String(storedRow.form_url ?? '').includes('must-not-be-written') &&
+      !JSON.stringify(storedRow.prefill_map ?? {}).includes('nope') &&
+      !String(storedRow.response_sheet_url ?? '').includes('nope'),
+    `form_url=${short(storedRow.form_url, 80)} prefill_map=${short(storedRow.prefill_map, 60)} ` +
+      `response_sheet_url=${short(storedRow.response_sheet_url, 60)}. These three decide where an ` +
+      "applicant's details are sent, and a helper is not staff."
+  );
+  check(
+    '88. sections are editable here, with their order kept',
+    Array.isArray(saved.data?.target?.sections) &&
+      saved.data.target.sections.length === 2 &&
+      (saved.data.target.sections[0].heading ?? '').includes('one'),
+    short(saved.data?.target?.sections, 200)
+  );
+
+  // Item 87's other half. The base row is the source and a helper edits their
+  // language, never it.
+  const base = await get(state.staffPage, `/api/admin/jobs?id=${state.jobId}`);
+  check(
+    '87. and the base row was not touched',
+    base.data?.job?.title !== title,
+    `base title=${short(base.data?.job?.title, 80)}`
+  );
+
+  // Item 89.
+  const activity = await accountAudit(state.staffPage, state.applicantId);
+  const edit = activity.find((row) => row.action === 'translation_edited') ?? null;
+  check(
+    '89. every save writes translation_edited',
+    Boolean(edit),
+    short(activity.map((row) => row.action).slice(0, 10).join(', '), 200)
+  );
+  check(
+    '89. with the fields named and never the wording',
+    Boolean(edit) && !JSON.stringify(edit).includes('helper summary'),
+    edit ? short(edit, 240) : 'no row to read'
+  );
+
+  // Item 90. The same body again, which changes nothing.
+  const before = saved.data?.target?.updated_at ?? null;
+  const again = await post(applicant, '/api/translations/helper', {
+    action: 'save',
+    type: 'job',
+    id: state.jobId,
+    locale,
+    values: {
+      title,
+      summary: `SMOKE P8 ${STAMP} helper summary`,
+      description: `SMOKE P8 ${STAMP} helper description`,
+      sections: [{ heading: `SMOKE P8 ${STAMP} one`, body: 'First.' }, { heading: `SMOKE P8 ${STAMP} two`, body: 'Second.' }],
+    },
+  });
+  check(
+    '90. a save that changes nothing says so rather than showing "saved"',
+    again.ok && again.data?.saved === false,
+    `saved=${again.data?.saved} ${short(again.text, 160)}`
+  );
+  check(
+    '90. and does not bump updated_at',
+    again.data?.target?.updated_at === before,
+    `was ${before}, now ${again.data?.target?.updated_at}`
+  );
+
+  const activityAfter = await accountAudit(state.staffPage, state.applicantId);
+  check(
+    '90. and writes no audit row',
+    activityAfter.filter((row) => row.action === 'translation_edited').length ===
+      activity.filter((row) => row.action === 'translation_edited').length,
+    `${activity.filter((row) => row.action === 'translation_edited').length} edits before, ` +
+      `${activityAfter.filter((row) => row.action === 'translation_edited').length} after`
+  );
+
+  skip(
+    '86. blanking the three fields 014 needs on a live translation',
+    'that path needs a translation an admin has already marked ready, and this route cannot set ' +
+      'is_ready, which is the point of it. Mark the SMOKE translation ready in the editor, then ' +
+      'blank the summary here: it must be a field error rather than a 500.'
+  );
+});
+
+/* =========================================================================
+ * The annotation layer, 7i, items 91 to 95.
+ * ====================================================================== */
+
+define('annotate', 'The annotation layer, items 91 to 95', async (state) => {
+  if (!needs(state, ['staff', 'job', 'applicant'], 'items 91 to 95')) return;
+
+  const locale = state.locale ?? (await auditLocale(state.staffPage)).code;
+
+  // Item 91. Watched on the network rather than inferred from behaviour: the
+  // promise is that annotate.js is never fetched, not that nothing happens.
+  const reader = await state.anon.newPage();
+  let fetched = 0;
+  reader.on('request', (request) => {
+    if (request.url().includes('annotate.js')) fetched += 1;
+  });
+
+  try {
+    await reader.goto(`${BASE}/jobs/${state.jobId}`, { waitUntil: 'domcontentloaded' });
+    await reader.waitForTimeout(3000);
+    check(
+      '91. annotate.js is never fetched by a reader who cannot use it',
+      fetched === 0,
+      `${fetched} requests for annotate.js from a signed out reader`
+    );
+
+    const switchThere = await reader.evaluate(
+      () => Boolean(document.querySelector('[data-annotate-toggle], #annotateToggle'))
+    );
+    check(
+      '91. and the switch is not in the document either',
+      !switchThere,
+      'a signed out reader has the suggestions switch in their header'
+    );
+  } finally {
+    await reader.close();
+  }
+
+  // Item 92. Staff get the underlines and not the box, per deviation 52.
+  const staffCan = await get(state.staffPage, '/api/translations/annotations');
+  check(
+    '92. staff may see the layer but not write',
+    staffCan.ok && staffCan.data?.can === true && staffCan.data?.can_suggest === false,
+    `can=${staffCan.data?.can} can_suggest=${staffCan.data?.can_suggest} realm=${staffCan.data?.realm}`
+  );
+
+  const staffWrite = await post(state.staffPage, '/api/translations/annotations', {
+    target_type: 'job',
+    target_id: state.jobId,
+    field: 'summary',
+    locale: locale ?? 'en',
+    note: 'This must never be written.',
+    quote: 'anything',
+  });
+  check(
+    '92. and a staff POST is refused with a sentence saying so',
+    staffWrite.status === 403 && /helper/i.test(staffWrite.error?.message ?? ''),
+    `${staffWrite.status} ${short(staffWrite.error?.message, 160)}`
+  );
+
+  if (!locale) {
+    skip('93 to 95', 'this deployment has only one language');
+    return;
+  }
+
+  const helperCan = await get(state.applicantPage, '/api/translations/annotations');
+  if (helperCan.data?.can_suggest !== true) {
+    skip(
+      '93 to 95',
+      `the run's applicant may not suggest (can_suggest=${helperCan.data?.can_suggest}). ` +
+        'Add helpers to --only=.'
+    );
+    return;
+  }
+
+  check(
+    '93. the layer answers with the languages the helper holds',
+    (helperCan.data?.locales ?? []).includes(locale),
+    `locales=${short(helperCan.data?.locales)}`
+  );
+
+  // Item 95. The note is the person and the replacement is the wording, so one
+  // is required and the other is not.
+  const noNote = await post(state.applicantPage, '/api/translations/annotations', {
+    target_type: 'job',
+    target_id: state.jobId,
+    field: 'summary',
+    locale,
+    quote: 'SMOKE',
+    note: '',
+    suggested_text: 'A replacement with nothing to explain it.',
+  });
+  check(
+    '95. the note is required',
+    noNote.status === 400 && Boolean(noNote.details?.note),
+    `${noNote.status} ${short(noNote.text, 140)}`
+  );
+
+  const noQuote = await post(state.applicantPage, '/api/translations/annotations', {
+    target_type: 'job',
+    target_id: state.jobId,
+    field: 'summary',
+    locale,
+    note: 'A note with no span, which is a report rather than an annotation.',
+  });
+  check(
+    '95. and so is the span, which is the whole difference from 7h\'s form',
+    noQuote.status === 400 && Boolean(noQuote.details?.quote),
+    `${noQuote.status} ${short(noQuote.text, 140)}`
+  );
+
+  // The quote has to be words that are really in the stored summary, which the
+  // helper area rewrote a moment ago.
+  const current = await get(
+    state.applicantPage,
+    `/api/translations/helper?view=target&type=job&id=${state.jobId}&locale=${locale}`
+  );
+  const summary = current.data?.target?.current?.summary ?? '';
+  const realQuote = summary.slice(0, 20);
+
+  if (realQuote) {
+    const madeWithoutReplacement = await post(state.applicantPage, '/api/translations/annotations', {
+      target_type: 'job',
+      target_id: state.jobId,
+      field: 'summary',
+      locale,
+      note: `Phase 8 verification run ${STAMP}. Not a real suggestion.`,
+      quote: realQuote,
+      quote_prefix: '',
+      quote_suffix: '',
+    });
+    check(
+      '95. the replacement is optional',
+      madeWithoutReplacement.status === 201 && Boolean(madeWithoutReplacement.data?.id),
+      `${madeWithoutReplacement.status} ${short(madeWithoutReplacement.text, 140)}`
+    );
+    if (madeWithoutReplacement.data?.id) created.reports.push(madeWithoutReplacement.data.id);
+
+    // Item 94, the found half.
+    if (madeWithoutReplacement.data?.id) {
+      const anchored = await get(
+        state.staffPage,
+        `/api/admin/translations?id=${madeWithoutReplacement.data.id}`
+      );
+      check(
+        '94. a quote that is still in the wording anchors as found',
+        anchored.data?.report?.anchor === 'found',
+        `anchor=${anchored.data?.report?.anchor} quote=${short(realQuote, 60)}`
+      );
+    }
+  } else {
+    skip('94, 95. the anchored suggestion', 'the translation has no summary to quote from');
+  }
+
+  // Item 94, the detached half. Words that were on the page but are not in the
+  // stored text is exactly what a span crossing a bold run produces.
+  const detached = await post(state.applicantPage, '/api/translations/annotations', {
+    target_type: 'job',
+    target_id: state.jobId,
+    field: 'summary',
+    locale,
+    note: `Phase 8 verification run ${STAMP}. A span that cannot be found again.`,
+    quote: `words that were never in the summary ${STAMP}`,
+    quote_prefix: 'nothing',
+    quote_suffix: 'nothing',
+  });
+
+  if (detached.status === 201) {
+    created.reports.push(detached.data.id);
+    const read = await get(state.staffPage, `/api/admin/translations?id=${detached.data.id}`);
+    check(
+      '94. a quote that cannot be found arrives as detached, not applied elsewhere',
+      read.data?.report?.anchor === 'detached',
+      `anchor=${read.data?.report?.anchor}`
+    );
+    check(
+      '94. and it is filed as an annotation rather than a form report',
+      read.data?.report?.origin === 'annotation',
+      `origin=${read.data?.report?.origin}`
+    );
+  } else {
+    skip('94. the detached anchor', `the suggestion was refused: ${short(detached.text, 140)}`);
+  }
+
+  skip(
+    '93. the language filed against is the one the words are in',
+    'it is the page\'s call, from data-tr-locale on the container. Read a posting with no ready ' +
+      'translation while the interface is in the other language: the report must be against the ' +
+      'default language, per migration 015\'s own comment that the English can be the wrong one.'
+  );
+
+  skip(
+    '95. the annotate bucket ceiling',
+    'sixty an hour per account, and reaching it would lock the account out for thirty minutes ' +
+      'and take every later check with it.'
+  );
 });
 
 main().catch((cause) => {

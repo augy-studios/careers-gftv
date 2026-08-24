@@ -208,7 +208,7 @@ export async function listAnnotations({ targetType, targetId, locale }) {
     // Keyed on the field and the quote together. The same sentence can appear in
     // two fields of one posting, and an underline drawn in the wrong one is
     // worse than no underline.
-    const key = `${row.field ?? ''} ${row.quote}`;
+    const key = `${row.field ?? ''}\u0000${row.quote}`;
     const entry = spans.get(key);
 
     if (entry) {
