@@ -46,7 +46,10 @@ main-site/
     tasks/            7g's outstanding tasks, both sources unioned
     settings/         profile, picture, reports filed, and the danger zone
     security/         recovery codes, password, passkeys, trusted devices
-  admin/              the dashboard, phase 7
+    translations/     7i's helper area, for an applicant granted a language.
+                      Phase 8. Not linked for anybody else, and the navigation
+                      item is absent rather than disabled
+  admin/              the dashboard, phases 7 and 8
     index.html        8.1's overview: postings, the pipeline, what is new
     jobs/             8.2's postings list
     jobs/edit/        the tabbed per language editor and the sections builder
@@ -54,6 +57,14 @@ main-site/
     departments/      8.6's teams
     tags/             8.7's tags, with the merge
     maintenance/      8.12's switches
+    analytics/        8.4's funnel per posting, with the daily chart. Phase 8.
+                      The one dashboard page with no POST
+    invites/          8.5's invites and shortlists, one posting at a time
+    admins/           8.8's staff access. Admins only, end to end
+    applicants/       8.9's applicant accounts. Admins only, end to end
+    settings/         8.10's portal settings, and the applications toggle
+    translations/     8.11's queue, its needs-translation audit, and 7i's
+                      helper roster. Three tabs, one route
     login/            staff sign in, with the second factor step
     security/         staff passkeys and trusted devices
   placeholder.html    served for every route belonging to a later phase
@@ -97,6 +108,12 @@ main-site/
                       and the file says why
     js/account-page.js, applications-page.js, saved-page.js, tasks-page.js,
     js/settings-page.js  the five pages of the account area
+    js/translations-page.js  7i's helper area, the sixth. Phase 8
+    js/annotate.js    7i's in-place annotation layer. Loaded by a dynamic import
+                      and only for somebody who may use it, so a reader who
+                      cannot never fetches it
+    js/site-settings.js  8.10's public half: the portal title, the hero copy,
+                      and the featured roles, read by shell.js and home-page.js
     js/avatar.js      square crop, resize, and WebP encode, in the browser.
                       See AVATARS.md
     js/i18n.js        language switching and the string dictionaries
@@ -108,7 +125,10 @@ main-site/
     js/admin-shell.js the dashboard's session guard, sidebar, and top bar
     js/admin-page.js, admin-jobs-page.js, admin-job-editor.js,
     js/admin-applications-page.js, admin-departments-page.js,
-    js/admin-tags-page.js, admin-maintenance-page.js  the seven pages
+    js/admin-tags-page.js, admin-maintenance-page.js  phase 7's seven pages
+    js/admin-analytics-page.js, admin-invites-page.js, admin-admins-page.js,
+    js/admin-applicants-page.js, admin-settings-page.js,
+    js/admin-translations-page.js  phase 8's six
     js/admin-questions.js  7g's question set composer, used by the editor and
                       by the task composer. The set is frozen once sent
     js/passkeys.js    WebAuthn in the browser, hand written
@@ -122,10 +142,13 @@ main-site/
                       change-password, forgot-password, reset-password,
                       recovery-codes, trusted-devices, locale
     public/           search, suggest, facets, job, jobs-feed,
-                      feature-status. No session is read in any of them except
-                      for an archived posting, which 7g shows only to an
-                      applicant with history.
-    translations/     report a translation problem, per 7h
+                      feature-status, site-settings, view. No session is read in
+                      any of them except for an archived posting, which 7g shows
+                      only to an applicant with history. `view` is the one
+                      write a caller with no account can make.
+    translations/     report, mine, helper, annotations. 7h's form and 7i's two
+                      halves. Two routes writing one table, and the file says
+                      why they are not one
     applications/     start, respond, pending, mine, withdraw. The only place
                       in the build that emits a Google Form URL, and only to a
                       session that has been checked
@@ -133,8 +156,11 @@ main-site/
     tasks/            mine, count, respond
     account/          avatar, and danger/delete
     admin/            me, stats, jobs, applications, tasks, departments, tags,
-                      maintenance. Every one re-checks the staff session and
-                      the access flag on the request, per section 8
+                      maintenance, analytics, invites, admins, applicants,
+                      settings, translations. Every one re-checks the staff
+                      session and the access flag on the request, per section 8,
+                      and admins, applicants, and the helper actions on
+                      translations re-check `is_admin` as well
     ratings/          upsert a rating for a posting, from the handoff modal
     job-page.js       the server rendered posting page. The one route in this
                       portal that returns HTML instead of JSON.
@@ -257,7 +283,7 @@ into one checkbox:
 
 ## API route map
 
-Phases 2 to 7 are built. The rest is the shape phases 8 to 11 fill in, from
+Phases 2 to 8 are built. The rest is the shape phases 9 to 11 fill in, from
 section 9 of the specification.
 
 One route in this table is not under `api/` as far as a reader is concerned.
@@ -281,7 +307,11 @@ markup as delivered and does not run JavaScript.
 | `/jobs/:id` | the posting page, rewritten to `api/job-page.js`. HTML, not JSON | 4 |
 | `api/translations/report` | report a translation problem | 4 |
 | `api/translations/mine` | the reader's own reports, with what an admin decided about each. 7h's other half: a reporter who never hears anything again learns that reporting is shouting into a hole | 6 |
-| `api/translations/*` | helper drafting, annotations, suggestion queue | 8 |
+| `api/translations/helper` | 7i's helper area: the roster, the language audit, one thing to translate, a search, and `save`. One route, four views, one action | 8 |
+| | **The guard is a row, never a boolean.** Every view except the roster takes a language and checks the `(user_id, locale)` pair against `gftvjobs_translation_helpers`, intersected with the active languages, so a role over a switched-off language is a role over nothing. The roster is the one view any applicant may call, and it answers 200 with an empty list: a 403 there would make "you are not a helper" indistinguishable from a fault on every account page. | |
+| | A save writes `034`'s `updated_by` and never `is_ready`. The form URL, the prefill map, and the response sheet are columns on the same row and are absent from the allowlist, because they decide where an applicant's details are sent. The base row is never written: a helper edits their language, never the source. | |
+| `api/translations/annotations` | 7i's in-place suggestions. A separate route from `report`, writing the same table | 8 |
+| | What 7i asked to be single is the queue, not the endpoint. `report` is open to any applicant under `translation_report` and bounded by a bucket sized for one posting; this is open to helpers under `translation_annotations` and bounded by one sized for a review pass. One handler with two permission models and two feature keys inside it is how a hole gets opened by an edit to the wrong branch. A staff POST is refused, per deviation 52. | |
 | `api/applications/start` | logs the analytics row, upserts the tracking row, returns the prefilled form URL and the analytics row id | 5 |
 | | **The one route in the build that emits a Google Form URL.** A logged out request is 401 and writes nothing. The cooldown, the closing date, the global toggle, and an unanswered prompt are all enforced here and not by hiding the button. | |
 | `api/applications/respond` | records the Yes or No from the modal, and starts the cooldown on a Yes | 5 |
@@ -307,7 +337,16 @@ markup as delivered and does not run JavaScript.
 | `api/admin/tags` | 8.7, including the merge, which moves the join rows and lets the triggers in `007` do the counting | 7 |
 | `api/admin/maintenance` | read and flip the feature overrides in 8.12, so a shipped feature can be turned off while it is broken | 7 |
 | `api/public/feature-status` | which shipped features are currently off, and the public note on each. Short cache. The phase list stays in `build-status.json` and is not duplicated here | 7 |
-| `api/admin/*` | analytics, invites, users, admins, settings, stats, export, translations | 8 |
+| `api/admin/analytics` | 8.4's funnel: views, apply clicks, confirmed applications, and the daily series, from the two views in `033`. **GET only**, the one admin route with no POST, because nothing on that page changes anything | 8 |
+| `api/admin/invites` | 8.5, whole: the shortlist, the invite, the send, the withdrawal, and the applicant picker. An invite writes its `gftvjobs_invites` row and a task beside it, because Telegram is phase 11 and the task is the record either way | 8 |
+| `api/admin/admins` | 8.8's staff access. **Admins only end to end**, including the list. Three access states, not two: granted, denied, and absent, and absent means the gftv.asia role decides | 8 |
+| `api/admin/applicants` | 8.9's applicant accounts. Admins only, all of it. Deactivate, reactivate, force a reset, unlink Telegram, set a password, delete | 8 |
+| `api/admin/settings` | 8.10's portal settings, through `putSetting`. The second caller of a helper written in phase 7 for 8.12 | 8 |
+| `api/public/site-settings` | the public half of 8.10: the portal title, the hero copy, and the featured roles. Short cache, session free | 8 |
+| `api/public/view` | one `view` analytics row per session per posting, never for a preview and never for a draft. **The one write in the build a caller with no account can make**, so the posting is re-checked server side and it has a rate limit bucket of its own | 8 |
+| | A view row is `response_state: 'answered'`, not `'pending'`. `007`'s pending partial index exists to make the outstanding prompt lookup and phase 9's sweep cheap, and a row in it for every posting anybody opens would make it the largest index in the database and the one thing it must never hold. | |
+| `api/admin/translations` | 8.11, in three views on one route: the suggestion queue, the needs-translation audit over `032`'s view, and 7i's helper roster. Not admins only, except granting and revoking a helper, which is | 8 |
+| | **An edit is not a resolution, and they are two requests.** The note is what closes a report, because the reporter reads it on `/account/settings`; folding the two into one button would make the note the step somebody skips by finishing the edit. Required on fixed and rejected, optional on accepted, which is where `015`'s check constraint already draws the line. | |
 | `api/cron/daily` | the scheduled maintenance in section 11 | 9 |
 | `api/webhooks/form-submit` | the Apps Script integration in section 13 | 9 |
 | `api/telegram/*` | linking token, link status, unlink, toggle 2FA, login code, magic link | 11 |
@@ -344,6 +383,15 @@ Shared helpers live in `api/_lib/`:
 | `questions.js` | The question sets in 7g, both directions: what the composer may store, and what a reply may contain. A reply is validated against the set stored on that task and never against what the browser sent back. |
 | `maintenance.js` | 8.12's switches: the overrides, the denylist that is in code, not in a setting, and `unavailable()`, the shared guard every flippable route calls so that off means off including the API. |
 | `apply.js` | The apply flow's server side, shared by the four `api/applications/*` routes. Reads the form URL and the prefill map, which `job-detail.js` deliberately never selects; resolves a per language form; builds the prefilled address from the session; and holds the rules about what a start click may and may not move. |
+| `analytics.js` | 8.4's shaping, and the three judgements the views in `033` deliberately do not make: a rating suppressed below three ratings, the broken-form flag at five clicks with a fifth converting, and a **null** rate for a posting nobody has clicked, which is not the same as zero. |
+| `invites.js` | 8.5. A shortlist and an invite are one row in `gftvjobs_invites` in two states, so promoting one is that row changing status. Withdrawing keeps the row and the task; removing a shortlist entry deletes it, because nobody was ever told. |
+| `admin-staff.js` | 8.8. The list is a union rather than a query: the approved-and-roled set, plus everybody an overlay row names, minus the denied. A denied account stays on the page, because "we took it away in March" is part of the answer to who has access. Last sign in comes from the audit log, not from `gftvhello_sessions`, which deletes a row on sign out. |
+| `admin-applicants.js` | 8.9, including `accountActivity`, which reads the audit log both ways: what the applicant did, and what was done to them. |
+| `translation-queue.js` | 8.11's queue. The field an edit writes is the report's own, never the request's: this page fixes what somebody complained about, and taking the field from the body would make it a general single field writer that happens to need a report id. |
+| `translation-audit.js` | The needs-translation audit over `gftvjobs_needs_translation`. Its own file rather than more of the queue: the helper area needs the same list scoped to one granted language. The audit is per language, chosen rather than filtered, and the route says in its payload which language it answered with. |
+| `translation-helpers.js` | 7i's roster: granting, revoking, and what each helper has drafted and reported. A revoke deletes the row, because `023` has no revoked state, which is why a reason is required in both directions. |
+| `helper-area.js` | The helper's own side of 7i, behind the `(user_id, locale)` guard. |
+| `annotations.js` | 7i's in-place layer. A quote is captured from rendered text and matched against stored text, so a span crossing a bold run or a link arrives in the queue as `detached`, which is what 7i asks for. **Loosening the match until it finds something is how a suggestion gets applied to the wrong sentence.** |
 
 Every endpoint returning human readable content takes a locale, `en` or `zh`,
 and returns that language in the ordinary field names. A caller sending no
@@ -452,10 +500,20 @@ nobody meant to impose.
 
 ## The account area
 
-Six pages behind one session check: `/account`, `/account/applications`,
-`/account/saved`, `/account/tasks`, `/account/settings`, and the
-`/account/security` page phase 2 built. `assets/js/account-shell.js` is the
-guard, the sub-navigation, and the badge; each page owns its own content.
+Seven pages behind one session check: `/account`, `/account/applications`,
+`/account/saved`, `/account/tasks`, `/account/settings`, the
+`/account/security` page phase 2 built, and `/account/translations`, which
+phase 8 added for 7i. `assets/js/account-shell.js` is the guard, the
+sub-navigation, and the badge; each page owns its own content.
+
+**The seventh is conditional, and the navigation item is absent rather than
+disabled** for everybody who is not a translation helper, per deviation 34.
+`account-shell.js` caches one roster call so the shell and the page share a
+request. That is one extra request on every account page for a feature almost no
+account has, taken deliberately: the staff hint in `api.js` is the pattern that
+would avoid it, and it exists to keep *public* pages from asking about a session
+for readers who have none. Here there is already a session, and a stale hint
+would hide the area from somebody granted the role five minutes ago.
 
 **Signed out is a redirect, not a message.** Every page here sends a signed out
 reader to `/login?redirect=...` and back. `api/_lib/redirects.js` validates the
@@ -494,8 +552,10 @@ Two decisions in here that look like omissions:
 
 ## The dashboard
 
-Section 8, built in phase 7. Seven pages under `/admin`, sharing a sidebar and
-a session guard from `assets/js/admin-shell.js`.
+Section 8, built in phases 7 and 8. Thirteen pages under `/admin`, sharing a
+sidebar and a session guard from `assets/js/admin-shell.js`. Phase 7 built
+seven; phase 8 added analytics, invites, staff access, applicant accounts,
+settings, and the translation queue.
 
 It sits under the public header instead of carrying its own, exactly as
 `/admin/login` and `/admin/security` have since phase 2. A second header would
@@ -511,8 +571,12 @@ things.
 | | Admin | Job poster |
 |---|---|---|
 | Postings, tracking, teams, tags, maintenance | yes | yes |
+| Analytics, invites and shortlists, settings | yes | yes |
+| The translation queue and its language audit | yes | yes |
 | Permanently deleting a posting | yes | the control is **absent**, not disabled |
-| Staff access and applicant accounts, phase 8 | yes | not listed in the sidebar |
+| Permanently deleting a tracking row, in bulk | yes | the control is **absent** |
+| Granting or revoking a translation helper | yes | the tab is **removed from the document** |
+| Staff access and applicant accounts | yes | not listed in the sidebar |
 
 Absent, not disabled, is deliberate: section 0c's disabled state means
 "this is coming in a later phase", and using it for "you are not allowed" would

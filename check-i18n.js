@@ -29,6 +29,12 @@
 // in DYNAMIC_FAMILIES below so the unused check does not report every member of
 // them as dead.
 //
+// It also checks for a *duplicate* key, added in phase 8 part 11 after part 8
+// shipped one. JSON has no duplicate key error: the second wins silently, so
+// admin.colRaised meaning a date was overwritten by admin.colRaised meaning a
+// count, and a column heading changed on a page nobody was looking at. Parsing
+// cannot see it, so the raw text is counted as well.
+//
 // Comments are stripped before scanning, or this file would flag the worked
 // examples in i18n.js as missing keys, which it did on the first run.
 
@@ -77,6 +83,19 @@ const DYNAMIC_FAMILIES = [
   // a key chosen at runtime: what it says depends on whether the caller may
   // suggest or only read, and on which way it is set.
   'annotate.',
+  // Phase 8 part 11. These six were reported as dead through seven phases and
+  // are nothing of the kind: every one is assembled from a value that arrives
+  // in a payload. They are written as narrow prefixes rather than as whole
+  // families, so audit.* and report.status_* are covered while a genuinely dead
+  // report.* or settings.* key is still reported.
+  //
+  // audit.<action>, from gftvjobs_audit_log.action, in admin-applicants-page.js.
+  'audit.',
+  'applications.bucket_',
+  'saved.filter_',
+  'settings.pictureError_',
+  'report.status_',
+  'language.name_',
 ];
 
 // A dictionary key: dotted, no interpolation. Anything with a ${ in it came
@@ -112,6 +131,7 @@ const files = walk(ROOT).filter((f) => f.endsWith('.html') || f.endsWith('.js'))
 
 const used = new Map(); // key -> [where]
 const dynamic = new Map(); // expression -> [where]
+const mentioned = new Set(); // every key shaped literal anywhere in the source
 
 function note(map, key, where) {
   if (!map.has(key)) map.set(key, []);
@@ -160,12 +180,57 @@ for (const file of files) {
   for (const m of source.matchAll(/\bt\(\s*(`[^`]*\$\{[^`]*`|[A-Za-z_$][\w$]*)\s*[,)]/g)) {
     note(dynamic, m[1].replace(/\s+/g, ' '), where);
   }
+
+  // Every key shaped literal anywhere in the file, whatever it is doing there.
+  //
+  // This feeds the unused report and nothing else, which is what makes it safe
+  // to be this loose: careers.globalfurry.tv lands in here too, and a set that
+  // can only ever *suppress* a "never referenced" line cannot invent a missing
+  // key. It exists because the unused list had grown to 54 entries, none of
+  // them dead: account.tileSaved is passed as titleKey, saved.needAccount as
+  // messageKey, home.featuredHeading through a ternary into a variable. A list
+  // that is entirely false positives is a list nobody reads, which is the only
+  // way a genuinely dead key stays in the dictionary.
+  for (const literal of source.matchAll(/['"`]([A-Za-z][\w]*(?:\.[\w]+)+)['"`]/g)) {
+    mentioned.add(literal[1]);
+  }
 }
 
-const en = JSON.parse(readFileSync(EN, 'utf8'));
-const zh = JSON.parse(readFileSync(ZH, 'utf8'));
+const enRaw = readFileSync(EN, 'utf8');
+const zhRaw = readFileSync(ZH, 'utf8');
+const en = JSON.parse(enRaw);
+const zh = JSON.parse(zhRaw);
 
 let problems = 0;
+
+/**
+ * Keys written twice in one file.
+ *
+ * JSON.parse keeps the last one and says nothing, so this counts the keys in
+ * the raw text instead and compares. Every key in these two files is at the top
+ * level and on its own line, which is what makes a line anchored match honest:
+ * a colon inside a value cannot look like a key, and neither can a brace.
+ */
+function duplicateKeys(raw) {
+  const seen = new Set();
+  const twice = new Set();
+  for (const m of raw.matchAll(/^\s*"((?:[^"\\]|\\.)*)"\s*:/gm)) {
+    if (seen.has(m[1])) twice.add(m[1]);
+    seen.add(m[1]);
+  }
+  return [...twice].sort();
+}
+
+for (const [name, raw] of [['en.json', enRaw], ['zh.json', zhRaw]]) {
+  const twice = duplicateKeys(raw);
+  if (twice.length > 0) {
+    problems += twice.length;
+    console.log(
+      `\nWritten twice in ${name}, so the second silently wins (${twice.length}):`
+    );
+    for (const key of twice) console.log(`  ${key}`);
+  }
+}
 
 const missing = [...used.keys()].filter((k) => !(k in en)).sort();
 if (missing.length > 0) {
@@ -195,6 +260,7 @@ if (onlyZh.length > 0) {
 const unused = Object.keys(en)
   .filter((k) => k !== '_comment')
   .filter((k) => !used.has(k))
+  .filter((k) => !mentioned.has(k))
   .filter((k) => !DYNAMIC_FAMILIES.some((prefix) => k.startsWith(prefix)))
   .sort();
 
