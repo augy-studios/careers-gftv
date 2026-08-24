@@ -61,14 +61,13 @@
 //   leave the admin roster reading a dash forever and nobody would notice,
 //   because a dash is what it correctly shows for a column nothing has written.
 //
-//   **Nothing here writes an audit row**, deliberately, and the reasoning is
-//   phase 7's line carried one step further: what is logged is what changes
-//   somebody else's world, and not somebody editing wording, "which is a row
-//   with an updated_at on it already". Since 034 it is a row with an updated_at
-//   *and* an updated_by, which is a stronger record than an audit row would be:
-//   the audit log would say a helper saved something, and the row itself says
-//   which row and who last wrote it. Granting the role is the thing that is
-//   logged, in both directions, and that is in translation-helpers.js.
+//   **This file writes no audit row and the route above it writes one on every
+//   save.** The split is deliberate rather than an omission here: what to log is
+//   a decision about an action, and this file is the shape of a row. The
+//   reasoning for logging a helper's edit at all, when 8.11's queue logs nothing
+//   an admin edits, is on AUDIT.TRANSLATION_EDITED in audit.js — the short of it
+//   is that an admin leaves a staff session behind them and a helper leaves an
+//   applicant cookie and one column.
 
 import { supabase, T } from './supabase.js';
 import { FIELD, validateText } from './validate.js';

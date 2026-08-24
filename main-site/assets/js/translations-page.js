@@ -972,6 +972,16 @@ async function save() {
     return;
   }
 
+  // A save that changed nothing is answered without a write, so the row is not
+  // touched and no audit line is written. Said rather than swallowed: pressing
+  // Save and seeing "saved" for a form nobody edited teaches somebody that the
+  // message means nothing.
+  if (result.data?.saved === false) {
+    dirty = false;
+    accountMessage('ok', t('helper.nothingChanged'));
+    return;
+  }
+
   // Redrawn from what is stored rather than from what the browser hoped it
   // wrote, which is what shows a helper that the row now exists and that the
   // ready flag they cannot touch is still where it was.

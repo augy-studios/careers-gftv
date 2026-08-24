@@ -1544,5 +1544,7 @@
   "helper.keepEditing": "Keep writing",
   "helper.saved": "Saved.",
   "helper.savedNew": "Saved. This language now has its own version of this.",
-  "helper.switchedOff": "Helping with translations has been switched off for the moment. Your role is unchanged and the area comes back when it does."
+  "helper.switchedOff": "Helping with translations has been switched off for the moment. Your role is unchanged and the area comes back when it does.",
+  "helper.nothingChanged": "Nothing was changed, so nothing was saved.",
+  "audit.translation_edited": "Edited a translation"
 }

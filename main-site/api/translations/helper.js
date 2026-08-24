@@ -38,18 +38,32 @@
 // scoped to their language and without the admin controls". A second
 // implementation would be a second place for the ordering to drift.
 //
-// **Nothing here writes an audit row.** Phase 7's line was that what is logged is
-// what changes somebody else's world rather than somebody editing wording, "which
-// is a row with an updated_at on it already". Since migration 034 it is a row
-// with an updated_at and an updated_by, which is a better record than a log line:
-// it says which row and who last wrote it. Granting the role is what gets logged,
-// in both directions, and that is 8.11's half.
+// **Every save writes an audit row, and this is the one editing action in the
+// build that does.** Phase 7's line was that what is logged is what changes
+// somebody else's world rather than somebody editing wording, "which is a row
+// with an updated_at on it already", and 8.11's queue still audits nothing on
+// that basis. A helper is the case the line was not written about: an admin
+// editing wording leaves a staff session and a gftvhello identity behind it,
+// while a helper leaves an applicant cookie and migration 034's updated_by,
+// which says who touched a row last and nothing about what they wrote before.
+// The role is standing write access to a whole language granted to somebody
+// deliberately outside the building, and two of the three things it covers go
+// live on save, per deviation 51. The full reasoning is on
+// AUDIT.TRANSLATION_EDITED in api/_lib/audit.js.
+//
+// **The wording itself is never in the metadata.** The row holds the new text,
+// so the log would be the only copy of the old one, and an audit table that
+// accumulates every version of every translation is a content store wearing the
+// wrong name. What is recorded is who, when, which row, which language, and
+// which fields.
 
 import { ok, fail, ERR, methodNotAllowed, failInternal, readJson } from '../_lib/respond.js';
 import { requireApplicant } from '../_lib/session.js';
 import { unavailable } from '../_lib/maintenance.js';
 import { LIMITS, limited, recordFailures, subjectForUser } from '../_lib/rate-limit.js';
 import { FIELD } from '../_lib/validate.js';
+import { AUDIT, auditApplicant } from '../_lib/audit.js';
+import { T } from '../_lib/supabase.js';
 import { searchParams } from '../_lib/jobs.js';
 import { isUuid } from '../_lib/job-detail.js';
 // The cached read of gftvjobs_locales and the two query string helpers, which
@@ -294,6 +308,20 @@ async function write(req, res, session) {
     return fail(res, ERR.BAD_REQUEST, 'That could not be saved.', { details });
   }
 
+  // What this save actually changes, worked out before it happens.
+  //
+  // Two things need it. The audit row names the fields rather than recording
+  // that a form was submitted, and a save that changes nothing is answered
+  // without writing at all: the touch trigger on all three translation tables
+  // bumps updated_at even for an identical update, which would move a row up the
+  // audit list and write a log line saying nothing happened.
+  const before = existing.target;
+  const changed = changedFields(before, values, targetType);
+
+  if (before.has_row && changed.length === 0) {
+    return ok(res, { target: before, created: false, saved: false });
+  }
+
   const saved = await saveTranslation({
     targetType,
     targetId,
@@ -310,6 +338,31 @@ async function write(req, res, session) {
 
   await recordFailures('translate', subjects, LIMITS.translate);
 
+  // **The one editing action in this build that is logged**, decided 24 August
+  // 2026, and the reasoning is on AUDIT.TRANSLATION_EDITED in audit.js. The
+  // short version: an admin editing wording leaves a staff session and a
+  // gftvhello identity behind it, and a helper leaves an applicant cookie and a
+  // column saying who touched the row last. The role is standing write access to
+  // a whole language handed to somebody outside the building, and two of the
+  // three things it covers go live on save.
+  //
+  // The wording itself is not in the metadata, and deliberately: the row holds
+  // the new text and the log would be the only copy of the old, which is a
+  // second store of every version of every translation growing inside a table
+  // meant to answer "who did what".
+  await auditApplicant(
+    session.user,
+    AUDIT.TRANSLATION_EDITED,
+    {
+      target_type: targetType,
+      locale: granted.code,
+      label: before.label,
+      fields: changed,
+      created: saved.created,
+    },
+    { targetTable: TRANSLATION_TABLE_FOR[targetType], targetId }
+  );
+
   // Read back rather than echoed. The page redraws against what is stored, which
   // is what shows a helper that their edit created the row, and what shows the
   // ready flag they cannot change still sitting where it was.
@@ -322,5 +375,42 @@ async function write(req, res, session) {
   return ok(res, {
     target: updated.ok ? updated.target : null,
     created: saved.created,
+    saved: true,
   });
+}
+
+/** Which table the audit row points at, per target type. */
+const TRANSLATION_TABLE_FOR = Object.freeze({
+  job: T.jobTranslations,
+  department: T.departmentTranslations,
+  tag: T.tagTranslations,
+});
+
+/**
+ * The fields this save would actually change.
+ *
+ * Compared against what is stored rather than against what the page thought was
+ * stored, so a stale tab that resends a field somebody else has since rewritten
+ * is recorded as changing it, which it does.
+ *
+ * Sections are compared whole. They are an ordered array and the only thing that
+ * matters about a change to one is that it happened: naming which of them moved
+ * would need a diff, and a log line reading "sections 2 and 3" tells nobody
+ * anything they could act on.
+ */
+function changedFields(before, values, targetType) {
+  const names = [];
+
+  for (const [field, value] of Object.entries(values)) {
+    if (field === 'sections') continue;
+    if ((value ?? null) !== (before.current?.[field] ?? null)) names.push(field);
+  }
+
+  if (targetType === 'job' && 'sections' in values) {
+    const was = JSON.stringify(before.sections ?? []);
+    const now = JSON.stringify(values.sections ?? []);
+    if (was !== now) names.push('sections');
+  }
+
+  return names;
 }

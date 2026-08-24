@@ -1544,5 +1544,7 @@
   "helper.keepEditing": "继续撰写",
   "helper.saved": "已保存。",
   "helper.savedNew": "已保存。这个语言现在有了自己的版本。",
-  "helper.switchedOff": "协助翻译的功能暂时关闭。您的身份没有变动，功能恢复后即可继续使用。"
+  "helper.switchedOff": "协助翻译的功能暂时关闭。您的身份没有变动，功能恢复后即可继续使用。",
+  "helper.nothingChanged": "没有任何改动，因此没有保存。",
+  "audit.translation_edited": "修改了译文"
 }

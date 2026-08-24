@@ -129,6 +129,30 @@ export const AUDIT = Object.freeze({
   // held or why it was taken away.
   TRANSLATION_HELPER_GRANTED: 'translation_helper_granted',
   TRANSLATION_HELPER_REVOKED: 'translation_helper_revoked',
+  // 7i's helper area, and **the one editing action in this build that is
+  // logged**, which is worth stating plainly because the line above says the
+  // opposite about the admin queue. Three things make a helper's save different
+  // from an admin's, and the first is the one that decides it:
+  //
+  //   **A helper is not staff, so there is no second record anywhere.** An admin
+  //   editing wording leaves a staff session, a gftvhello identity, and a
+  //   dashboard they reached through the access overlay. A helper leaves an
+  //   applicant cookie and migration 034's updated_by, which says who last wrote
+  //   a row and nothing about what they wrote before or how often.
+  //
+  //   **The role is standing write access to an entire language**, across every
+  //   posting, team, and tag, granted to somebody deliberately outside the
+  //   building. Granting it is logged for exactly that reason; leaving what it
+  //   is then used for unlogged would record the decision and not the effect.
+  //
+  //   **Two of the three things they edit go live on save**, per deviation 51:
+  //   014 gives is_ready to postings alone, so a team or tag name reaches every
+  //   job card the moment it is written.
+  //
+  // One action rather than one per target type, with the type, the language, and
+  // the fields touched in the metadata. Same call SETTING_CHANGED made: a
+  // constant per kind of row is a category list that grows with the schema.
+  TRANSLATION_EDITED: 'translation_edited',
 });
 
 /**
