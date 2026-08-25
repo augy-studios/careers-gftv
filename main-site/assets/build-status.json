@@ -1,7 +1,7 @@
 {
   "$comment": "Single source of truth for the phased rollout, per section 0c of careers-gftv-spec.md. The site, the Telegram bot, and the docs site all read this one file, so the three stay in step. Flipping a phase to shipped is the only edit needed when it goes live. No copy anywhere hardcodes a phase number. Phase names and descriptions carry a translated variant per non default language, because three separate consumers render them and they are content, not interface strings; everything else the site says comes from assets/i18n.",
   "schema_version": 3,
-  "updated": "2026-08-23",
+  "updated": "2026-08-26",
   "locales": [
     "en",
     "zh"
@@ -91,7 +91,7 @@
       "number": 9,
       "name": "Automation",
       "name_zh": "自动化",
-      "status": "planned",
+      "status": "building",
       "description": "Daily maintenance, automatic closing of postings past their date, and confirmed submissions coming back from the application forms.",
       "description_zh": "每日维护、自动关闭已过截止日期的职位信息，以及从申请表单回传的提交确认。",
       "shipped_note": null,
