@@ -68,6 +68,19 @@ const STAFF = {
 };
 
 /**
+ * A second staff account that is *not* an admin, for the four refusals.
+ *
+ * Optional, and the run says which checks it is skipping without one. 8.8, 8.9,
+ * 8.11's queue and the helpers tab all turn on the difference between an admin
+ * and a job poster, and `requireAdmin` re-reads the session on every request, so
+ * there is no way to fake one: the only thing that proves those refusals is a
+ * real account with the poster role.
+ */
+const POSTER = process.env.POSTER_USER
+  ? { username: process.env.POSTER_USER, password: process.env.POSTER_PASS ?? '' }
+  : null;
+
+/**
  * The password for the applicants this run registers for itself.
  *
  * Not a credential anybody holds: the accounts do not exist until the run makes
@@ -257,11 +270,11 @@ async function waitForPath(page, predicate, timeout = 15000) {
  * Sign in
  * ---------------------------------------------------------------------- */
 
-async function signInStaff(page) {
+async function signInStaff(page, who = STAFF) {
   await page.goto(`${BASE}/admin/login`, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#staffLoginForm', { timeout: 15000 });
-  await page.fill('#username', STAFF.username);
-  await page.fill('#password', STAFF.password);
+  await page.fill('#username', who.username);
+  await page.fill('#password', who.password);
   await page.click('#staffLoginForm button[type="submit"]');
   return waitForPath(page, (url) => url.pathname === '/admin');
 }
@@ -287,6 +300,15 @@ async function registerApplicant(page, who) {
   // dialog's done button only enables once the tick box is ticked. That is the
   // half api/auth/applicant/register does not do by itself.
   await page.waitForSelector('[data-confirm]', { timeout: 30000 });
+
+  // Kept, because this is the only moment they exist in readable form: the
+  // dialog says so itself, and item 49's reset path has no other way in. They
+  // are a throwaway account's codes on a throwaway account, and they never
+  // leave this process.
+  who.codes = await page.evaluate(() =>
+    [...document.querySelectorAll('.code-list li')].map((item) => item.textContent.trim())
+  );
+
   await page.check('[data-confirm]');
   await page.click('[data-done]');
   return waitForPath(page, (url) => url.pathname.startsWith('/account'), 30000);
@@ -759,6 +781,37 @@ define('setup', 'Setup, items 1 to 3', async (state) => {
   const who = await get(state.applicantPage, '/api/auth/applicant/session');
   state.applicantId = who.data?.applicant?.id ?? who.data?.user?.id ?? null;
   check('2. the applicant session resolves', Boolean(state.applicantId), short(who.text, 160));
+
+  // The job poster, in a context of its own so both staff sessions are live at
+  // once and a refusal can be checked against the same row an admin just read.
+  if (POSTER) {
+    const context = await state.browser.newContext({ baseURL: BASE, locale: 'en-GB' });
+    const page = await context.newPage();
+    page.on('pageerror', (error) =>
+      state.pageErrors.push({ where: page.url(), error: String(error) })
+    );
+
+    const landed = await signInStaff(page, POSTER);
+    const who = await get(page, '/api/admin/me');
+    state.posterPage = landed ? page : null;
+    state.posterIsAdmin = who.data?.staff?.is_admin === true;
+
+    check(
+      '1. the job poster signs in and is not an admin',
+      landed !== null && who.ok && state.posterIsAdmin === false,
+      `at ${page.url()}, is_admin=${who.data?.staff?.is_admin}, role=${who.data?.staff?.role}`
+    );
+
+    if (state.posterIsAdmin) {
+      // Said plainly rather than quietly skipped: an admin in the poster slot
+      // would turn four refusal checks into four passes that prove nothing.
+      bad(
+        'POSTER_USER is an admin, so the four refusal checks cannot run',
+        `${POSTER.username} has is_admin true. They need the poster role, not portal access.`
+      );
+      state.posterPage = null;
+    }
+  }
 
   const job = await createPublishedJob(state.staffPage, { label: 'main' });
   state.jobId = job.ok ? (job.data.job?.id ?? created.jobs.at(-1)) : null;
@@ -1492,13 +1545,54 @@ define('admins', 'Admin users, 8.8, items 38 to 45', async (state) => {
     return;
   }
 
-  skip(
-    '38. a job poster gets 403',
-    'this run is signed in as an admin. Re-run it with a job poster account to check the refusal, ' +
-      'which is the only way round: requireAdmin re-reads the session and cannot be faked.'
-  );
-
   const list = await get(staff, '/api/admin/admins');
+
+  // Items 38 and 39, which need the second staff account: requireAdmin re-reads
+  // the session on every request, so nothing an admin session can send proves
+  // what a job poster is refused.
+  if (state.posterPage) {
+    const refused = await get(state.posterPage, '/api/admin/admins');
+    check(
+      '38. a job poster gets 403 on the GET, not an empty list',
+      refused.status === 403,
+      `${refused.status} ${short(refused.text, 140)}. An empty list would read as "nobody has access".`
+    );
+
+    const refusedWrite = await post(state.posterPage, '/api/admin/admins', {
+      action: 'set',
+      staff_id: list.data?.self_id,
+      state: 'denied',
+      reason: 'This must never be written.',
+    });
+    check(
+      '38. and on the POST, so the whole endpoint is admins only end to end',
+      refusedWrite.status === 403,
+      `${refusedWrite.status} ${short(refusedWrite.text, 140)}`
+    );
+
+    // Item 39 is about the page rather than the route: deviation 34 says an
+    // admin only control is absent, never disabled, because the disabled state
+    // already means "coming in a later phase".
+    await state.posterPage.goto(`${BASE}/admin`, { waitUntil: 'domcontentloaded' });
+    await state.posterPage.waitForSelector('#adminNav a', { timeout: 20000 }).catch(() => {});
+    const posterNav = await state.posterPage.evaluate(() =>
+      [...document.querySelectorAll('#adminNav a')].map((link) => link.getAttribute('href'))
+    );
+    check(
+      '39. the sidebar item is absent for a job poster, not disabled',
+      posterNav.length > 0 &&
+        !posterNav.includes('/admin/admins') &&
+        !posterNav.includes('/admin/applicants'),
+      `poster sidebar: ${posterNav.join(' ') || 'no links read'}`
+    );
+  } else {
+    skip(
+      '38, 39. a job poster is refused and sees no sidebar item',
+      'no POSTER_USER. requireAdmin re-reads the session, so a real account with the poster ' +
+        'role is the only thing that proves this.'
+    );
+  }
+
   check(
     '39. the list answers, with the states and who is asking',
     list.ok && Array.isArray(list.data?.accounts) && Array.isArray(list.data?.states),
@@ -1626,7 +1720,23 @@ define('applicants', 'Applicant users, 8.9, items 46 to 54', async (state) => {
     return;
   }
 
-  skip('46. a job poster gets 403', 'this run is signed in as an admin');
+  if (state.posterPage) {
+    const refusedList = await get(state.posterPage, '/api/admin/applicants');
+    const refusedOne = await get(state.posterPage, `/api/admin/applicants?id=${state.applicantId}`);
+    const refusedAction = await post(state.posterPage, '/api/admin/applicants', {
+      action: 'deactivate',
+      applicant_id: state.applicantId,
+      reason: 'This must never happen.',
+    });
+    check(
+      '46. a job poster gets 403 on the list, on one account, and on every action',
+      refusedList.status === 403 && refusedOne.status === 403 && refusedAction.status === 403,
+      `list=${refusedList.status} one=${refusedOne.status} action=${refusedAction.status}. ` +
+        '8.9: a job poster works with applicants through 8.3 and has no business in the account.'
+    );
+  } else {
+    skip('46. a job poster gets 403', 'no POSTER_USER');
+  }
 
   const one = await get(staff, `/api/admin/applicants?id=${state.applicantId}`);
   check(
@@ -1877,11 +1987,39 @@ define('queue', 'The translations queue, 8.11, items 55 to 64', async (state) =>
     `open_translation_reports=${JSON.stringify(openCount)}`
   );
 
-  skip(
-    '57. the queue is not admins only',
-    'this run is signed in as an admin. A job poster session is the only way to check it, and ' +
-      'the refusal it would prove is the absence of one.'
-  );
+  // Item 57. The one place in phase 8 where the check is that a job poster is
+  // *let in*: 8.11 does not say admins only, and somebody whose posting reads
+  // wrongly in Chinese is exactly who should fix the sentence.
+  if (state.posterPage) {
+    const posterQueue = await get(state.posterPage, '/api/admin/translations');
+    check(
+      '57. the queue is not admins only: a job poster can read it',
+      posterQueue.ok && Array.isArray(posterQueue.data?.reports),
+      `${posterQueue.status} ${short(posterQueue.text, 140)}`
+    );
+
+    const posterResolve = await post(state.posterPage, '/api/admin/translations', {
+      action: 'resolve',
+      report_id: reportId,
+      status: 'accepted',
+      note: `Worked by a job poster during the phase 8 run ${STAMP}.`,
+    });
+    check(
+      '57. and can work it, not merely look at it',
+      posterResolve.ok,
+      `${posterResolve.status} ${short(posterResolve.text, 140)}`
+    );
+
+    // Put back, so the checks below start from the state they expect.
+    await post(staff, '/api/admin/translations', {
+      action: 'resolve',
+      report_id: reportId,
+      status: 'open',
+      note: '',
+    });
+  } else {
+    skip('57. the queue is not admins only', 'no POSTER_USER');
+  }
 
   // Item 58. The queue writes nothing to the log, and the reporter's own panel
   // is where such a row would show up.
@@ -2300,11 +2438,58 @@ define('helpers', 'Translation helpers, items 76 to 82', async (state) => {
     return;
   }
 
-  skip(
-    '76. the tab is removed from the document for a job poster',
-    'this run is signed in as an admin. The server side half of the same rule is the one a ' +
-      'script can prove, and it needs a job poster session.'
-  );
+  // Item 76, all three halves: the view refuses, both actions refuse, and the
+  // tab is absent from the document rather than disabled.
+  if (state.posterPage) {
+    const posterView = await get(state.posterPage, '/api/admin/translations?view=helpers');
+    const posterGrant = await post(state.posterPage, '/api/admin/translations', {
+      action: 'grant_helper',
+      user_id: state.applicantId,
+      locale,
+      reason: 'This must never be written.',
+    });
+    const posterRevoke = await post(state.posterPage, '/api/admin/translations', {
+      action: 'revoke_helper',
+      user_id: state.applicantId,
+      locale,
+      reason: 'Nor this.',
+    });
+    check(
+      '76. the helpers view and both actions refuse a job poster server side',
+      posterView.status === 403 && posterGrant.status === 403 && posterRevoke.status === 403,
+      `view=${posterView.status} grant=${posterGrant.status} revoke=${posterRevoke.status}`
+    );
+
+    await state.posterPage.goto(`${BASE}/admin/translations?tab=helpers`, {
+      waitUntil: 'domcontentloaded',
+    });
+    await state.posterPage
+      .waitForSelector('#translationTabs [data-tab]', { timeout: 20000 })
+      .catch(() => {});
+
+    const posterTabs = await state.posterPage.evaluate(() => ({
+      tabs: [...document.querySelectorAll('#translationTabs [data-tab]')].map((tab) =>
+        tab.getAttribute('data-tab')
+      ),
+      selected:
+        document.querySelector('#translationTabs [aria-selected="true"]')?.getAttribute('data-tab') ??
+        null,
+      panel: Boolean(document.querySelector('#helpersPanel')),
+    }));
+
+    check(
+      '76. the tab is removed from the document, not disabled, per deviation 34',
+      posterTabs.tabs.length > 0 && !posterTabs.tabs.includes('helpers') && !posterTabs.panel,
+      `tabs=${posterTabs.tabs.join(',')} helpersPanel=${posterTabs.panel}`
+    );
+    check(
+      '76. and ?tab=helpers lands on the queue rather than nothing',
+      posterTabs.selected === 'queue',
+      `selected=${posterTabs.selected}`
+    );
+  } else {
+    skip('76. the helpers tab and both actions refuse a job poster', 'no POSTER_USER');
+  }
 
   const noReason = await post(staff, '/api/admin/translations', {
     action: 'grant_helper',
