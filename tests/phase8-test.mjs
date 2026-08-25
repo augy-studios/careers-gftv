@@ -3375,9 +3375,14 @@ define('annotate', 'The annotation layer, items 91 to 95', async (state) => {
         page: document.documentElement.lang ?? null,
       }));
 
+      // Starts with, not equals. i18n.js publishes a full BCP-47 tag on the
+      // document — zh becomes zh-Hans-SG — because that is what a browser, a
+      // screen reader, and a search engine want, while the locale code is what
+      // the database and the queue use. Comparing the two directly asked the
+      // page to be less correct than it is.
       check(
         '93. the interface is in the helper\'s language',
-        shown.page === locale,
+        typeof shown.page === 'string' && shown.page.startsWith(locale),
         `<html lang> is ${shown.page}, asked for ${locale}`
       );
       check(
