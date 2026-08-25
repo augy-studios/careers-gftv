@@ -163,6 +163,7 @@ export async function mountAdminPage(options) {
   renderSidebar(options.current);
   renderTopbar();
   renderMaintenanceBanner();
+  wireSidebarDrawer();
 
   document.querySelector('#adminLoading')?.remove();
   const page = document.querySelector('#adminPage');
@@ -199,6 +200,8 @@ export function adminLocales() {
 function renderSidebar(current) {
   const holder = document.querySelector('#adminNav');
   if (!holder) return;
+
+  renderSidebarHead(holder.closest('.admin-sidebar'));
 
   const counts = context?.counts ?? {};
 
@@ -251,6 +254,192 @@ function renderSidebar(current) {
   applyFeatureGating(buildStatus, holder);
 }
 
+/**
+ * The head of the sidebar when it is a drawer, below 900px.
+ *
+ * Drawn at every width and hidden by the stylesheet above the breakpoint, so
+ * nothing here has to know which layout is on screen. It is rebuilt with the
+ * rest of the sidebar on a locale change, which is why the label and the
+ * button's name go through t() at draw time rather than being written into the
+ * page once.
+ *
+ * The button matters more than the label: the drawer used to open in flow and
+ * push the dashboard down, so the toggle that opened it scrolled away with the
+ * page and closing it meant hunting for the button again. A way out at the top
+ * of the panel is the fix that survives however somebody got here.
+ */
+function renderSidebarHead(aside) {
+  if (!aside) return;
+
+  aside.querySelector('.admin-sidebar-head')?.remove();
+
+  const head = document.createElement('div');
+  head.className = 'admin-sidebar-head';
+  head.innerHTML =
+    `<span class="modal-section-label">${escapeHtml(t('admin.menuToggle'))}</span>` +
+    '<button type="button" class="icon-btn small" data-admin-menu-close ' +
+    `aria-label="${escapeHtml(t('common.closeMenu'))}">` +
+    '<span data-icon="close" data-icon-size="18"></span>' +
+    '</button>';
+
+  aside.prepend(head);
+  hydrateIcons(head);
+}
+
+/* -------------------------------------------------------------------------
+ * The sidebar as a drawer, below 900px
+ *
+ * The public drawer in shell.js is the same shape and the two are deliberately
+ * not shared: that one lives in the header's stacking context and closes at
+ * 1024px, this one is a child of the page and closes at 900px, and the only
+ * code they would have in common is four attribute writes.
+ *
+ * They do agree on the one thing that is visible: an admin page carries both
+ * toggles, so they come in from opposite edges, each from the side its own
+ * button is on. See the notes on .site-nav and .admin-sidebar in app.css.
+ * ---------------------------------------------------------------------- */
+
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+const drawerWidth = window.matchMedia('(max-width: 900px)');
+
+let navBackdrop = null;
+let navLastFocus = null;
+
+const adminLayout = () => document.querySelector('.admin-layout');
+const adminSidebar = () => document.querySelector('.admin-sidebar');
+const adminMenuToggle = () => document.querySelector('[data-admin-menu]');
+
+/** Whether the drawer is open. False at every width where there is no drawer. */
+function isNavOpen() {
+  return adminLayout()?.classList.contains('nav-open') === true;
+}
+
+/**
+ * Off canvas and closed still means out of reach.
+ *
+ * The sidebar used to be display: none when closed, so nothing in it could be
+ * tabbed to or read out. A drawer that is merely translated off the edge is
+ * still in the page, and without this a phone reader would tab from the top bar
+ * into twelve invisible links.
+ */
+function syncNavReach() {
+  const sidebar = adminSidebar();
+  if (!sidebar) return;
+
+  const out = drawerWidth.matches && !isNavOpen();
+  sidebar.inert = out;
+  sidebar.setAttribute('aria-hidden', out ? 'true' : 'false');
+}
+
+function openNav() {
+  if (!drawerWidth.matches) return;
+
+  const layout = adminLayout();
+  const sidebar = adminSidebar();
+  if (!layout || !sidebar) return;
+
+  navLastFocus = document.activeElement;
+  layout.classList.add('nav-open');
+  adminMenuToggle()?.setAttribute('aria-expanded', 'true');
+  if (navBackdrop) navBackdrop.hidden = false;
+  document.body.setAttribute('data-scroll-locked', 'true');
+  syncNavReach();
+  sidebar.querySelector(FOCUSABLE)?.focus();
+}
+
+function closeNav() {
+  adminLayout()?.classList.remove('nav-open');
+  adminMenuToggle()?.setAttribute('aria-expanded', 'false');
+  if (navBackdrop) navBackdrop.hidden = true;
+  document.body.setAttribute('data-scroll-locked', 'false');
+  // Before the focus is put back, so the browser is never asked to leave focus
+  // inside something that has just been made inert.
+  syncNavReach();
+  if (navLastFocus instanceof HTMLElement) navLastFocus.focus();
+  navLastFocus = null;
+}
+
+/** Called from the top bar's button, which is redrawn on a locale change. */
+function toggleNav() {
+  if (isNavOpen()) closeNav();
+  else openNav();
+}
+
+let drawerWired = false;
+
+function wireSidebarDrawer() {
+  if (drawerWired) return;
+  drawerWired = true;
+
+  // On the body and not inside .admin-layout: the layout is a grid, and the
+  // backdrop belongs to the viewport rather than to a column of it. At the root
+  // it also outranks the sticky header at 50, so the header bar dims with the
+  // page. See .admin-nav-backdrop in app.css.
+  navBackdrop = document.createElement('div');
+  navBackdrop.className = 'admin-nav-backdrop';
+  navBackdrop.hidden = true;
+  navBackdrop.setAttribute('data-admin-menu-close', '');
+  document.body.append(navBackdrop);
+
+  syncNavReach();
+
+  document.addEventListener('click', (event) => {
+    if (event.target.closest('[data-admin-menu-close]')) closeNav();
+    // Going somewhere closes the drawer, per section 3. The href is a real
+    // navigation, so this only matters for the moment before it lands.
+    else if (isNavOpen() && event.target.closest('.admin-sidebar a')) closeNav();
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (!isNavOpen()) return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeNav();
+    } else if (event.key === 'Tab') {
+      trapFocus(adminSidebar(), event);
+    }
+  });
+
+  // Widening past the breakpoint must not leave the page scroll locked behind a
+  // panel that is now an ordinary column. The same failure shell.js guards
+  // against, and the same fix.
+  const sync = () => {
+    if (!drawerWidth.matches) {
+      adminLayout()?.classList.remove('nav-open');
+      adminMenuToggle()?.setAttribute('aria-expanded', 'false');
+      if (navBackdrop) navBackdrop.hidden = true;
+      document.body.setAttribute('data-scroll-locked', 'false');
+    }
+    syncNavReach();
+  };
+
+  if (typeof drawerWidth.addEventListener === 'function') {
+    drawerWidth.addEventListener('change', sync);
+  }
+}
+
+function trapFocus(panel, event) {
+  if (!panel) return;
+
+  const items = [...panel.querySelectorAll(FOCUSABLE)].filter(
+    (el) => el.offsetParent !== null || el === document.activeElement
+  );
+  if (items.length === 0) return;
+
+  const first = items[0];
+  const last = items[items.length - 1];
+
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
 /* -------------------------------------------------------------------------
  * The top bar
  * ---------------------------------------------------------------------- */
@@ -299,11 +488,14 @@ function renderTopbar() {
     window.location.href = '/admin/login';
   });
 
-  holder.querySelector('[data-admin-menu]')?.addEventListener('click', (event) => {
-    const layout = document.querySelector('.admin-layout');
-    const open = layout?.classList.toggle('nav-open');
-    event.currentTarget.setAttribute('aria-expanded', String(Boolean(open)));
-  });
+  // The drawer itself is wired once, in wireSidebarDrawer. This button is
+  // rebuilt on every locale change, so it only ever asks for the toggle, and it
+  // is told what the drawer is doing rather than assuming it is shut: the bar
+  // is redrawn while somebody is reading it, and switching language with the
+  // drawer open must not leave the button saying it is closed.
+  const menu = holder.querySelector('[data-admin-menu]');
+  menu?.setAttribute('aria-expanded', String(isNavOpen()));
+  menu?.addEventListener('click', toggleNav);
 }
 
 /* -------------------------------------------------------------------------

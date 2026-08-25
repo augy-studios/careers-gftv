@@ -187,10 +187,16 @@ body {
    and the header bar dim while the drawer itself stays at full contrast.
    Do not move either of them onto the body: a backdrop outside the header's
    stacking context paints over the drawer no matter what z-index it carries,
-   since the header itself is only at 50. */
+   since the header itself is only at 50.
+
+   It comes in from the **right**, because that is the edge its button is on:
+   the brand takes the left with margin-right: auto and the menu, language, and
+   theme buttons sit against the right rail. The dashboard's own sidebar comes
+   in from the left for the same reason, and the two never fight over an edge
+   on an admin page, which carries both. */
 .site-nav {
   position: fixed;
-  inset: 0 auto 0 0;
+  inset: 0 0 0 auto;
   z-index: 90;
   width: min(20rem, 86vw);
   display: flex;
@@ -200,8 +206,8 @@ body {
   padding-top: max(1rem, env(safe-area-inset-top));
   padding-bottom: max(1rem, env(safe-area-inset-bottom));
   background: var(--bg-alt);
-  border-right: 1px solid var(--border);
-  transform: translateX(-100%);
+  border-left: 1px solid var(--border);
+  transform: translateX(100%);
   transition: transform var(--transition) var(--ease);
   overflow-y: auto;
 }
@@ -298,7 +304,7 @@ body {
     gap: 0.25rem;
     padding: 0;
     background: none;
-    border-right: 0;
+    border-left: 0;
     transform: none;
     overflow: visible;
   }
@@ -3203,6 +3209,32 @@ input[type='search']::-webkit-search-cancel-button {
   display: none;
 }
 
+/* The drawer's own head and its backdrop. Both are built by admin-shell.js at
+   every width and both are off until the sidebar is a drawer, so the stylesheet
+   is the only thing that decides which layout is on screen: nothing in the
+   script asks how wide the window is in order to draw the page. The head keeps
+   its layout here, out of the media query, because a rule that is only ever
+   read at one width is still easier to find beside the thing it belongs to. */
+.admin-sidebar-head {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+/* Sits below the sidebar and above the sticky header at 50, so the page and the
+   header bar dim and the drawer itself does not. Both live in the root stacking
+   context, unlike the public drawer's pair inside the header, which is what
+   makes plain z-indexes enough here. */
+.admin-nav-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 85;
+  background: color-mix(in srgb, #000 45%, transparent);
+}
+
 /* Both realms' maintenance banners. The applicant's was added after the phase 7
    verification run, which found that a switched off feature reached /account as
    a tile with a blank count and no reason anywhere on the page. */
@@ -4079,18 +4111,53 @@ input[type='search']::-webkit-search-cancel-button {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  /* The sidebar becomes a drawer, not a permanent column: twelve items above
+     every page is most of a phone screen before the page starts.
+
+     A drawer and not the in-flow disclosure it used to be. Opening it in flow
+     pushed the whole dashboard down the page, so the way out of it — the toggle
+     it was opened from — went with it, and closing the thing meant scrolling
+     back up past twelve items to find the button again. Off canvas, the page
+     stays where it was, and the backdrop, Escape, and the close button in the
+     head are all one action away.
+
+     It comes in from the **left**, the edge the toggle sits on at the head of
+     the top bar, which is also the edge the public drawer has given up: see the
+     note on .site-nav. An admin page carries both, and they must not arrive
+     from the same side. */
   .admin-sidebar {
-    position: static;
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 90;
+    width: min(18rem, 86vw);
+    padding: 1rem;
+    padding-top: max(1rem, env(safe-area-inset-top));
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    background: var(--bg-alt);
+    border-right: 1px solid var(--border);
+    transform: translateX(-100%);
+    transition: transform var(--transition) var(--ease);
+    overflow-y: auto;
   }
 
-  /* The sidebar becomes a disclosure, not a permanent column: twelve
-     items above every page is most of a phone screen before the page starts. */
-  .admin-layout:not(.nav-open) .admin-sidebar {
-    display: none;
+  .admin-layout.nav-open .admin-sidebar {
+    transform: translateX(0);
   }
 
   .admin-menu-toggle {
     display: inline-flex;
+  }
+
+  .admin-sidebar-head {
+    display: flex;
+  }
+
+  .admin-nav-backdrop {
+    display: block;
+  }
+
+  .admin-nav-backdrop[hidden] {
+    display: none;
   }
 }
 
