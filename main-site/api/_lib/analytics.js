@@ -75,7 +75,17 @@ export const FUNNEL_SORTS = Object.freeze([
  *   rangeFrom?: number,
  *   rangeTo?: number,
  * }} options
- * @returns {Promise<{ rows: object[], total: number }>}
+ * **The sort actually used comes back with the rows**, because it is not always
+ * the one that was asked for: an unknown column falls back to `views` rather
+ * than refusing, the same way every enum on the admin routes falls back through
+ * enumParam. The fallback is the convention and is kept; what was missing until
+ * 25 August 2026 is that nothing said it had happened, so a header sending a
+ * column name that had been renamed looked like a column that had stopped
+ * mattering. The audit route already answers this way about its language, and
+ * for the same reason: a page cannot mislabel what it was shown if the payload
+ * says what it is.
+ *
+ * @returns {Promise<{ rows: object[], total: number, sort: string, direction: 'asc'|'desc' }>}
  */
 export async function jobFunnels(options = {}) {
   const sort = FUNNEL_SORTS.includes(options.sort ?? '') ? options.sort : 'views';
@@ -99,7 +109,12 @@ export async function jobFunnels(options = {}) {
   const { data, error, count } = await query;
   if (error) throw error;
 
-  return { rows: (data ?? []).map(funnelRow), total: count ?? 0 };
+  return {
+    rows: (data ?? []).map(funnelRow),
+    total: count ?? 0,
+    sort,
+    direction: ascending ? 'asc' : 'desc',
+  };
 }
 
 /** One posting's funnel, for the detail view. */

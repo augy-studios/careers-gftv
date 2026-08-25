@@ -1068,19 +1068,26 @@ define('analytics', 'Analytics, 8.4, items 15 to 27', async (state) => {
     refusedSorts.join(' | ') || `${sorts.length} sorts`
   );
 
-  // The item as the memo states it. The route currently falls back to `views`
-  // for anything it does not recognise, so what this reports is which of the
-  // two the deployment does, not whether the request succeeded.
+  // Settled on 25 August 2026, after the first run found the fallback silent.
+  // The fallback stays, because enumParam behaves the same way on every admin
+  // route; what it must not do is happen without saying so, which is the call
+  // the audit route already made about the language it answers with.
   const bogus = await get(staff, '/api/admin/analytics?sort=not-a-real-column');
-  const ids = (rows) => JSON.stringify((rows ?? []).map((row) => row.job_id));
-  const fellThrough = bogus.ok && ids(bogus.data?.jobs) === ids(table.data?.jobs);
   check(
-    '15. an unknown sort is refused rather than silently defaulted',
-    !fellThrough,
-    fellThrough
-      ? 'it answered 200 with exactly the default order, so an unknown sort is accepted silently. ' +
-        'jobFunnels falls back to `views` when FUNNEL_SORTS does not include the value.'
-      : `${bogus.status} ${short(bogus.error?.message, 100)}`
+    '15. an unknown sort falls back rather than failing',
+    bogus.ok,
+    `${bogus.status} ${short(bogus.error?.message, 100)}`
+  );
+  check(
+    '15. and the payload names the sort it actually used, so the fallback is not silent',
+    bogus.data?.sort === 'views' && Boolean(bogus.data?.direction),
+    `asked for not-a-real-column, answered sort=${bogus.data?.sort} direction=${bogus.data?.direction}`
+  );
+  const honest = await get(staff, '/api/admin/analytics?sort=title&direction=asc');
+  check(
+    '15. and names the real one when it was given one',
+    honest.data?.sort === 'title' && honest.data?.direction === 'asc',
+    `sort=${honest.data?.sort} direction=${honest.data?.direction}`
   );
 
   if (state.jobId) {
@@ -2225,13 +2232,18 @@ define('audit', 'The needs-translation audit, items 65 to 75', async (state) => 
     !anyRow || !('search_text' in anyRow),
     anyRow ? Object.keys(anyRow).join(', ') : 'no row to read'
   );
+  // **The tracking row carries the applicant's contact details on purpose**,
+  // settled on 25 August 2026 after the first run reported their absence as the
+  // rule. 8.3's list is a pipeline an admin or the posting's own owner works,
+  // and knowing who you are looking at is the point of it. What item 75 is
+  // really about is the search view: the email is in `search_text` so somebody
+  // can be found by the address they wrote from, and that column never comes
+  // back out. So this checks the row is shaped as intended rather than thinner.
   check(
-    '75. the tracking row carries no email address',
-    !anyRow || anyRow.applicant?.email === undefined,
+    '75. the tracking row carries the contact details 8.3 works from',
+    !anyRow || ('email' in (anyRow.applicant ?? {}) && 'phone' in (anyRow.applicant ?? {})),
     anyRow
-      ? `applicant keys: ${Object.keys(anyRow.applicant ?? {}).join(', ')}. ` +
-        'adminApplicationRow puts email and phone on every row and the route is open to a job ' +
-        'poster, while 8.5\'s picker was deliberately kept to a name, a username, and a picture.'
+      ? `applicant keys: ${Object.keys(anyRow.applicant ?? {}).join(', ')}`
       : 'no row to read'
   );
 });

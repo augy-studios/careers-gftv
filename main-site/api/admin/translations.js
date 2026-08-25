@@ -423,6 +423,20 @@ async function edit(res, report, body, source, done) {
   // would make this a general purpose single field writer that happens to need a
   // report id, which is not what 8.11 asks for and is a wider write surface than
   // the queue needs.
+  // **The target type is tested before the field**, and the order is the whole
+  // point of these six lines. An interface report names a key rather than a
+  // field, so testing the field first sent every one of them out through the
+  // sentence below, which says "Open it in the editor instead" — and there is no
+  // editor for an interface string, which is precisely what 7i refuses to build.
+  // The refusal held either way; the advice was wrong, and `interface_is_code`
+  // in REFUSALS was unreachable for the ordinary case. Found by the run of
+  // 25 August 2026, item 63.
+  if (report.target_type === 'interface') {
+    return fail(res, ERR.BAD_REQUEST, REFUSALS.interface_is_code, {
+      details: { text: FIELD.INVALID, reason: 'interface_is_code' },
+    });
+  }
+
   const field = report.field ?? '';
   if (!field) {
     return fail(res, ERR.BAD_REQUEST, 'That report does not name a part to rewrite.', {

@@ -76,7 +76,7 @@ export default async function handler(req, res) {
 async function table(res, search) {
   const { from, to, page, size } = pageRange(search, { size: 25, max: 100 });
 
-  const { rows, total } = await jobFunnels({
+  const { rows, total, sort, direction } = await jobFunnels({
     status: enumParam(search, 'status', STATUSES),
     sort: search.get('sort'),
     direction: search.get('direction') === 'asc' ? 'asc' : 'desc',
@@ -91,6 +91,13 @@ async function table(res, search) {
     page_size: size,
     pages: Math.max(1, Math.ceil(total / size)),
     sorts: FUNNEL_SORTS,
+    // What it was actually sorted by, which is not always what was asked for: an
+    // unknown column falls back to `views` rather than being refused, per the
+    // convention enumParam sets across every admin route. Named here so a page
+    // cannot draw an arrow on a column the server did not use, which is what
+    // the run of 25 August 2026 found: the fallback was silent.
+    sort,
+    direction,
     // The thresholds behind the flag and the suppression travel with the
     // payload, so the page can explain a flag in the same words the server
     // used to decide it rather than repeating two numbers that might drift.
