@@ -102,6 +102,7 @@ repository whatever it is there for. Keep them in your shell, not in a script.
 |---|---|---|
 | `BASE` | `https://careers.globalfurry.tv` | Which deployment to test. |
 | `STAFF_USER`, `STAFF_PASS` | **required** | The staff account to sign in as. |
+| `POSTER_USER`, `POSTER_PASS` | — | A second staff account with the **job poster** role, not an admin. Phase 8 has nine checks that only exist as refusals — 8.8 and 8.9 are admins only end to end, the helpers tab is admins only, and 8.11's queue deliberately is not — and `requireAdmin` re-reads the session on every request, so nothing an admin session sends can prove any of them. Without it those checks skip and say so. The run refuses to use an account that turns out to be an admin. |
 | `APPLICANT_USER`, `APPLICANT_PASS` | — | Reuse an applicant account instead of registering a fresh one. Useful for a second run, which otherwise leaves another account behind. |
 | `CLEANUP=draft` | — | Take every posting the run made off the board without deleting it. Spends none of the ten an hour deletion budget, which is what a debugging run wants. |
 | `NO_CLEANUP=1` | — | Leave everything exactly as it is. **Postings stay published.** Only for a run you are about to inspect by hand. |

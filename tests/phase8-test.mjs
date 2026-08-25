@@ -1450,11 +1450,92 @@ define('invites', 'Invites and shortlists, 8.5, items 28 to 37', async (state) =
     typeof sent.data?.invited === 'number' && typeof listed.data?.max_recipients === 'number',
     `invited=${sent.data?.invited} max_recipients=${listed.data?.max_recipients}`
   );
-  skip(
-    '30. the composer naming everybody before it goes',
-    'the naming is the page\'s, and the endpoint answers with a count. Open /admin/invites, ' +
-      'tick two people, and read the confirmation.'
-  );
+  // Item 30. 8.5 asks for a confirmation "showing exactly who will be contacted,
+  // since this sends real messages", and everybody by name rather than a count.
+  // That is the page's promise, so it is checked on the page: the composer is
+  // opened, somebody is ticked, and the confirmation is read before anything is
+  // sent. It ends on cancel, so nothing leaves the building.
+  const namingJob = await createPublishedJob(staff, { label: 'naming' });
+  if (namingJob.ok) {
+    const page = staff;
+    try {
+      await page.goto(`${BASE}/admin/invites?job=${namingJob.data.job.id}`, {
+        waitUntil: 'domcontentloaded',
+      });
+      await page.waitForSelector('#addPeople', { timeout: 20000 });
+      await dismissApplyPrompt(page);
+
+      // The page may not have honoured ?job=, so the posting is chosen on the
+      // control that certainly does.
+      await page.selectOption('#jobFilter', namingJob.data.job.id).catch(() => {});
+      await page.waitForTimeout(1200);
+
+      await page.click('#addPeople');
+      await page.waitForSelector('#applicantSearch', { timeout: 20000 });
+      await page.fill('#applicantSearch', APPLICANT.username);
+
+      // Waited for by *name*, not by "a row exists". Opening the composer runs
+      // a search with an empty term, which lists everybody, and the typed search
+      // is debounced behind it — so clicking the first row that appears ticks
+      // whoever happens to be at the top of the alphabet. On 25 August 2026 that
+      // was a real person, and the confirmation named them perfectly correctly.
+      await page.waitForFunction(
+        (username) =>
+          [...document.querySelectorAll('#applicantResults .admin-person')].some((row) =>
+            row.textContent.includes(username)
+          ),
+        APPLICANT.username,
+        { timeout: 20000 }
+      );
+
+      const ticked = await page.evaluate((username) => {
+        const row = [...document.querySelectorAll('#applicantResults .admin-person')].find(
+          (item) => item.textContent.includes(username)
+        );
+        const box = row?.querySelector('input[type="checkbox"]');
+        if (!box || box.disabled) return false;
+        box.click();
+        return true;
+      }, APPLICANT.username);
+
+      check(
+        '30. the run\'s own applicant can be ticked in the composer',
+        ticked,
+        `looking for ${APPLICANT.username} in the results`
+      );
+
+      await page.click('[data-do-invite]');
+
+      await page.waitForSelector('.danger-consequences', { timeout: 20000 });
+      const named = await page.evaluate(() =>
+        [...document.querySelectorAll('.danger-consequences li')].map((item) =>
+          item.textContent.trim()
+        )
+      );
+
+      check(
+        '30. the confirmation names everybody it will reach, before it goes',
+        named.includes(APPLICANT.display_name),
+        `the confirmation listed: ${named.join(' | ') || 'nothing'}`
+      );
+
+      // Cancelled rather than confirmed: what is being checked is what an admin
+      // is shown before deciding, and the send itself is item 29's.
+      await page.click('[data-cancel]');
+      await page.waitForTimeout(500);
+
+      const nothingSent = await get(staff, `/api/admin/invites?job=${namingJob.data.job.id}`);
+      check(
+        '30. and cancelling it sends nothing',
+        (nothingSent.data?.invites ?? []).length === 0,
+        `${(nothingSent.data?.invites ?? []).length} invites exist on a posting nobody confirmed`
+      );
+    } catch (cause) {
+      bad('30. the composer confirmation could not be read', String(cause).slice(0, 220));
+    }
+  } else {
+    skip('30. the composer naming everybody', 'the posting for it could not be published');
+  }
 
   const tasks = await get(applicant, '/api/tasks/mine');
   const inviteTask = (tasks.data?.tasks ?? []).find((task) => task.task_type === 'invite');
@@ -1934,11 +2015,58 @@ define('applicants', 'Applicant users, 8.9, items 46 to 54', async (state) => {
     check('49. change-password is accepted', false, `${changed.status} ${short(changed.text, 200)}`);
   }
 
-  skip(
-    '49. reset-password clears it too',
-    'the other half needs a recovery code, and the register page shows the set once and this run ' +
-      'does not capture it. Both paths clear the flag in the source; only one is proved here.'
-  );
+  // Item 49's other half. Somebody told to set a new password may well arrive
+  // through the recovery code route rather than the ordinary one, which is why
+  // both paths clear the flag, and the register page's code set is the only
+  // thing that opens that route. registerApplicant keeps it for exactly this.
+  const code = (SPARE.codes ?? [])[0] ?? null;
+
+  if (!code) {
+    skip('49. reset-password clears it too', 'no recovery code was captured at registration');
+  } else {
+    // Flagged again first, so the check is about this path clearing it rather
+    // than about it having been cleared a moment ago by change-password.
+    await post(staff, '/api/admin/applicants', {
+      action: 'force_reset',
+      applicant_id: state.spareId,
+      reason: `Phase 8 run ${STAMP}, for the recovery code path.`,
+    });
+
+    const step1 = await post(state.sparePage, '/api/auth/applicant/forgot-password', {
+      identifier: SPARE.username,
+      code,
+    });
+
+    if (!step1.ok || !step1.data?.ticket) {
+      check(
+        '49. the recovery code is accepted',
+        false,
+        `${step1.status} ${short(step1.text, 200)}`
+      );
+    } else {
+      const reset = `Ph8 ${STAMP} reset path pw`;
+      const done = await post(state.sparePage, '/api/auth/applicant/reset-password', {
+        ticket: step1.data.ticket,
+        password: reset,
+        password_confirm: reset,
+      });
+      check('49. the reset completes', done.ok, `${done.status} ${short(done.text, 200)}`);
+
+      if (done.ok) {
+        SPARE.password = reset;
+        await signInApplicant(state.sparePage, SPARE);
+        const after = await get(state.sparePage, '/api/auth/applicant/session');
+        const stillFlagged =
+          after.data?.user?.must_change_password === true ||
+          after.data?.applicant?.must_change_password === true;
+        check(
+          '49. and reset-password clears must_change_password, like change-password',
+          !stillFlagged,
+          short(after.data?.user ?? after.text, 200)
+        );
+      }
+    }
+  }
 
   // Item 47's last pair and item 53.
   const adminChosen = `Ph8-${STAMP}-set-by-admin`;
@@ -2397,18 +2525,58 @@ define('audit', 'The needs-translation audit, items 65 to 75', async (state) => 
       `${requests} requests while arrowing, focus=${afterArrow.focused} selected=${afterArrow.selected}`
     );
 
-    const emptyText = await page.evaluate(() => {
-      const list = document.querySelector('#auditList');
-      return list && list.children.length <= 1 ? list.textContent.trim() : null;
-    });
-    if (emptyText) {
-      check(
-        '69. an empty list is a real answer rather than "no results"',
-        !/no results/i.test(emptyText),
-        short(emptyText, 160)
+    // Item 69. A finished translation is not in migration 032's view at all, so
+    // "nothing is left" is a real answer rather than a filter that matched
+    // nothing, and the page has to say so in those terms. On a deployment whose
+    // audit has rows, the way to see it is a state that legitimately has none:
+    // the counts say which, so this asks for one rather than waiting for the
+    // whole audit to empty.
+    const counts = first.data?.counts ?? {};
+    const emptyState = ['missing', 'drafted', 'thin'].find((name) => (counts[name] ?? 0) === 0);
+
+    if (!emptyState) {
+      skip(
+        '69. the empty audit wording',
+        `every state has rows on this deployment (${JSON.stringify(counts)}), so no filter is empty`
       );
     } else {
-      skip('69. the empty audit wording', 'the audit has rows on this deployment, so the empty state is not on screen');
+      await page.goto(`${BASE}/admin/translations?tab=audit&state=${emptyState}`, {
+        waitUntil: 'domcontentloaded',
+      });
+      await page.waitForSelector('#auditList', { timeout: 20000 });
+      await page.waitForTimeout(2500);
+
+      const emptyText = await page.evaluate(
+        () => document.querySelector('#auditList')?.textContent?.trim() ?? ''
+      );
+      const languageName = await page.evaluate(
+        () => document.querySelector('#auditLocale')?.selectedOptions?.[0]?.textContent?.trim() ?? ''
+      );
+
+      check(
+        '69. an empty audit is a real answer rather than "no results"',
+        emptyText !== '' && !/no results/i.test(emptyText),
+        `state=${emptyState} says: ${short(emptyText, 160)}`
+      );
+
+      // **The page draws a distinction this check nearly got wrong.** A filter
+      // that matches nothing and a language with nothing left to translate are
+      // different answers, and drawAudit picks between admin.noAuditMatches and
+      // admin.auditFinished on exactly that. So a *filtered* empty view must
+      // NOT claim the language is finished, which is the stronger property:
+      // saying "nothing is left to translate into 华文" to somebody who has
+      // filtered to one state would be a lie about the other two.
+      check(
+        '69. and a filter matching nothing does not claim the language is finished',
+        languageName === '' || !emptyText.includes(languageName),
+        `state=${emptyState} says: ${short(emptyText, 160)}`
+      );
+      skip(
+        '69. the finished wording naming the language',
+        `it needs an audit with nothing left in it at all, and this one has ` +
+          `${JSON.stringify(counts)}. admin.auditFinished is the string, and drawAudit reaches ` +
+          'it only when no filter is set.'
+      );
     }
   } catch (cause) {
     bad('71. the tab strip could not be read', String(cause).slice(0, 200));
@@ -2716,11 +2884,9 @@ define('helpers', 'Translation helpers, items 76 to 82', async (state) => {
     short(regrant.text, 140)
   );
 
-  skip(
-    '80. a revoke touches nothing the helper wrote',
-    'nothing had been written at revoke time. The helperarea section writes a translation while ' +
-      'the role is held, and cleanup revokes it: read the row afterwards and it is still there.'
-  );
+  // Item 80's second half is in the helperarea section, where there is
+  // something written to survive a revoke. Here there is not, and a revoke that
+  // touched nothing because nothing existed proves nothing.
 });
 
 /* =========================================================================
@@ -2907,12 +3073,89 @@ define('helperarea', 'The helper area, items 83 to 90', async (state) => {
       `${activityAfter.filter((row) => row.action === 'translation_edited').length} after`
   );
 
-  skip(
-    '86. blanking the three fields 014 needs on a live translation',
-    'that path needs a translation an admin has already marked ready, and this route cannot set ' +
-      'is_ready, which is the point of it. Mark the SMOKE translation ready in the editor, then ' +
-      'blank the summary here: it must be a field error rather than a 500.'
-  );
+  // Item 86's other half, and the one path in this area that goes near
+  // migration 014's ready_needs_body constraint. The helper cannot set is_ready
+  // — that is the point of the role — so an admin marks the row live through
+  // 8.2's editor first, and the helper then tries to take the summary away.
+  const live = await post(state.staffPage, '/api/admin/jobs', {
+    action: 'update',
+    id: state.jobId,
+    translations: {
+      [locale]: {
+        title,
+        summary: `SMOKE P8 ${STAMP} helper summary`,
+        description: `SMOKE P8 ${STAMP} helper description`,
+        is_ready: true,
+      },
+    },
+  });
+
+  if (!live.ok) {
+    skip(
+      '86. blanking a field on a live translation',
+      `the admin could not mark the translation ready: ${live.status} ${short(live.text, 140)}`
+    );
+  } else {
+    const blanked = await post(applicant, '/api/translations/helper', {
+      action: 'save',
+      type: 'job',
+      id: state.jobId,
+      locale,
+      values: { title, summary: '', description: `SMOKE P8 ${STAMP} helper description` },
+    });
+
+    check(
+      '86. blanking a field a live translation needs is a field error, not a 500',
+      !blanked.ok && blanked.status < 500,
+      `${blanked.status} ${short(blanked.text, 200)}`
+    );
+    check(
+      '86. and it says which field and why, rather than a database message',
+      blanked.details?.reason === 'live_needs_body' || Boolean(blanked.details?.summary),
+      `details=${short(blanked.details, 160)}`
+    );
+
+    // Item 80's real half: a revoke takes the language and leaves the words.
+    // There is something written now, which there was not in the helpers
+    // section, so this is where the claim can actually be tested.
+    const revoked = await post(state.staffPage, '/api/admin/translations', {
+      action: 'revoke_helper',
+      user_id: state.applicantId,
+      locale,
+      reason: `Phase 8 run ${STAMP}, checking a revoke leaves the work alone.`,
+    });
+
+    const afterRevoke = await get(state.staffPage, `/api/admin/jobs?id=${state.jobId}`);
+    const survived = afterRevoke.data?.job?.translations?.[locale] ?? null;
+    check(
+      '80. a revoke touches nothing the helper wrote, live or not',
+      revoked.ok && Boolean(survived) && survived.title === title && survived.is_ready === true,
+      `title=${short(survived?.title, 80)} is_ready=${survived?.is_ready}. ` +
+        'A translation a helper drafted is the site\'s content rather than theirs.'
+    );
+
+    const backAgain = await post(state.staffPage, '/api/admin/translations', {
+      action: 'grant_helper',
+      user_id: state.applicantId,
+      locale,
+      reason: `Phase 8 run ${STAMP}, restored for the annotation checks.`,
+    });
+    check('the role is put back for the annotate section', backAgain.ok, short(backAgain.text, 140));
+
+    // Left unready, so nothing this run made is sitting live on the board.
+    await post(state.staffPage, '/api/admin/jobs', {
+      action: 'update',
+      id: state.jobId,
+      translations: {
+        [locale]: {
+          title,
+          summary: `SMOKE P8 ${STAMP} helper summary`,
+          description: `SMOKE P8 ${STAMP} helper description`,
+          is_ready: false,
+        },
+      },
+    });
+  }
 });
 
 /* =========================================================================
@@ -3099,12 +3342,59 @@ define('annotate', 'The annotation layer, items 91 to 95', async (state) => {
     skip('94. the detached anchor', `the suggestion was refused: ${short(detached.text, 140)}`);
   }
 
-  skip(
-    '93. the language filed against is the one the words are in',
-    'it is the page\'s call, from data-tr-locale on the container. Read a posting with no ready ' +
-      'translation while the interface is in the other language: the report must be against the ' +
-      'default language, per migration 015\'s own comment that the English can be the wrong one.'
-  );
+  // Item 93. The language a suggestion is filed against is the one the words on
+  // screen are in, not the one the interface is in. A reader in Chinese looking
+  // at a posting whose Chinese is not ready is reading English, and a report
+  // against zh would point the queue at a row that does not exist. The layer
+  // takes it from data-tr-locale on the container, which job-page.js writes, so
+  // that attribute is the thing to read.
+  const source = state.sourceLocale ?? 'en';
+
+  // **The interface language lives in localStorage and nowhere else**, which
+  // i18n.js says in as many words. api/auth/applicant/locale writes the column
+  // that decides which form a handover opens and what a message is written in;
+  // it does not move the page somebody is looking at. Setting the account row
+  // and expecting the interface to follow is what this check did on 25 August
+  // 2026, and the page stayed in English while the check blamed the page.
+  await post(state.applicantPage, '/api/auth/applicant/locale', { locale });
+
+  {
+    try {
+      await state.applicantPage.goto(`${BASE}/jobs/${state.jobId}`, {
+        waitUntil: 'domcontentloaded',
+      });
+      await state.applicantPage.evaluate((code) => {
+        localStorage.setItem('gftv-careers.locale', code);
+      }, locale);
+      await state.applicantPage.reload({ waitUntil: 'domcontentloaded' });
+      await state.applicantPage.waitForSelector('[data-tr-locale]', { timeout: 20000 });
+      await state.applicantPage.waitForTimeout(1500);
+
+      const shown = await state.applicantPage.evaluate(() => ({
+        content: document.querySelector('[data-tr-locale]')?.getAttribute('data-tr-locale') ?? null,
+        page: document.documentElement.lang ?? null,
+      }));
+
+      check(
+        '93. the interface is in the helper\'s language',
+        shown.page === locale,
+        `<html lang> is ${shown.page}, asked for ${locale}`
+      );
+      check(
+        '93. and the words are filed against the language they are actually in',
+        shown.content === source,
+        `data-tr-locale=${shown.content}, interface=${shown.page}, source=${source}. ` +
+          'The translation is not ready, so the reader is looking at the source language.'
+      );
+    } catch (cause) {
+      bad('93. data-tr-locale could not be read', String(cause).slice(0, 200));
+    } finally {
+      await post(state.applicantPage, '/api/auth/applicant/locale', { locale: source });
+      await state.applicantPage
+        .evaluate((code) => localStorage.setItem('gftv-careers.locale', code), source)
+        .catch(() => {});
+    }
+  }
 
   skip(
     '95. the annotate bucket ceiling',
