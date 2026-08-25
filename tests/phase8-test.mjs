@@ -157,12 +157,33 @@ function short(value, max = 200) {
  * ---------------------------------------------------------------------- */
 
 /** A JSON GET through a browser context, so it carries that context's cookies. */
+/**
+ * The first 429 the run saw, and where.
+ *
+ * Kept because of what a rate limit does to a run rather than to a check: the
+ * ceilings are per hour, the cleanup runs last, and every step of it is a write.
+ * A run that crosses a ceiling in the middle therefore fails to tidy up, and on
+ * 25 August 2026 that left a SMOKE posting published on the live board. The
+ * report says so loudly at the end rather than leaving it to be noticed.
+ */
+let firstRateLimit = null;
+
+function noteRateLimit(path, result) {
+  if (result.status !== 429 || firstRateLimit) return;
+  firstRateLimit = {
+    path,
+    retryAfter: result.json?.error?.details?.retry_after ?? null,
+  };
+}
+
 async function get(ctx, path, options = {}) {
   const response = await ctx.request.get(`${BASE}${path}`, {
     headers: { Accept: 'application/json', ...(options.headers ?? {}) },
     failOnStatusCode: false,
   });
-  return shape(response, options);
+  const result = await shape(response, options);
+  noteRateLimit(path, result);
+  return result;
 }
 
 async function post(ctx, path, body, options = {}) {
@@ -171,7 +192,9 @@ async function post(ctx, path, body, options = {}) {
     headers: { 'Content-Type': 'application/json', ...(options.headers ?? {}) },
     failOnStatusCode: false,
   });
-  return shape(response, options);
+  const result = await shape(response, options);
+  noteRateLimit(path, result);
+  return result;
 }
 
 async function shape(response, options) {
@@ -522,6 +545,21 @@ function define(name, title, fn) {
 async function main() {
   console.log(`Phase 8 verification against ${BASE}`);
   console.log(`Staff: ${STAFF.username}   Applicant: ${APPLICANT.username}`);
+  if (POSTER) console.log(`Poster: ${POSTER.username}`);
+
+  // What a full run spends, said before it starts rather than discovered in the
+  // middle. There is no endpoint that reports a bucket's remaining budget, so
+  // this is the honest version: the ceilings, what this run wants, and the fact
+  // that they are per hour. A second full run inside the hour will cross one.
+  console.log(
+    '\nWhat this run spends, against ceilings that are per hour:\n' +
+      `  admin        ~60 writes of 200, per staff account\n` +
+      `  adminDelete  ${process.env.CLEANUP === 'draft' ? '1' : 'up to 8'} of 10, per staff account\n` +
+      '  report       2 of 12, per address, not per account\n' +
+      '  apply        7 of 20, per applicant account\n' +
+      'Two full runs inside one hour will cross at least one of these, and what ' +
+      'fails when they do is the cleanup at the end.'
+  );
 
   const browser = await chromium.launch();
 
@@ -606,7 +644,36 @@ async function cleanup(state) {
   if (!state.staffPage || !anything) return;
   section('Cleanup');
 
-  // The queue first, because these are rows in somebody's working list rather
+  // **Off the board before anything else.** Every step of this cleanup is a
+  // write, the admin bucket is 200 an hour, and a run that crosses a ceiling
+  // gets 429 for the rest of it — so the order here decides what a budget that
+  // runs out halfway leaves behind. On 25 August 2026 the unpublish sat behind
+  // the queue and the roles and did not happen, which put a posting titled
+  // SMOKE P8 on the live careers board. A leftover row is untidy; a leftover
+  // posting is on the site.
+  const stillUp = [];
+  for (const id of [...new Set(created.jobs)]) {
+    const row = await get(state.staffPage, `/api/admin/jobs?id=${id}`);
+    if (!row.ok || row.data.job.status === 'draft') continue;
+
+    const down = await post(state.staffPage, '/api/admin/jobs', {
+      action: 'status',
+      id,
+      status: 'draft',
+    });
+    if (!down.ok) stillUp.push(`${row.data.job.slug} (${id}): ${short(down.error?.message, 80)}`);
+  }
+
+  if (stillUp.length > 0) {
+    bad(
+      `${stillUp.length} SMOKE postings are still on the board. Take them down now`,
+      stillUp.join(' | ')
+    );
+  } else if (created.jobs.length > 0) {
+    ok('every posting this run made is off the board');
+  }
+
+  // The queue next, because these are rows in somebody's working list rather
   // than fixtures of our own. A SMOKE report left open is work a person picks
   // up and tries to act on, against a posting that is about to be deleted.
   for (const id of [...new Set(created.reports)]) {
@@ -728,6 +795,19 @@ function report(state) {
     console.log(`\nNot run (${skips.length}):`);
     for (const entry of skips) console.log(`  [${entry.section}] ${entry.name} — ${entry.why}`);
   }
+  // Said last, and loudly, because a 429 does not fail a check so much as make
+  // the rest of the run untrustworthy: every refusal after it may be the bucket
+  // rather than the rule being checked, and the cleanup is what stops working.
+  if (firstRateLimit) {
+    console.log(
+      `\nA RATE LIMIT WAS CROSSED, first at ${firstRateLimit.path}` +
+        (firstRateLimit.retryAfter ? ` (retry after ${firstRateLimit.retryAfter}s)` : '') +
+        '\n  Every refusal after that point may be the bucket rather than the rule, and ' +
+        'anything the cleanup could not take back is listed above.' +
+        '\n  Wait for the window and run it again before believing a failure below.'
+    );
+  }
+
   console.log(`\n${passed} passed, ${failed} failed, ${skipped} not run.`);
 }
 
