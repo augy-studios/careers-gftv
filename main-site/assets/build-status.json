@@ -81,11 +81,11 @@
       "number": 8,
       "name": "Admin operations",
       "name_zh": "管理后台进阶",
-      "status": "building",
+      "status": "shipped",
       "description": "The rest of the dashboard: analytics, invitations and shortlists, managing staff and applicant accounts, portal settings, and the translation review queue. Volunteers who speak a language can be given access to improve its wording, and can suggest a correction by selecting the text that reads wrongly.",
       "description_zh": "后台的其余部分：数据分析、邀请与候选名单、管理员工和申请人账户、门户设置，以及翻译审核队列。会说某种语言的志愿者可以获得权限改进该语言的用词，并可以直接选中读起来不对的文字提出修改建议。",
-      "shipped_note": null,
-      "shipped_note_zh": null
+      "shipped_note": "The rest of the staff side went live with this, and one part of it is open to volunteers rather than to staff. If you speak a language this site is offered in, you can be given access to improve its wording: you work through the roles and the site's own words in that language, save drafts as often as you like, and an admin makes them live. Anyone signed in can also select a phrase that reads wrongly on a posting and suggest a better one where it stands, without leaving the page. If the team invites you to apply for a role, that invitation now arrives in your outstanding tasks like anything else they need from you. The rest is staff facing, and none of it is visible to applicants: how the board is doing, managing accounts, and the portal's own settings. Nothing about how you apply has changed.",
+      "shipped_note_zh": "员工端的其余部分随此阶段上线，其中一部分开放给志愿者，而不只是员工。如果您会说本网站提供的某种语言，您可以获得权限改进该语言的用词：您可以逐一处理该语言的职位信息和网站用语，随时保存草稿，再由管理员正式发布。已登录的用户也可以直接选中职位信息中读起来不对的文字，就地提出修改建议，无需离开页面。如果团队邀请您申请某个职位，该邀请现在会像其他需要您处理的事情一样，送到您的待办事项。其余功能都是员工使用的，申请人都看不到：包括招聘情况数据、账户管理，以及网站本身的设置。申请方式也完全没有改变。"
     },
     {
       "number": 9,
