@@ -2202,13 +2202,30 @@ define('audit', 'The needs-translation audit, items 65 to 75', async (state) => 
   }
 
   // Items 72 to 75, deviation 36's other half: the tracking search.
+  //
+  // The needle is this run's own applicant, so there has to be an application
+  // for them to be found by: the invites section is what confirms one, through
+  // item 36's handoff. A subset run without it searches for somebody who has
+  // applied to nothing and reads a correct empty answer as a broken search,
+  // which is what --only=setup,analytics,queue,audit did on 25 August 2026.
   const needle = APPLICANT.username.slice(0, 10);
   const found = await get(staff, `/api/admin/applications?q=${encodeURIComponent(needle)}`);
-  check(
-    '72. the applicant box searches through the view rather than the page',
-    found.ok && (found.data?.applications ?? []).some((row) => row.applicant?.username === APPLICANT.username),
-    `${found.status} ${(found.data?.applications ?? []).length} rows for "${needle}"`
-  );
+
+  if (!state.appliedJobId) {
+    skip(
+      '72. the applicant box searches every page',
+      `this run has confirmed no application, so its applicant is on no tracking row. ` +
+        `Add invites to --only=. The search itself answered ${found.status} with ` +
+        `${(found.data?.applications ?? []).length} rows for "${needle}".`
+    );
+  } else {
+    check(
+      '72. the applicant box searches through the view rather than the page',
+      found.ok &&
+        (found.data?.applications ?? []).some((row) => row.applicant?.username === APPLICANT.username),
+      `${found.status} ${(found.data?.applications ?? []).length} rows for "${needle}"`
+    );
+  }
   check(
     '73. the payload says whether the 200 cap was reached',
     'truncated' in (found.data ?? {}),
