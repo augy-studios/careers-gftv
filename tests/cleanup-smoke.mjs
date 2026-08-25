@@ -14,7 +14,9 @@
 import { chromium } from 'playwright';
 
 const BASE = process.env.BASE ?? 'https://careers.globalfurry.tv';
-const PREFIX = process.env.PREFIX ?? 'SMOKE P7';
+// The current phase's prefix. Override it to clear an older one's leftovers:
+// PREFIX='SMOKE P7' node tests/cleanup-smoke.mjs
+const PREFIX = process.env.PREFIX ?? 'SMOKE P8';
 const DRY_RUN = process.argv.includes('--dry-run');
 
 
@@ -65,7 +67,11 @@ try {
   };
 
   const listed = await json(`/api/admin/jobs?q=${encodeURIComponent(PREFIX)}&limit=100`);
-  const rows = (listed.data?.jobs ?? []).filter((row) => row.title.startsWith(PREFIX));
+  // Contains rather than starts with. A run titles one posting after a
+  // spreadsheet formula to check the CSV guard, so its title begins with `=`
+  // and the prefix sits after it. startsWith left exactly that posting behind
+  // on 25 August 2026, which is the one somebody would most want gone.
+  const rows = (listed.data?.jobs ?? []).filter((row) => row.title.includes(PREFIX));
 
   console.log(`${rows.length} postings match "${PREFIX}" at ${BASE}`);
   if (rows.length === 0) process.exit(0);
@@ -85,10 +91,15 @@ try {
       await json('/api/admin/jobs', { action: 'status', id: row.id, status: 'draft' });
     }
 
+    // The caller's own password, not the slug. Deviation 49 reversed deviation
+    // 38 on 23 August 2026: the last step proves who is asking rather than that
+    // they can read the row in front of them. This script still sent `confirm`
+    // and no password until 25 August 2026, which meant **it deleted nothing**
+    // and said so one posting at a time.
     const result = await json('/api/admin/jobs', {
       action: 'delete',
       id: row.id,
-      confirm: row.slug,
+      password: STAFF.password,
     });
 
     if (result.ok) {
