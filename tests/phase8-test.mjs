@@ -334,7 +334,26 @@ const SPARE = {
   password: DEFAULT_APPLICANT_PASS,
 };
 
+/**
+ * An existing tag to hang the run's postings on, read once.
+ *
+ * A posting cannot be published without one. publishBlockers wants a form URL,
+ * at least one tag, and a title, so a fixture carrying only a title is a
+ * fixture that stays a draft. An existing tag is borrowed rather than a new one
+ * created: a tag is site wide furniture and this run has no business adding to
+ * the list somebody curates.
+ */
+let smokeTagId = null;
+async function ensureTag(staff) {
+  if (smokeTagId) return smokeTagId;
+  const list = await get(staff, '/api/admin/tags');
+  smokeTagId = (list.data?.tags ?? [])[0]?.id ?? null;
+  return smokeTagId;
+}
+
 async function createJob(staff, overrides = {}) {
+  const tagId = overrides.tag_ids ? null : await ensureTag(staff);
+
   const result = await post(staff, '/api/admin/jobs', {
     action: 'create',
     job: {
@@ -342,16 +361,31 @@ async function createJob(staff, overrides = {}) {
       summary: 'A throwaway posting written by the phase 8 verification run.',
       description:
         'First sentence of the throwaway posting. Second sentence, which the embed preview should not show.',
+      // Publishing needs one, per publishBlockers, and deviation 35 accepts any
+      // Google Forms address. Nothing in this run ever opens it.
+      application_form_url: 'https://forms.gle/smokep8verification',
       ...(overrides.job ?? {}),
     },
-    ...(overrides.tag_ids ? { tag_ids: overrides.tag_ids } : {}),
+    ...(overrides.tag_ids
+      ? { tag_ids: overrides.tag_ids }
+      : tagId
+        ? { tag_ids: [tagId] }
+        : {}),
   });
 
   if (result.ok) created.jobs.push(result.data.job.id);
   return result;
 }
 
-/** Create a posting and publish it, which most of phase 8 needs. */
+/**
+ * Create a posting and publish it, which most of phase 8 needs.
+ *
+ * **A failed publish is returned as a failure**, which the first draft of this
+ * file did not do: it fell back to the create result, so a posting that was
+ * refused publication looked created and successful, and every later check that
+ * needed a visible posting failed somewhere else with a 404. Twelve of the
+ * seventeen failures in the run of 25 August 2026 were this one line.
+ */
 async function createPublishedJob(staff, overrides = {}) {
   const made = await createJob(staff, overrides);
   if (!made.ok) return made;
@@ -362,7 +396,21 @@ async function createPublishedJob(staff, overrides = {}) {
     status: 'published',
   });
 
-  return live.ok ? live : made;
+  if (!live.ok) {
+    return {
+      ...live,
+      // The id is still wanted, so cleanup takes the draft away and the caller
+      // can say which posting could not go live.
+      data: { job: made.data.job },
+      error: {
+        message:
+          `the posting was created but not published: ${short(live.error?.message, 120)}. ` +
+          'publishBlockers wants a form URL, at least one tag, and a title.',
+      },
+    };
+  }
+
+  return { ...live, data: { ...live.data, job: made.data.job } };
 }
 
 /**
@@ -848,23 +896,35 @@ define('settings', 'Settings, 8.10, items 4 to 14', async (state) => {
     // Item 11. The header and the footer, on a page a reader actually opens.
     const reader = await state.anon.newPage();
     try {
-      await reader.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
-      await reader.waitForFunction(
-        (needle) => document.body?.textContent?.includes(needle),
-        title[base],
-        { timeout: 20000 }
-      ).catch(() => {});
+      // Deviation 16, and it is why this polls rather than waits once: the
+      // public settings answer carries s-maxage=30 with another 30 seconds of
+      // stale-while-revalidate, so a reader can be up to a minute behind a save
+      // that has already been read back through the admin route. Twenty seconds
+      // was not enough on 25 August 2026 and reported the cache as a defect.
+      let inHeader = false;
+      let inFooter = false;
+      const deadline = Date.now() + 100000;
 
-      const inHeader = await reader.evaluate(
-        (needle) => document.querySelector('header')?.textContent?.includes(needle) ?? false,
-        title[base]
+      while (Date.now() < deadline) {
+        await reader.goto(`${BASE}/?cachebust=${Date.now()}`, { waitUntil: 'domcontentloaded' });
+        await reader.waitForTimeout(1500);
+
+        [inHeader, inFooter] = await reader.evaluate((needle) => [
+          document.querySelector('header')?.textContent?.includes(needle) ?? false,
+          document.querySelector('footer')?.textContent?.includes(needle) ?? false,
+        ], title[base]);
+
+        if (inHeader && inFooter) break;
+        await reader.waitForTimeout(8000);
+      }
+
+      const waited = Math.round((100000 - (deadline - Date.now())) / 1000);
+      check(
+        '11. the portal title reaches the header',
+        inHeader,
+        `looking for "${title[base]}" for ${waited}s. Up to about a minute is deviation 16's cache.`
       );
-      const inFooter = await reader.evaluate(
-        (needle) => document.querySelector('footer')?.textContent?.includes(needle) ?? false,
-        title[base]
-      );
-      check('11. the portal title is in the header', inHeader, `looking for "${title[base]}"`);
-      check('11. and in the footer', inFooter, `looking for "${title[base]}"`);
+      check('11. and the footer', inFooter, `looking for "${title[base]}" for ${waited}s`);
 
       // Item 12. Featured roles replace the latest grid rather than adding a row.
       if (state.jobId) {
@@ -1687,12 +1747,16 @@ define('applicants', 'Applicant users, 8.9, items 46 to 54', async (state) => {
   );
 
   // Item 47's last pair and item 53.
+  const adminChosen = `Ph8-${STAMP}-set-by-admin`;
   const setPassword = await post(staff, '/api/admin/applicants', {
     action: 'set_password',
     applicant_id: state.spareId,
-    password: `Ph8-${STAMP}-set-by-admin`,
+    password: adminChosen,
     reason: `Phase 8 run ${STAMP}.`,
   });
+  // Kept in step, because this revoked the spare's session and item 83 signs it
+  // back in to ask a question no other account in the run can answer.
+  if (setPassword.ok) SPARE.password = adminChosen;
   check(
     '47. an admin can set a password, and it re-flags the account',
     setPassword.ok && setPassword.data?.must_change_password === true,
@@ -2066,7 +2130,27 @@ define('audit', 'The needs-translation audit, items 65 to 75', async (state) => 
       `${roving.total} tabs, ${roving.zero} at tabindex 0, ${roving.minus} at -1`
     );
 
+    // The strip has to have finished loading before a key is pressed at it.
+    // drawTabs() rebuilds every button on each load and restores focus to the
+    // selected tab, deliberately, so a keypress sent while the audit was still
+    // arriving lands on a button that is replaced a moment later and reads as
+    // an arrow key that did nothing. That is what happened on 25 August 2026.
+    await page.waitForFunction(
+      () => {
+        const loading = document.querySelector('#adminLoading');
+        const list = document.querySelector('#auditList');
+        return (!loading || loading.hidden) && list && list.children.length > 0;
+      },
+      undefined,
+      { timeout: 20000 }
+    ).catch(() => {});
+    await page.waitForTimeout(1500);
+
     await page.focus('#translationTabs [tabindex="0"]');
+    const focusedBefore = await page.evaluate(
+      () => document.activeElement?.getAttribute('data-tab') ?? null
+    );
+
     page.on('request', counter);
     await page.keyboard.press('ArrowRight');
     await page.waitForTimeout(1200);
@@ -2081,12 +2165,12 @@ define('audit', 'The needs-translation audit, items 65 to 75', async (state) => 
     });
 
     check(
-      '71. an arrow key moves the focus',
-      Boolean(afterArrow.focused),
-      `focus is on ${afterArrow.focused}, selection on ${afterArrow.selected}`
+      '71. an arrow key moves the focus to the next tab',
+      Boolean(afterArrow.focused) && afterArrow.focused !== focusedBefore,
+      `focus went from ${focusedBefore} to ${afterArrow.focused}, selection on ${afterArrow.selected}`
     );
     check(
-      '71. and activation is manual: arrowing fires no request',
+      '71. and activation is manual: arrowing selects nothing and fires no request',
       requests === 0 && afterArrow.focused !== afterArrow.selected,
       `${requests} requests while arrowing, focus=${afterArrow.focused} selected=${afterArrow.selected}`
     );
@@ -2376,7 +2460,14 @@ define('helperarea', 'The helper area, items 83 to 90', async (state) => {
 
   // Item 83's real claim, checked with an account that holds nothing.
   if (state.sparePage && state.spareId) {
-    const spareRoster = await get(state.sparePage, '/api/translations/helper');
+    // 8.9's set_password revoked its session on the way past, so it is signed
+    // back in here rather than reporting a 401 as if it were this route's
+    // answer. That is what the run of 25 August 2026 did.
+    let spareRoster = await get(state.sparePage, '/api/translations/helper');
+    if (spareRoster.status === 401) {
+      await signInApplicant(state.sparePage, SPARE);
+      spareRoster = await get(state.sparePage, '/api/translations/helper');
+    }
     check(
       '83. and answers 200 with an empty list for somebody who is not a helper',
       spareRoster.ok && (spareRoster.data?.locales ?? []).length === 0,
