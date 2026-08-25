@@ -1176,15 +1176,79 @@ define('analytics', 'Analytics, 8.4, items 15 to 27', async (state) => {
       `series_timezone=${detail.data?.series_timezone}`
     );
 
-    // Item 21. Nobody has clicked this posting yet, and a null rate is not the
-    // same claim as a rate of zero.
+  } else {
+    skip('16', 'no posting to read a funnel for');
+  }
+
+  // Items 21 and 22 need a posting nothing has touched, because the settings
+  // section confirms an application against the main one to make item 13's
+  // cooldown. Its own posting, so the counts below are this section's doing and
+  // nobody else's.
+  const funnel = await createPublishedJob(staff, { label: 'funnel' });
+  const funnelId = funnel.ok ? funnel.data.job.id : null;
+
+  if (funnelId) {
+    const untouched = await get(staff, `/api/admin/analytics?job=${funnelId}`);
     check(
       '21. a posting nobody has clicked has a null rate, not zero',
-      detail.data?.job?.yes_rate === null,
-      `apply_clicks=${detail.data?.job?.apply_clicks} yes_rate=${JSON.stringify(detail.data?.job?.yes_rate)}`
+      untouched.data?.job?.yes_rate === null && untouched.data?.job?.apply_clicks === 0,
+      `apply_clicks=${untouched.data?.job?.apply_clicks} yes_rate=${JSON.stringify(untouched.data?.job?.yes_rate)}`
     );
   } else {
-    skip('16, 21', 'no posting to read a funnel for');
+    skip('21, 22', `the funnel posting could not be published: ${short(funnel.error?.message, 120)}`);
+  }
+
+  // Item 22, and it needs no extra accounts. An applicant who answers "no" is
+  // not in cooldown and has nothing pending, so they can start again, and every
+  // start writes its own apply_click row. Five clicks with none converting is a
+  // rate of zero, which is below FLAG_MAX_RATE; the fifth is what crosses
+  // FLAG_MIN_CLICKS.
+  if (funnelId && state.applicantId) {
+    const rules = table.data?.rules ?? {};
+    const minimum = rules.flag_min_clicks ?? 5;
+    let clicks = 0;
+    let flaggedBefore = null;
+
+    for (let attempt = 0; attempt < minimum; attempt += 1) {
+      const started = await post(state.applicantPage, '/api/applications/start', {
+        job_id: funnelId,
+      });
+      if (!started.ok) break;
+      clicks += 1;
+
+      // The fourth reading, taken before the fifth click, is what proves the
+      // flag appears *at* the threshold rather than below it.
+      if (clicks === minimum - 1) {
+        const early = await get(staff, `/api/admin/analytics?job=${funnelId}`);
+        flaggedBefore = early.data?.job?.needs_attention ?? null;
+      }
+
+      await post(state.applicantPage, '/api/applications/respond', {
+        analytics_id: started.data.analytics_id,
+        answer: 'no',
+      });
+    }
+
+    if (clicks < minimum) {
+      skip(
+        '22. the broken-form flag',
+        `only ${clicks} of ${minimum} apply clicks could be made. The apply bucket is 20 an hour ` +
+          'per account, so a second run of this section within the hour will not reach it.'
+      );
+    } else {
+      const flagged = await get(staff, `/api/admin/analytics?job=${funnelId}`);
+      check(
+        `22. the broken-form flag appears at ${minimum} clicks with none converting`,
+        flagged.data?.job?.needs_attention === true,
+        `clicks=${flagged.data?.job?.apply_clicks} yes=${flagged.data?.job?.answered_yes} ` +
+          `rate=${flagged.data?.job?.yes_rate} needs_attention=${flagged.data?.job?.needs_attention}`
+      );
+      check(
+        `22. and not at ${minimum - 1}`,
+        flaggedBefore === false,
+        `needs_attention was ${flaggedBefore} at ${minimum - 1} clicks`
+      );
+    }
   }
 
   const csv = await get(staff, '/api/admin/analytics?format=csv', { raw: true });
@@ -1246,13 +1310,6 @@ define('analytics', 'Analytics, 8.4, items 15 to 27', async (state) => {
   } else {
     skip('20. the ratings floor', 'no posting or no applicant to rate with');
   }
-
-  skip(
-    '22. the broken-form flag',
-    'FLAG_MIN_CLICKS is five apply clicks on one posting, and one account can start one ' +
-      'application per posting. It needs five registered applicants, which is more accounts ' +
-      'than a run should leave behind. Check it against a real posting on the analytics page.'
-  );
 
   // Item 23. The dedupe is the client's, per 007, so this watches the network
   // rather than the database: the same browsing session opening the same
