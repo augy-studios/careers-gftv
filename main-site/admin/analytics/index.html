@@ -125,6 +125,21 @@
 
                 <div class="admin-list" id="analyticsList" aria-live="polite"></div>
                 <div class="admin-pager" id="analyticsPager"></div>
+
+                <!-- Section 13 step 6. Drawn only for an admin: every row here
+                     carries a real person's email address, and this page is
+                     open to job posters precisely because nothing else on it
+                     names an applicant. -->
+                <section class="admin-section" id="unmatchedSection" hidden>
+                    <h2 data-i18n="admin.unmatchedHeading">Unmatched submissions</h2>
+                    <p class="muted" data-i18n="admin.unmatchedLede">
+                        Application forms that were submitted with an email
+                        address no account uses. Usually somebody applied with a
+                        different address than they registered with. Linking one
+                        records their application as submitted.
+                    </p>
+                    <div class="admin-list" id="unmatchedList" aria-live="polite"></div>
+                </section>
             </div>
         </div>
 

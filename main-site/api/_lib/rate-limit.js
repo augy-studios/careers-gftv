@@ -152,6 +152,27 @@ export const LIMITS = Object.freeze({
   // is a number, and locking a shared address out for an hour would cost
   // several real readers their apply prompt resumption on the same connection.
   view: { limit: 200, windowMs: 60 * 60 * 1000, lockMs: 5 * 60 * 1000 },
+  // The Apps Script webhook, phase 9 and section 13 step 8. The first bucket in
+  // this list whose subject is neither an account nor an address but a **form**,
+  // and the reason is that neither of the other two identifies anything here.
+  //
+  // There is no account: the caller is a script holding a shared secret. There
+  // is no useful address either: every delivery in the build arrives from
+  // Google's own infrastructure, so limiting per IP would put every form in the
+  // portal into one bucket and let a single misconfigured form lock out all of
+  // them. Per form is the unit that can actually misbehave on its own, and it
+  // is also the unit an admin can fix.
+  //
+  // Counted on success, like every other write bucket here. A hundred and twenty
+  // an hour is far more than a real posting receives — a form that busy is news
+  // rather than traffic — and it exists so that an Apps Script trigger stuck in
+  // a loop cannot fill gftvjobs_form_submissions before anybody notices.
+  //
+  // The lock is short because being wrong here costs recorded submissions, and
+  // a submission that is refused is not retried: Apps Script has already moved
+  // on. Fifteen minutes bounds the damage without throwing away an afternoon of
+  // a form that briefly went busy.
+  formWebhook: { limit: 120, windowMs: 60 * 60 * 1000, lockMs: 15 * 60 * 1000 },
 });
 
 /**
@@ -178,6 +199,18 @@ export function subjectForIp(req) {
 /** A subject for an account, when the account is known. */
 export function subjectForUser(realm, userId) {
   return `user:${realm}:${userId}`;
+}
+
+/**
+ * A subject for one posting's application form, for the webhook in section 13.
+ *
+ * Not hashed, unlike the address and the typed identifier above. Those two are
+ * hashed because they are about a person; a posting uuid is a public identifier
+ * that appears in the URL of the posting itself, and storing it in the clear
+ * makes a stuck form findable in the table rather than only countable.
+ */
+export function subjectForForm(jobId) {
+  return `form:${jobId}`;
 }
 
 /**

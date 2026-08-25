@@ -107,6 +107,29 @@ repository whatever it is there for. Keep them in your shell, not in a script.
 | `CLEANUP=draft` | — | Take every posting the run made off the board without deleting it. Spends none of the ten an hour deletion budget, which is what a debugging run wants. |
 | `NO_CLEANUP=1` | — | Leave everything exactly as it is. **Postings stay published.** Only for a run you are about to inspect by hand. |
 | `PATCH_JS` | — | Comma separated file names under `main-site/assets/` to serve from the working tree instead of the deployment. Lets a fix be re-checked against the live site without deploying it. Anything checked this way is a check of your working tree, not of the deployment, so say so when reporting it. |
+| `FORM_WEBHOOK_SECRET` | — | Phase 9 only. The shared secret the Apps Script sends as `x-portal-secret`. Without it the run still checks that a delivery with no secret and one with a wrong secret are both refused — which is the most important check in that section — and skips everything past them. Take the value from the Vercel project settings. |
+| `CRON_SECRET` | — | Phase 9 only. The bearer token Vercel sends on a scheduled invocation. Same story: the refusals are checked without it and the run itself is skipped. |
+
+### Phase 9's sections
+
+`node tests/phase9-test.mjs`, with the same `--only=` habit.
+
+| Section | Covers |
+|---|---|
+| `formcheck` | The nine states of the form health check, driven through an injected `fetch`. **Needs no deployment, no credentials, and no network** — it imports `main-site/api/_lib/form-check.js` directly and hands it fake responses. The only section in any phase that can run offline. |
+| `setup` | Staff sign in, an applicant registered through the register page, and a throwaway published posting whose form URL has never existed. |
+| `webhook` | Section 13 end to end: the two refusals, payload validation, a `JOB_ID` naming no posting, a matched delivery overriding an earlier No, a duplicate delivery, and the unmatched list. |
+| `cron` | Section 11: the two refusals, HEAD being refused, a posting past its closing date closing, one with no closing date being left alone, the health check flagging a dead form, a second run changing nothing, and the run record reaching `/api/admin/stats`. |
+| `panel` | The maintenance panel on `/admin`, the unmatched list on `/admin/analytics`, and the webhook checklist with its posting id in the job editor. |
+
+**Phase 9's run triggers the real daily maintenance against the deployment.**
+That is what the endpoint is for and it is idempotent, but it does mean any
+posting on the board whose closing date has passed is closed a few hours earlier
+than the schedule would have closed it, and expired sessions are swept. Both are
+correct and neither is reversible. `--only=formcheck` avoids it entirely.
+
+Unlike phase 8, phase 9's run is comfortably re-runnable inside the hour: it
+makes three postings and about fifteen admin writes.
 
 ## What a run writes
 

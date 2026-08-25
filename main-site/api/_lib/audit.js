@@ -153,6 +153,17 @@ export const AUDIT = Object.freeze({
   // the fields touched in the metadata. Same call SETTING_CHANGED made: a
   // constant per kind of row is a category list that grows with the schema.
   TRANSLATION_EDITED: 'translation_edited',
+  // Phase 9, section 13's fallbacks. An admin asserting that a form submission
+  // made under one email address belongs to an account registered under
+  // another, which is the ordinary unmatched case and not a suspicious one.
+  //
+  // Logged for the same reason TRANSLATION_EDITED is, and it is the second
+  // deliberate exception to "editing is not an audit event": the assertion is a
+  // judgement rather than a fact, it is made about somebody else, and it has
+  // consequences the person it is made about will feel — their application
+  // reads as submitted and their reapply cooldown starts. If it is ever wrong,
+  // this row is the only record of who decided it and on what evidence.
+  SUBMISSION_LINKED: 'submission_linked',
 });
 
 /**

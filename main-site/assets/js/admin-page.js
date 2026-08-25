@@ -17,7 +17,7 @@ import { api } from './api.js';
 import { t } from './i18n.js';
 import { hydrateIcons } from './icons.js';
 import { escapeHtml } from './markdown.js';
-import { formatDate } from './format.js';
+import { formatDate, formatDateTime, hoursSince } from './format.js';
 import { mountAdminPage, adminMessage, emptyRow } from './admin-shell.js';
 
 const PATH = '/admin';
@@ -65,6 +65,135 @@ function draw() {
   drawBuckets();
   drawRecentApplications();
   drawRecentRegistrations();
+  drawCron();
+}
+
+/* -------------------------------------------------------------------------
+ * The last maintenance run, section 11's last line
+ * ---------------------------------------------------------------------- */
+
+/**
+ * How long after a run this panel starts saying the schedule looks stuck.
+ *
+ * The cron is daily and Vercel fires it within roughly an hour of the stated
+ * time, so a healthy gap is twenty four to twenty five hours. Thirty six leaves
+ * room for a late fire and a clock difference without letting a schedule that
+ * has genuinely stopped sit quietly for a second day.
+ */
+const CRON_STALE_HOURS = 36;
+
+/**
+ * The panel that makes a silent failure visible.
+ *
+ * A cron has no reader, which is the whole reason this exists: every other
+ * route in the build reports to somebody who is waiting, and a scheduled task
+ * that stops firing is invisible until somebody wonders why a posting is still
+ * open. So this panel is written to distinguish states that all look like
+ * "nothing here" and mean completely different things:
+ *
+ *   could not be read  the query failed. Not a claim about the cron at all.
+ *   never run          the table is readable and empty.
+ *   switched off       an admin flipped `cron` on /admin/maintenance.
+ *   did not finish     a started_at with no finished_at. Killed mid-pass.
+ *   failed             it ran and a task threw.
+ *   stale              it succeeded, but too long ago for a daily schedule.
+ *   ok                 it ran, recently, and everything worked.
+ */
+function drawCron() {
+  const holder = document.querySelector('#adminCronRun');
+  if (!holder) return;
+
+  const cron = payload?.cron ?? null;
+
+  if (!cron?.readable) {
+    holder.className = 'callout warn';
+    holder.innerHTML = `<p>${escapeHtml(t('admin.cronUnreadable'))}</p>`;
+    return;
+  }
+
+  const run = cron.run;
+
+  if (!run) {
+    holder.className = 'callout warn';
+    holder.innerHTML = `<p>${escapeHtml(t('admin.cronNever'))}</p>`;
+    return;
+  }
+
+  const when = escapeHtml(formatDateTime(run.started_at));
+  const age = hoursSince(run.started_at);
+  const results = run.results ?? {};
+
+  let tone = 'note';
+  let headline;
+
+  if (results.skipped) {
+    // Recorded on purpose rather than left as no run at all. Without this the
+    // panel would say the same thing for "an admin switched it off" and "the
+    // scheduler is broken", which need opposite responses.
+    tone = 'warn';
+    headline = t('admin.cronSwitchedOff', { when });
+  } else if (!run.finished_at) {
+    tone = 'warn';
+    headline = t('admin.cronUnfinished', { when });
+  } else if (run.ok === false) {
+    tone = 'error';
+    headline = t('admin.cronFailed', { when });
+  } else if (age !== null && age > CRON_STALE_HOURS) {
+    tone = 'warn';
+    headline = t('admin.cronStale', { when, hours: Math.round(age) });
+  } else {
+    headline = t('admin.cronOk', { when });
+  }
+
+  const parts = [`<p>${escapeHtml(headline)}</p>`];
+
+  if (run.error) {
+    parts.push(`<p class="muted">${escapeHtml(run.error)}</p>`);
+  }
+
+  // The counts, only where the run actually reported one. A null means the task
+  // failed and nothing here turns that into a zero: "closed nothing" and "could
+  // not tell you" are different sentences and only one of them is true.
+  const counts = [
+    ['cronClosed', results.auto_closed],
+    ['cronTimedOut', results.prompts_timed_out],
+    ['cronSwept', results.expired_rows_deleted],
+    ['cronFormsChecked', results.forms_checked],
+  ].filter(([, value]) => typeof value === 'number');
+
+  if (counts.length > 0) {
+    parts.push(
+      `<ul class="admin-cron-counts">${counts
+        .map(
+          ([key, value]) =>
+            `<li>${escapeHtml(t(`admin.${key}`, { count: value }))}</li>`
+        )
+        .join('')}</ul>`
+    );
+  }
+
+  // Postings whose application form is not usable. The one thing in this panel
+  // that is a queue rather than a number, so it links where the work is.
+  const flagged = Array.isArray(results.flagged_postings) ? results.flagged_postings : [];
+
+  if (flagged.length > 0) {
+    parts.push(
+      `<p>${escapeHtml(t('admin.cronFlagged', { count: flagged.length }))}</p>` +
+        `<ul class="admin-cron-flagged">${flagged
+          .map(
+            (posting) =>
+              `<li><a href="/admin/jobs/edit?id=${encodeURIComponent(posting.id)}">${escapeHtml(
+                posting.title ?? ''
+              )}</a> <span class="muted">${escapeHtml(
+                t(`admin.formCheck_${posting.state}`)
+              )}</span></li>`
+          )
+          .join('')}</ul>`
+    );
+  }
+
+  holder.className = `callout ${tone}`;
+  holder.innerHTML = parts.join('');
 }
 
 /* -------------------------------------------------------------------------

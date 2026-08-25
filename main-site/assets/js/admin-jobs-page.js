@@ -226,10 +226,15 @@ function rowMarkup(job) {
               : ''
           }
           ${
+            // Phase 9's daily check finally writes these columns, so the badge
+            // says which of the two it is rather than one word for both. The
+            // difference is what an admin does next: 'error' means the form is
+            // gone and the posting cannot be applied to at all, 'warning' means
+            // it loaded but is closed or private.
             job.form_check_state === 'warning' || job.form_check_state === 'error'
               ? `<span class="badge badge-warn" title="${escapeHtml(
                   job.form_check_note ?? ''
-                )}">${escapeHtml(t('admin.formCheckFailed'))}</span>`
+                )}">${escapeHtml(t(`admin.formCheck_${job.form_check_state}`))}</span>`
               : ''
           }
         </span>

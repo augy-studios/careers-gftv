@@ -46,6 +46,7 @@ unbuilt one.
 | `migrations/` | Every numbered SQL file, run by hand in the Supabase SQL editor. Nothing automated applies these. |
 | `telegram-bot/` | The `careersgftv_bot` Telegram bot. Scaffold only until phase 11. Runs on a Debian VPS under tmux. |
 | `docs-site/` | The public documentation site for `docs.careers.globalfurry.tv`. Scaffold only until phase 13. Its own Vercel project on the same repo. |
+| `apps-script/` | The Google Apps Script that each job's application form runs on submit, per section 13. Not deployed by anything: it is pasted into a form by hand. See [The application form webhook](#the-application-form-webhook). |
 | `tests/` | Playwright checks, run by hand against a deployment. Not a CI suite: they need a staff credential and they write real rows. |
 
 Five READMEs, plus the one in `migrations/`, and no others. Each says what
@@ -154,7 +155,15 @@ redeploy, then update `PORTAL_SECRET` in the Script Properties of every form's
 Apps Script. Submissions arriving between the two steps are rejected with a 401
 and are not retried usefully, so do it when nothing is being submitted, and
 confirm afterwards that a test submission lands in
-`gftvjobs_form_submissions`. This applies from phase 9, when the webhook ships.
+`gftvjobs_form_submissions`. Running `testCareersWebhook` from one form's Apps
+Script editor is the quickest confirmation; it is described below.
+
+**`CRON_SECRET` is set in the Vercel project settings and nowhere else.** Vercel
+sends it as the `Authorization` bearer token on every scheduled invocation, and
+it sends nothing at all when the variable is unset — which is why
+`api/cron/daily.js` refuses a request that carries no secret rather than
+treating an absent header as "this must be the scheduler". Rotating it needs no
+coordination: change it in the project settings and redeploy.
 
 ## Deployment
 
@@ -175,6 +184,94 @@ resolves.
 
 The bot is not on Vercel. It runs on a Debian VPS under tmux, from this same
 repository.
+
+## The daily maintenance run
+
+`main-site/api/cron/daily.js`, scheduled by the `crons` entry in
+`main-site/vercel.json` for 18:00 UTC, which is 02:00 the next morning in
+Singapore. Vercel fires within roughly an hour of that, so nothing depends on
+the exact minute. It does four things, each independent of the others:
+
+1. Closes published postings whose closing date has passed, and writes an audit
+   row for each. **A posting with no closing date is skipped and never
+   auto-closes** — open until filled is a real state.
+2. Gives up on apply prompts nobody answered after fourteen days, recording the
+   source as a timeout rather than as a No.
+3. Deletes expired sessions, trusted devices, password resets, Telegram tokens,
+   passkey and login challenges, staff 2FA challenges, and spent rate limit
+   windows.
+4. Checks each published posting's application form and flags the ones that are
+   deleted, private, or no longer accepting responses. It never unpublishes
+   anything.
+
+**Where it reports.** Every run writes a row to `gftvjobs_cron_runs`, opened
+before any work and closed after it, and the most recent one is drawn on the
+admin overview at `/admin`. That panel is the only thing that makes a broken
+schedule visible: nobody is watching a cron run, so a run that stops firing is
+otherwise silent. It distinguishes a run that succeeded, one that failed, one
+that started and never finished, one that was switched off from
+`/admin/maintenance`, and a last run too old for a daily schedule.
+
+To run it by hand against production:
+
+```bash
+curl -sS -X POST https://careers.globalfurry.tv/api/cron/daily \
+  -H "Authorization: Bearer $CRON_SECRET" | jq
+```
+
+It is safe to run twice. Every step matches nothing the second time, and the
+audit rows are written from what actually changed rather than from what was
+attempted, so a second run in a row writes none.
+
+## The application form webhook
+
+Section 13. Each job's Google Form runs a small Apps Script that posts to
+`/api/webhooks/form-submit` when somebody submits it, which is what turns
+"did you apply?" from a self reported claim into a recorded fact. The script is
+[`apps-script/careers-form-webhook.gs`](apps-script/careers-form-webhook.gs).
+
+Only the response id, the respondent's email, and the timestamp are sent. The
+answers stay in Google.
+
+**Set up a template form once.** Container bound scripts travel with a form
+copy, so putting the script in a template means every posting after the first
+skips the pasting step. Triggers do not travel, which is why every copy still
+needs `installCareersTrigger` run once.
+
+1. Create the template form. Turn on **Collect email addresses** in its
+   settings, or give it a question titled exactly `Email` — the script looks for
+   the first and falls back to the second, and a form with neither can never be
+   matched to an account.
+2. Extensions, then Apps Script. Paste in
+   `apps-script/careers-form-webhook.gs` and save.
+3. Project Settings, Script Properties. Add `PORTAL_SECRET` with the value of
+   `FORM_WEBHOOK_SECRET`. Leave `JOB_ID` for the copy.
+
+**Per new posting, about two minutes.**
+
+1. Copy the template form and edit its questions.
+2. Create or open the posting in `/admin/jobs`, paste the form's address into
+   the Google Form URL field, and copy the posting id from the help text beside
+   it.
+3. In the copied form: Project Settings, Script Properties, set `JOB_ID` to that
+   posting id. Confirm `PORTAL_SECRET` came across with the copy.
+4. Run `installCareersTrigger` once from the Apps Script editor and authorise
+   it. Google will warn that the script is unverified; it is your own script on
+   your own form.
+5. Run `testCareersWebhook` once. It sends a delivery with a fake response id
+   and an address that matches nobody, so it proves the secret and the URL are
+   right and lands harmlessly in the unmatched list. A `200` in the execution
+   log means the setup is correct.
+
+**If the webhook is never installed on a form, nothing breaks.** That posting
+falls back to the applicant's own yes or no answer, and the analytics page's
+standing caveat already says a conversion rate is the lowest the truth can be.
+
+**Unmatched submissions** are on `/admin/analytics`, admins only, because every
+row is a real person's email address and the rest of that page deliberately
+names nobody. The ordinary cause is somebody applying with a different address
+than they registered with, and linking one there records their application as
+submitted.
 
 ## Regression testing
 

@@ -44,6 +44,49 @@ export function formatDate(value) {
 }
 
 /**
+ * A date and the time of day, written out.
+ *
+ * Added in phase 9 for the cron panel on the overview, which is the first thing
+ * in this build where the hour matters: "yesterday" is the difference between a
+ * schedule that is firing and one that stopped, and formatDate above would draw
+ * both a run at one in the morning and one at eleven at night as the same day.
+ *
+ * The reader's own timezone, deliberately, and not Singapore's. Everywhere else
+ * in this build a date is a fact about a posting and reads the same for
+ * everybody; this is a fact about a machine, read by a staff member deciding
+ * whether it has run since they last looked, and "since I last looked" is a
+ * question in their own time.
+ *
+ * @param {string|null|undefined} value an ISO timestamp
+ */
+export function formatDateTime(value) {
+  const date = parse(value);
+  if (!date) return '';
+
+  return new Intl.DateTimeFormat(intlLocale(), {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+}
+
+/**
+ * How many whole hours since a timestamp, or null when it will not parse.
+ *
+ * Hours rather than the calendar days daysUntil counts, and for the opposite
+ * reason: a daily schedule is judged against the clock and not against
+ * midnight. A run at 23:00 and one at 01:00 are two hours apart however many
+ * dates they span.
+ */
+export function hoursSince(value) {
+  const date = parse(value);
+  if (!date) return null;
+  return (Date.now() - date.getTime()) / (60 * 60 * 1000);
+}
+
+/**
  * How many whole days from now until a timestamp. Negative for the past.
  *
  * Counted in calendar days instead of in 24 hour blocks, so a posting closing

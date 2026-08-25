@@ -24,9 +24,15 @@
 import { api } from './api.js';
 import { t } from './i18n.js';
 import { escapeHtml } from './markdown.js';
-import { createDialog } from './dialog.js';
+import { createDialog, translateWithin } from './dialog.js';
 import { formatDate } from './format.js';
-import { mountAdminPage, adminMessage, emptyRow, runAction } from './admin-shell.js';
+import {
+  mountAdminPage,
+  adminMessage,
+  emptyRow,
+  runAction,
+  isAdminUser,
+} from './admin-shell.js';
 
 const PATH = '/admin/analytics';
 
@@ -86,10 +92,16 @@ async function boot() {
 
   await load();
 
+  // Section 13 step 6, and admins only. The section stays hidden rather than
+  // being drawn empty for a job poster: an absent panel is a page they were
+  // never offered, while an empty one invites them to wonder what is missing.
+  if (isAdminUser()) await loadUnmatched();
+
   document.addEventListener('gftv:localechange', () => {
     fillFilters();
     applyStateToFilters();
     draw();
+    drawUnmatched();
   });
 }
 
@@ -652,6 +664,212 @@ function dailyTableMarkup(series) {
         </table>
       </div>
     </details>`;
+}
+
+/* -------------------------------------------------------------------------
+ * Unmatched submissions, section 13 step 6
+ * ---------------------------------------------------------------------- */
+
+let unmatched = [];
+
+async function loadUnmatched() {
+  const result = await api('/api/admin/submissions');
+
+  if (!result.ok) {
+    // Quietly. This panel is a queue somebody works through when they have a
+    // moment, not the reason they opened the page, and a red strip across the
+    // analytics because a secondary list would not load is out of proportion.
+    console.warn('[careers-gftv] unmatched submissions:', result.error);
+    return;
+  }
+
+  unmatched = result.data?.unmatched ?? [];
+  drawUnmatched();
+}
+
+function drawUnmatched() {
+  const section = document.querySelector('#unmatchedSection');
+  const list = document.querySelector('#unmatchedList');
+  if (!section || !list || !isAdminUser()) return;
+
+  section.hidden = false;
+
+  if (unmatched.length === 0) {
+    list.innerHTML = emptyRow(t('admin.noUnmatched'));
+    return;
+  }
+
+  list.innerHTML = `
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th scope="col">${escapeHtml(t('admin.colEmail'))}</th>
+          <th scope="col">${escapeHtml(t('admin.colPosting'))}</th>
+          <th scope="col">${escapeHtml(t('admin.colSubmitted'))}</th>
+          <th scope="col"><span class="visually-hidden">${escapeHtml(
+            t('admin.colActions')
+          )}</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${unmatched
+          .map(
+            (row) => `
+          <tr>
+            <td>${escapeHtml(row.email)}</td>
+            <td>${escapeHtml(row.job_title ?? t('admin.deletedPosting'))}</td>
+            <td class="tabular">${escapeHtml(formatDate(row.submitted_at))}</td>
+            <td><span class="admin-row-actions"><button type="button" class="btn btn-secondary small"
+                        data-link-submission="${escapeHtml(row.id)}">${escapeHtml(
+                          t('admin.linkSubmission')
+                        )}</button></span></td>
+          </tr>`
+          )
+          .join('')}
+      </tbody>
+    </table>`;
+
+  list.querySelectorAll('[data-link-submission]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const id = button.getAttribute('data-link-submission');
+      const row = unmatched.find((item) => item.id === id);
+      if (row) openLinkDialog(row);
+    });
+  });
+}
+
+/**
+ * Pick the account a submission belongs to.
+ *
+ * A search rather than a free text box for the account id, because what an
+ * admin has in front of them is an email address and what the endpoint needs is
+ * a uuid, and asking them to go and find one on another page is how the wrong
+ * one gets pasted in. The search is seeded with the submitted address, since
+ * the common case is a near miss — a work address against a personal one, or a
+ * typo — and the account is usually one character away.
+ */
+function openLinkDialog(submission) {
+  const dialog = createDialog({
+    id: 'linkSubmissionDialog',
+    titleKey: 'admin.linkSubmissionTitle',
+    bodyHtml: `
+      <div class="modal-body">
+        <p id="linkSubmissionContext" class="muted"></p>
+
+        <!-- 8.12's rule about a confirmation living outside the form it
+             replaces does not apply here: this is a picker, not a
+             confirmation, and it stays open until something is chosen. -->
+        <div class="field">
+          <label for="linkSubmissionSearch"
+                 data-i18n="admin.linkSubmissionSearch">Find the account</label>
+          <input type="search" id="linkSubmissionSearch" autocomplete="off"
+                 data-autofocus>
+        </div>
+
+        <p class="callout note" data-i18n="admin.linkSubmissionWarning">
+          Linking records this application as submitted and starts the reapply
+          waiting period. The account keeps its own email address, which is not
+          changed to the one on the form.
+        </p>
+
+        <div class="admin-list" id="linkSubmissionResults" aria-live="polite"></div>
+      </div>`,
+  });
+
+  const context = dialog.panel.querySelector('#linkSubmissionContext');
+  const search = dialog.panel.querySelector('#linkSubmissionSearch');
+  const results = dialog.panel.querySelector('#linkSubmissionResults');
+
+  context.textContent = t('admin.linkSubmissionContext', {
+    email: submission.email,
+    posting: submission.job_title ?? '',
+  });
+
+  search.value = submission.email;
+
+  let timer = null;
+
+  const run = async () => {
+    const term = search.value.trim();
+
+    if (term.length < 2) {
+      results.innerHTML = emptyRow(t('admin.linkSubmissionTypeMore'));
+      return;
+    }
+
+    const found = await api(`/api/admin/applicants?q=${encodeURIComponent(term)}`);
+
+    if (!found.ok) {
+      results.innerHTML = emptyRow(found.error?.message ?? t('error.unexpected'));
+      return;
+    }
+
+    const accounts = found.data?.applicants ?? [];
+
+    if (accounts.length === 0) {
+      results.innerHTML = emptyRow(t('admin.linkSubmissionNoAccounts'));
+      return;
+    }
+
+    results.innerHTML = `<ul class="admin-people">${accounts
+      .map(
+        (account) => `
+        <li>
+          <span class="admin-person-name">${escapeHtml(account.display_name ?? '')}</span>
+          <span class="muted admin-sub">${escapeHtml(account.username ?? '')}</span>
+          <span class="muted">${escapeHtml(account.email ?? '')}</span>
+          <button type="button" class="btn btn-primary small"
+                  data-pick="${escapeHtml(account.id)}">${escapeHtml(
+                    t('admin.linkSubmissionPick')
+                  )}</button>
+        </li>`
+      )
+      .join('')}</ul>`;
+
+    results.querySelectorAll('[data-pick]').forEach((button) => {
+      button.addEventListener('click', () => {
+        // Never bare from a listener: runAction is what turns a rejected
+        // promise into a message strip rather than an unhandled rejection.
+        runAction(() => confirmLink(submission, button.getAttribute('data-pick'), dialog),
+          'link submission');
+      });
+    });
+  };
+
+  search.addEventListener('input', () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => runAction(run, 'applicant search'), 250);
+  });
+
+  translateWithin(dialog.panel);
+  dialog.open();
+  runAction(run, 'applicant search');
+}
+
+async function confirmLink(submission, applicantId, dialog) {
+  const result = await api('/api/admin/submissions', {
+    method: 'POST',
+    body: { action: 'link', submission_id: submission.id, applicant_id: applicantId },
+  });
+
+  if (!result.ok) {
+    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    return;
+  }
+
+  dialog.close();
+
+  // The override is worth saying out loud rather than leaving in the timeline.
+  // It is the only case in this build where an answer somebody gave has been
+  // replaced, and the admin who caused it should read that it happened.
+  adminMessage(
+    'ok',
+    result.data?.overrode
+      ? t('admin.linkSubmissionOverrode', { email: submission.email })
+      : t('admin.linkSubmissionDone', { email: submission.email })
+  );
+
+  await loadUnmatched();
 }
 
 if (document.readyState === 'loading') {

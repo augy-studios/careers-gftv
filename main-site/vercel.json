@@ -5,6 +5,19 @@
   "trailingSlash": false,
   "regions": ["sin1"],
 
+  "crons": [
+    {
+      "path": "/api/cron/daily",
+      "schedule": "0 18 * * *"
+    }
+  ],
+
+  "functions": {
+    "api/cron/daily.js": {
+      "maxDuration": 60
+    }
+  },
+
   "redirects": [
     {
       "source": "/jobs",

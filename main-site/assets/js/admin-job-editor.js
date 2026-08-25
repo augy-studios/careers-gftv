@@ -595,6 +595,37 @@ function drawShared() {
       <input id="jobForm" type="url" value="${escapeHtml(job.application_form_url ?? '')}">
       <p class="field-hint">${escapeHtml(t('admin.formUrlHint'))}</p>
       <p class="field-error" data-error-for="application_form_url" hidden></p>
+
+      <!-- Section 13: "Put this checklist in the admin job editor as
+           collapsible help text next to the Google Form URL field, with the
+           posting uuid shown and a copy button, so nobody has to go hunting for
+           it." Collapsed by default, because it is read once per posting and
+           the field above it is used every time. -->
+      <details class="field-help">
+        <summary>${escapeHtml(t('admin.webhookHelpSummary'))}</summary>
+        <div class="field-help-body">
+          <p>${escapeHtml(t('admin.webhookHelpIntro'))}</p>
+          ${
+            job.id
+              ? `<div class="copy-row">
+                   <code id="jobIdForScript">${escapeHtml(job.id)}</code>
+                   <button type="button" class="btn btn-secondary small"
+                           data-copy-job-id>${escapeHtml(t('admin.webhookCopyId'))}</button>
+                 </div>`
+              : // A posting that has never been saved has no uuid, and there is
+                // nothing honest to put in the box. Saying so beats showing an
+                // empty code block somebody would copy.
+                `<p class="muted">${escapeHtml(t('admin.webhookSaveFirst'))}</p>`
+          }
+          <ol>
+            <li>${escapeHtml(t('admin.webhookStep1'))}</li>
+            <li>${escapeHtml(t('admin.webhookStep2'))}</li>
+            <li>${escapeHtml(t('admin.webhookStep3'))}</li>
+            <li>${escapeHtml(t('admin.webhookStep4'))}</li>
+          </ol>
+          <p class="muted">${escapeHtml(t('admin.webhookOptional'))}</p>
+        </div>
+      </details>
     </div>
 
     <div class="field">
@@ -722,6 +753,37 @@ function wireShared(holder) {
     addTagByName(tagInput.value);
     tagInput.value = '';
   });
+
+  // The posting id, for the form's Script Properties. Section 13's "so nobody
+  // has to go hunting for it": the uuid is in the address bar, but reading one
+  // out of a URL and retyping it into Google is exactly how a JOB_ID ends up
+  // one character wrong and every delivery from that form answers
+  // no_such_posting.
+  holder.querySelector('[data-copy-job-id]')?.addEventListener('click', () => {
+    runAction(async () => {
+      const code = holder.querySelector('#jobIdForScript');
+      if (!code) return;
+
+      try {
+        await navigator.clipboard.writeText(code.textContent.trim());
+        adminMessage('ok', t('admin.webhookIdCopied'));
+      } catch {
+        // Blocked, or no clipboard at all. The id is already on screen, so
+        // selecting it is a complete fallback rather than a consolation.
+        selectText(code);
+        adminMessage('error', t('admin.webhookIdCopyFailed'));
+      }
+    }, 'copy posting id');
+  });
+}
+
+/** Put the selection around one element's text, for a failed clipboard write. */
+function selectText(element) {
+  const range = document.createRange();
+  range.selectNodeContents(element);
+  const selection = window.getSelection();
+  selection?.removeAllRanges();
+  selection?.addRange(range);
 }
 
 /* -------------------------------------------------------------------------

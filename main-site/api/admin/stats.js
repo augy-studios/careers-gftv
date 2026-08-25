@@ -19,6 +19,7 @@ import { requireStaff } from '../_lib/session.js';
 import { supabase, T } from '../_lib/supabase.js';
 import { localeFromRequest } from '../_lib/validate.js';
 import { bucketCounts } from '../_lib/admin-applications.js';
+import { lastRun } from '../_lib/cron.js';
 
 /** How many rows the two recent lists carry. Enough to scan, short enough to read. */
 const RECENT = 8;
@@ -32,11 +33,12 @@ export default async function handler(req, res) {
   const locale = localeFromRequest(req);
 
   try {
-    const [postings, buckets, applications, registrations] = await Promise.all([
+    const [postings, buckets, applications, registrations, run] = await Promise.all([
       postingCounts(),
       bucketCounts(),
       recentApplications(locale),
       recentRegistrations(),
+      lastRun(),
     ]);
 
     res.setHeader('Cache-Control', 'no-store');
@@ -46,6 +48,16 @@ export default async function handler(req, res) {
       applications_by_status: buckets,
       recent_applications: applications,
       recent_registrations: registrations,
+      // Section 11's last line: "Surface the last cron run time and its results
+      // on the admin overview."
+      //
+      // Three states, not two, and the third is why this is an object rather
+      // than a row or null. lastRun answers undefined when the table could not
+      // be read, and "the cron has never run" is a claim this page is not
+      // entitled to make on the strength of a failed query — the same manners
+      // api/admin/me keeps when it sends null rather than zero for a count.
+      // The panel says "could not be read" for that case and nothing else does.
+      cron: { readable: run !== undefined, run: run ?? null },
     });
   } catch (cause) {
     return failInternal(res, cause, 'admin stats');

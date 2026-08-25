@@ -5168,3 +5168,99 @@ ul.field-hint {
     padding-bottom: 0;
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * Phase 9. Automation.
+ *
+ * Three small things: the collapsible webhook checklist beside the Google Form
+ * URL field, the copy row that shows a posting's uuid, and the two lists in the
+ * maintenance panel on the overview. Nothing here introduces a colour or a
+ * duration of its own: --transition is the one duration for everything that
+ * opens, per deviation 46.
+ * ------------------------------------------------------------------------ */
+
+/* Section 13's collapsible help. Sits inside a .field, under the hint, so it
+   has to read as part of that field rather than as a new block. */
+.field-help {
+  margin-block-start: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-alt);
+}
+
+.field-help > summary {
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.field-help > summary:focus-visible {
+  outline: 2px solid var(--brand-dark);
+  outline-offset: 2px;
+}
+
+.field-help[open] > summary {
+  border-block-end: 1px solid var(--border);
+}
+
+.field-help-body {
+  padding: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.field-help-body > :first-child {
+  margin-block-start: 0;
+}
+
+.field-help-body > :last-child {
+  margin-block-end: 0;
+}
+
+.field-help-body ol {
+  margin-block: 0.5rem;
+  padding-inline-start: 1.25rem;
+}
+
+.field-help-body li + li {
+  margin-block-start: 0.35rem;
+}
+
+/* The posting uuid and its copy button. The code wraps rather than scrolls: a
+   uuid is thirty six characters and a narrow screen should show all of it, since
+   the whole point is reading it accurately enough to retype it. */
+.copy-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-block: 0.5rem;
+}
+
+.copy-row code {
+  flex: 1 1 16rem;
+  overflow-wrap: anywhere;
+  padding: 0.3rem 0.5rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: 0.85rem;
+}
+
+/* The maintenance panel's two lists. Both sit inside a .callout, which already
+   carries the colour, so these only handle spacing. */
+.admin-cron-counts,
+.admin-cron-flagged {
+  margin-block: 0.5rem 0;
+  padding-inline-start: 1.25rem;
+}
+
+.admin-cron-counts {
+  list-style: none;
+  padding-inline-start: 0;
+}
+
+.admin-cron-counts li + li,
+.admin-cron-flagged li + li {
+  margin-block-start: 0.25rem;
+}
