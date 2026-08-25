@@ -1029,13 +1029,33 @@ define('settings', 'Settings, 8.10, items 4 to 14', async (state) => {
     check('13. the cooldown saves', cooled.ok, `${cooled.status} ${short(cooled.text, 160)}`);
 
     if (state.applicantId && state.jobId) {
-      const mine = await get(state.applicantPage, `/api/applications/mine?job_id=${state.jobId}`);
-      const row = (mine.data?.applications ?? [])[0] ?? null;
+      // A cooldown to watch, made here rather than waited for. It has to be
+      // confirmed *after* the seven day setting above and before the thirty day
+      // one below, because cooldown_until is computed at confirmation time from
+      // whatever the setting then said: that is the whole of what item 13 is
+      // about, and a row confirmed under the wrong setting proves nothing.
+      let mine = await get(state.applicantPage, `/api/applications/mine?job_id=${state.jobId}`);
+      let row = (mine.data?.applications ?? [])[0] ?? null;
+
+      if (!row?.cooldown_until) {
+        const started = await post(state.applicantPage, '/api/applications/start', {
+          job_id: state.jobId,
+        });
+        if (started.ok) {
+          await post(state.applicantPage, '/api/applications/respond', {
+            analytics_id: started.data.analytics_id,
+            answer: 'yes',
+          });
+          mine = await get(state.applicantPage, `/api/applications/mine?job_id=${state.jobId}`);
+          row = (mine.data?.applications ?? [])[0] ?? null;
+        }
+      }
+
       if (!row?.cooldown_until) {
         skip(
           '13. a cooldown already being served does not move',
-          'this run has not confirmed an application, so no row is serving one. ' +
-            'Run --only=invites first, or confirm one by hand.'
+          `no row is serving one, and this section could not make one: ` +
+            `${short(mine.text, 140)}`
         );
       } else {
         const held = row.cooldown_until;
