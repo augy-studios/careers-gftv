@@ -52,9 +52,27 @@ function requireEnv(name) {
   return value;
 }
 
+const ONLY = (() => {
+  const arg = process.argv.find((value) => value.startsWith('--only='));
+  return arg ? arg.slice('--only='.length).split(',').map((s) => s.trim()) : null;
+})();
+
+/**
+ * Whether this invocation needs a staff account at all.
+ *
+ * `formcheck` is the one section in any phase that talks to nothing: it imports
+ * form-check.js and hands it fake responses. Both READMEs say it needs no
+ * deployment, no credentials and no network, so asking for a password before
+ * --only= has even been read made that untrue — the run exited 1 on
+ * `Set STAFF_USER` and the nine offline checks could not be run at all. The
+ * requireEnv calls stay exactly as strict for every other section: still no
+ * fallback, still no default, still refusing to start without them.
+ */
+const NEEDS_STAFF = ONLY === null || ONLY.some((name) => name !== 'formcheck');
+
 const STAFF = {
-  username: requireEnv('STAFF_USER'),
-  password: requireEnv('STAFF_PASS'),
+  username: NEEDS_STAFF ? requireEnv('STAFF_USER') : '',
+  password: NEEDS_STAFF ? requireEnv('STAFF_PASS') : '',
 };
 
 /**
@@ -80,11 +98,6 @@ const APPLICANT = {
   email: `smoke-p9-${STAMP}@example.invalid`,
   password: process.env.APPLICANT_PASS ?? DEFAULT_APPLICANT_PASS,
 };
-
-const ONLY = (() => {
-  const arg = process.argv.find((value) => value.startsWith('--only='));
-  return arg ? arg.slice('--only='.length).split(',').map((s) => s.trim()) : null;
-})();
 
 /* -------------------------------------------------------------------------
  * Reporting
@@ -1043,8 +1056,18 @@ define('panel', 'The overview and editor panels, items 41 to 46', async (state) 
   await state.staffPage.goto(`${BASE}/admin`, { waitUntil: 'domcontentloaded' });
   await dismissApplyPrompt(state.staffPage);
 
+  // Wait for the panel to say something, not for the box to exist. The div is
+  // in admin/index.html's static markup, so waiting on the selector resolves
+  // before /api/admin/stats has answered and drawCron has filled it: the box is
+  // there and empty, and items 41 and 42 then report a working panel as broken.
+  // The section 3 rule about a fixed wait being a race applies to waiting for
+  // the wrong thing too.
   const panel = await state.staffPage
-    .waitForSelector('#adminCronRun', { timeout: 20000 })
+    .waitForFunction(
+      () => document.querySelector('#adminCronRun')?.textContent.trim(),
+      null,
+      { timeout: 20000 }
+    )
     .then(() => state.staffPage.textContent('#adminCronRun'))
     .catch(() => null);
 

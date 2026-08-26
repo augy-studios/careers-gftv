@@ -91,11 +91,11 @@
       "number": 9,
       "name": "Automation",
       "name_zh": "自动化",
-      "status": "building",
+      "status": "shipped",
       "description": "Daily maintenance, automatic closing of postings past their date, and confirmed submissions coming back from the application forms.",
       "description_zh": "每日维护、自动关闭已过截止日期的职位信息，以及从申请表单回传的提交确认。",
-      "shipped_note": null,
-      "shipped_note_zh": null
+      "shipped_note": "Most of this phase is meant to be invisible, and that is the point of it. Roles now close themselves on their closing date, so the board stops offering something that has already shut, and the site tidies up after itself once a day. The part you may notice: where a role's application form is set up for it, submitting that form tells us you applied, so we stop asking you the question. If you had answered that you did not apply and then went and applied, the form is believed over that earlier answer, your applications page shows the role as submitted, and the three month waiting period for that role runs from when you actually applied. Nothing about how you apply has changed, and no role depends on this: where a form is not set up for it, we simply ask you as before. Installing the portal to your home screen and using it with no connection arrive in the next phase.",
+      "shipped_note_zh": "这一阶段的内容大多是看不见的，而这正是用意所在。职位现在会在截止日期当天自动关闭，职位板不会再显示已经结束招募的职位，网站每天也会自动整理一次。您可能会注意到的部分是：如果某个职位的申请表单已经设置好这项功能，您提交表单后，我们就会知道您申请了，也就不会再问您那个问题。如果您先前回答了没有申请、后来又去申请了，我们会以表单为准，您的申请页面会显示该职位为已提交，该职位三个月的等待期也会从您实际申请的日期开始计算。申请方式完全没有改变，也没有任何职位必须依赖这项功能：若某个职位的表单没有设置，我们仍然像以前一样询问您。将本网站添加到主屏幕、并在没有网络时使用的功能，将在下一阶段上线。"
     },
     {
       "number": 10,
