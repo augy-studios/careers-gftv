@@ -1133,6 +1133,8 @@
   "featureWhere.admin_translations": "The translation queue in this dashboard, its language audit, and the helper roster.",
   "featureWhere.cron": "The overnight pass, and nothing on screen. Off leaves postings past their closing date open and expired rows uncleared, and the run is still recorded, saying it was switched off.",
   "featureWhere.form_webhook": "The confirmation an application form sends back when somebody submits it. Off means an application counts only when the applicant answers the question themselves.",
+  "featureWhere.offline": "Reading the site with no connection, and nothing on screen while it is working. Off makes every visitor fetch every page fresh, and clears what their device was holding. It can take a few minutes to reach somebody who already has the site open.",
+  "featureWhere.install": "Whether a browser offers to install the portal to a home screen. Off stops the offer; anybody who has already installed it keeps what they have, which no switch can change.",
   "featureDenied.applicant_login": "Turning sign in off would lock every applicant out with no way back.",
   "featureDenied.applicant_register": "Registration is how somebody gets an account in the first place.",
   "featureDenied.staff_login": "Turning staff sign in off would lock you out of this page.",
