@@ -8,16 +8,19 @@ collected in Google Forms: the portal's job is to gate access, hand the
 applicant over, log the handoff, and track what happened next. It is a GFTV
 HelloApp and follows the same conventions as the other GFTV PWAs.
 
-**Phases 1 to 6 of 15 have shipped, and phase 7 is being built.** The database
+**Phases 1 to 9 of 15 have shipped, and phase 10 is being built.** The database
 schema and the shared server side code, then signing in, then the job board,
 the postings themselves, applying to one, and the applicant's own account area.
 The public surface is the home page, `/search` with its filters and
 suggestions, `/jobs/{uuid}` for a posting in full, the `jobs.json` feed,
 `/about`, `/faq`, `/status`, creating an account and signing in, applying and
 tracking what happened next, and a placeholder page that every route belonging
-to a later phase renders. Phase 7 is the staff side of running the board: the
-overview, the tabbed per language editor, applicant tracking, teams, and tags.
-Live status:
+to a later phase renders. Behind it, phases 7 and 8 are the staff side of
+running the board — the overview, the tabbed per language editor, applicant
+tracking, teams and tags, invites, the translation queue, and the maintenance
+switches — and phase 9 is the machine side: the daily maintenance run and the
+Google Forms submission webhook. Phase 10 is the offline half, which is what
+makes this an installable PWA that stays useful with no connection. Live status:
 [careers.globalfurry.tv/status](https://careers.globalfurry.tv/status).
 
 `/jobs/{uuid}` is the one server rendered route in the portal, and deliberately
@@ -38,6 +41,11 @@ feature they used last week "will be available in Phase 6" would be a lie about
 a shipped feature, and it would make a real outage indistinguishable from an
 unbuilt one.
 
+**Phase 10 adds a third, and it does not borrow either one's machinery.** A
+control that needs a connection is disabled offline with a sentence of its own,
+because that claim is about the reader rather than about us: nothing is broken,
+nothing is unbuilt, and it will work again in a moment.
+
 ## Directories
 
 | Directory | What is in it |
@@ -47,7 +55,7 @@ unbuilt one.
 | `telegram-bot/` | The `careersgftv_bot` Telegram bot. Scaffold only until phase 11. Runs on a Debian VPS under tmux. |
 | `docs-site/` | The public documentation site for `docs.careers.globalfurry.tv`. Scaffold only until phase 13. Its own Vercel project on the same repo. |
 | `apps-script/` | The Google Apps Script that each job's application form runs on submit, per section 13. Not deployed by anything: it is pasted into a form by hand. See [The application form webhook](#the-application-form-webhook). |
-| `tests/` | Playwright checks, run by hand against a deployment. Not a CI suite: they need a staff credential and they write real rows. |
+| `tests/` | Playwright checks, run by hand against a deployment. Not a CI suite: they need a staff credential and they write real rows. Phase 10's is the exception and needs neither, because a service worker cannot be checked by asking a deployment anything. |
 
 Five READMEs, plus the one in `migrations/`, and no others. Each says what
 lives in its directory and how to work with it.
@@ -273,6 +281,19 @@ names nobody. The ordinary cause is somebody applying with a different address
 than they registered with, and linking one there records their application as
 submitted.
 
+## Scripts at the repo root
+
+Five, all plain `node`, none of them part of a build. The two checkers are the
+ones to run before pushing.
+
+| Script | What it does |
+|---|---|
+| `check-i18n.js` | Every `t()` key in the source against both dictionaries. Reports missing keys, unused ones, and the sixty built at runtime that it cannot resolve. **Run it before shipping**: a missing key renders as the raw key. |
+| `check-precache.js` | Every entry in `sw.js`'s precache list resolved the way `cleanUrls` does, and non-zero on one that is not on disk. The precache list is the most dangerous object in the site: a bad entry costs one file at runtime and this is what stops it reaching production at all. |
+| `gen-icons.js` | Every icon under `main-site/`, from `HLC-source.png` at this level. The source is deliberately not one of the outputs. See [`main-site/README.md`](main-site/README.md). |
+| `gen-screenshots.js` | The two install screenshots in the manifest, captured from `/search` on the deployment. Rerun after deleting the dev seed. |
+| `gen-review.js` | `zh-review.html`, every Chinese string side by side with its English, for a fluent reader to go through. |
+
 ## Regression testing
 
 There is no CI suite and no test database. What there is: Playwright scripts in
@@ -284,6 +305,9 @@ npx playwright install chromium
 
 STAFF_USER=yourname STAFF_PASS='...' node tests/phase7-test.mjs
 STAFF_USER=yourname STAFF_PASS='...' node tests/phase7-test.mjs --only=editor
+
+# Phase 10 is the exception: no deployment, no credentials, no network.
+node tests/phase10-test.mjs
 ```
 
 Three things to know before the first run, all of which

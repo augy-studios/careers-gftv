@@ -29,7 +29,7 @@
 
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
-import { readFile, stat } from 'node:fs/promises';
+import { readdir, readFile, stat } from 'node:fs/promises';
 import { join, extname, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -1487,6 +1487,330 @@ define('disabled', 'Controls that cannot work offline', async () => {
   }
 });
 
+define('install', 'The manifest, the icons, and the install surface', async () => {
+  // **No browser, and nothing to poll.** What a launcher does with this manifest
+  // is decided by what the files on disk actually are, and the failure mode is
+  // silence: Chrome checks a declared size against the real pixels and drops a
+  // mismatched icon or screenshot without saying anything. So every check here
+  // is arithmetic on the repository — the one part of this phase where that is
+  // the honest way to ask the question rather than a shortcut.
+  const manifest = JSON.parse(await readFile(join(SITE, 'manifest.json'), 'utf8'));
+
+  /** Width and height out of a PNG's IHDR: 8 byte signature, 4 length, 4 tag. */
+  async function pngSize(path) {
+    const bytes = await readFile(path);
+    if (bytes.length < 24 || bytes.readUInt32BE(12) !== 0x49484452) return null;
+    return `${bytes.readUInt32BE(16)}x${bytes.readUInt32BE(20)}`;
+  }
+
+  const asset = (src) => join(SITE, src.replace(/^\//, ''));
+
+  check(
+    '101. the manifest parses and names the portal',
+    manifest.name === 'Careers@GFTV' && manifest.short_name === 'Careers@GFTV',
+    `${manifest.name} / ${manifest.short_name}`
+  );
+  check(
+    '102. standalone, from the site root',
+    manifest.display === 'standalone' && manifest.start_url === '/' && manifest.scope === '/',
+    `${manifest.display} ${manifest.start_url} ${manifest.scope} — section 14`
+  );
+
+  const icons = manifest.icons ?? [];
+  const missingIcons = [];
+  const wrongIcons = [];
+  for (const icon of icons) {
+    const real = await pngSize(asset(icon.src)).catch(() => null);
+    if (!real) missingIcons.push(icon.src);
+    else if (real !== icon.sizes) wrongIcons.push(`${icon.src} is ${real}, declared ${icon.sizes}`);
+  }
+
+  check('103. every icon it names is on disk', missingIcons.length === 0, missingIcons.join(', '));
+  check(
+    '104. and is the size it claims to be',
+    wrongIcons.length === 0,
+    `${wrongIcons.join('; ')} — a mismatch is dropped silently, so nothing on screen says so`
+  );
+
+  const maskable = icons.filter((icon) => (icon.purpose ?? '').split(/\s+/).includes('maskable'));
+  check(
+    '105. maskable at 192 and 512',
+    maskable.some((icon) => icon.sizes === '192x192') &&
+      maskable.some((icon) => icon.sizes === '512x512'),
+    `${maskable.map((icon) => icon.sizes).join(', ') || 'none'} — section 14 asks for both`
+  );
+  check(
+    '106. and purpose is explicit on all of them',
+    icons.length > 0 && icons.every((icon) => typeof icon.purpose === 'string' && icon.purpose),
+    'an icon with no purpose is "any", which a launcher will crop through the artwork'
+  );
+
+  const shots = manifest.screenshots ?? [];
+  const shotProblems = [];
+  for (const shot of shots) {
+    const real = await pngSize(asset(shot.src)).catch(() => null);
+    if (!real) shotProblems.push(`${shot.src} is not on disk`);
+    else if (real !== shot.sizes) shotProblems.push(`${shot.src} is ${real}, declared ${shot.sizes}`);
+  }
+
+  check(
+    '107. one narrow screenshot and one wide one',
+    shots.some((shot) => shot.form_factor === 'narrow') &&
+      shots.some((shot) => shot.form_factor === 'wide'),
+    shots.map((shot) => shot.form_factor ?? 'unset').join(', ')
+  );
+  check(
+    '108. both on disk and both the size they claim',
+    shotProblems.length === 0,
+    `${shotProblems.join('; ')} — node gen-screenshots.js writes these; do not crop one by hand`
+  );
+
+  const urls = (manifest.shortcuts ?? []).map((entry) => entry.url);
+  check(
+    '109. the two shortcuts section 14 asks for',
+    urls.includes('/search') && urls.includes('/account/tasks'),
+    urls.join(', ')
+  );
+  check(
+    '110. white title bar, yellow splash',
+    manifest.theme_color === '#ffffff' && manifest.background_color === '#fedc00',
+    `theme ${manifest.theme_color}, background ${manifest.background_color} — theme.js writes ` +
+      'the resolved page background into meta[name=theme-color] a moment after launch, so a ' +
+      'yellow theme_color is a flash of the wrong colour on every open'
+  );
+
+  /* Every page, and the one that is rendered by the server ----------------- */
+
+  async function htmlFiles(dir) {
+    const out = [];
+    for (const entry of await readdir(dir, { withFileTypes: true })) {
+      if (entry.name === 'node_modules') continue;
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) out.push(...(await htmlFiles(full)));
+      else if (entry.name.endsWith('.html')) out.push(full);
+    }
+    return out;
+  }
+
+  const pages = await htmlFiles(SITE);
+  const shellSource = await readFile(join(SITE, 'api', '_lib', 'page-shell.js'), 'utf8');
+  const sources = [
+    ...(await Promise.all(pages.map(async (file) => [file, await readFile(file, 'utf8')]))),
+    ['api/_lib/page-shell.js', shellSource],
+  ];
+
+  const noApple = sources
+    .filter(([, body]) => !/rel="apple-touch-icon" href="\/HLC-180\.png"/.test(body))
+    .map(([file]) => file);
+  const noManifest = sources
+    .filter(([, body]) => !/rel="manifest" href="\/manifest\.json"/.test(body))
+    .map(([file]) => file);
+
+  check(
+    `111. all ${pages.length} pages and the server rendered one point apple-touch-icon at HLC-180.png`,
+    noApple.length === 0,
+    `${noApple.join(', ')} — iOS ignores the manifest's icon list entirely and reads this tag`
+  );
+  check(
+    '112. and that file is a 180 square, not the master',
+    (await pngSize(join(SITE, 'HLC-180.png')).catch(() => null)) === '180x180',
+    'the master is 2250 square and half a megabyte, fetched to draw a 180 pixel icon'
+  );
+  check(
+    `113. and all ${sources.length} of them link the manifest`,
+    noManifest.length === 0,
+    noManifest.join(', ')
+  );
+
+  /* The two headers this phase depends on and does not own ----------------- */
+
+  const vercel = JSON.parse(await readFile(join(SITE, 'vercel.json'), 'utf8'));
+  const swHeaders = Object.fromEntries(
+    (vercel.headers ?? [])
+      .filter((entry) => entry.source === '/sw.js')
+      .flatMap((entry) => entry.headers.map((header) => [header.key, header.value]))
+  );
+
+  check(
+    '114. vercel.json serves /sw.js with Cache-Control: no-cache',
+    swHeaders['Cache-Control'] === 'no-cache',
+    `${swHeaders['Cache-Control'] ?? 'absent'} — without it a stale worker pins an old build ` +
+      'indefinitely and the VERSION bump stops meaning anything'
+  );
+  check(
+    '115. and Service-Worker-Allowed: /',
+    swHeaders['Service-Worker-Allowed'] === '/',
+    swHeaders['Service-Worker-Allowed'] ?? 'absent'
+  );
+});
+
+define('switches', 'The two kill switches, both ways', async () => {
+  // Decision 7: `offline` and `install` are real feature keys, so an admin can
+  // flip either from /admin/maintenance and a worker already on somebody's phone
+  // has to obey. **Both directions are the check**, because a switch that cannot
+  // be undone is not a switch: the thing serving the broken copy is the thing
+  // you would otherwise have to reach to replace it.
+  const server = await serveSite();
+  const browser = await chromium.launch();
+  const ctx = await browser.newContext({ baseURL: server.base });
+  const page = await ctx.newPage();
+
+  let off = {};
+  await ctx.route('**/api/public/feature-status', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: { 'Cache-Control': 'no-store' },
+      body: JSON.stringify({ ok: true, data: { off } }),
+    })
+  );
+
+  /** Ask the worker, through the page, and let it write the answer down. */
+  const tell = async () => {
+    await page.evaluate(() => fetch('/api/public/feature-status').then((r) => r.json()));
+  };
+
+  const remembered = () =>
+    page.evaluate(async () => {
+      const cache = await caches.open('careers-gftv-state');
+      const stored = await cache.match('/__sw/feature-switches');
+      return stored ? await stored.json() : null;
+    });
+
+  const manifestStatus = () =>
+    page.evaluate(() => fetch('/manifest.json').then((response) => response.status));
+
+  try {
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await until(page, async () => Boolean((await navigator.serviceWorker.getRegistration())?.active), {
+      timeout: 30000,
+    });
+    await page.reload({ waitUntil: 'domcontentloaded' });
+
+    await tell();
+    await until(page, async () => {
+      const cache = await caches.open('careers-gftv-state');
+      return Boolean(await cache.match('/__sw/feature-switches'));
+    });
+
+    check(
+      '116. the worker reads the switches off the response every page already fetches',
+      JSON.stringify(await remembered()) === '{}',
+      'no extra request: /api/public/feature-status is no-store and network only anyway'
+    );
+    check('117. and the manifest is served while install is on', (await manifestStatus()) === 200);
+
+    /* install off ---------------------------------------------------------- */
+
+    off = { install: true };
+    await tell();
+    const install404 = await until(page, async () => (await fetch('/manifest.json')).status === 404);
+    check(
+      '118. install switched off answers 404 for the manifest',
+      install404,
+      'removing a link tag would not stop a browser that has already read it'
+    );
+
+    const stillCached = await page.evaluate(async () =>
+      (await caches.keys()).some((name) => name.startsWith('careers-gftv-shell-'))
+    );
+    check(
+      '119. and takes nothing else with it',
+      stillCached,
+      'install and offline are two switches: turning off the install prompt is not turning off ' +
+        'the cache the reader is holding'
+    );
+
+    off = {};
+    await tell();
+    const installBack = await until(page, async () => (await fetch('/manifest.json')).status === 200);
+    check('120. and switching it back on restores the manifest', installBack);
+
+    /* offline off ---------------------------------------------------------- */
+
+    off = { offline: true };
+    await tell();
+
+    const dropped = await until(
+      page,
+      async () => (await caches.keys()).every((name) => name === 'careers-gftv-state'),
+      { timeout: 15000 }
+    );
+    check(
+      '121. offline switched off drops every cache it holds',
+      dropped,
+      `${(await page.evaluate(() => caches.keys())).join(', ')} — the state cache survives, ` +
+        'because a kill switch that forgets itself is not a kill switch'
+    );
+
+    await ctx.setOffline(true);
+    let served = 'a page';
+    try {
+      await page.goto('/about', { waitUntil: 'domcontentloaded' });
+    } catch (cause) {
+      served = String(cause?.message ?? cause);
+    }
+    check(
+      '122. and a precached route is no longer served from cache',
+      served !== 'a page',
+      'switched off, it behaves exactly as if this file were never registered'
+    );
+    await ctx.setOffline(false);
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+
+    /* offline back on ------------------------------------------------------ */
+
+    off = {};
+    await tell();
+
+    const listening = await until(page, async () => {
+      const cache = await caches.open('careers-gftv-state');
+      const stored = await cache.match('/__sw/feature-switches');
+      return stored ? Object.keys(await stored.json()).length === 0 : false;
+    });
+    check(
+      '123. the worker is still listening while it is switched off',
+      listening,
+      'feature-status is handled above the kill switch on purpose: if it short-circuited to the ' +
+        'network with everything else, nothing could ever switch the worker back on'
+    );
+
+    const refilled = await until(
+      page,
+      async () => {
+        const names = await caches.keys();
+        const shell = names.find((name) => name.startsWith('careers-gftv-shell-'));
+        if (!shell) return false;
+        return (await (await caches.open(shell)).keys()).length > 90;
+      },
+      { timeout: 30000 }
+    );
+    check(
+      '124. and refills the shell it threw away',
+      refilled,
+      'install is the only other thing that fills it, so without this the switch is reversible ' +
+        'on paper and not on the phone until the next deploy'
+    );
+
+    await ctx.setOffline(true);
+    let reread = null;
+    try {
+      await page.goto('/about', { waitUntil: 'domcontentloaded' });
+      reread = page.url();
+    } catch (cause) {
+      reread = String(cause?.message ?? cause);
+    }
+    check(
+      '125. so offline reading works again with no deploy',
+      reread?.endsWith('/about') === true,
+      `${reread} — this is the whole point of the switch being a switch`
+    );
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
 /* -------------------------------------------------------------------------
  * Run
  * ---------------------------------------------------------------------- */
@@ -1494,7 +1818,17 @@ define('disabled', 'Controls that cannot work offline', async () => {
 async function main() {
   console.log('Phase 10 verification');
   console.log(`  deployment sections: ${BASE}`);
-  console.log('  the worker section needs no deployment, no credentials, and no network');
+  console.log('  every section here needs no deployment, no credentials, and no network');
+
+  // A mistyped --only= otherwise runs nothing at all and exits 0, which reads
+  // exactly like a clean run. The same shape as the rest of this phase: the
+  // failure to design for is the silent one.
+  const unknown = (ONLY ?? []).filter((name) => !SECTIONS.some((entry) => entry.name === name));
+  if (unknown.length > 0) {
+    console.error(`\nNo such section: ${unknown.join(', ')}`);
+    console.error(`Sections: ${SECTIONS.map((entry) => entry.name).join(', ')}`);
+    process.exit(1);
+  }
 
   for (const entry of SECTIONS) {
     if (ONLY && !ONLY.includes(entry.name)) continue;

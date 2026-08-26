@@ -1111,6 +1111,22 @@ size does not match. They currently show the dev seed's SAMPLE POSTING rows,
 because that is what the board currently holds: rerun `node gen-screenshots.js`
 when the seed is deleted.
 
+**Replacing the artwork.** The current icon is the template's and is not the
+final one. Swapping it is: drop the new square master in as `HLC-source.png` at
+the repo root, run `node gen-icons.js`, and run
+`node tests/phase10-test.mjs --only=install`. Nothing else references an icon by
+anything but name, so no page, no manifest entry, and no precache line changes.
+
+The one assumption to check first is the recolouring. `gen-icons.js` matches
+every pixel of the template's mint plate — `MINT`, with `TOLERANCE` and
+`MIN_BRIGHTNESS` for its drop shadows — and rewrites it as `YELLOW` at the same
+brightness. **A master that is already on the right background wants that pass
+turned off rather than retuned**, and one on some third colour wants `MINT`
+pointed at that colour. The constants are at the top of the file with what each
+one is for. The checks in the `install` section are about sizes, tags, and the
+manifest's own claims, so they are worth exactly as much after a new icon as
+before it; nothing there is about the artwork.
+
 ## The service worker
 
 **Bump `VERSION` at the top of `sw.js` on every change to this site.** Not once
@@ -1179,6 +1195,28 @@ goes network only; with `install` off it answers 404 for `/manifest.json`, which
 is what actually stops a browser offering the install. A worker that ignored the
 switch would be a flag nothing enforces, and a bad service worker is the one bug
 that outlives its own fix.
+
+**Both switches go both ways, and two things in `sw.js` are load bearing for
+that.** A switch that cannot be undone is not a switch, and the whole reason
+this one exists is a worker that has gone wrong on somebody else's phone.
+
+- **`/api/public/feature-status` is handled above the kill switch in
+  `handle()`.** With `offline` off every other request short-circuits to the
+  network; if this one did too, the worker would stop listening the moment it
+  was switched off and no admin could ever switch it back on. Nothing is lost by
+  reading it first: that endpoint is network only in both states and caches
+  nothing either way.
+- **The caches are dropped and refilled on the edge, in `rememberSwitches`, not
+  per request.** Dropping on every request while the switch was off raced the
+  refill that switching it back on starts — same page load, requests still in
+  flight, last one wins. Nothing can fill a cache while the switch is off, so
+  one drop on the edge is enough. The refill matters because `install` is the
+  only other thing that ever fills the shell, so without it a device that saw
+  the switch go off would keep no cache until some later deploy happened to
+  install a new worker. Install itself skips the precache while the switch is
+  off, rather than fetching a hundred files to be thrown away.
+
+`node tests/phase10-test.mjs --only=switches` drives both switches both ways.
 
 ### The client half, `assets/js/offline.js`
 
@@ -1392,12 +1430,14 @@ deployment, no credentials, and no network. Run it before pushing a change to
 
 ## Offline test checklist
 
-`node tests/phase10-test.mjs --only=worker` covers the worker itself — the
-precache, offline navigation, the fallback, and the update prompt — against a
-local copy of this directory, and needs nothing set up. **What it cannot do is
-this list.** Section 14's last line asks for a real Android install and for iOS
-Safari, where service worker support is real but stricter, and neither is
-something a script does:
+`node tests/phase10-test.mjs` covers the whole phase against a local copy of
+this directory — the precache, offline navigation, the fallback, the update
+prompt, the applicant's own data, the queue, the disabled controls, the install
+manifest, and both kill switches — in nine sections, none of which needs a
+deployment, a credential, or a network. **What it cannot do is this list.**
+Section 14's last line asks for a real Android install and for iOS Safari, where
+service worker support is real but stricter, and neither is something a script
+does:
 
 1. Install the app to a home screen from Chrome, and again on Android.
 2. Load the board at `/search`, then open two postings so they are cached.
@@ -1412,3 +1452,17 @@ something a script does:
    the interface stops showing them as awaiting sync.
 9. Repeat the fallback check on iOS Safari, which supports service workers but
    is stricter.
+10. Switch `offline` off on `/admin/maintenance`, reload the phone that has the
+    app installed, and confirm it stops serving from cache. Switch it back on,
+    reload once, and confirm offline reading works again **without a deploy**.
+    The script drives both edges locally; this is the one that proves an admin
+    can reach a worker already on somebody's device, which is the only reason
+    the switch exists.
+
+Two things the checklist deliberately does not ask for. **Nobody has to test
+that an installed app survives `install` being switched off** — it does, no
+switch could change that, and the honest limit is written down in the deviation
+rather than checked. And **the icons are not looked at here**: the artwork is
+still the template's and will be replaced, so what is worth checking is that the
+home screen icon is not a stretched or cropped square, which the maskable pair
+is what fixes.

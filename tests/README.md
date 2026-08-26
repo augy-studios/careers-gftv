@@ -144,6 +144,8 @@ makes three postings and about fifteen admin writes.
 | `queue` | The action queue: the verdict rule for every kind of refusal, queueing with no connection, a flush stopping on the first network failure without losing anything, both actions going through when it returns, the answer being reconciled against the server reply rather than the local entry, an action for a gone posting being dropped, a lost session keeping one, and that the worker copy of the rule and the sync tag have not drifted. Same, needs nothing. |
 | `account` | The applicant's own pages offline: that a copy is kept on a successful load, that an account page does not bounce to sign in when the session cannot be asked, that the identity and the lists come from the copy on the device, that the fallback page offers the saved roles, and that a real signed out answer still redirects. Stands up a signed in applicant through routes rather than through a real login. Same, needs nothing. |
 | `store` | `idb.js`: that a row is not readable under another user id, that a blob survives the round trip, that a null session wipes nothing, that signing in as somebody else wipes everything, and that a write racing the wipe does not survive it. Driven through the real module in a real browser, because IndexedDB's semantics are the whole of what is being checked and none of them exist in a fake. Same, needs nothing. |
+| `install` | The manifest and the install surface: every icon and screenshot on disk at the size it is declared as, `purpose` on all four icons, the maskable pair, the two shortcuts, the colours, and the `apple-touch-icon` and manifest tags across all 33 pages and the server rendered posting page. Plus the two headers on `/sw.js` in `vercel.json` that the rest of the phase assumes. **The one section with no browser in it**: what a launcher does with this manifest is decided by what the files actually are, and a size that does not match the real pixels is dropped in silence. |
+| `switches` | The two kill switches from decision 7, **in both directions**: the worker reading them off the response every page already fetches, `install` off answering 404 for the manifest and taking nothing else with it, `offline` off dropping every cache and going network only, and both coming back — including the shell being refilled, since install is the only other thing that ever fills it. Same, needs nothing. |
 
 **This is the first phase that cannot be checked by asking the deployment a
 question.** A service worker is not on the deployment until it is pushed, and by
@@ -155,12 +157,24 @@ through the whole cycle. There is no API behind that server, so every `/api/`
 call answers 404, which is the point: what is under test is which requests the
 worker answers from a cache and which it refuses to.
 
-Run it before pushing anything that touches `sw.js`, together with
-`node check-precache.js` at the repo root.
+**Every section in this file needs nothing at all** — no deployment, no
+credentials, no network — which is unique to this phase and is a consequence of
+what it builds rather than a virtue. Run the whole file before pushing anything
+that touches `sw.js`, together with `node check-precache.js` at the repo root.
+
+```sh
+node tests/phase10-test.mjs
+node tests/phase10-test.mjs --only=worker,switches
+```
 
 **Nothing in this file reads a credential above a section.** Phase 9's file
 called `requireEnv` at module level, before `--only=` had been read, so its one
 credential-free section could not be run without a staff password it never used.
+
+**A mistyped `--only=` exits 1 and lists the sections**, rather than running
+nothing and reporting a clean pass. Worth copying into the other phase files:
+this whole phase is about failures that are silent, and a run that checked
+nothing looks exactly like a run where everything held.
 
 ## What a run writes
 

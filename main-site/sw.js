@@ -70,7 +70,7 @@
 //                     because a kill switch that forgets itself on the deploy
 //                     that broke something is not a kill switch.
 
-const VERSION = 'careers-gftv-phase10-v86';
+const VERSION = 'careers-gftv-phase10-v87';
 
 const SHELL = `careers-gftv-shell-${VERSION}`;
 const PUBLIC_DATA = 'careers-gftv-public';
@@ -263,7 +263,15 @@ const PRECACHE = [
  * ---------------------------------------------------------------------- */
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(fillShell());
+  event.waitUntil(
+    (async () => {
+      // A hundred files fetched for a worker an admin has switched off, and
+      // dropped again the moment it is switched back on. The switch is read
+      // from the state cache, which is not versioned for exactly this reason.
+      if ((await switches()).offline) return;
+      await fillShell();
+    })()
+  );
   // No skipWaiting. The new worker waits until somebody accepts the update
   // prompt, per section 14. Everything below is written to be correct while a
   // previous version is still the one in control.
@@ -368,6 +376,12 @@ self.addEventListener('message', (event) => {
  * /api/public/feature-status on load, so this reads the answer on the way past
  * and keeps it. Offline there is no answer and the last one stands, which is
  * the same direction that endpoint fails in: everything on.
+ *
+ * **Both switches go both ways, and that took two things.** This endpoint is
+ * handled above the kill switch in handle(), or the worker would stop listening
+ * the moment it was switched off; and rememberSwitches refills the shell when
+ * `offline` comes back on, because install is the only other thing that ever
+ * fills it. A switch that cannot be undone without a deploy is not a switch.
  * ---------------------------------------------------------------------- */
 
 /** The switches as last seen. `{ offline: true }` means offline is switched off. */
@@ -389,6 +403,8 @@ async function rememberSwitches(off) {
     if (off && Object.prototype.hasOwnProperty.call(off, key)) flags[key] = true;
   }
 
+  const previous = await switches();
+
   const cache = await caches.open(STATE);
   await cache.put(
     SWITCH_KEY,
@@ -396,6 +412,24 @@ async function rememberSwitches(off) {
       headers: { 'Content-Type': 'application/json' },
     })
   );
+
+  // **Both edges of the `offline` switch are handled here and nowhere else.**
+  //
+  // Dropping the caches used to happen in handle(), on every request that
+  // arrived while the switch was off, which is a race rather than a policy:
+  // switching it back on starts a refill, the requests already in flight from
+  // the same page load are still dropping, and whichever lands last wins. The
+  // switch is an edge, so it is acted on once, on the edge.
+  //
+  // Nothing can refill a cache while it is off, either — handle() returns the
+  // network before it reaches anything that writes — so one drop is enough.
+  if (!previous.offline && flags.offline) await dropCaches();
+
+  // Switched back on, so refill what switching it off threw away. The shell
+  // cache is filled by install and by nothing else, so without this a device
+  // that saw the switch go off keeps no cache until some later deploy happens
+  // to install a new worker: reversible on paper and not on the phone.
+  if (previous.offline && !flags.offline) await fillShell();
 }
 
 /**
@@ -461,10 +495,20 @@ self.addEventListener('fetch', (event) => {
 async function handle(event, request, url) {
   const off = await switches();
 
+  // **Read above the kill switch below, deliberately.** With `offline` switched
+  // off every other request short-circuits to the network, and if this one did
+  // too the worker would never see the switch being turned back on: it would be
+  // a one way door on every device that had visited while it was off, surviving
+  // deploys, because nothing else on the origin ever tells the worker anything.
+  // Passing it through here costs nothing — this endpoint is network only in
+  // both states and caches nothing either way.
+  if (url.pathname === '/api/public/feature-status') return featureStatus(event, request);
+
   if (off.offline) {
-    // The kill switch. Behave exactly as if this file were not registered, and
-    // take the caches with it so nothing survives to be served later.
-    event.waitUntil(dropCaches());
+    // The kill switch. Behave exactly as if this file were not registered:
+    // straight to the network, nothing read from a cache and nothing written to
+    // one. The caches themselves were dropped on the edge, in rememberSwitches,
+    // rather than here — see the note there for why that is not the same thing.
     return fetch(request);
   }
 
@@ -475,8 +519,6 @@ async function handle(event, request, url) {
     // posting page as well.
     return new Response('', { status: 404, statusText: 'Installation is switched off' });
   }
-
-  if (url.pathname === '/api/public/feature-status') return featureStatus(event, request);
 
   if (url.pathname.startsWith('/api/')) {
     // Public job data: listings, postings, departments, and tags. Everything
