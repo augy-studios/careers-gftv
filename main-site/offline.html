@@ -109,6 +109,17 @@
                 You are offline at the moment.
             </p>
 
+            <!-- Section 14: the fallback page offers "the cached postings and
+                 saved jobs as somewhere to go". Filled by offline-page.js from
+                 what the service worker is actually holding, and left hidden
+                 when it is holding nothing — a heading over an empty list would
+                 be telling somebody there is somewhere to go when there is
+                 not. -->
+            <section class="offline-held" id="offlineHeld" hidden>
+                <h2 data-i18n="offline.heldHeading">Roles you can still read</h2>
+                <ul class="offline-held-list" id="offlineHeldList"></ul>
+            </section>
+
             <div class="actions">
                 <!-- Retry cannot work without a connection, so it is disabled
                      with the reason on it rather than being a button that fails

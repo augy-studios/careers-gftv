@@ -34,7 +34,8 @@
 
 import { t, getLocale, DEFAULT_LOCALE } from './i18n.js';
 import { hydrateIcons, iconMarkup } from './icons.js';
-import { closingText, postedText, commitmentLabel, formatDate } from './format.js';
+import { closingText, postedText, commitmentLabel, formatDate, formatDateTime } from './format.js';
+import { cachedAt } from './offline.js';
 import { loadBuildStatus, applyFeatureGating } from './build-status.js';
 import { wireReportControl, openReportDialog } from './translation-report.js';
 import { consumeIntent } from './signin-prompt.js';
@@ -644,7 +645,15 @@ function boot() {
   document.addEventListener('gftv:localechange', () => {
     draw();
     resumeIntent();
+    markSavedCopy();
   });
+
+  // Section 14's last updated line. Redrawn on both connection events, so it
+  // appears the moment the connection drops and goes the moment it returns
+  // rather than waiting for a reload.
+  window.addEventListener('offline', markSavedCopy);
+  window.addEventListener('online', markSavedCopy);
+  markSavedCopy();
 
   // If the shell never boots, or the dictionary never loads, the posting still
   // has to appear. The dictionary falls back to the key, which is ugly and
@@ -653,6 +662,48 @@ function boot() {
   setTimeout(() => {
     if (!drawn) draw();
   }, 1400);
+}
+
+/**
+ * Say so when this posting is being read from the copy on the device.
+ *
+ * Section 14: "any cached view carries a quiet last updated timestamp so nobody
+ * mistakes an old board for the current one." A posting is the most likely
+ * thing in the build to be read from cache and acted on — a closing date that
+ * has since moved, or a role that has since closed, is exactly the kind of
+ * thing somebody would want to know was a week old.
+ *
+ * Only while offline. Online the worker serves the cached copy first and
+ * refreshes behind it, and a stale marker that appeared for a moment on every
+ * page view would be noise that nobody reads by the second week.
+ *
+ * The time comes from the worker rather than from a guess here. If it has none
+ * — no worker in control, which is a first visit or a hard reload — nothing is
+ * drawn, because "saved at some point" is not worth saying.
+ */
+async function markSavedCopy() {
+  const holder = document.querySelector('#jobDetail');
+  if (!holder) return;
+
+  const existing = document.querySelector('#jobSavedCopy');
+
+  if (navigator.onLine) {
+    existing?.remove();
+    return;
+  }
+
+  const at = await cachedAt(window.location.pathname);
+  if (!at) {
+    existing?.remove();
+    return;
+  }
+
+  const line = existing ?? document.createElement('p');
+  line.id = 'jobSavedCopy';
+  line.className = 'board-cached';
+  line.setAttribute('role', 'status');
+  line.textContent = t('job.savedCopy', { when: formatDateTime(at) });
+  if (!existing) holder.before(line);
 }
 
 function escapeAttr(value) {

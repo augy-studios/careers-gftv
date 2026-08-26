@@ -252,6 +252,71 @@ export function initOffline() {
   render();
 }
 
+/* -------------------------------------------------------------------------
+ * Asking the worker what it is holding
+ * ---------------------------------------------------------------------- */
+
+/**
+ * One question, one answer, over a private channel.
+ *
+ * A MessageChannel rather than a plain postMessage and a global listener: two
+ * pages on this origin share one worker, and a broadcast reply would have every
+ * open tab hearing an answer to a question another tab asked.
+ *
+ * Resolves to null when there is no worker in control, which is the ordinary
+ * state on a first visit and after a hard reload, and is not a failure.
+ */
+function ask(message, timeout = 2000) {
+  return new Promise((resolve) => {
+    const controller = navigator.serviceWorker?.controller;
+    if (!controller) return resolve(null);
+
+    const channel = new MessageChannel();
+    const timer = setTimeout(() => resolve(null), timeout);
+
+    channel.port1.onmessage = (event) => {
+      clearTimeout(timer);
+      resolve(event.data ?? null);
+    };
+
+    try {
+      controller.postMessage(message, [channel.port2]);
+    } catch {
+      clearTimeout(timer);
+      resolve(null);
+    }
+  });
+}
+
+/**
+ * The postings held for offline reading, most recently viewed first.
+ *
+ * Each carries its titles in every language the posting is ready in, so a list
+ * drawn from this follows a language change like everything else.
+ *
+ * @returns {Promise<Array<{ path: string, titles: Record<string,string>, isOpen: boolean, cachedAt: number }>>}
+ */
+export async function cachedPostings() {
+  const reply = await ask({ type: 'cached-postings' });
+  return Array.isArray(reply?.postings) ? reply.postings : [];
+}
+
+/**
+ * When the copy of one address was stored, or null if it is not held.
+ *
+ * Null is the honest answer for "not cached" and is deliberately not the same
+ * as "just now": a page that showed the current time for something it had never
+ * stored would be the exact mistake section 14's last updated line exists to
+ * prevent.
+ *
+ * @param {string} path
+ * @returns {Promise<number|null>}
+ */
+export async function cachedAt(path) {
+  const reply = await ask({ type: 'cached-at', path });
+  return typeof reply?.at === 'number' ? reply.at : null;
+}
+
 /**
  * The running worker's VERSION, or null.
  *

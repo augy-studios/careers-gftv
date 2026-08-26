@@ -34,6 +34,7 @@ const DB_VERSION = 1;
 const MINE = 'mine';
 const QUEUE = 'queue';
 const META = 'meta';
+const PUBLIC = 'public';
 
 /** The one meta key: whose data this database currently holds. */
 const USER_KEY = 'userId';
@@ -86,6 +87,17 @@ function open() {
 
       if (!db.objectStoreNames.contains(META)) {
         db.createObjectStore(META, { keyPath: 'key' });
+      }
+
+      if (!db.objectStoreNames.contains(PUBLIC)) {
+        // Public data that belongs to nobody, and is therefore **not** keyed by
+        // user id and **not** cleared on sign out. Today it holds one row: the
+        // last successful board, per section 14's "the last successful /search
+        // result set, including its filters and tags". Wiping it on sign out
+        // would take a signed out reader's board away because somebody else had
+        // signed out on the same phone, and there is nothing in it that anybody
+        // is not already entitled to see.
+        db.createObjectStore(PUBLIC, { keyPath: 'key' });
       }
     };
 
@@ -268,6 +280,37 @@ export async function readMine(userId, kind) {
 export async function forgetMine(userId, kind) {
   if (!userId || !kind) return;
   await withStore(MINE, 'readwrite', (store) => store.delete([userId, kind]));
+}
+
+/* -------------------------------------------------------------------------
+ * Public data, belonging to nobody
+ * ---------------------------------------------------------------------- */
+
+/**
+ * Keep a copy of something every reader is entitled to see.
+ *
+ * Separate from `mine` for two reasons that both matter. It takes no user id,
+ * so there is no chance of storing public data under somebody's name; and
+ * **`wipeAll` does not touch it**, so signing out does not take the board away
+ * from the signed out reader who is still holding the phone.
+ *
+ * @param {string} key
+ * @param {*} data
+ * @returns {Promise<number|null>} the timestamp stored
+ */
+export async function putPublic(key, data) {
+  if (!key) return null;
+  const cachedAt = Date.now();
+  await withStore(PUBLIC, 'readwrite', (store) => store.put({ key, data, cachedAt }));
+  return cachedAt;
+}
+
+/** @returns {Promise<{ data: *, cachedAt: number }|null>} */
+export async function readPublic(key) {
+  if (!key) return null;
+  const row = await withStore(PUBLIC, 'readonly', (store) => store.get(key));
+  if (!row) return null;
+  return { data: row.data, cachedAt: row.cachedAt };
 }
 
 /* -------------------------------------------------------------------------

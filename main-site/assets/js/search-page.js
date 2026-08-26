@@ -26,7 +26,12 @@ import { t, getLocale } from './i18n.js';
 import { iconMarkup } from './icons.js';
 import { renderJobCards } from './job-card.js';
 import { markAppliedCards } from './apply-badges.js';
-import { formatCount, commitmentLabel } from './format.js';
+import { formatCount, commitmentLabel, formatDateTime } from './format.js';
+import { putPublic, readPublic } from './idb.js';
+
+// The one row this page keeps in the public store: the last board that
+// answered, with the filters that produced it.
+const LAST_BOARD = 'lastBoard';
 
 /* -------------------------------------------------------------------------
  * The shape of the URL
@@ -260,11 +265,58 @@ async function runSearch(state) {
 
   if (!result.ok) {
     if (result.error?.code === 'aborted') return;
+
+    // Section 14: the last successful result set, with its filters, stays
+    // browsable with no connection. Only for a network failure — a 500 or a
+    // 503 is the site answering, and quietly showing yesterday's board in place
+    // of an error would hide a real fault behind stale data.
+    if (result.error?.code === 'network' && (await showSavedBoard(state))) return;
+
     showError(result.error?.message ?? t('search.loadError'));
     return;
   }
 
   renderResults(state, result.data);
+
+  // Kept after the draw, not before it, so a board that failed to render is
+  // never the one somebody sees again offline. Not awaited: nothing on screen
+  // is waiting for it.
+  putPublic(LAST_BOARD, { state, results: result.data });
+}
+
+/**
+ * Draw the last board that worked, marked with when it was saved.
+ *
+ * @returns {Promise<boolean>} whether there was one
+ */
+async function showSavedBoard(requested) {
+  const saved = await readPublic(LAST_BOARD);
+  if (!saved?.data) return false;
+
+  // Named apart deliberately. readPublic answers { data, cachedAt } and what it
+  // holds is itself { state, results }, so a `saved.data.data` would have been
+  // one keystroke from drawing the wrapper as if it were the board — which is
+  // exactly what it did on the first run.
+  const { state: savedState = {}, results } = saved.data;
+  if (!results) return false;
+
+  renderResults(savedState, results);
+
+  const line = document.querySelector('#boardCached');
+  if (!line) return true;
+
+  // Two different sentences, because they are two different situations. The
+  // second is the one that would otherwise be a quiet lie: somebody who
+  // searched for "camera" and is shown a board that was never about cameras
+  // needs to be told that, not just told it is old.
+  const sameFilters = toParams(savedState).toString() === toParams(requested).toString();
+
+  line.hidden = false;
+  line.textContent = sameFilters
+    ? t('search.savedBoard', { when: formatDateTime(saved.cachedAt) })
+    : t('search.savedBoardOtherFilters', { when: formatDateTime(saved.cachedAt) });
+
+  return true;
 }
 
 /* -------------------------------------------------------------------------
@@ -274,6 +326,11 @@ async function runSearch(state) {
 function showLoading() {
   el.summary.textContent = t('search.loading');
   el.notice.hidden = true;
+  // Cleared on every new search. A "saved on your device" line left over a
+  // board that has since come back from the network would be the one thing
+  // this line exists to prevent, pointing the wrong way.
+  const cachedLine = document.querySelector('#boardCached');
+  if (cachedLine) cachedLine.hidden = true;
   el.pagination.replaceChildren();
   el.results.setAttribute('aria-busy', 'true');
 

@@ -70,7 +70,7 @@
 //                     because a kill switch that forgets itself on the deploy
 //                     that broke something is not a kill switch.
 
-const VERSION = 'careers-gftv-phase10-v82';
+const VERSION = 'careers-gftv-phase10-v83';
 
 const SHELL = `careers-gftv-shell-${VERSION}`;
 const PUBLIC_DATA = 'careers-gftv-public';
@@ -94,6 +94,16 @@ const POSTING_PATH = /^\/jobs\/[^/]+$/;
 // Where the last seen maintenance switches are kept inside the state cache. Not
 // a real route: the Cache API is a key value store and this is a key.
 const SWITCH_KEY = '/__sw/feature-switches';
+
+// A lookup table of what each cached posting is called, in every language it is
+// ready in, so the offline page can list them by name instead of by uuid.
+//
+// **Membership and order stay with the postings cache, not with this.** The
+// Cache API answers keys() in insertion order, which touch() maintains as least
+// recently viewed, and that is the one source of truth for what is held and
+// what gets evicted. This is only the display data hanging off a path, pruned
+// to match after every trim.
+const INDEX_KEY = '/__sw/posting-index';
 
 /* -------------------------------------------------------------------------
  * The precache list
@@ -321,6 +331,25 @@ self.addEventListener('message', (event) => {
   // reader accepts the update prompt, and reloads on controllerchange.
   if (type === 'skip-waiting') {
     event.waitUntil(self.skipWaiting().then(() => self.clients.claim()));
+    return;
+  }
+
+  // Answered over a MessageChannel port when one is supplied, so a caller gets
+  // its own reply rather than every page on the origin hearing it. offline.js
+  // wraps both of these.
+  const port = event.ports?.[0];
+
+  if (type === 'cached-postings') {
+    event.waitUntil(
+      cachedPostings().then((postings) => port?.postMessage({ type, postings }))
+    );
+    return;
+  }
+
+  if (type === 'cached-at') {
+    event.waitUntil(
+      cachedAt(String(data?.path ?? '')).then((at) => port?.postMessage({ type, at }))
+    );
   }
 });
 
@@ -506,6 +535,7 @@ async function posting(event, request, url) {
     .then(async (response) => {
       if (isCacheable(response)) {
         await store(cache, url.pathname, response.clone());
+        await rememberPosting(url.pathname, response.clone());
         await trimPostings(cache);
       }
       return response;
@@ -623,4 +653,135 @@ async function trimPostings(cache) {
   const excess = keys.length - MAX_POSTINGS;
   if (excess <= 0) return;
   await Promise.all(keys.slice(0, excess).map((key) => cache.delete(key)));
+  await pruneIndex(cache);
+}
+
+/* -------------------------------------------------------------------------
+ * What each cached posting is called
+ *
+ * Section 14's offline fallback page offers "the cached postings and saved jobs
+ * as somewhere to go", and a list of uuids is not somewhere to go. The titles
+ * come out of the posting document itself, which already carries every language
+ * it is ready in — that is what makes switching language on a posting a redraw
+ * rather than a fetch, and it is what makes this list bilingual for free.
+ * ---------------------------------------------------------------------- */
+
+async function readIndex() {
+  try {
+    const cache = await caches.open(STATE);
+    const stored = await cache.match(INDEX_KEY);
+    if (!stored) return {};
+    return (await stored.json()) ?? {};
+  } catch {
+    return {};
+  }
+}
+
+async function writeIndex(index) {
+  const cache = await caches.open(STATE);
+  await cache.put(
+    INDEX_KEY,
+    new Response(JSON.stringify(index), { headers: { 'Content-Type': 'application/json' } })
+  );
+}
+
+/**
+ * Note what a posting is called, in every language it is ready in.
+ *
+ * Read out of the inlined `#jobData` payload rather than out of the `<title>`
+ * tag, which carries the English title only. The payload is escaped so that
+ * `<` cannot appear inside it — page-shell.js writes `<` — which is why a
+ * non greedy match up to the closing tag is safe here and would not be against
+ * arbitrary HTML.
+ *
+ * A document this cannot read leaves the index alone rather than writing an
+ * entry with no name. The posting is still cached and still opens; it is the
+ * list on the fallback page that would be the poorer, and an entry reading
+ * "undefined" would be worse than one that is absent.
+ */
+async function rememberPosting(path, response) {
+  try {
+    const html = await response.text();
+    const match = html.match(
+      /<script type="application\/json" id="jobData">([\s\S]*?)<\/script>/
+    );
+    if (!match) return;
+
+    const payload = JSON.parse(match[1]);
+    const titles = {};
+    for (const [locale, content] of Object.entries(payload?.content ?? {})) {
+      if (content?.title) titles[locale] = String(content.title);
+    }
+    if (Object.keys(titles).length === 0) return;
+
+    const index = await readIndex();
+    index[path] = {
+      titles,
+      isOpen: payload?.job?.is_open !== false,
+      cachedAt: Date.now(),
+    };
+    await writeIndex(index);
+  } catch {
+    // A payload that could not be read is not a reason to fail the request the
+    // reader is actually waiting on.
+  }
+}
+
+/** Drop index entries for postings the cache no longer holds. */
+async function pruneIndex(cache) {
+  const held = new Set((await cache.keys()).map((request) => new URL(request.url).pathname));
+  const index = await readIndex();
+
+  let changed = false;
+  for (const path of Object.keys(index)) {
+    if (!held.has(path)) {
+      delete index[path];
+      changed = true;
+    }
+  }
+  if (changed) await writeIndex(index);
+}
+
+/**
+ * The cached postings, most recently viewed first.
+ *
+ * Order comes from the cache and names come from the index, which is the split
+ * described where INDEX_KEY is declared. A posting held in the cache with no
+ * index entry is skipped rather than listed unnamed.
+ */
+async function cachedPostings() {
+  const cache = await caches.open(POSTINGS);
+  const index = await readIndex();
+
+  const keys = await cache.keys();
+  const out = [];
+  // keys() is oldest first, and this list wants the opposite.
+  for (let at = keys.length - 1; at >= 0; at -= 1) {
+    const path = new URL(keys[at].url).pathname;
+    const entry = index[path];
+    if (entry) out.push({ path, ...entry });
+  }
+  return out;
+}
+
+/**
+ * When a cached copy of one address was stored.
+ *
+ * Section 14: "any cached view carries a quiet last updated timestamp so nobody
+ * mistakes an old board for the current one." The page asks for it rather than
+ * guessing, and gets null for anything not held — which is the honest answer
+ * and is not the same as "just now".
+ */
+async function cachedAt(path) {
+  const index = await readIndex();
+  if (index[path]?.cachedAt) return index[path].cachedAt;
+
+  for (const name of [POSTINGS, PUBLIC_DATA]) {
+    const cache = await caches.open(name);
+    const hit = await cache.match(path);
+    if (!hit) continue;
+    const date = hit.headers.get('date');
+    if (date) return Date.parse(date);
+  }
+  return null;
 }

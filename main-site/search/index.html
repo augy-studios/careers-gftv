@@ -197,6 +197,14 @@
             </aside>
 
             <div class="board-results">
+                <!-- Section 14: "mark it with the time it was cached". Its own
+                     element rather than the notice below, which renderResults
+                     owns and uses for the did-you-mean state: a saved board and
+                     a near miss can both be true at once, and the one that says
+                     these results are not current has to be the one that
+                     survives. Filled by search-page.js. -->
+                <p class="board-cached" id="boardCached" role="status" hidden></p>
+
                 <div id="resultNotice" hidden></div>
 
                 <div class="job-list" id="results" aria-busy="true">

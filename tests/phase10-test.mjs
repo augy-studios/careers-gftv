@@ -809,6 +809,175 @@ define('store', "The applicant's own data in IndexedDB", async () => {
   }
 });
 
+define('public', 'Public data offline: the board and the postings', async () => {
+  const server = await serveSite();
+  const browser = await chromium.launch();
+  const ctx = await browser.newContext({ baseURL: server.base });
+  const page = await ctx.newPage();
+
+  // A posting document shaped exactly as api/job-page.js renders one: the
+  // inlined #jobData payload carrying content for both languages, which is what
+  // makes a cached posting readable in either and what the worker reads the
+  // titles out of. Served for /jobs/* by the route below.
+  const posting = (id, en, zh) => `<!doctype html><html lang="en"><head>
+<title>${en} | Careers@GFTV</title></head><body>
+<script type="application/json" id="jobData">${JSON.stringify({
+    job: { id, is_open: true, is_paid: false },
+    content: { en: { title: en }, zh: { title: zh } },
+    applications_open: true,
+    preview: false,
+  }).replace(/</g, '\\u003c')}<\/script>
+<div id="jobDetail"></div></body></html>`;
+
+  const POSTINGS = [
+    ['11111111-1111-1111-1111-111111111111', 'Camera Operator', '摄影师'],
+    ['22222222-2222-2222-2222-222222222222', 'Subtitle Editor', '字幕编辑'],
+  ];
+
+  await ctx.route('**/jobs/**', (route) => {
+    const id = new URL(route.request().url()).pathname.split('/').pop();
+    const match = POSTINGS.find((entry) => entry[0] === id);
+    if (!match) return route.fulfill({ status: 404, body: 'no' });
+    return route.fulfill({
+      status: 200,
+      contentType: 'text/html; charset=utf-8',
+      headers: { 'Cache-Control': 'public, max-age=0, s-maxage=60' },
+      body: posting(...match),
+    });
+  });
+
+  const board = { total: 2, jobs: [{ id: POSTINGS[0][0], title: 'Camera Operator', slug: 'camera' }] };
+  await ctx.route('**/api/public/search*', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ ok: true, data: board }),
+    })
+  );
+
+  try {
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await until(page, async () => Boolean((await navigator.serviceWorker.getRegistration())?.active), {
+      timeout: 30000,
+    });
+    await page.reload({ waitUntil: 'domcontentloaded' });
+
+    /* Open two postings so they are held ---------------------------------- */
+
+    for (const [id] of POSTINGS) {
+      await page.goto(`/jobs/${id}`, { waitUntil: 'domcontentloaded' });
+    }
+
+    const held = await until(
+      page,
+      async () => (await (await caches.open('careers-gftv-postings')).keys()).length === 2,
+      { timeout: 10000 }
+    );
+    check('52. an opened posting is held for offline reading', held);
+
+    /* A cached posting reads in both languages ---------------------------- */
+
+    await ctx.setOffline(true);
+    await page.goto(`/jobs/${POSTINGS[0][0]}`, { waitUntil: 'domcontentloaded' });
+
+    const both = await page.evaluate(() => {
+      const payload = JSON.parse(document.querySelector('#jobData').textContent);
+      return Object.keys(payload.content ?? {});
+    });
+    check(
+      '53. and carries both languages, so switching offline does not empty it',
+      both.includes('en') && both.includes('zh'),
+      both.join(', ')
+    );
+
+    /* The offline page lists what is held --------------------------------- */
+
+    await page.goto('/not-a-real-route', { waitUntil: 'domcontentloaded' });
+
+    const listed = await until(
+      page,
+      () => document.querySelectorAll('#offlineHeldList li').length === 2,
+      { timeout: 8000 }
+    );
+    check('54. the fallback page lists the postings it is holding', listed);
+
+    const titles = await page.evaluate(() =>
+      [...document.querySelectorAll('#offlineHeldList a')].map((a) => a.textContent.trim())
+    );
+    check(
+      '55. by name rather than by uuid',
+      titles.includes('Camera Operator') && titles.includes('Subtitle Editor'),
+      titles.join(' | ')
+    );
+    check(
+      '56. most recently viewed first',
+      titles[0] === 'Camera Operator',
+      `${titles.join(' | ')} — the first entry is the one just reopened offline`
+    );
+
+    await page.evaluate(async () => {
+      const module = await import('/assets/js/i18n.js');
+      await module.applyLocale('zh');
+    });
+    await page.waitForTimeout(400);
+    const zhTitles = await page.evaluate(() =>
+      [...document.querySelectorAll('#offlineHeldList a')].map((a) => a.textContent.trim())
+    );
+    check(
+      '57. and follows a language change without asking the worker again',
+      zhTitles.includes('摄影师'),
+      zhTitles.join(' | ')
+    );
+    await page.evaluate(async () => {
+      const module = await import('/assets/js/i18n.js');
+      await module.applyLocale('en');
+    });
+
+    /* The saved board ------------------------------------------------------ */
+
+    await ctx.setOffline(false);
+    await page.goto('/search', { waitUntil: 'domcontentloaded' });
+    await until(page, () => document.querySelectorAll('#results .job-card:not([aria-hidden])').length > 0, {
+      timeout: 15000,
+    });
+
+    const savedWhileOnline = await page.evaluate(() =>
+      document.querySelector('#boardCached')?.hidden !== false
+    );
+    check(
+      '58. nothing claims to be a saved copy while the board is live',
+      savedWhileOnline,
+      'the line is cleared on every new search, not left over one that came back'
+    );
+
+    // The site is unreachable rather than the machine being offline, which is
+    // the case the board has to survive without saying the wrong thing.
+    await ctx.route('**/api/public/search*', (route) => route.abort('failed'));
+    await page.goto('/search?q=camera', { waitUntil: 'domcontentloaded' });
+
+    const shownSaved = await until(
+      page,
+      () => document.querySelector('#boardCached')?.hidden === false,
+      { timeout: 10000 }
+    );
+    check('59. a failed search falls back to the last board that worked', shownSaved);
+
+    const savedText = await page.textContent('#boardCached');
+    check(
+      '60. and says the filters do not match what was asked for',
+      /do not match the filters/i.test(savedText ?? ''),
+      `${savedText} — the board was saved with no query and this one asked for "camera"`
+    );
+    check(
+      '61. and the cards from the saved board are on screen',
+      (await page.locator('#results .job-card:not([aria-hidden])').count()) > 0
+    );
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
 /* -------------------------------------------------------------------------
  * Run
  * ---------------------------------------------------------------------- */

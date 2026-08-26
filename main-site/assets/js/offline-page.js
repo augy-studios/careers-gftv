@@ -19,7 +19,9 @@
 // interface up, not that anything is reachable. So a true reading enables the
 // retry control and never claims more than that.
 
-import { t } from './i18n.js';
+import { t, getLocale, DEFAULT_LOCALE } from './i18n.js';
+import { formatDateTime } from './format.js';
+import { cachedPostings } from './offline.js';
 
 const el = {};
 
@@ -57,6 +59,63 @@ function draw() {
   el.retry.setAttribute('title', t('offline.retryOffline'));
 }
 
+/* -------------------------------------------------------------------------
+ * The postings still readable
+ * ---------------------------------------------------------------------- */
+
+// Held rather than re-asked on every redraw. The worker's answer does not
+// change while this page is open — nothing is being cached, because nothing is
+// loading — and a language change must not cost another round trip to it.
+let held = [];
+
+/**
+ * Section 14: the fallback page offers the cached postings as somewhere to go.
+ *
+ * Each posting carries its titles in every language it is ready in, so this
+ * follows a language change by redrawing rather than by asking again. A posting
+ * with no title in the active language falls back to the default, which is the
+ * same rule the posting page itself uses.
+ */
+function drawHeld() {
+  const section = document.querySelector('#offlineHeld');
+  const list = document.querySelector('#offlineHeldList');
+  if (!section || !list) return;
+
+  if (held.length === 0) {
+    // Hidden rather than empty. A heading over nothing tells somebody there is
+    // somewhere to go when there is not.
+    section.hidden = true;
+    return;
+  }
+
+  const locale = getLocale();
+  section.hidden = false;
+  section.querySelector('h2').textContent = t('offline.heldHeading');
+
+  list.replaceChildren(
+    ...held.map((posting) => {
+      const item = document.createElement('li');
+
+      const link = document.createElement('a');
+      link.href = posting.path;
+      // A title is data, not a dictionary string, so it is set as text and
+      // never passed through innerHTML.
+      link.textContent =
+        posting.titles?.[locale] ?? posting.titles?.[DEFAULT_LOCALE] ?? posting.path;
+      item.append(link);
+
+      if (posting.cachedAt) {
+        const when = document.createElement('span');
+        when.className = 'offline-held-when';
+        when.textContent = t('offline.heldSaved', { when: formatDateTime(posting.cachedAt) });
+        item.append(when);
+      }
+
+      return item;
+    })
+  );
+}
+
 function init() {
   el.state = document.querySelector('#offlineState');
   el.retry = document.querySelector('#offlineRetry');
@@ -76,9 +135,21 @@ function init() {
   // The shell applies the stored language after this module has already run,
   // and the language can change again at any time, so draw on both. The icon in
   // the markup is hydrated by the shell, not here.
-  document.addEventListener('gftv:localechange', draw);
+  document.addEventListener('gftv:localechange', () => {
+    draw();
+    drawHeld();
+  });
 
   draw();
+
+  // Not awaited, and the section stays hidden until it answers. The rest of the
+  // page is useful without it, and the worker may not be in control at all —
+  // on a first visit, or after a hard reload — in which case there is nothing
+  // held and nothing to say.
+  cachedPostings().then((postings) => {
+    held = postings;
+    drawHeld();
+  });
 }
 
 if (document.readyState === 'loading') {

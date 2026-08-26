@@ -1251,6 +1251,35 @@ Three places wipe: the sign out button in `shell.js`, the danger zone in
 `settings-page.js` — the one path that does not end in a reload, so nothing else
 would ever clear it — and `syncUser` itself.
 
+### What is readable with no connection
+
+| View | Where it comes from | What it says |
+|---|---|---|
+| A posting already opened | the `postings` cache, capped at 100 | "You are reading the copy saved on your device on {date}" |
+| The board at `/search` | the last successful result set, in IndexedDB | "These are the roles saved on your device on {date}" |
+| An uncached route | `/offline`, listing the postings held | the list, by name, in the reader's language |
+
+**A cached posting reads in both languages already.** `api/job-page.js` inlines
+the content for `en` and `zh` both, which is why switching language on a posting
+is a redraw rather than a fetch — so one cached response satisfies section 14's
+"a cached posting is cached in both languages" outright, with nothing to merge.
+The worker reads the titles out of that same inlined payload to build the list
+on the fallback page, which is what makes that list bilingual for free.
+
+**The board keeps its own copy rather than relying on the response cache.** The
+worker caches `/api/public/search` by URL, so a reader who is offline under
+different filters than any they have used before would get nothing. Section 14
+asks for "the last successful result set, including its filters", so
+`search-page.js` keeps exactly that in the `public` IndexedDB store and draws it
+when a search fails. Two sentences, not one: if the saved filters differ from
+the ones asked for, it says so, because showing somebody who searched for
+"camera" a board that was never about cameras and calling it merely old is a
+quiet lie.
+
+**Only a network failure falls back.** A 500 or a 503 is the site answering, and
+showing yesterday's board in place of an error would hide a real fault behind
+stale data.
+
 **Checking it.** `node tests/phase10-test.mjs --only=worker` stands up this
 directory over `http://localhost`, which is a secure origin as far as
 registration is concerned, and drives a real browser through install, the
