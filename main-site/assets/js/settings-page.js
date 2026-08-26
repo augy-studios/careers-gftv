@@ -35,6 +35,7 @@ import { mountAccountPage, renderAccountIdentity, avatarNode } from './account-s
 import { escapeHtml } from './account-row.js';
 import { confirmDangerousAction } from './danger-confirm.js';
 import { toAvatarWebp, canEncodeWebp, AvatarError } from './avatar.js';
+import { wipeAll } from './idb.js';
 import {
   clearErrors,
   applyApiError,
@@ -385,6 +386,12 @@ function wireDangerZone() {
       }
       return;
     }
+
+    // The account is gone from the server. Its offline copy has to go with it,
+    // and this is the one path that does not end in a reload, so nothing else
+    // would ever clear it: the deleted screen replaces the page in place,
+    // deliberately, so that nobody is bounced to a signed out home page.
+    await wipeAll();
 
     showDeletedScreen();
   });

@@ -90,6 +90,8 @@ main-site/
     js/status-page.js the /status page
     js/offline.js     registers the worker, owns the update prompt and the
                       connection banner. The one place register() is called
+    js/idb.js         the applicant's own data offline, keyed by user id.
+                      Imports nothing: it is the bottom of the stack
     js/offline-page.js  the fallback page's live connection state and its
                       retry control, disabled with the reason while offline
     js/format.js      dates, counts, and the open until filled rule
@@ -1213,6 +1215,41 @@ happen. **`reached` means an HTTP response arrived, whatever its status**: a 503
 from a maintenance switch is the site answering, and the banner has no business
 saying otherwise. An aborted request announces nothing, because that is the page
 changing its mind rather than the network failing.
+
+### The applicant's own data, `assets/js/idb.js`
+
+Nothing authenticated goes in the Cache API, so the applicant's own copy of
+their saved roles, applications, tasks, profile and avatar lives in IndexedDB
+instead. One database, `careers-gftv`, three stores:
+
+```
+mine    keyPath ['userId', 'kind']   their data, one row per kind
+queue   keyPath 'id', autoIncrement  section 14's queued actions, filled by part 8
+meta    keyPath 'key'                one row: whose data this database holds
+```
+
+- **The user id is part of the key, not a field beside it.** A read for one
+  applicant cannot return another's row even if the wipe below failed. The wipe
+  is the policy; the compound key is what makes the policy hard to get wrong.
+- **A null session never wipes anything.** Signing out wipes, and signing in as
+  somebody else wipes. A session request that merely *failed* does not, and that
+  distinction matters more offline than anywhere else: that request fails every
+  single time there is no connection, and treating it as a sign out would throw
+  the offline copy away at the moment it is the only copy there is.
+- **The wipe is ordered before any write by the file, not by its callers.**
+  `shell.js` starts `syncUser()` without awaiting it, so a page module could
+  reach a write first. Every read and write waits on the same internal gate, so
+  "wipe the database before writing anything" is a property of the module.
+- **Every function fails quietly.** IndexedDB is unavailable in some private
+  browsing modes and throws on access in others. A read returns null, a write
+  does nothing, and the page works as it did before phase 10.
+- **`describe()` reports counts and kinds and never the data.** Something that
+  printed an applicant's saved roles into a console would be doing the exact
+  thing this file exists to stop.
+
+Three places wipe: the sign out button in `shell.js`, the danger zone in
+`settings-page.js` — the one path that does not end in a reload, so nothing else
+would ever clear it — and `syncUser` itself.
 
 **Checking it.** `node tests/phase10-test.mjs --only=worker` stands up this
 directory over `http://localhost`, which is a secure origin as far as

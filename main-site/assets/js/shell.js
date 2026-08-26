@@ -45,6 +45,7 @@ import { resumePendingPrompt } from './apply-prompt.js';
 // connection banner. Every page used to carry its own inline register() call;
 // this is the one owner, which is what the update prompt needs to exist at all.
 import { initOffline } from './offline.js';
+import { syncUser, wipeAll } from './idb.js';
 
 /* -------------------------------------------------------------------------
  * Navigation
@@ -654,6 +655,13 @@ async function reflectApplicantSession() {
   signOut.addEventListener('click', async () => {
     signOut.disabled = true;
     await api('/api/auth/applicant/logout', { method: 'POST', locale: false });
+
+    // Section 14: the offline copy of the applicant's own data is cleared
+    // completely on logout. Awaited, and after the request rather than before:
+    // a logout that failed leaves them signed in, and wiping first would take
+    // their offline copy away from a session that is still theirs.
+    await wipeAll();
+
     // A reload, not a redirect, so somebody signing out from a posting
     // stays on it, signed out.
     window.location.reload();
@@ -997,6 +1005,16 @@ async function boot() {
   // Last, and not awaited by anything above it. Whether somebody is signed in
   // changes one item in the navigation and nothing else, so it must never be
   // on the path that gets the page drawn.
+  // Section 14: on a login whose user id differs from the one stored, wipe the
+  // database **before anything is written**. Done here rather than inside
+  // reflectApplicantSession, which returns early on any page whose nav is not
+  // where it expects — a wipe that depends on a header having rendered is a
+  // wipe that will one day not happen. It shares the cached session promise, so
+  // it costs no request of its own, and a null session deliberately does
+  // nothing: offline that request fails every time, and treating a failure as a
+  // sign out would throw the offline copy away exactly when it is the only one.
+  applicantSession().then((session) => syncUser(session?.user?.id ?? null));
+
   reflectApplicantSession();
   // knownStaff is set by the listener above when the dashboard got there first,
   // which it can: boot() awaits two fetches before reaching this line. Null

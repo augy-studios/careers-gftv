@@ -274,10 +274,26 @@ rather not parse the URL back, but that means a second column.
 - **`publicApplicant` already returns `avatar_url`**, so the moment the column
   is populated it appears in every session response. Nothing else needs
   changing to read it.
-- **The offline story, section 14.** An avatar is a network image inside an
-  installed app. Phase 10 decides whether it is precached, cached on use, or
-  left to fail to a placeholder. Leave a placeholder that reads correctly when
-  the image does not load, and set `alt` to the display name.
+- ~~**The offline story, section 14.**~~ **Settled in phase 10, part 5.** The
+  applicant's own avatar is fetched once and kept **as a blob in IndexedDB**,
+  keyed by their user id and wiped with the rest of their data on sign out and
+  on a login as somebody else. `assets/js/idb.js` holds it.
+
+  The decisive argument was not about the applicant at all: **the dashboard
+  renders other people's faces.** A cache-on-use rule in the service worker
+  could not tell those from the reader's own, and section 14 forbids caching
+  anything that would show another person's data. So **`sw.js` never puts a
+  Supabase Storage URL in the Cache API** — it does not intercept cross origin
+  requests at all — and the one avatar stored anywhere is the reader's.
+
+  The stored URL is kept beside the bytes, and that is what makes it safe: the
+  path carries a random component per upload, so a URL that differs from the one
+  on the session means the picture has changed and the copy is stale.
+
+  The placeholder still matters and is still required. Anybody signed out,
+  anybody offline before their first successful load, and every avatar in the
+  dashboard falls back to it, so it has to read correctly with `alt` set to the
+  display name.
 - **`is_active` false does not hide an avatar.** A deactivated account's
   picture stays publicly readable at its URL, because the bucket is public.
   That is the trade made in section 1 above. If it matters, the bucket has to

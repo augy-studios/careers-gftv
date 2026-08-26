@@ -673,6 +673,142 @@ define('client', 'The update prompt and the connection banner', async () => {
   }
 });
 
+define('store', "The applicant's own data in IndexedDB", async () => {
+  const server = await serveSite();
+  const browser = await chromium.launch();
+  const ctx = await browser.newContext({ baseURL: server.base });
+  const page = await ctx.newPage();
+
+  // Driven through the real module in a real browser rather than through a
+  // stub. IndexedDB's semantics — compound keys, transaction lifetimes, a blob
+  // surviving a round trip — are the whole of what is being checked, and none
+  // of them exist in a fake.
+  const idb = (body) =>
+    page.evaluate(async (source) => {
+      const module = await import('/assets/js/idb.js');
+      return new Function('idb', `return (async () => { ${source} })()`)(module);
+    }, body);
+
+  try {
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+
+    check('40. IndexedDB is available', await idb('return idb.available();'));
+
+    /* Keyed by user id, structurally ------------------------------------- */
+
+    await idb(`
+      await idb.syncUser('user-one');
+      await idb.putMine('user-one', 'saved', [{ id: 'a' }, { id: 'b' }]);
+    `);
+
+    const mine = await idb(`return idb.readMine('user-one', 'saved');`);
+    check(
+      '41. what one applicant stored reads back',
+      Array.isArray(mine?.data) && mine.data.length === 2,
+      JSON.stringify(mine?.data)
+    );
+    check(
+      '42. and comes back with the time it was cached',
+      typeof mine?.cachedAt === 'number' && mine.cachedAt > 0,
+      `cachedAt=${mine?.cachedAt} — section 14 wants a last updated line on every cached view`
+    );
+
+    const otherUser = await idb(`return idb.readMine('user-two', 'saved');`);
+    check(
+      '43. and is not readable under another user id',
+      otherUser === null,
+      `${JSON.stringify(otherUser)} — the user id is part of the key, not a field beside it`
+    );
+
+    /* A blob survives ------------------------------------------------------ */
+
+    const blob = await idb(`
+      await idb.putAvatar('user-one', '/x/abc.webp', new Blob([new Uint8Array([1,2,3,4])], { type: 'image/webp' }));
+      const back = await idb.readAvatar('user-one');
+      return { type: back?.blob?.type, size: back?.blob?.size, url: back?.url };
+    `);
+    check(
+      '44. an avatar survives the round trip as bytes',
+      blob?.type === 'image/webp' && blob?.size === 4 && blob?.url === '/x/abc.webp',
+      JSON.stringify(blob)
+    );
+
+    /* A failed session is not a sign out ----------------------------------- */
+
+    const afterNull = await idb(`
+      await idb.syncUser(null);
+      const row = await idb.readMine('user-one', 'saved');
+      return { kept: row !== null, storedUserId: await idb.storedUserId() };
+    `);
+    check(
+      '45. a null session wipes nothing',
+      afterNull.kept && afterNull.storedUserId === 'user-one',
+      `${JSON.stringify(afterNull)} — offline that request fails every time, ` +
+        'and treating it as a sign out would throw away the only copy there is'
+    );
+
+    /* A different applicant on the same browser ---------------------------- */
+
+    const swapped = await idb(`
+      const result = await idb.syncUser('user-two');
+      return {
+        wiped: result.wiped,
+        oldRow: await idb.readMine('user-one', 'saved'),
+        oldAvatar: await idb.readAvatar('user-one'),
+        storedUserId: await idb.storedUserId(),
+      };
+    `);
+    check('46. signing in as somebody else wipes the database', swapped.wiped);
+    check(
+      "47. and the previous applicant's rows are gone, avatar included",
+      swapped.oldRow === null && swapped.oldAvatar === null,
+      JSON.stringify(swapped)
+    );
+    check('48. the stored owner is now the new one', swapped.storedUserId === 'user-two');
+
+    /* The wipe happens before a write, whoever calls first ------------------ */
+
+    // syncUser is started and deliberately not awaited, then a write is made
+    // immediately — the exact shape of shell.js starting the sync while a page
+    // module gets to a write first. The gate inside idb.js is what makes the
+    // ordering a property of the file rather than a habit of its callers.
+    const raced = await idb(`
+      await idb.putMine('user-two', 'tasks', ['before']);
+      idb.syncUser('user-three');
+      await idb.putMine('user-three', 'tasks', ['after']);
+      return {
+        old: await idb.readMine('user-two', 'tasks'),
+        fresh: await idb.readMine('user-three', 'tasks'),
+      };
+    `);
+    check(
+      "49. a write racing the wipe does not survive it",
+      raced.old === null,
+      `${JSON.stringify(raced.old)} — the wipe is ordered before the write, not after it`
+    );
+    check(
+      '50. and the new applicant\'s own write does',
+      raced.fresh?.data?.[0] === 'after',
+      JSON.stringify(raced.fresh)
+    );
+
+    /* Sign out -------------------------------------------------------------- */
+
+    const wiped = await idb(`
+      await idb.wipeAll();
+      return await idb.describe();
+    `);
+    check(
+      '51. wipeAll leaves nothing behind',
+      wiped.kinds.length === 0 && wiped.queued === 0 && wiped.userId === null,
+      JSON.stringify(wiped)
+    );
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
 /* -------------------------------------------------------------------------
  * Run
  * ---------------------------------------------------------------------- */

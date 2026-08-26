@@ -139,6 +139,7 @@ makes three postings and about fifteen admin writes.
 |---|---|
 | `worker` | The service worker: install, the precache, offline navigation, the fallback for an uncached route, what is never cached, and the update path driven by hand. **Needs no deployment, no credentials, and no network.** |
 | `client` | `offline.js`: that no page registers the worker itself any more, the connection banner in both wordings and both languages, its removal the moment connectivity returns, and the update prompt through the interface rather than by postMessage. Same, needs nothing. |
+| `store` | `idb.js`: that a row is not readable under another user id, that a blob survives the round trip, that a null session wipes nothing, that signing in as somebody else wipes everything, and that a write racing the wipe does not survive it. Driven through the real module in a real browser, because IndexedDB's semantics are the whole of what is being checked and none of them exist in a fake. Same, needs nothing. |
 
 **This is the first phase that cannot be checked by asking the deployment a
 question.** A service worker is not on the deployment until it is pushed, and by
