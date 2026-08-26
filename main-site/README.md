@@ -76,7 +76,8 @@ main-site/
   HLC-*.png           the app icons, every one of them generated. See below
   favicon.ico         one 256 square entry. See below
   images/install-*.png  the two install screenshots, generated
-  sw.js               service worker, a pass through until phase 10
+  sw.js               service worker: the precache list and the four caching
+                      strategies. See below before editing the list
   vercel.json         rewrites, redirects, and headers
   assets/
     build-status.json the source of truth for the phased rollout
@@ -1120,20 +1121,76 @@ anything.
 Treat it as part of the change, alongside updating the affected README. The
 same rule applies to `docs-site` once it has a service worker of its own.
 
-Right now the worker is a deliberate pass through: it registers, takes control,
-deletes any cache an earlier worker left behind, and has no fetch handler at
-all. That is on purpose while the site changes shape every phase, since a cache
-first worker would pin an old build on returning visitors for the whole build.
+It was a deliberate pass through until phase 10 — registering, taking control,
+deleting any cache an earlier worker left behind, and no fetch handler at all.
+Section 14 landed in phase 10 and it now does the following.
 
-From phase 10, when section 14 lands and the worker gains a precache list and
-real strategies, keep that list in step with the files that exist as well. A
-precache entry naming a deleted file makes `cache.addAll` reject and the entire
-install fail silently.
+| Request | What happens |
+|---|---|
+| a navigation to a precached route | the cached shell, with no network |
+| a navigation to `/jobs/{id}` | stale while revalidate, capped at 100 postings |
+| any other navigation | network, and `/offline` when that fails |
+| `/assets/**`, the icons, the manifest | cache first |
+| `/api/public/**` | stale while revalidate |
+| `/api/public/feature-status` | network only, and read on the way past |
+| anything else under `/api/` | network only, never cached |
+| any cross origin request | not intercepted at all |
+| anything that is not a `GET` | not intercepted at all |
+
+**The precache list is the dangerous object.** Run **`node check-precache.js`**
+at the repo root before shipping, the way you run `check-i18n.js`: it resolves
+every entry the way `cleanUrls` does and exits non-zero on one that is not on
+disk. The list is also added one entry at a time rather than through
+`cache.addAll`, because `addAll` rejects as a whole on the first bad path, the
+install fails, and every offline behaviour is silently off. Between the two, a
+wrong entry costs one file and says so.
+
+Four rules in `sw.js` that are easy to break:
+
+- **A response carrying `private` or `no-store` never enters the Cache API.**
+  `api/job-page.js` and `api/public/job.js` both answer `private, no-store` with
+  `Vary: Cookie` for an archived posting, which renders only for an applicant
+  with history, and for a staff preview. Those look exactly like public routes
+  from inside a worker, and the header is the only thing that says otherwise.
+  `isCacheable()` is the single place that decision is made.
+- **Nothing cross origin is intercepted**, which is also how Supabase Storage
+  avatars stay out of the cache: the dashboard renders other people's faces, and
+  a cache-on-use rule could not tell those from the reader's own.
+- **`skipWaiting` and `clients.claim` are called only when a person asks.**
+  Neither appears in `install` or `activate`. The page posts `skip-waiting` when
+  the reader accepts the update prompt, and that is the only route to either.
+- **The shell cache is versioned and the data caches are not.** A `VERSION` bump
+  is the update: a new cache, filled from the network, and the old one dropped
+  on activate. `careers-gftv-public`, `careers-gftv-postings` and
+  `careers-gftv-state` survive it, because postings and public answers are data
+  rather than build output and emptying them on every deploy would clear the
+  board for a reader who is offline at the wrong moment.
+
+**`offline` and `install` are real switches.** Both are feature keys on phase 10
+in `build-status.json`, so an admin can flip either from `/admin/maintenance`.
+The worker reads the answer out of the `/api/public/feature-status` response
+every page already fetches, so it costs no extra request, and keeps the last one
+it saw. With `offline` off it stops serving from cache, drops its caches, and
+goes network only; with `install` off it answers 404 for `/manifest.json`, which
+is what actually stops a browser offering the install. A worker that ignored the
+switch would be a flag nothing enforces, and a bad service worker is the one bug
+that outlives its own fix.
+
+**Checking it.** `node tests/phase10-test.mjs --only=worker` stands up this
+directory over `http://localhost`, which is a secure origin as far as
+registration is concerned, and drives a real browser through install, the
+precache, offline navigation, the fallback, and the update prompt. It needs no
+deployment, no credentials, and no network. Run it before pushing a change to
+`sw.js`: the failure it exists for is silent everywhere else.
 
 ## Offline test checklist
 
-The service worker is a deliberate pass through until phase 10, so there is
-nothing to test yet. When phase 10 lands, this is the run through:
+`node tests/phase10-test.mjs --only=worker` covers the worker itself — the
+precache, offline navigation, the fallback, and the update prompt — against a
+local copy of this directory, and needs nothing set up. **What it cannot do is
+this list.** Section 14's last line asks for a real Android install and for iOS
+Safari, where service worker support is real but stricter, and neither is
+something a script does:
 
 1. Install the app to a home screen from Chrome, and again on Android.
 2. Load the board at `/search`, then open two postings so they are cached.

@@ -131,6 +131,31 @@ correct and neither is reversible. `--only=formcheck` avoids it entirely.
 Unlike phase 8, phase 9's run is comfortably re-runnable inside the hour: it
 makes three postings and about fifteen admin writes.
 
+### Phase 10's sections
+
+`node tests/phase10-test.mjs`, same `--only=` habit.
+
+| Section | Covers |
+|---|---|
+| `worker` | The service worker: install, the precache, offline navigation, the fallback for an uncached route, what is never cached, and the update prompt. **Needs no deployment, no credentials, and no network.** |
+
+**This is the first phase that cannot be checked by asking the deployment a
+question.** A service worker is not on the deployment until it is pushed, and by
+then a wrong precache list has already shipped — and it fails by silently
+turning every offline behaviour off rather than by breaking anything visible. So
+the `worker` section stands up `main-site/` over `http://localhost`, which is a
+secure origin as far as registration is concerned, and drives a real browser
+through the whole cycle. There is no API behind that server, so every `/api/`
+call answers 404, which is the point: what is under test is which requests the
+worker answers from a cache and which it refuses to.
+
+Run it before pushing anything that touches `sw.js`, together with
+`node check-precache.js` at the repo root.
+
+**Nothing in this file reads a credential above a section.** Phase 9's file
+called `requireEnv` at module level, before `--only=` had been read, so its one
+credential-free section could not be run without a staff password it never used.
+
 ## What a run writes
 
 - **Postings**, all titled `SMOKE P7 <timestamp> …`. A full run makes about

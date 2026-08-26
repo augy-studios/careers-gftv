@@ -1,20 +1,4 @@
-// Careers@GFTV service worker, phase 1 version.
-//
-// This is deliberately a pass through. The real offline behaviour is section
-// 14 of the specification and lands in phase 10: precached shell, cache first
-// static assets, stale while revalidate public job data, network only for
-// anything authenticated, IndexedDB for the applicant's own data, and a queue
-// for the rating and the apply answer.
-//
-// Shipping a caching service worker now would be worse than shipping none.
-// Pages change on every phase, and a cache first worker would pin an old build
-// on returning visitors for as long as it survived. So this version registers,
-// takes control, clears any cache left by an earlier worker, and then stays out
-// of the way entirely.
-//
-// It is registered instead of left out so that the update path in phase 10 is
-// an ordinary service worker update and not a first install on browsers
-// that already have the template's worker from this domain.
+// Careers@GFTV service worker. Specification section 14.
 //
 // BUMP VERSION ON EVERY CHANGE TO THIS SITE. Not once per phase, and not only
 // when this file itself changes: any edit under main-site/ means a new build,
@@ -23,35 +7,618 @@
 // Cache-Control: no-cache so the browser will always fetch it, but the file
 // has to actually differ for that to matter.
 //
-// From phase 10, when this gains a precache list, keep that list in step with
-// the files that exist as well. A precache entry naming a deleted file makes
-// cache.addAll reject and the whole install fail.
+// ---------------------------------------------------------------------------
+// What this file does, in the order the requests arrive
+// ---------------------------------------------------------------------------
+//
+//   navigation to a precached route   the cached shell, immediately
+//   navigation to /jobs/{id}          stale while revalidate, capped at 100
+//   navigation to anything else       network, and /offline when that fails
+//   /assets/**, icons, the manifest   cache first
+//   /api/public/**                    stale while revalidate
+//   /api/public/feature-status        network only, and read on the way past
+//   everything else under /api/       network only, never cached
+//   any cross origin request          not intercepted at all
+//   anything that is not a GET        not intercepted at all
+//
+// ---------------------------------------------------------------------------
+// The four rules that are easy to break here
+// ---------------------------------------------------------------------------
+//
+// **1. A response carrying `private` or `no-store` never enters the Cache API.**
+// This is not a tidiness rule. api/job-page.js answers `public, s-maxage=60`
+// for an ordinary posting and `private, no-store` with `Vary: Cookie` when the
+// posting is archived or being previewed, because an archived posting renders
+// only for an applicant with history. Caching that one would serve one
+// applicant's posting to the next person to pick up the phone. isCacheable()
+// below is the single place that decision is made, and every write goes
+// through it.
+//
+// **2. Nothing authenticated is cached, and neither is anything cross origin.**
+// The Cache API is per origin and this origin is shared with the other GFTV
+// apps. Cross origin requests are not intercepted at all, which is also how
+// Supabase Storage avatars stay out: an admin dashboard renders other people's
+// faces, and a cache-on-use rule could not tell those from the reader's own.
+// The applicant's own data lives in IndexedDB instead, keyed by their user id.
+//
+// **3. skipWaiting and clients.claim happen only when a person asks.** Section
+// 14 is explicit: a new worker waits, the page offers a reload, and the swap
+// happens after that. Neither call appears in install or activate. The page
+// asks for it by posting `skip-waiting`, and that is the only route to either.
+//
+// **4. A missing precache entry costs one file, not the feature.** The list
+// below is written by hand, and `node check-precache.js` at the repo root
+// fails on an entry that is not on disk. Belt and braces, because the entries
+// are added one at a time rather than through cache.addAll: with addAll a
+// single bad path rejects the whole promise, the install fails, and every
+// offline behaviour on the site silently never turns on.
+//
+// ---------------------------------------------------------------------------
+// The caches, and which of them survive a version bump
+// ---------------------------------------------------------------------------
+//
+//   shell-{VERSION}   the precached app shell and static assets. Versioned,
+//                     and dropped on activate. This is the update mechanism:
+//                     a new VERSION is a new cache, filled from the network.
+//   public            public API answers, stale while revalidate. Not
+//                     versioned: it is data, not build output, and throwing it
+//                     away on every deploy would empty the board for a reader
+//                     who is offline at the wrong moment.
+//   postings          posting pages already opened, capped at 100. Not
+//                     versioned, same reason.
+//   state             the maintenance switches, as last seen. Not versioned,
+//                     because a kill switch that forgets itself on the deploy
+//                     that broke something is not a kill switch.
 
-const VERSION = 'careers-gftv-phase10-v79';
+const VERSION = 'careers-gftv-phase10-v80';
 
-self.addEventListener('install', () => {
-  // Nothing to precache yet.
-  self.skipWaiting();
+const SHELL = `careers-gftv-shell-${VERSION}`;
+const PUBLIC_DATA = 'careers-gftv-public';
+const POSTINGS = 'careers-gftv-postings';
+const STATE = 'careers-gftv-state';
+
+// Anything not in here is deleted on activate. An allowlist rather than "delete
+// everything that is not the current shell", because the three unversioned
+// caches above have to survive an update, and because the pass through worker
+// this replaces deleted every cache on the origin including other apps'.
+const KEEP = new Set([SHELL, PUBLIC_DATA, POSTINGS, STATE]);
+
+// Section 14: "cap the cached postings at a sensible number, around 100, and
+// evict least recently viewed first".
+const MAX_POSTINGS = 100;
+
+// A posting's canonical address is its uuid, and a slug is a 301 alias, so this
+// matches on the shape of the route rather than on the shape of the id.
+const POSTING_PATH = /^\/jobs\/[^/]+$/;
+
+// Where the last seen maintenance switches are kept inside the state cache. Not
+// a real route: the Cache API is a key value store and this is a key.
+const SWITCH_KEY = '/__sw/feature-switches';
+
+/* -------------------------------------------------------------------------
+ * The precache list
+ *
+ * **Written by hand and checked by node check-precache.js.** Two things to
+ * know before editing it.
+ *
+ * These are the addresses the browser asks for, not the files on disk.
+ * cleanUrls is on, so it is '/search' and never '/search/index.html', and
+ * phase 3's rule still holds: a route answering 200 is not evidence its
+ * rewrite works.
+ *
+ * 404.html and placeholder.html are deliberately absent. Neither is ever
+ * navigated to by address: Vercel serves the first for an unknown path and
+ * rewrites unbuilt routes to the second, and offline this worker cannot tell
+ * an unknown path from an unbuilt route from a page nobody has opened yet.
+ * /offline is the honest answer to all three.
+ *
+ * HLC-main.png and the two maskable icons are absent for a different reason:
+ * the first is the og:image, which only a crawler fetches, and the launcher
+ * reads the maskable pair at install time rather than from here.
+ * ---------------------------------------------------------------------- */
+
+const PRECACHE = [
+  // The public surface.
+  '/',
+  '/about',
+  '/faq',
+  '/forgot-password',
+  '/login',
+  '/offline',
+  '/register',
+  '/search',
+  '/status',
+
+  // The account area. Precached for everybody, signed in or not: these are
+  // static shells with no data in them, and the alternative is caching them the
+  // first time a session appears, which is one more piece of state to be wrong
+  // about.
+  '/account',
+  '/account/applications',
+  '/account/saved',
+  '/account/security',
+  '/account/settings',
+  '/account/tasks',
+  '/account/translations',
+
+  // The dashboard, shells only. Section 14: "cache its shell only, and show an
+  // offline notice instead of stale management data. Never let an admin act on
+  // a cached view of applications." Nothing under api/admin is ever cached.
+  '/admin',
+  '/admin/admins',
+  '/admin/analytics',
+  '/admin/applicants',
+  '/admin/applications',
+  '/admin/departments',
+  '/admin/invites',
+  '/admin/jobs',
+  '/admin/jobs/edit',
+  '/admin/login',
+  '/admin/maintenance',
+  '/admin/security',
+  '/admin/settings',
+  '/admin/tags',
+  '/admin/translations',
+
+  // Styles and the font. Proxima Nova is self hosted rather than pulled from a
+  // CDN, which is what makes it precacheable at all.
+  '/assets/css/theme.css',
+  '/assets/css/app.css',
+  '/assets/fonts/ProximaNova-Regular.woff2',
+
+  // **Both dictionaries, not the active one**, per section 14. They are small,
+  // and switching language offline must not produce an untranslated page.
+  '/assets/i18n/en.json',
+  '/assets/i18n/zh.json',
+
+  // The phase list. Every page reads it for the notice bar and the disabled
+  // control pattern, and it fails open to an empty list, so without this an
+  // offline page would quietly lose both.
+  '/assets/build-status.json',
+
+  // The icons the interface itself uses, and the manifest.
+  '/manifest.json',
+  '/favicon.ico',
+  '/HLC-180.png',
+  '/HLC-192.png',
+
+  // Every module. A precached page whose module is missing is a page that
+  // renders its markup and then does nothing, which is worse than not caching
+  // the page at all.
+  '/assets/js/account-page.js',
+  '/assets/js/account-row.js',
+  '/assets/js/account-shell.js',
+  '/assets/js/admin-admins-page.js',
+  '/assets/js/admin-analytics-page.js',
+  '/assets/js/admin-applicants-page.js',
+  '/assets/js/admin-applications-page.js',
+  '/assets/js/admin-departments-page.js',
+  '/assets/js/admin-invites-page.js',
+  '/assets/js/admin-job-editor.js',
+  '/assets/js/admin-jobs-page.js',
+  '/assets/js/admin-login-page.js',
+  '/assets/js/admin-maintenance-page.js',
+  '/assets/js/admin-page.js',
+  '/assets/js/admin-questions.js',
+  '/assets/js/admin-settings-page.js',
+  '/assets/js/admin-shell.js',
+  '/assets/js/admin-tags-page.js',
+  '/assets/js/admin-translations-page.js',
+  '/assets/js/annotate.js',
+  '/assets/js/api.js',
+  '/assets/js/applications-page.js',
+  '/assets/js/apply-badges.js',
+  '/assets/js/apply-dialog.js',
+  '/assets/js/apply-prompt.js',
+  '/assets/js/apply.js',
+  '/assets/js/avatar.js',
+  '/assets/js/build-status.js',
+  '/assets/js/danger-confirm.js',
+  '/assets/js/dialog.js',
+  '/assets/js/forgot-password-page.js',
+  '/assets/js/format.js',
+  '/assets/js/forms.js',
+  '/assets/js/home-page.js',
+  '/assets/js/i18n.js',
+  '/assets/js/icons.js',
+  '/assets/js/job-card.js',
+  '/assets/js/job-page.js',
+  '/assets/js/login-page.js',
+  '/assets/js/markdown.js',
+  '/assets/js/offline-page.js',
+  '/assets/js/passkeys.js',
+  '/assets/js/recovery-codes.js',
+  '/assets/js/register-page.js',
+  '/assets/js/save-button.js',
+  '/assets/js/saved-page.js',
+  '/assets/js/search-page.js',
+  '/assets/js/security-page.js',
+  '/assets/js/settings-page.js',
+  '/assets/js/shell.js',
+  '/assets/js/signin-prompt.js',
+  '/assets/js/site-settings.js',
+  '/assets/js/staff-security-page.js',
+  '/assets/js/status-page.js',
+  '/assets/js/tasks-page.js',
+  '/assets/js/theme.js',
+  '/assets/js/translation-report.js',
+  '/assets/js/translations-page.js',
+];
+
+/* -------------------------------------------------------------------------
+ * Install and activate
+ * ---------------------------------------------------------------------- */
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(fillShell());
+  // No skipWaiting. The new worker waits until somebody accepts the update
+  // prompt, per section 14. Everything below is written to be correct while a
+  // previous version is still the one in control.
 });
+
+/**
+ * Fetch every precache entry into the shell cache, one at a time.
+ *
+ * `cache.addAll` would be shorter and is the wrong shape: it rejects as a whole
+ * on the first bad entry, the install fails, and every offline behaviour is
+ * silently off. This reports what it could not get and keeps the rest.
+ *
+ * `cache: 'reload'` on each request matters. Without it an install can be
+ * populated out of the browser's own HTTP cache, so a worker bumped to a new
+ * VERSION would fill its brand new cache with the previous build's files,
+ * which is the exact failure the bump exists to prevent.
+ */
+async function fillShell() {
+  const cache = await caches.open(SHELL);
+  const failed = [];
+
+  await Promise.all(
+    PRECACHE.map(async (path) => {
+      try {
+        const response = await fetch(new Request(path, { cache: 'reload' }));
+        if (!response.ok) throw new Error(`${response.status}`);
+        await cache.put(path, response);
+      } catch (cause) {
+        failed.push(`${path} (${cause?.message ?? cause})`);
+      }
+    })
+  );
+
+  if (failed.length > 0) {
+    console.warn(
+      `[careers-gftv] ${failed.length} of ${PRECACHE.length} precache entries ` +
+        `could not be stored. Offline is degraded, not off:\n  ${failed.join('\n  ')}`
+    );
+  }
+}
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
-      // Remove everything, including caches written by the PWA template this
-      // repo started from.
       const keys = await caches.keys();
-      await Promise.all(keys.map((key) => caches.delete(key)));
-      await self.clients.claim();
+      await Promise.all(keys.filter((key) => !KEEP.has(key)).map((key) => caches.delete(key)));
     })()
   );
+  // No clients.claim, for the same reason there is no skipWaiting above.
 });
 
-// No fetch handler. Every request goes to the network exactly as it would with
-// no service worker installed. Phase 10 adds the strategies from section 14
-// here.
+/* -------------------------------------------------------------------------
+ * Talking to the page
+ * ---------------------------------------------------------------------- */
 
 self.addEventListener('message', (event) => {
-  if (event.data === 'version') {
-    event.source?.postMessage({ version: VERSION });
+  const data = event.data;
+  const type = typeof data === 'string' ? data : data?.type;
+
+  if (type === 'version') {
+    event.source?.postMessage({ type: 'version', version: VERSION });
+    return;
+  }
+
+  // The one way either of these is ever called. offline.js posts it when the
+  // reader accepts the update prompt, and reloads on controllerchange.
+  if (type === 'skip-waiting') {
+    event.waitUntil(self.skipWaiting().then(() => self.clients.claim()));
   }
 });
+
+/* -------------------------------------------------------------------------
+ * The maintenance switches, 8.12
+ *
+ * `offline` and `install` are feature keys on phase 10, so an admin can flip
+ * either from /admin/maintenance. A switch that a worker already installed on
+ * somebody's phone does not obey would be a flag nothing enforces, which is the
+ * failure this build keeps hitting — and a bad service worker is the one bug
+ * that outlives its own fix, because the thing serving the broken copy is the
+ * thing you would have to reach to replace it.
+ *
+ * **It costs no extra request.** Every page already fetches
+ * /api/public/feature-status on load, so this reads the answer on the way past
+ * and keeps it. Offline there is no answer and the last one stands, which is
+ * the same direction that endpoint fails in: everything on.
+ * ---------------------------------------------------------------------- */
+
+/** The switches as last seen. `{ offline: true }` means offline is switched off. */
+async function switches() {
+  try {
+    const cache = await caches.open(STATE);
+    const stored = await cache.match(SWITCH_KEY);
+    if (!stored) return {};
+    return (await stored.json()) ?? {};
+  } catch {
+    // Fail open, in the same direction as the endpoint itself.
+    return {};
+  }
+}
+
+async function rememberSwitches(off) {
+  const flags = {};
+  for (const key of ['offline', 'install']) {
+    if (off && Object.prototype.hasOwnProperty.call(off, key)) flags[key] = true;
+  }
+
+  const cache = await caches.open(STATE);
+  await cache.put(
+    SWITCH_KEY,
+    new Response(JSON.stringify(flags), {
+      headers: { 'Content-Type': 'application/json' },
+    })
+  );
+}
+
+/**
+ * Network only, and read on the way past.
+ *
+ * The endpoint is no-store and stays that way: it is the one an admin reloads
+ * during an outage to check the switch took, and a cached answer would read
+ * exactly like the switch not working.
+ */
+async function featureStatus(event, request) {
+  const response = await fetch(request);
+
+  event.waitUntil(
+    (async () => {
+      try {
+        const payload = await response.clone().json();
+        if (payload?.ok === true) await rememberSwitches(payload.data?.off ?? {});
+      } catch {
+        // A body that could not be read is not a claim about anything.
+      }
+    })()
+  );
+
+  return response;
+}
+
+/**
+ * Everything this worker keeps, dropped.
+ *
+ * Called when `offline` is found to be switched off. The shell cache goes with
+ * it, so the next load comes from the network and the reader is on the site as
+ * it is right now rather than the site as it was when the worker broke.
+ */
+async function dropCaches() {
+  const keys = await caches.keys();
+  await Promise.all(
+    keys.filter((key) => key !== STATE).map((key) => caches.delete(key))
+  );
+}
+
+/* -------------------------------------------------------------------------
+ * Fetch
+ * ---------------------------------------------------------------------- */
+
+self.addEventListener('fetch', (event) => {
+  const request = event.request;
+
+  // Not intercepted at all, and both are deliberate. A write must never be
+  // replayed or answered from a cache, and a cross origin request covers
+  // Supabase Storage, which is where every avatar in the build lives.
+  if (request.method !== 'GET') return;
+
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
+
+  // A range request is a partial read of something already being streamed.
+  // Answering one from a whole cached body is how audio and video break.
+  if (request.headers.has('range')) return;
+
+  event.respondWith(handle(event, request, url));
+});
+
+async function handle(event, request, url) {
+  const off = await switches();
+
+  if (off.offline) {
+    // The kill switch. Behave exactly as if this file were not registered, and
+    // take the caches with it so nothing survives to be served later.
+    event.waitUntil(dropCaches());
+    return fetch(request);
+  }
+
+  if (url.pathname === '/manifest.json' && off.install) {
+    // Installation switched off. A 404 on the manifest is what actually stops
+    // a browser offering the install, which removing a link tag from one page
+    // would not: the tag is in thirty three files and in the server rendered
+    // posting page as well.
+    return new Response('', { status: 404, statusText: 'Installation is switched off' });
+  }
+
+  if (url.pathname === '/api/public/feature-status') return featureStatus(event, request);
+
+  if (url.pathname.startsWith('/api/')) {
+    // Public job data: listings, postings, departments, and tags. Everything
+    // else under /api/ is a session, an account, or the dashboard.
+    if (url.pathname.startsWith('/api/public/')) {
+      return staleWhileRevalidate(event, request, PUBLIC_DATA);
+    }
+    return fetch(request);
+  }
+
+  if (request.mode === 'navigate') return navigation(event, request, url);
+
+  return staticAsset(request, url);
+}
+
+/**
+ * A navigation.
+ *
+ * The shell is served from the cache without asking the network, which is what
+ * "precache the shell, keyed by a build version constant" means: the update
+ * path is the VERSION bump, not a revalidation on every page view.
+ */
+async function navigation(event, request, url) {
+  if (POSTING_PATH.test(url.pathname)) return posting(event, request, url);
+
+  const shell = await caches.open(SHELL);
+
+  // Matched on the path and not on the request, so /search?q=editor is answered
+  // by the cached /search. The query is read by search-page.js, not by the
+  // server, so one cached shell serves every query.
+  const cached = await shell.match(url.pathname);
+  if (cached) return cached;
+
+  try {
+    return await fetch(request);
+  } catch {
+    // Section 14's offline fallback. The address bar keeps the route that was
+    // asked for, which is what lets that page's retry control be a reload.
+    const fallback = await shell.match('/offline');
+    return fallback ?? Response.error();
+  }
+}
+
+/**
+ * A posting page, stale while revalidate, capped at MAX_POSTINGS.
+ *
+ * Section 14 wants a cached posting readable in both languages. It already is:
+ * api/job-page.js inlines the content for en and zh both, which is why
+ * switching language on a posting redraws with no fetch. So one cached response
+ * is the whole of it, and there is nothing to merge.
+ */
+async function posting(event, request, url) {
+  const cache = await caches.open(POSTINGS);
+  const cached = await cache.match(url.pathname);
+
+  const network = fetch(request)
+    .then(async (response) => {
+      if (isCacheable(response)) {
+        await store(cache, url.pathname, response.clone());
+        await trimPostings(cache);
+      }
+      return response;
+    })
+    .catch(() => null);
+
+  if (cached) {
+    // Refresh in the background, and move this one to the end of the cache's
+    // insertion order so the trim above evicts by least recently viewed rather
+    // than by least recently fetched.
+    event.waitUntil(
+      network.then(() => touch(cache, url.pathname, cached.clone()))
+    );
+    return cached;
+  }
+
+  const fresh = await network;
+  if (fresh) return fresh;
+
+  const shell = await caches.open(SHELL);
+  return (await shell.match('/offline')) ?? Response.error();
+}
+
+/** Static assets: cache first, and cache anything new on the way past. */
+async function staticAsset(request, url) {
+  const shell = await caches.open(SHELL);
+  const cached = await shell.match(url.pathname);
+  if (cached) return cached;
+
+  const response = await fetch(request);
+  if (isCacheable(response)) await shell.put(url.pathname, response.clone());
+  return response;
+}
+
+/**
+ * Serve the cached copy instantly, refresh behind it, per section 14.
+ *
+ * The refreshed copy is for the next read rather than this one. Section 14 also
+ * asks the view to update if the data changed; that is the page's half and
+ * lands with parts 6 and 7, which read the cached-at time this leaves behind.
+ */
+async function staleWhileRevalidate(event, request, cacheName) {
+  const cache = await caches.open(cacheName);
+  const cached = await cache.match(request);
+
+  const network = fetch(request)
+    .then(async (response) => {
+      if (isCacheable(response)) await cache.put(request, response.clone());
+      return response;
+    })
+    .catch(() => null);
+
+  if (cached) {
+    event.waitUntil(network);
+    return cached;
+  }
+
+  const fresh = await network;
+  return fresh ?? Response.error();
+}
+
+/* -------------------------------------------------------------------------
+ * Writing to a cache
+ * ---------------------------------------------------------------------- */
+
+/**
+ * Whether a response may be stored at all. **Every write goes through here.**
+ *
+ * The `private` and `no-store` test is the one that matters. api/job-page.js
+ * and api/public/job.js both answer `private, no-store` with `Vary: Cookie` for
+ * an archived posting, which renders only for an applicant with history, and
+ * for a staff preview. Those two look exactly like public routes from out here
+ * and are not, and the header is the only thing that says so.
+ */
+function isCacheable(response) {
+  if (!response || response.status !== 200) return false;
+
+  // basic is same origin. An opaque or opaqueredirect response has a status of
+  // 0 and is already excluded above; this also refuses a redirect that was
+  // followed, whose body belongs to a different address than the one asked for.
+  if (response.type !== 'basic' && response.type !== 'default') return false;
+  if (response.redirected) return false;
+
+  const control = (response.headers.get('Cache-Control') ?? '').toLowerCase();
+  if (control.includes('no-store') || control.includes('private')) return false;
+
+  const vary = (response.headers.get('Vary') ?? '').toLowerCase();
+  if (vary === '*' || vary.includes('cookie')) return false;
+
+  return true;
+}
+
+/** Put, replacing whatever was there. */
+async function store(cache, key, response) {
+  await cache.put(key, response);
+}
+
+/**
+ * Move an entry to the end of the cache's insertion order.
+ *
+ * `cache.keys()` answers in insertion order and there is nothing else in the
+ * Cache API that records when an entry was last read, so delete-then-put is the
+ * only way to keep a least recently *viewed* list rather than a least recently
+ * *fetched* one. The gap between the two calls is real: a worker killed inside
+ * it loses one cached posting, which is a page that has to be fetched again.
+ */
+async function touch(cache, key, response) {
+  await cache.delete(key);
+  await cache.put(key, response);
+}
+
+/** Section 14's cap. Oldest first, which after touch() means least recently viewed. */
+async function trimPostings(cache) {
+  const keys = await cache.keys();
+  const excess = keys.length - MAX_POSTINGS;
+  if (excess <= 0) return;
+  await Promise.all(keys.slice(0, excess).map((key) => cache.delete(key)));
+}
