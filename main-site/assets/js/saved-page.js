@@ -15,7 +15,7 @@ import { api } from './api.js';
 import { t } from './i18n.js';
 import { hydrateIcons } from './icons.js';
 import { formatDate } from './format.js';
-import { mountAccountPage } from './account-shell.js';
+import { mountAccountPage, pageData } from './account-shell.js';
 import { jobRowHead, escapeHtml } from './account-row.js';
 import { saveButtonMarkup, mountSaveButtons } from './save-button.js';
 
@@ -26,9 +26,16 @@ const FILTERS = ['all', 'open', 'closed'];
 let filter = 'all';
 let payload = null;
 
+// The session mountAccountPage handed back, kept so load() can reach the
+// applicant id when it needs the copy on this device. Offline that session is
+// the profile saved here rather than one the server confirmed, which is exactly
+// what makes this page readable with no connection.
+let mounted = null;
+
 async function boot() {
   const session = await mountAccountPage({ current: PATH });
   if (!session) return;
+  mounted = session;
 
   const requested = new URL(window.location.href).searchParams.get('filter');
   if (requested && FILTERS.includes(requested)) filter = requested;
@@ -53,8 +60,12 @@ async function load() {
 
   list?.removeAttribute('aria-busy');
 
+  // Section 14: saved jobs come from a local copy of the applicant's own data
+  // when there is no connection, marked with the time it was cached.
+  const resolved = await pageData(mounted, 'saved', result);
+
   const error = document.querySelector('#savedError');
-  if (!result.ok) {
+  if (!resolved) {
     if (error) {
       error.textContent = result.error?.message ?? t('error.unexpected');
       error.hidden = false;
@@ -63,7 +74,7 @@ async function load() {
   }
 
   if (error) error.hidden = true;
-  payload = result.data;
+  payload = resolved.data;
   draw();
 }
 

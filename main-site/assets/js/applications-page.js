@@ -30,7 +30,7 @@ import { api } from './api.js';
 import { t } from './i18n.js';
 import { hydrateIcons, iconMarkup } from './icons.js';
 import { formatDate } from './format.js';
-import { mountAccountPage, refreshTaskBadge } from './account-shell.js';
+import { mountAccountPage, refreshTaskBadge, pageData } from './account-shell.js';
 import { jobRowHead, escapeHtml } from './account-row.js';
 import { openApplyDialog, applyDialogOpen } from './apply-dialog.js';
 import { confirmDangerousAction } from './danger-confirm.js';
@@ -45,10 +45,16 @@ let user = null;
 let bucket = 'all';
 let payload = null;
 
+// The session mountAccountPage handed back. Offline it is the profile saved on
+// this device rather than one the server confirmed, which is what makes this
+// page readable with no connection.
+let mounted = null;
+
 async function boot() {
   const session = await mountAccountPage({ current: PATH });
   if (!session) return;
 
+  mounted = session;
   user = session.user;
 
   // The tab is in the address bar, so a link somebody keeps or shares reopens
@@ -88,8 +94,12 @@ async function load() {
 
   list?.removeAttribute('aria-busy');
 
+  // Section 14: My applications comes from a local copy of the applicant's own
+  // data when there is no connection, marked with the time it was cached.
+  const resolved = await pageData(mounted, 'applications', result);
+
   const error = document.querySelector('#applicationsError');
-  if (!result.ok) {
+  if (!resolved) {
     if (error) {
       error.textContent = result.error?.message ?? t('error.unexpected');
       error.hidden = false;
@@ -98,7 +108,7 @@ async function load() {
   }
 
   if (error) error.hidden = true;
-  payload = result.data;
+  payload = resolved.data;
   draw();
 }
 

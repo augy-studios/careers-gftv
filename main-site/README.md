@@ -1257,7 +1257,24 @@ would ever clear it — and `syncUser` itself.
 |---|---|---|
 | A posting already opened | the `postings` cache, capped at 100 | "You are reading the copy saved on your device on {date}" |
 | The board at `/search` | the last successful result set, in IndexedDB | "These are the roles saved on your device on {date}" |
-| An uncached route | `/offline`, listing the postings held | the list, by name, in the reader's language |
+| Saved roles, My applications, tasks | the applicant's own copy, in IndexedDB | "This is the copy saved on your device on {date}" |
+| An uncached route | `/offline`, listing the postings held and the saved roles | the lists, by name, in the reader's language |
+
+**Being unable to ask is not an answer.** `applicantSession()` distinguishes
+"nobody is signed in" from "we could not ask" with an `unreachable` flag, and
+`mountAccountPage` redirects only on the first. Collapsing the two — which is
+what the code did until phase 10 — sends an offline applicant from their own
+dashboard to `/login`, the one page in the build that cannot work without a
+connection. Offline the account area draws from the profile kept in IndexedDB on
+every successful mount, and the header does the same, because a page listing
+somebody's own roles under a "Sign in" link is the site disagreeing with itself
+about who is looking at it.
+
+**None of that authenticates anything and it does not pretend to.** It answers
+one question — who was signed in on this device — so the pages can draw the copy
+of their own data that section 14 requires. Every endpoint still checks the real
+cookie, so an applicant reading this offline sees what they already had and can
+change nothing.
 
 **A cached posting reads in both languages already.** `api/job-page.js` inlines
 the content for `en` and `zh` both, which is why switching language on a posting

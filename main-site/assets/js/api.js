@@ -151,9 +151,16 @@ let sessionPromise = null;
 
 export function applicantSession({ refresh = false } = {}) {
   if (refresh || !sessionPromise) {
-    sessionPromise = api('/api/auth/applicant/session', { locale: false }).then((result) =>
-      result.ok ? result.data : { user: null }
-    );
+    sessionPromise = api('/api/auth/applicant/session', { locale: false }).then((result) => {
+      if (result.ok) return result.data;
+
+      // Phase 10. **A failed request is not a signed out state**, and collapsing
+      // the two is how an offline applicant gets bounced from their own
+      // dashboard to the sign in page — which is the one page that cannot work
+      // without a connection. `unreachable` lets a caller tell "nobody is signed
+      // in" from "we could not ask", and only the first is a reason to redirect.
+      return { user: null, unreachable: result.error?.code === 'network' };
+    });
   }
   return sessionPromise;
 }

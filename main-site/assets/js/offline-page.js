@@ -22,6 +22,7 @@
 import { t, getLocale, DEFAULT_LOCALE } from './i18n.js';
 import { formatDateTime } from './format.js';
 import { cachedPostings } from './offline.js';
+import { storedUserId, readMine } from './idb.js';
 
 const el = {};
 
@@ -116,6 +117,43 @@ function drawHeld() {
   );
 }
 
+// The applicant's own saved roles, from the copy on this device. Empty for
+// anybody who has never signed in here, which is most readers.
+let saved = [];
+
+/**
+ * Section 14's other half of "somewhere to go": saved jobs.
+ *
+ * Read straight from IndexedDB rather than through the account shell, because
+ * this page is not in the account area and must not redirect anybody anywhere.
+ * Nothing here is a claim about being signed in: it is the copy this device
+ * already holds, and every endpoint still checks the real cookie.
+ */
+function drawSaved() {
+  const section = document.querySelector('#offlineSaved');
+  const list = document.querySelector('#offlineSavedList');
+  if (!section || !list) return;
+
+  if (saved.length === 0) {
+    section.hidden = true;
+    return;
+  }
+
+  section.hidden = false;
+  section.querySelector('h2').textContent = t('offline.savedHeading');
+
+  list.replaceChildren(
+    ...saved.map((row) => {
+      const item = document.createElement('li');
+      const link = document.createElement('a');
+      link.href = `/jobs/${row.job.id}`;
+      link.textContent = row.job.title ?? row.job.id;
+      item.append(link);
+      return item;
+    })
+  );
+}
+
 function init() {
   el.state = document.querySelector('#offlineState');
   el.retry = document.querySelector('#offlineRetry');
@@ -138,6 +176,7 @@ function init() {
   document.addEventListener('gftv:localechange', () => {
     draw();
     drawHeld();
+    drawSaved();
   });
 
   draw();
@@ -150,6 +189,23 @@ function init() {
     held = postings;
     drawHeld();
   });
+
+  savedRoles().then((rows) => {
+    saved = rows;
+    drawSaved();
+  });
+}
+
+/** The saved roles this device holds, or an empty list. */
+async function savedRoles() {
+  const userId = await storedUserId();
+  if (!userId) return [];
+
+  const copy = await readMine(userId, 'saved');
+  // Only rows that carry the posting itself. /account/saved asks for
+  // with_jobs=true, so they do; a row without one could not be linked to
+  // anywhere useful and is dropped rather than listed as a dead entry.
+  return (copy?.data?.saved ?? []).filter((row) => row?.job?.id);
 }
 
 if (document.readyState === 'loading') {

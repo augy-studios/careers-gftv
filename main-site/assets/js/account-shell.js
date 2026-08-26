@@ -24,6 +24,8 @@
 
 import { api, applicantSession, noteHelperSession } from './api.js';
 import { t } from './i18n.js';
+import { formatDateTime } from './format.js';
+import { putMine, readMine, storedUserId } from './idb.js';
 import { hydrateIcons } from './icons.js';
 import { escapeHtml } from './markdown.js';
 import {
@@ -71,17 +73,35 @@ let navWired = false;
  *          by a redirect, in which case the caller should stop.
  */
 export async function mountAccountPage(options) {
-  const session = await applicantSession();
+  let session = await applicantSession();
+  let offline = false;
 
   if (!session?.user) {
-    // replace over assign: somebody signed out who presses back should
-    // not land on the page that just bounced them.
-    window.location.replace(`/login?redirect=${encodeURIComponent(options.current)}`);
-    return null;
+    // **Being unable to ask is not an answer.** Phase 10: offline the session
+    // request fails every single time, and redirecting on that would send an
+    // applicant from their own dashboard to the one page in the build that
+    // cannot work without a connection. So a network failure falls back to the
+    // profile saved on this device, and only a real signed out answer redirects.
+    const saved = session?.unreachable ? await offlineSession() : null;
+
+    if (!saved) {
+      // replace over assign: somebody signed out who presses back should
+      // not land on the page that just bounced them.
+      window.location.replace(`/login?redirect=${encodeURIComponent(options.current)}`);
+      return null;
+    }
+
+    session = saved;
+    offline = true;
   }
 
   renderAccountNav(options.current);
   renderAccountIdentity(session.user);
+
+  // Kept on every successful mount, so the identity is there to draw with the
+  // next time there is no connection. Not awaited: nothing on screen waits for
+  // it, and a browser that refuses IndexedDB simply never has an offline copy.
+  if (!offline) putMine(session.user.id, 'profile', session.user);
 
   // Not awaited. 7i's helper area is an item almost no account has, and the
   // navigation must not wait on a request to find that out.
@@ -105,6 +125,96 @@ export async function mountAccountPage(options) {
   refreshTaskBadge();
 
   return session;
+}
+
+/* -------------------------------------------------------------------------
+ * The account area with no connection
+ * ---------------------------------------------------------------------- */
+
+/**
+ * The session as this device last saw it, or null.
+ *
+ * **This authenticates nothing and does not pretend to.** It answers one
+ * question — who was signed in here — so that the account pages can draw the
+ * copy of their own data that section 14 requires. Every endpoint still checks
+ * the real cookie, so an applicant reading this offline can look at what they
+ * already had and change nothing at all.
+ *
+ * @returns {Promise<{ user: object, offline: true }|null>}
+ */
+async function offlineSession() {
+  const userId = await storedUserId();
+  if (!userId) return null;
+
+  const saved = await readMine(userId, 'profile');
+  if (!saved?.data) return null;
+
+  return { user: saved.data, offline: true };
+}
+
+/**
+ * The "saved on your device" line at the top of an account page.
+ *
+ * One element for the whole area rather than one per page, because it says the
+ * same thing everywhere and three copies is three places for it to drift.
+ * Passing null removes it, which is what a page does the moment a request
+ * succeeds: a line saying this is old, over a list that has just come back from
+ * the server, is the one thing it exists to prevent.
+ *
+ * @param {number|null} cachedAt
+ */
+export function renderCachedLine(cachedAt) {
+  const existing = document.querySelector('#accountCached');
+
+  if (!cachedAt) {
+    existing?.remove();
+    return;
+  }
+
+  const page = document.querySelector('#accountPage');
+  if (!page) return;
+
+  const line = existing ?? document.createElement('p');
+  line.id = 'accountCached';
+  line.className = 'board-cached';
+  line.setAttribute('role', 'status');
+  line.textContent = t('account.savedCopy', { when: formatDateTime(cachedAt) });
+  if (!existing) page.prepend(line);
+}
+
+/**
+ * Resolve a page's data from the server, or from the copy on the device.
+ *
+ * The one place the three account pages share their offline behaviour, so that
+ * "keep a copy on success, use it on a network failure, and say which of the
+ * two happened" is written once.
+ *
+ * **A network failure is the only thing that falls back.** A 500 or a 503 is
+ * the site answering, and quietly showing yesterday's applications in place of
+ * an error would hide a real fault behind stale data.
+ *
+ * @param {{ user: { id: string } }} session
+ * @param {'applications'|'saved'|'tasks'} kind
+ * @param {{ ok: boolean, data: *, error: * }} result
+ * @returns {Promise<{ data: *, cachedAt: number|null }|null>} null when the
+ *          caller should show its own error, which it already knows how to do
+ */
+export async function pageData(session, kind, result) {
+  const userId = session?.user?.id;
+
+  if (result.ok) {
+    if (userId) putMine(userId, kind, result.data);
+    renderCachedLine(null);
+    return { data: result.data, cachedAt: null };
+  }
+
+  if (result.error?.code !== 'network' || !userId) return null;
+
+  const copy = await readMine(userId, kind);
+  if (!copy) return null;
+
+  renderCachedLine(copy.cachedAt);
+  return { data: copy.data, cachedAt: copy.cachedAt };
 }
 
 /* -------------------------------------------------------------------------

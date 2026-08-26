@@ -978,6 +978,185 @@ define('public', 'Public data offline: the board and the postings', async () => 
   }
 });
 
+define('account', "The applicant's own pages with no connection", async () => {
+  const server = await serveSite();
+  const browser = await chromium.launch();
+  const ctx = await browser.newContext({ baseURL: server.base });
+  const page = await ctx.newPage();
+
+  const USER = { id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', display_name: 'Sam Tan', username: 'samtan' };
+
+  // A signed in applicant, served by routes rather than by a real login: what
+  // is under test is what the pages do when those routes stop answering, and
+  // standing up an account on the deployment to prove it would make this
+  // section need credentials it has no other use for.
+  const json = (data) => ({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ ok: true, data }),
+  });
+
+  let online = true;
+  const guard = (route, data) => (online ? route.fulfill(json(data)) : route.abort('failed'));
+
+  // Registered first, and that is not a style choice: Playwright matches routes
+  // in the reverse of the order they were added, so a catch-all added last
+  // would answer everything and the four specific ones below would never run.
+  await ctx.route('**/api/**', (route) => guard(route, {}));
+
+  await ctx.route('**/api/auth/applicant/session*', (route) => guard(route, { user: USER }));
+  await ctx.route('**/api/saved/mine*', (route) =>
+    guard(route, {
+      counts: { all: 1, open: 1, closed: 0 },
+      saved: [
+        {
+          saved_at: '2026-08-20T00:00:00Z',
+          job: { id: '11111111-1111-1111-1111-111111111111', title: 'Camera Operator', is_open: true, is_paid: false },
+        },
+      ],
+    })
+  );
+  await ctx.route('**/api/applications/mine*', (route) =>
+    guard(route, { counts: { all: 1 }, applications: [] })
+  );
+  await ctx.route('**/api/tasks/mine*', (route) => guard(route, { tasks: [] }));
+
+  try {
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await until(page, async () => Boolean((await navigator.serviceWorker.getRegistration())?.active), {
+      timeout: 30000,
+    });
+    // The worker does not claim the page that installed it, so nothing is
+    // controlled until a reload — and without a controller there is no offline
+    // fallback for the uncached route this section ends on.
+    await page.reload({ waitUntil: 'domcontentloaded' });
+
+    /* Online, the copy is kept ------------------------------------------- */
+
+    await page.goto('/account/saved', { waitUntil: 'domcontentloaded' });
+    await until(page, () => document.querySelectorAll('#savedList .account-row').length > 0, {
+      timeout: 15000,
+    });
+
+    // The other two are visited online as well. A page that has never loaded
+    // has nothing saved, and offline it is right for it to say so rather than
+    // invent a copy — so they are opened here for the same reason a person
+    // would have: they used the app before they lost the connection.
+    for (const path of ['/account/applications', '/account/tasks']) {
+      await page.goto(path, { waitUntil: 'domcontentloaded' });
+      await until(page, () => !document.querySelector('#accountLoading'), { timeout: 15000 });
+    }
+    await page.goto('/account/saved', { waitUntil: 'domcontentloaded' });
+    await until(page, () => document.querySelectorAll('#savedList .account-row').length > 0, {
+      timeout: 15000,
+    });
+
+    const kept = await page.evaluate(async (id) => {
+      const { readMine } = await import('/assets/js/idb.js');
+      const [saved, profile] = await Promise.all([readMine(id, 'saved'), readMine(id, 'profile')]);
+      return { saved: saved?.data?.saved?.length ?? 0, name: profile?.data?.display_name ?? null };
+    }, USER.id);
+
+    check('62. a page that loaded keeps a copy of its own data', kept.saved === 1, JSON.stringify(kept));
+    check('63. and the account shell keeps the profile beside it', kept.name === 'Sam Tan', kept.name);
+
+    check(
+      '64. nothing claims to be a saved copy while the page is live',
+      (await page.locator('#accountCached').count()) === 0
+    );
+
+    /* Offline, the page still opens --------------------------------------- */
+
+    online = false;
+    await page.goto('/account/saved', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(2500);
+
+    check(
+      '65. an account page does not bounce to sign in when the session cannot be asked',
+      page.url().includes('/account/saved'),
+      `${page.url()} — being unable to ask is not an answer, and /login is the one ` +
+        'page in the build that cannot work offline'
+    );
+    check(
+      '66. and draws the applicant from the profile saved on this device',
+      (await page.textContent('body'))?.includes('Sam Tan'),
+      'the identity in the account header'
+    );
+    check(
+      '67. the saved roles are on screen from the local copy',
+      (await page.locator('#savedList .account-row').count()) === 1
+    );
+
+    const line = await page.textContent('#accountCached').catch(() => null);
+    check(
+      '68. marked with the time it was cached',
+      /saved on your device/i.test(line ?? ''),
+      line ?? '(no line)'
+    );
+
+    check(
+      '69. and the header does not offer to sign them in',
+      (await page.locator('#siteNav a[href="/login"]').count()) === 0,
+      'a page listing somebody\'s own roles under a Sign in link is the site ' +
+        'disagreeing with itself about who is looking at it'
+    );
+
+    /* The other two pages -------------------------------------------------- */
+
+    for (const [path, name] of [
+      ['/account/applications', '70. My applications'],
+      ['/account/tasks', '71. outstanding tasks'],
+    ]) {
+      await page.goto(path, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(2000);
+      check(
+        `${name} opens offline from its own copy`,
+        page.url().includes(path) && (await page.locator('#accountCached').count()) === 1,
+        page.url()
+      );
+    }
+
+    /* The fallback page offers them --------------------------------------- */
+
+    // Everything above ran with the machine online and the API refusing to
+    // answer, which is the sharper of the two cases and the one the
+    // `unreachable` flag exists for. The fallback page needs the other one:
+    // the document request itself has to fail before the worker answers with
+    // /offline instead of passing a 404 through.
+    await ctx.setOffline(true);
+    await page.goto('/nothing-here-at-all', { waitUntil: 'domcontentloaded' });
+    const offered = await until(
+      page,
+      () => document.querySelectorAll('#offlineSavedList li').length > 0,
+      { timeout: 8000 }
+    );
+    check('72. the fallback page offers the saved roles as somewhere to go', offered);
+    check(
+      '73. by name, linking to the posting',
+      (await page.textContent('#offlineSavedList'))?.includes('Camera Operator'),
+      await page.textContent('#offlineSavedList')
+    );
+
+    /* A real signed out answer still redirects ----------------------------- */
+
+    await ctx.setOffline(false);
+    online = true;
+    await ctx.unroute('**/api/auth/applicant/session*');
+    await ctx.route('**/api/auth/applicant/session*', (route) => route.fulfill(json({ user: null })));
+
+    await page.goto('/account/saved', { waitUntil: 'domcontentloaded' });
+    const bounced = await page.waitForURL(/\/login/, { timeout: 10000 }).then(() => true).catch(() => false);
+    check(
+      '74. a real signed out answer still redirects to sign in',
+      bounced,
+      `${page.url()} — only a failure to ask falls back, never an answer`
+    );
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
 /* -------------------------------------------------------------------------
  * Run
  * ---------------------------------------------------------------------- */

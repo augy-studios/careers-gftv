@@ -120,6 +120,14 @@
                 <ul class="offline-held-list" id="offlineHeldList"></ul>
             </section>
 
+            <!-- The applicant's own saved roles, from the copy in IndexedDB.
+                 Drawn only for somebody who was signed in on this device and
+                 has saved something, and hidden for everybody else. -->
+            <section class="offline-held" id="offlineSaved" hidden>
+                <h2 data-i18n="offline.savedHeading">Your saved roles</h2>
+                <ul class="offline-held-list" id="offlineSavedList"></ul>
+            </section>
+
             <div class="actions">
                 <!-- Retry cannot work without a connection, so it is disabled
                      with the reason on it rather than being a button that fails

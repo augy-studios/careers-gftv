@@ -50,7 +50,7 @@ import { api } from './api.js';
 import { t } from './i18n.js';
 import { hydrateIcons, iconMarkup } from './icons.js';
 import { formatDate } from './format.js';
-import { mountAccountPage, refreshTaskBadge } from './account-shell.js';
+import { mountAccountPage, refreshTaskBadge, pageData } from './account-shell.js';
 import { jobRowHead, escapeHtml } from './account-row.js';
 import { openApplyDialog, applyDialogOpen } from './apply-dialog.js';
 import { setWorking, showFormMessage, clearErrors, applyApiError } from './forms.js';
@@ -62,10 +62,15 @@ let payload = null;
 // collapse a panel somebody is typing into.
 let expanded = null;
 
+// The session mountAccountPage handed back. Offline it is the profile saved on
+// this device rather than one the server confirmed.
+let mounted = null;
+
 async function boot() {
   const session = await mountAccountPage({ current: PATH });
   if (!session) return;
 
+  mounted = session;
   expanded = linkedTaskId();
   stripTaskParam();
 
@@ -111,8 +116,12 @@ async function load() {
 
   list?.removeAttribute('aria-busy');
 
+  // Section 14: the outstanding tasks list comes from a local copy of the
+  // applicant's own data when there is no connection.
+  const resolved = await pageData(mounted, 'tasks', result);
+
   const error = document.querySelector('#tasksError');
-  if (!result.ok) {
+  if (!resolved) {
     if (error) {
       error.textContent = result.error?.message ?? t('error.unexpected');
       error.hidden = false;
@@ -121,7 +130,7 @@ async function load() {
   }
 
   if (error) error.hidden = true;
-  payload = result.data;
+  payload = resolved.data;
   draw();
   refreshTaskBadge();
 }

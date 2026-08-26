@@ -107,6 +107,8 @@
   "offline.updateLater": "暂时不用",
   "offline.heldHeading": "仍可阅读的职位",
   "offline.heldSaved": "保存于 {when}",
+  "offline.savedHeading": "您收藏的职位",
+  "account.savedCopy": "这是 {when} 保存在您设备上的版本，内容可能不是最新的。恢复网络前无法在此进行任何更改。",
   "search.savedBoard": "以下是 {when} 保存在您设备上的职位，并非当前的最新列表。",
   "search.savedBoardOtherFilters": "无法搜索，以下是 {when} 保存在您设备上的职位，与您所选的筛选条件并不相符。",
   "job.savedCopy": "您正在阅读 {when} 保存在您设备上的版本，内容可能已有变动。",

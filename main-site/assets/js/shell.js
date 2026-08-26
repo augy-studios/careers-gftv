@@ -45,7 +45,7 @@ import { resumePendingPrompt } from './apply-prompt.js';
 // connection banner. Every page used to carry its own inline register() call;
 // this is the one owner, which is what the update prompt needs to exist at all.
 import { initOffline } from './offline.js';
-import { syncUser, wipeAll } from './idb.js';
+import { syncUser, wipeAll, storedUserId, readMine } from './idb.js';
 
 /* -------------------------------------------------------------------------
  * Navigation
@@ -627,7 +627,18 @@ async function reflectApplicantSession() {
   const signIn = nav.querySelector('a[href="/login"]');
   if (!signIn) return;
 
-  const session = await applicantSession();
+  let session = await applicantSession();
+
+  // Offline, the session request fails and reads as signed out. The account
+  // pages fall back to the profile saved on this device, so the header has to
+  // as well: a page listing somebody's own applications under a "Sign in" link
+  // is the site disagreeing with itself about who is looking at it.
+  if (!session?.user && session?.unreachable) {
+    const userId = await storedUserId();
+    const saved = userId ? await readMine(userId, 'profile') : null;
+    if (saved?.data) session = { user: saved.data };
+  }
+
   if (!session?.user) return;
 
   const account = document.createElement('a');
