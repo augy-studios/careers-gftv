@@ -106,7 +106,7 @@ ${page.robots ? `    <meta name="robots" content="${escapeAttr(page.robots)}">\n
     <meta name="twitter:description" content="${escapeAttr(ogDescription)}">
     <meta name="twitter:image:src" content="${escapeAttr(image)}">
 
-    <link rel="apple-touch-icon" href="/HLC-main.png">
+    <link rel="apple-touch-icon" href="/HLC-180.png">
     <link rel="icon" href="/favicon.ico">
     <link rel="shortcut icon" href="/favicon.ico">
 ${page.jsonLd ? `\n    <script type="application/ld+json">${jsonScript(page.jsonLd)}</script>\n` : ''}${

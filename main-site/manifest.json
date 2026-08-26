@@ -1,29 +1,59 @@
 {
+    "$comment": "The install manifest, per specification section 14. Written in English only, and deliberately: a manifest is fetched by the browser with no session and no localStorage, so it has no way of knowing which language the reader chose. That is the same reason link embeds are always English, settled in section 7. background_color is the GFTV yellow the icon plate now sits on, so the splash screen and the icon are one colour rather than two. theme_color is white because it has to agree with what theme.js writes into meta[name=theme-color] a moment after launch for the default classic light theme, and a yellow title bar that turns white on load is a flash of the wrong colour on every open. Regenerate the icons with node gen-icons.js and the screenshots with node gen-screenshots.js; neither is edited by hand.",
     "name": "Careers@GFTV",
     "short_name": "Careers@GFTV",
     "description": "Voluntary, unpaid openings at Global Furry Television. Every role currently listed is unpaid. Browse roles, read the full posting, and apply with a free account.",
     "icons": [{
             "src": "/HLC-192.png",
             "type": "image/png",
-            "sizes": "192x192"
+            "sizes": "192x192",
+            "purpose": "any"
         },
         {
             "src": "/HLC-512.png",
             "type": "image/png",
-            "sizes": "512x512"
+            "sizes": "512x512",
+            "purpose": "any"
+        },
+        {
+            "src": "/HLC-192-maskable.png",
+            "type": "image/png",
+            "sizes": "192x192",
+            "purpose": "maskable"
+        },
+        {
+            "src": "/HLC-512-maskable.png",
+            "type": "image/png",
+            "sizes": "512x512",
+            "purpose": "maskable"
         }
     ],
     "screenshots": [{
-            "src": "/images/screenshot_1.png",
+            "src": "/images/install-narrow.png",
             "type": "image/png",
             "sizes": "1080x2340",
-            "form_factor": "narrow"
+            "form_factor": "narrow",
+            "label": "The job board, with every open role and the filters for narrowing it down."
         },
         {
-            "src": "/images/screenshot_2.png",
+            "src": "/images/install-wide.png",
             "type": "image/png",
             "sizes": "1920x1080",
-            "form_factor": "wide"
+            "form_factor": "wide",
+            "label": "The job board, with every open role and the filters for narrowing it down."
+        }
+    ],
+    "shortcuts": [{
+            "name": "Find a role",
+            "short_name": "Find a role",
+            "description": "Browse and search every open role.",
+            "url": "/search"
+        },
+        {
+            "name": "Outstanding tasks",
+            "short_name": "Tasks",
+            "description": "Anything we have asked you for, and any invitations.",
+            "url": "/account/tasks"
         }
     ],
     "start_url": "/",

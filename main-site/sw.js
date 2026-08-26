@@ -27,7 +27,7 @@
 // the files that exist as well. A precache entry naming a deleted file makes
 // cache.addAll reject and the whole install fail.
 
-const VERSION = 'careers-gftv-phase9-v77';
+const VERSION = 'careers-gftv-phase10-v78';
 
 self.addEventListener('install', () => {
   // Nothing to precache yet.

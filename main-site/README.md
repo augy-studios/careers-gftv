@@ -69,7 +69,10 @@ main-site/
     security/         staff passkeys and trusted devices
   placeholder.html    served for every route belonging to a later phase
   404.html            genuinely unknown paths
-  manifest.json       PWA manifest, rewritten properly in phase 10
+  manifest.json       PWA manifest: icons, screenshots, and the two shortcuts
+  HLC-*.png           the app icons, every one of them generated. See below
+  favicon.ico         16, 32, and 48, generated with the rest
+  images/install-*.png  the two install screenshots, generated
   sw.js               service worker, a pass through until phase 10
   vercel.json         rewrites, redirects, and headers
   assets/
@@ -1046,6 +1049,51 @@ fails the build and is not ignored. Two entries are worth explaining:
   empty screen. It is also the rule phase 3 learned the hard way, so **check it
   on a deployment and not locally**: a route returning 200 is not evidence
   its rewrite works.
+
+## Icons and the install manifest
+
+**Every icon in this directory is generated. Do not edit one by hand.** The one
+original is `HLC-source.png` at the repo root, which is the 2250 square image
+the template shipped, kept out of `main-site/` so it is version controlled and
+not deployed.
+
+```
+node gen-icons.js         HLC-main, 512, 192, 180, the two maskable, favicon.ico
+node gen-screenshots.js   images/install-narrow.png and install-wide.png
+```
+
+The template's icons sat on a mint green plate while `manifest.json` used the
+GFTV yellow for its splash, so the icon and the screen behind it were two
+different colours. Phase 10 settled it in favour of the yellow, per
+`gftv-theme.md`'s rule that brand colours are not invented, and `gen-icons.js`
+does the recolouring: the artwork is untouched and only the plate changes.
+
+It is a script rather than five edited files for two reasons. The five have to
+agree, and they had already drifted once. And the plate carries soft drop
+shadows, which are dark green rather than mint, so a plain colour swap leaves
+them behind as green smudges — every background pixel is matched as *mint at
+some brightness* and written back as *yellow at that same brightness* instead.
+
+- **`purpose` is explicit on all four manifest icons.** The two `maskable`
+  variants put the artwork at 80% with the plate full bleed, so a launcher that
+  crops to a circle never exposes a corner.
+- **`apple-touch-icon` is `HLC-180.png`.** iOS ignores the manifest's icon list
+  entirely, and every page used to point that at the 2250 square master: half a
+  megabyte fetched to draw a home screen icon.
+- **`theme_color` is white and `background_color` is `#fedc00`.** The splash
+  matches the icon plate; the title bar has to match what `theme.js` writes
+  into `meta[name=theme-color]` a moment later for the default classic light
+  theme, or every launch flashes the wrong colour.
+- **The manifest is English only**, deliberately. It is fetched with no session
+  and no `localStorage`, so it cannot know which language was chosen. Same
+  reason link embeds are always English.
+
+**The screenshots are of `/search` on the live deployment**, at 360 CSS pixels
+by 3 for narrow and 1920 by 1 for wide, which are the exact sizes the manifest
+claims. Chrome checks that claim and silently drops a screenshot whose real
+size does not match. They currently show the dev seed's SAMPLE POSTING rows,
+because that is what the board currently holds: rerun `node gen-screenshots.js`
+when the seed is deleted.
 
 ## The service worker
 

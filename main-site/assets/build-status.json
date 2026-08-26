@@ -101,7 +101,7 @@
       "number": 10,
       "name": "Offline",
       "name_zh": "离线使用",
-      "status": "planned",
+      "status": "building",
       "description": "Installing the portal to a home screen, and browsing, reading, and rating postings with no connection.",
       "description_zh": "将本网站添加到主屏幕，并在没有网络时浏览、阅读和评分职位信息。",
       "shipped_note": null,
