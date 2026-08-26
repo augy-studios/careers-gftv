@@ -46,6 +46,7 @@ import { resumePendingPrompt } from './apply-prompt.js';
 // this is the one owner, which is what the update prompt needs to exist at all.
 import { initOffline } from './offline.js';
 import { syncUser, wipeAll, storedUserId, readMine } from './idb.js';
+import { initQueue } from './queue.js';
 
 /* -------------------------------------------------------------------------
  * Navigation
@@ -994,6 +995,12 @@ async function boot() {
   // already exists rather than racing it for the top of the body. Its own
   // strings redraw on a language change, like everything else drawn from here.
   initOffline();
+
+  // Section 14's other flush path, and the one every browser takes: anything
+  // queued while offline goes on the next page load with a connection. Not
+  // awaited — nothing on screen waits for it, and it says what happened by
+  // event rather than by return value.
+  initQueue();
 
   // These render their own strings instead of carrying data-i18n attributes,
   // so they are redrawn on a language change and not retranslated in place.

@@ -108,6 +108,8 @@
   "offline.heldHeading": "Roles you can still read",
   "offline.heldSaved": "saved {when}",
   "offline.savedHeading": "Your saved roles",
+  "apply.rateQueued": "Your rating is saved and will be sent when you are back online.",
+  "apply.queuedNote": "Your answer is saved on this device and will be sent when you are back online. Nothing is confirmed until it goes through.",
   "account.savedCopy": "This is the copy saved on your device on {when}. It may not be up to date, and nothing here can be changed until you are back online.",
   "search.savedBoard": "These are the roles saved on your device on {when}, not the current list.",
   "search.savedBoardOtherFilters": "We could not search, so these are the roles saved on your device on {when}. They do not match the filters you asked for.",

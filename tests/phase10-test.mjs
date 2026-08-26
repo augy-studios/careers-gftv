@@ -1157,6 +1157,190 @@ define('account', "The applicant's own pages with no connection", async () => {
   }
 });
 
+define('queue', 'The action queue', async () => {
+  const server = await serveSite();
+  const browser = await chromium.launch();
+  const ctx = await browser.newContext({ baseURL: server.base });
+  const page = await ctx.newPage();
+
+  // What the two endpoints answer, swapped between checks. `null` aborts the
+  // request, which is what a real network failure looks like from api.js.
+  let respondWith = null;
+  const seen = [];
+
+  await ctx.route('**/api/**', (route) => {
+    const url = route.request().url();
+    if (/ratings\/upsert|applications\/respond/.test(url)) {
+      seen.push(url);
+      if (respondWith === null) return route.abort('failed');
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(respondWith),
+      });
+    }
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ ok: true, data: {} }),
+    });
+  });
+
+  const queue = (body) =>
+    page.evaluate(async (source) => {
+      const module = await import('/assets/js/queue.js');
+      return new Function('queue', `return (async () => { ${source} })()`)(module);
+    }, body);
+
+  try {
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await until(page, async () => Boolean((await navigator.serviceWorker.getRegistration())?.active), {
+      timeout: 30000,
+    });
+
+    /* The verdict rule ---------------------------------------------------- */
+
+    const verdicts = await queue(`
+      const at = (code) => queue.verdictFor({ ok: false, error: { code } });
+      return {
+        ok: queue.verdictFor({ ok: true }),
+        network: at('network'),
+        switchedOff: at('not_yet_available'),
+        rateLimited: at('rate_limited'),
+        serverError: at('server_error'),
+        signedOut: at('unauthorised'),
+        gone: at('not_found'),
+        refused: at('forbidden'),
+      };
+    `);
+
+    check('75. a success clears the action', verdicts.ok === 'done');
+    check(
+      '76. a network failure and a 503 from a switched off feature are both held',
+      verdicts.network === 'retry' && verdicts.switchedOff === 'retry',
+      `network=${verdicts.network} switchedOff=${verdicts.switchedOff} — section 0c: ` +
+        '"a disabled button stops nobody who has a queued offline action"'
+    );
+    check(
+      '77. a rate limit and a server error are held too',
+      verdicts.rateLimited === 'retry' && verdicts.serverError === 'retry'
+    );
+    check(
+      '78. a lost session keeps the action and asks them to sign in',
+      verdicts.signedOut === 'signin'
+    );
+    check(
+      '79. a posting that has gone is dropped rather than retried forever',
+      verdicts.gone === 'drop' && verdicts.refused === 'drop',
+      `not_found=${verdicts.gone} forbidden=${verdicts.refused} — retrying cannot ` +
+        'change the answer, and an action that can never land must not sit there pretending'
+    );
+
+    /* Queueing and flushing ------------------------------------------------ */
+
+    await queue(`
+      await queue.queueAction('answer', { analytics_id: 'row-1', answer: 'yes' }, { jobId: 'job-1', analyticsId: 'row-1' });
+      await queue.queueAction('rating', { job_id: 'job-1', rating: 4 }, { jobId: 'job-1' });
+    `);
+
+    const waiting = await queue('return queue.queuedActions().length;');
+    check('80. two actions are waiting', waiting === 2, String(waiting));
+
+    check(
+      '81. and the Apply control is told an answer is waiting for that posting',
+      await queue("return queue.answerWaitingFor('job-1');"),
+      'this is what keeps a queued answer from reading as an applied one'
+    );
+
+    // Still no connection: a flush must change nothing and must not lose it.
+    const held = await queue('return queue.flushQueue();');
+    check(
+      '82. a flush with no connection keeps everything',
+      held.sent === 0 && held.kept === 1 && held.dropped === 0,
+      `${JSON.stringify(held)} — it stops on the first network failure rather than ` +
+        'spending one request per waiting action to learn the same thing'
+    );
+    check(
+      '83. and nothing was lost',
+      (await queue('return queue.queuedActions().length;')) === 2
+    );
+
+    /* The connection returns ----------------------------------------------- */
+
+    respondWith = { ok: true, data: { did_apply: true, application: { applied_at: '2026-08-26' } } };
+
+    const applied = await page.evaluate(async () => {
+      const seenEvents = [];
+      document.addEventListener('gftv:applychange', (event) => seenEvents.push(event.detail));
+      const module = await import('/assets/js/queue.js');
+      const counts = await module.flushQueue();
+      return { counts, events: seenEvents };
+    });
+
+    check(
+      '84. both go through when the connection returns',
+      applied.counts.sent === 2 && applied.counts.kept === 0,
+      JSON.stringify(applied.counts)
+    );
+    check('85. and the queue is empty', (await queue('return queue.queuedActions().length;')) === 0);
+    check(
+      "86. the answer is reconciled against the server's reply, not the local entry",
+      applied.events.some((detail) => detail.fromQueue === true && detail.didApply === true),
+      `${JSON.stringify(applied.events)} — this is the only place a queued answer ` +
+        'is allowed to become an applied one'
+    );
+
+    /* A refusal that can never land ---------------------------------------- */
+
+    respondWith = { ok: false, error: { code: 'not_found', message: 'gone' } };
+    await queue(`
+      await queue.queueAction('answer', { analytics_id: 'row-2', answer: 'yes' }, { jobId: 'job-2', analyticsId: 'row-2' });
+    `);
+
+    const dropped = await queue('return queue.flushQueue();');
+    check(
+      '87. an action for a posting that has gone is dropped',
+      dropped.dropped === 1 && (await queue('return queue.queuedActions().length;')) === 0,
+      JSON.stringify(dropped)
+    );
+
+    /* A lost session -------------------------------------------------------- */
+
+    respondWith = { ok: false, error: { code: 'unauthorised', message: 'sign in' } };
+    await queue(`
+      await queue.queueAction('rating', { job_id: 'job-3', rating: 5 }, { jobId: 'job-3' });
+    `);
+
+    const kept = await queue('return queue.flushQueue();');
+    check(
+      '88. a lost session keeps the action rather than throwing it away',
+      kept.kept === 1 && (await queue('return queue.queuedActions().length;')) === 1,
+      `${JSON.stringify(kept)} — it is still what they meant`
+    );
+
+    /* The two verdict rules agree ------------------------------------------- */
+
+    // sw.js carries a second copy for the Background Sync handler, which cannot
+    // import a module. Two copies of a rule drift, so this is the check that
+    // says they have not.
+    const swSource = await readFile(join(SITE, 'sw.js'), 'utf8');
+    const codes = ['not_yet_available', 'rate_limited', 'server_error', 'unauthorised'];
+    check(
+      "89. the worker's copy of the verdict rule names the same codes",
+      codes.every((code) => swSource.includes(code)) && swSource.includes('queueVerdict'),
+      codes.filter((code) => !swSource.includes(code)).join(', ') || 'all present'
+    );
+    check(
+      '90. and the Background Sync tag matches the one the page registers',
+      swSource.includes("const SYNC_TAG = 'careers-gftv-queue'"),
+      'a tag that differs is a queue that never flushes in the background, silently'
+    );
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
 /* -------------------------------------------------------------------------
  * Run
  * ---------------------------------------------------------------------- */

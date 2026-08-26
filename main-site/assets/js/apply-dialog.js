@@ -43,6 +43,7 @@ import { t } from './i18n.js';
 import { api } from './api.js';
 import { iconMarkup, hydrateIcons } from './icons.js';
 import { escapeHtml } from './markdown.js';
+import { queueAction } from './queue.js';
 
 /** How long the modal must be on screen before the tab opens, per 7c step 3. */
 const TAB_DELAY_MS = 800;
@@ -509,13 +510,29 @@ function onRatingChange(event) {
 }
 
 async function saveRating(jobId, value) {
+  const body = { job_id: jobId, rating: value };
+
   const result = await api('/api/ratings/upsert', {
     method: 'POST',
     locale: false,
-    body: { job_id: jobId, rating: value },
+    body,
   });
 
-  if (result.ok || !state || state.jobId !== jobId) return;
+  if (result.ok) return;
+
+  // Section 14: the rating is queued locally and sent when the connection
+  // returns. Only for a network failure — a refusal is the server having
+  // decided, and queueing that would be asking the same question again forever.
+  if (result.error?.code === 'network') {
+    await queueAction('rating', body, { jobId });
+    if (state && state.jobId === jobId) {
+      state.message = t('apply.rateQueued');
+      render();
+    }
+    return;
+  }
+
+  if (!state || state.jobId !== jobId) return;
 
   state.message = t('apply.rateFailed');
   render();
@@ -558,6 +575,32 @@ async function answer(value) {
   buttons.forEach((button) => (button.disabled = false));
 
   if (!result.ok) {
+    // Section 14: the answer is queued with the analytics row id, the intended
+    // value and a timestamp, and sent when the connection returns.
+    //
+    // **What does not happen here is the important part.** No gftv:applychange
+    // with didApply, because that is what moves the Apply control to applied and
+    // starts the reapply cooldown on screen. A queued answer is pending until
+    // the server confirms it, per section 14 and the settled decision that a
+    // status change never touches the cooldown. Only queue.js dispatches that,
+    // and only on the server's reply.
+    if (result.error?.code === 'network') {
+      await queueAction(
+        'answer',
+        { analytics_id: state.analyticsId, answer: value },
+        { jobId: state.jobId, analyticsId: state.analyticsId }
+      );
+
+      state.answered = true;
+      document.dispatchEvent(
+        new CustomEvent('gftv:applyqueued', {
+          detail: { jobId: state.jobId, analyticsId: state.analyticsId },
+        })
+      );
+      dialog.close();
+      return;
+    }
+
     state.message = result.error?.message || t('apply.answerFailed');
     render();
     return;

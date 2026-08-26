@@ -70,7 +70,7 @@
 //                     because a kill switch that forgets itself on the deploy
 //                     that broke something is not a kill switch.
 
-const VERSION = 'careers-gftv-phase10-v84';
+const VERSION = 'careers-gftv-phase10-v85';
 
 const SHELL = `careers-gftv-shell-${VERSION}`;
 const PUBLIC_DATA = 'careers-gftv-public';
@@ -239,6 +239,7 @@ const PRECACHE = [
   '/assets/js/offline-page.js',
   '/assets/js/offline.js',
   '/assets/js/passkeys.js',
+  '/assets/js/queue.js',
   '/assets/js/recovery-codes.js',
   '/assets/js/register-page.js',
   '/assets/js/save-button.js',
@@ -595,6 +596,152 @@ async function staleWhileRevalidate(event, request, cacheName) {
 
   const fresh = await network;
   return fresh ?? Response.error();
+}
+
+/* -------------------------------------------------------------------------
+ * Background Sync, section 14
+ *
+ * "Flush the queue with the Background Sync API where available, and on the
+ * next page load with a connection everywhere else, since Safari does not
+ * support Background Sync."
+ *
+ * **This is the second copy of a small amount of logic, deliberately.**
+ * assets/js/queue.js owns the queue: what goes in it, what the interface says
+ * about it, and what a refusal means. A service worker is a classic script and
+ * cannot import that module, and the obvious alternative — the worker asking an
+ * open page to do the flush — would defeat the whole point, which is flushing
+ * when there is no page open at all.
+ *
+ * So what lives here is the minimum: read the store, send, decide keep or drop.
+ * Nothing about the interface, and **the verdict rule below has to stay in step
+ * with `verdictFor` in queue.js**. Same arrangement as the pre-paint theme
+ * script, which duplicates two constants from theme.js for the same kind of
+ * reason.
+ * ---------------------------------------------------------------------- */
+
+const SYNC_TAG = 'careers-gftv-queue';
+
+const QUEUE_PATHS = {
+  rating: '/api/ratings/upsert',
+  answer: '/api/applications/respond',
+};
+
+self.addEventListener('sync', (event) => {
+  if (event.tag === SYNC_TAG) event.waitUntil(flushQueue());
+});
+
+/** Keep in step with verdictFor in assets/js/queue.js. */
+function queueVerdict(payload, networkFailed) {
+  if (networkFailed) return 'retry';
+  if (payload?.ok === true) return 'done';
+
+  const code = payload?.error?.code;
+  if (code === 'not_yet_available' || code === 'rate_limited' || code === 'server_error') {
+    return 'retry';
+  }
+  // queue.js calls this one 'signin', because it has an interface to say so in.
+  // Out here the two are the same instruction: keep the row.
+  if (code === 'unauthorised') return 'retry';
+  return 'drop';
+}
+
+/** The queue store, opened without any of idb.js's other machinery. */
+function openQueue() {
+  return new Promise((resolve) => {
+    let request;
+    try {
+      // The same name and version assets/js/idb.js uses. Opened without an
+      // upgrade handler on purpose: this worker must never create the database
+      // or migrate it, because the page owns that and a worker racing it would
+      // be two writers of one schema.
+      request = indexedDB.open('careers-gftv', 1);
+    } catch {
+      return resolve(null);
+    }
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => resolve(null);
+    request.onblocked = () => resolve(null);
+  });
+}
+
+function queueRows(db) {
+  return new Promise((resolve) => {
+    try {
+      const request = db.transaction('queue', 'readonly').objectStore('queue').getAll();
+      request.onsuccess = () => resolve(request.result ?? []);
+      request.onerror = () => resolve([]);
+    } catch {
+      resolve([]);
+    }
+  });
+}
+
+function dropRow(db, id) {
+  return new Promise((resolve) => {
+    try {
+      const transaction = db.transaction('queue', 'readwrite');
+      transaction.objectStore('queue').delete(id);
+      transaction.oncomplete = resolve;
+      transaction.onerror = resolve;
+      transaction.onabort = resolve;
+    } catch {
+      resolve();
+    }
+  });
+}
+
+async function flushQueue() {
+  const db = await openQueue();
+  if (!db) return;
+
+  const rows = (await queueRows(db)).sort((a, b) => a.createdAt - b.createdAt);
+  let changed = false;
+
+  for (const row of rows) {
+    const path = QUEUE_PATHS[row.kind];
+    if (!path) {
+      await dropRow(db, row.id);
+      changed = true;
+      continue;
+    }
+
+    let payload = null;
+    let networkFailed = false;
+
+    try {
+      // credentials same-origin by default in a worker, which is what carries
+      // the session cookie. Every one of these is idempotent, so a send this
+      // worker and an open page both attempt cannot double count.
+      const response = await fetch(path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(row.body),
+      });
+      payload = await response.json().catch(() => null);
+    } catch {
+      networkFailed = true;
+    }
+
+    const verdict = queueVerdict(payload, networkFailed);
+
+    if (verdict === 'done' || verdict === 'drop') {
+      await dropRow(db, row.id);
+      changed = true;
+      continue;
+    }
+
+    // Nothing reached the site. The rest will fail the same way, and the sync
+    // event will fire again when the browser thinks there is a connection.
+    if (networkFailed) break;
+  }
+
+  if (!changed) return;
+
+  // Any page that is open has a stale view of the queue. It refreshes rather
+  // than being told what happened, because this handler deliberately knows
+  // nothing about what the interface is showing.
+  const clients = await self.clients.matchAll({ type: 'window' });
+  for (const client of clients) client.postMessage({ type: 'queue-flushed' });
 }
 
 /* -------------------------------------------------------------------------

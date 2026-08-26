@@ -283,6 +283,61 @@ export async function forgetMine(userId, kind) {
 }
 
 /* -------------------------------------------------------------------------
+ * The action queue, section 14
+ *
+ * The store itself was created with the database in part 5 so that part 8
+ * needed no schema version bump. These are the four operations queue.js does on
+ * it; every decision about what to send and what a refusal means is that file's
+ * and none of it is here.
+ *
+ * **A queued action belongs to the applicant who made it.** `wipeAll` clears
+ * this store with the rest, so an action queued by one person can never be
+ * flushed under another's session — which is not a caching concern but an
+ * integrity one: the server would key it to whoever is signed in now.
+ * ---------------------------------------------------------------------- */
+
+/**
+ * Add an action to the queue.
+ *
+ * @param {{ kind: string, body: object, jobId?: string, analyticsId?: string }} action
+ * @returns {Promise<number|null>} the id it was given
+ */
+export async function enqueue(action) {
+  await gate;
+  return withStore(QUEUE, 'readwrite', (store) =>
+    store.add({ ...action, createdAt: Date.now(), attempts: 0, lastError: null })
+  );
+}
+
+/** Everything waiting, oldest first, which is the order it is sent in. */
+export async function listQueue() {
+  await gate;
+  const rows = await withStore(QUEUE, 'readonly', (store) => store.getAll());
+  return (rows ?? []).sort((a, b) => a.createdAt - b.createdAt);
+}
+
+/** Gone, either because it landed or because it never can. */
+export async function removeQueued(id) {
+  await gate;
+  await withStore(QUEUE, 'readwrite', (store) => store.delete(id));
+}
+
+/**
+ * Record that a send was tried and did not land.
+ *
+ * The count is what a backoff reads, and the error is what the interface shows
+ * for an action that is stuck rather than merely waiting.
+ */
+export async function noteAttempt(id, error) {
+  await gate;
+  const row = await withStore(QUEUE, 'readonly', (store) => store.get(id));
+  if (!row) return;
+  await withStore(QUEUE, 'readwrite', (store) =>
+    store.put({ ...row, attempts: (row.attempts ?? 0) + 1, lastError: error ?? null })
+  );
+}
+
+/* -------------------------------------------------------------------------
  * Public data, belonging to nobody
  * ---------------------------------------------------------------------- */
 

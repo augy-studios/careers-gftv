@@ -4,7 +4,7 @@
 // and about coming back from signing in. The modal itself is apply-dialog.js;
 // this is the button in front of it.
 //
-// One posting can be in seven states, and the button is a different thing in
+// One posting can be in eight states, and the button is a different thing in
 // each one. They are resolved in this order, because more than one can be true
 // at once and the reader needs the most specific answer:
 //
@@ -13,6 +13,11 @@
 //              that never ends: accepting closes the posting to that applicant
 //              for good, per 7f. **It must never render as a date.** A date
 //              invites somebody to come back for a role they already have.
+//   queued     phase 10. They answered the modal with no connection and the
+//              answer is waiting to be sent. Above everything below it because
+//              **a queued answer is pending until the server confirms it**, per
+//              section 14: it has not earned `applied`, and it must not start
+//              the cooldown.
 //   pending    an unanswered prompt from a previous handoff. 7c: the Apply
 //              button is replaced by a prompt that reopens the modal, so a
 //              second handoff cannot stack on an unresolved one.
@@ -43,6 +48,10 @@ import { escapeHtml } from './markdown.js';
 import { openSignInPrompt, consumeIntent } from './signin-prompt.js';
 import { openApplyDialog, applyDialogOpen } from './apply-dialog.js';
 import { loadBuildStatus, applyFeatureGating } from './build-status.js';
+// Section 14's queue. The Apply control asks it whether an answer for this
+// posting is still waiting to be sent, which is what keeps a queued answer from
+// reading as an applied one.
+import { answerWaitingFor } from './queue.js';
 
 let posting = null;
 
@@ -122,6 +131,14 @@ function currentState() {
   // who has been accepted is not waiting for anything and should not be told a
   // date, per 8.3.
   if (applicationState?.status === 'accepted') return 'accepted';
+
+  // Section 14: a queued answer is pending until the server confirms it, and
+  // **is not an applied one**. Above `pending` because the row genuinely is
+  // still pending on the server — asking them again would be asking a question
+  // they have already answered — and above `applied` and `cooldown` because
+  // neither has been earned by anything but a local queue entry.
+  if (answerWaitingFor(posting.id)) return 'queued';
+
   if (applicationState?.pending_id) return 'pending';
   if (applicationState?.in_cooldown) return 'cooldown';
   if (posting.isArchived || !posting.isOpen) return 'closed';
@@ -161,6 +178,20 @@ function paint(slot) {
       </button>
       <p class="apply-note">${escapeHtml(t('apply.pendingNote'))}</p>`;
     slot.querySelector('#applyButton').addEventListener('click', reopenPrompt);
+    return;
+  }
+
+  if (state === 'queued') {
+    // A panel rather than a disabled button, for the reason the cooldown branch
+    // below gives: the sentence is too long for a control, and a disabled
+    // button is dropped from the accessibility tree in some browsers, which
+    // would hide the only explanation on the page.
+    slot.innerHTML = `
+      <p class="apply-state-panel" role="status">
+        ${iconMarkup('clock', { size: 18 })}
+        <span>${escapeHtml(t('apply.queuedNote'))}</span>
+      </p>`;
+    hydrateIcons(slot);
     return;
   }
 
@@ -394,4 +425,22 @@ document.addEventListener('gftv:applychange', (event) => {
 
   const slot = document.querySelector('#applySlot');
   if (slot) paint(slot);
+});
+
+// An answer that could not be sent and went into the queue instead. Nothing
+// about the application has changed — that is the whole point — so this only
+// redraws, and currentState() reads the queue and answers 'queued'.
+document.addEventListener('gftv:applyqueued', (event) => {
+  if (!posting || event.detail?.jobId !== posting.id) return;
+  if (applicationState) applicationState.pending_id = null;
+
+  const slot = document.querySelector('#applySlot');
+  if (slot) paint(slot);
+});
+
+// The queue emptied, or shrank, in the background. Redraw so an answer that has
+// now landed stops saying it is waiting to be sent.
+document.addEventListener('gftv:queuechange', () => {
+  const slot = document.querySelector('#applySlot');
+  if (posting && slot) paint(slot);
 });

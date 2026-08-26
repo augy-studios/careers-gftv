@@ -1297,6 +1297,49 @@ quiet lie.
 showing yesterday's board in place of an error would hide a real fault behind
 stale data.
 
+### The action queue, `assets/js/queue.js`
+
+Two actions and no more, both from the handoff modal in 7c: the rating, and the
+Yes or No. Queued in IndexedDB when the request fails with a network error, and
+sent when the connection returns.
+
+**Nothing else is ever queued, and that is a decision.** Section 6 says the
+offline story is for the public surface and that a dashboard write is never
+queued. Section 14 permits replying to a task offline and that is a task reply
+rather than a dashboard write — but it is free text against a question set that
+may have changed, so the honest version of it offline is a disabled control with
+the reason on it.
+
+**A queued answer is pending, not done.** Section 14 in as many words: do not
+start the reapply cooldown from a local queue entry. Five things in this build
+write `applied_at` and `cooldown_until` and this is not a sixth. The Apply
+control gained an eighth state, `queued`, resolved above `pending`, `applied`
+and `cooldown`, and only the server's reply moves it on — `queue.js` is the one
+place that dispatches `gftv:applychange` for a queued answer.
+
+**Every action is idempotent**, so a replay cannot double count: the rating is
+keyed on the applicant and the posting, the answer on the analytics row id.
+That is what makes it safe for the page and the worker to both try the same row.
+
+A refusal is not a failure, and the kinds are handled differently:
+
+| What came back | What happens |
+|---|---|
+| success | cleared, and the answer reconciled against the server's reply |
+| network failure, 503 from a switched-off feature, 429, 500 | held, and retried |
+| 401 | held — it is still what they meant — and they are asked to sign in |
+| anything else | dropped: the server has decided and retrying cannot change it |
+
+**`sw.js` carries a second copy of that rule**, deliberately. Background Sync
+runs in the worker, a worker is a classic script and cannot import a module, and
+the obvious alternative — the worker asking an open page to flush — defeats the
+whole point, which is flushing when no page is open. So the worker holds the
+minimum (read, send, keep or drop) and `queueVerdict` there **must stay in step
+with `verdictFor` in `queue.js`**. Same arrangement as the pre-paint theme
+script duplicating two constants from `theme.js`. Two checks in the phase 10 run
+exist only to catch that pair drifting, including the sync tag itself — a tag
+that differs is a queue that never flushes in the background, silently.
+
 **Checking it.** `node tests/phase10-test.mjs --only=worker` stands up this
 directory over `http://localhost`, which is a secure origin as far as
 registration is concerned, and drives a real browser through install, the
