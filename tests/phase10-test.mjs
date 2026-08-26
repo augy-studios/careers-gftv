@@ -196,11 +196,24 @@ async function serveSite() {
   };
 }
 
-/** Poll rather than wait a fixed time. A fixed wait after an action is a race. */
+/**
+ * Poll rather than wait a fixed time. A fixed wait after an action is a race.
+ *
+ * A destroyed execution context is treated as "not yet" rather than as an
+ * error, because in this phase the page genuinely can reload underneath a
+ * poll: offline.js reloads on `controllerchange`, so accepting an update — or
+ * posting `skip-waiting` by hand, as the worker section does — navigates. That
+ * is the code working, and a poll that threw on it would be reporting the
+ * feature as broken because it works.
+ */
 async function until(page, predicate, { timeout = 10000, every = 250 } = {}) {
   const deadline = Date.now() + timeout;
   for (;;) {
-    if (await page.evaluate(predicate)) return true;
+    try {
+      if (await page.evaluate(predicate)) return true;
+    } catch (cause) {
+      if (!/Execution context was destroyed|Target closed/.test(String(cause))) throw cause;
+    }
     if (Date.now() > deadline) return false;
     await page.waitForTimeout(every);
   }
@@ -457,11 +470,18 @@ define('worker', 'The service worker, against a local copy of main-site', async 
         });
         setTimeout(() => resolve(false), 8000);
       });
-      // The only call site for skipWaiting in the whole build.
+      // What offline.js's update prompt does when the reader accepts it. Sent
+      // by hand here so this section can check the worker's own contract
+      // without going through the interface; the `client` section checks the
+      // interface. One consequence to know about: offline.js is on this page
+      // too, and it reloads on controllerchange, so this line navigates.
       registration.waiting.postMessage('skip-waiting');
       return changed;
     });
     check('23. posting skip-waiting swaps the worker', swapped);
+
+    // That reload has to land before anything else is read off the page.
+    await page.waitForLoadState('domcontentloaded').catch(() => null);
 
     // controllerchange fires when clients.claim resolves, which can beat the
     // activate handler's own waitUntil to the finish. Poll for the tidy up.
@@ -483,6 +503,169 @@ define('worker', 'The service worker, against a local copy of main-site', async 
         remaining.includes('careers-gftv-postings') &&
         remaining.includes('careers-gftv-state'),
       `${remaining.join(', ')} — postings and public answers are data, not build output`
+    );
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
+define('client', 'The update prompt and the connection banner', async () => {
+  const server = await serveSite();
+  const browser = await chromium.launch();
+  const ctx = await browser.newContext({ baseURL: server.base });
+  const page = await ctx.newPage();
+
+  const bar = () => page.locator('.connection-notice');
+  const barText = async () =>
+    ((await bar().count()) > 0 ? (await bar().textContent()) : '')?.replace(/\s+/g, ' ').trim();
+
+  try {
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await until(page, async () => Boolean((await navigator.serviceWorker.getRegistration())?.active), {
+      timeout: 30000,
+    });
+    await page.reload({ waitUntil: 'domcontentloaded' });
+
+    /* One registration, one owner ----------------------------------------- */
+
+    const inlineRegistrations = await page.evaluate(
+      () =>
+        [...document.querySelectorAll('script:not([src])')].filter((s) =>
+          s.textContent.includes('serviceWorker.register')
+        ).length
+    );
+    check(
+      '26. no page carries its own inline registration any more',
+      inlineRegistrations === 0,
+      `${inlineRegistrations} inline register() blocks in the markup`
+    );
+
+    check('27. nothing is in the bar while online and reachable', (await bar().count()) === 0, await barText());
+
+    /* Offline -------------------------------------------------------------- */
+
+    await ctx.setOffline(true);
+    const shown = await until(page, () => Boolean(document.querySelector('.connection-notice')), {
+      timeout: 8000,
+    });
+    check('28. the banner appears when the connection drops', shown, await barText());
+    check(
+      '29. and says you are offline',
+      /you are offline/i.test((await barText()) ?? ''),
+      await barText()
+    );
+    check(
+      '30. it sits above the phase notice',
+      await page.evaluate(() => {
+        const connection = document.querySelector('.connection-notice');
+        const phase = document.querySelector('.phase-notice');
+        if (!connection || !phase) return !!connection;
+        return connection.compareDocumentPosition(phase) & Node.DOCUMENT_POSITION_FOLLOWING;
+      }),
+      'both are prepended, so without an explicit order they swap on a redraw'
+    );
+
+    /* The wording follows a language change -------------------------------- */
+
+    await page.evaluate(async () => {
+      const module = await import('/assets/js/i18n.js');
+      await module.applyLocale('zh');
+    });
+    await page.waitForTimeout(400);
+    check(
+      '31. the banner follows a language change with no reload',
+      /离线/.test((await barText()) ?? ''),
+      await barText()
+    );
+    await page.evaluate(async () => {
+      const module = await import('/assets/js/i18n.js');
+      await module.applyLocale('en');
+    });
+
+    /* Back online ---------------------------------------------------------- */
+
+    await ctx.setOffline(false);
+    const cleared = await until(page, () => !document.querySelector('.connection-notice'), {
+      timeout: 8000,
+    });
+    check(
+      '32. it is removed the moment connectivity returns',
+      cleared,
+      'section 14 says the moment, not on the next request'
+    );
+
+    /* The second wording: online, but the site is not answering -------------- */
+
+    // navigator.onLine stays true and every API call throws, which is a Vercel
+    // outage on perfect wifi. Telling that reader they are offline would send
+    // them to reset a router that is working.
+    await ctx.route('**/api/**', (route) => route.abort('failed'));
+
+    await page.evaluate(async () => {
+      const { api } = await import('/assets/js/api.js');
+      await api('/api/public/facets');
+      await api('/api/public/facets');
+    });
+    await page.waitForTimeout(300);
+
+    const unreachable = await barText();
+    check(
+      '33. two failed calls while online raise the second wording',
+      /cannot reach/i.test(unreachable ?? ''),
+      unreachable
+    );
+    check(
+      '34. and it does not claim the reader is offline',
+      !/you are offline/i.test(unreachable ?? ''),
+      unreachable
+    );
+
+    await ctx.unroute('**/api/**');
+    await page.evaluate(async () => {
+      const { api } = await import('/assets/js/api.js');
+      await api('/api/public/facets');
+    });
+    await page.waitForTimeout(300);
+    check(
+      '35. one answer from the site clears it, whatever its status',
+      (await bar().count()) === 0,
+      `${await barText()} — a 404 from the local server is the site answering`
+    );
+
+    /* The update prompt ----------------------------------------------------- */
+
+    server.bump(true);
+    await page.evaluate(async () => {
+      const registration = await navigator.serviceWorker.getRegistration();
+      await registration.update();
+    });
+
+    const prompted = await until(
+      page,
+      () => document.querySelector('.connection-notice')?.dataset.state === 'update',
+      { timeout: 15000 }
+    );
+    check('36. a waiting worker raises the update prompt', prompted, await barText());
+    check(
+      '37. and the page is not reloaded until the reader asks',
+      await page.evaluate(() => Boolean(document.querySelector('[data-sw-update]'))),
+      'section 14: let the applicant reload rather than swapping the page under them'
+    );
+
+    const reloaded = page.waitForNavigation({ timeout: 15000 }).then(() => true).catch(() => false);
+    await page.click('[data-sw-update]');
+    check('38. accepting it reloads the page', await reloaded);
+
+    await until(page, async () => Boolean((await navigator.serviceWorker.getRegistration())?.active));
+    const runningVersion = await page.evaluate(async () => {
+      const { workerVersion } = await import('/assets/js/offline.js');
+      return workerVersion();
+    });
+    check(
+      '39. and the new worker is the one now in control',
+      runningVersion === 'careers-gftv-test-bumped',
+      String(runningVersion)
     );
   } finally {
     await browser.close();

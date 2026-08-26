@@ -137,7 +137,8 @@ makes three postings and about fifteen admin writes.
 
 | Section | Covers |
 |---|---|
-| `worker` | The service worker: install, the precache, offline navigation, the fallback for an uncached route, what is never cached, and the update prompt. **Needs no deployment, no credentials, and no network.** |
+| `worker` | The service worker: install, the precache, offline navigation, the fallback for an uncached route, what is never cached, and the update path driven by hand. **Needs no deployment, no credentials, and no network.** |
+| `client` | `offline.js`: that no page registers the worker itself any more, the connection banner in both wordings and both languages, its removal the moment connectivity returns, and the update prompt through the interface rather than by postMessage. Same, needs nothing. |
 
 **This is the first phase that cannot be checked by asking the deployment a
 question.** A service worker is not on the deployment until it is pushed, and by

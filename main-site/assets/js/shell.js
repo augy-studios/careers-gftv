@@ -41,6 +41,10 @@ import {
 } from './api.js';
 import { loadSiteSettings, cachedPortalTitle } from './site-settings.js';
 import { resumePendingPrompt } from './apply-prompt.js';
+// Registers the service worker on import, and owns the update prompt and the
+// connection banner. Every page used to carry its own inline register() call;
+// this is the one owner, which is what the update prompt needs to exist at all.
+import { initOffline } from './offline.js';
 
 /* -------------------------------------------------------------------------
  * Navigation
@@ -966,6 +970,11 @@ async function boot() {
   };
 
   paint();
+
+  // After the first paint, so the connection bar sits above a phase notice that
+  // already exists rather than racing it for the top of the body. Its own
+  // strings redraw on a language change, like everything else drawn from here.
+  initOffline();
 
   // These render their own strings instead of carrying data-i18n attributes,
   // so they are redrawn on a language change and not retranslated in place.

@@ -88,6 +88,8 @@ main-site/
     js/shell.js       header, nav, footer, theme modal, the single entry point
     js/build-status.js the notice bar, the disabled control pattern, placeholders
     js/status-page.js the /status page
+    js/offline.js     registers the worker, owns the update prompt and the
+                      connection banner. The one place register() is called
     js/offline-page.js  the fallback page's live connection state and its
                       retry control, disabled with the reason while offline
     js/format.js      dates, counts, and the open until filled rule
@@ -1175,6 +1177,42 @@ goes network only; with `install` off it answers 404 for `/manifest.json`, which
 is what actually stops a browser offering the install. A worker that ignored the
 switch would be a flag nothing enforces, and a bad service worker is the one bug
 that outlives its own fix.
+
+### The client half, `assets/js/offline.js`
+
+Registration lives there and nowhere else. Until phase 10 every page carried its
+own inline `navigator.serviceWorker.register('/sw.js')` — thirty three HTML
+files plus the server rendered posting page — which was correct while
+registering was the whole of it and stopped being correct the moment there was
+an update to prompt about: the prompt needs the registration object, and an
+inline script in the markup has nowhere to hand it to. `shell.js` imports the
+module, and registration happens on `load` so the install's hundred fetches are
+not competing with the page's own.
+
+**The banner has three states and one bar.** Being offline outranks being
+unable to reach the site, which outranks an update, because two bars stacked
+above the header stop being unobtrusive.
+
+| State | When | Dismissible |
+|---|---|---|
+| `offline` | `navigator.onLine` is false | No. It goes when the connection returns |
+| `unreachable` | online, and two API calls in a row failed | No, same |
+| `update` | a new worker is waiting | Yes, for that page view |
+
+**The two connection wordings are the point, not a nicety.** `onLine` false is a
+reliable "there is definitely no network". `onLine` true means only that an
+interface is up, not that anything is reachable — so a Vercel outage on perfect
+wifi reads as online, and a banner saying "you are offline" would send that
+reader to reset a router that is working. The second wording says we cannot
+reach Careers@GFTV and links to `/status`.
+
+`api.js` announces `gftv:apireached` and `gftv:apifailed` as DOM events rather
+than calling into `offline.js`. It is imported by nearly every page module, and
+giving it an import that reached back into the shell would be a cycle waiting to
+happen. **`reached` means an HTTP response arrived, whatever its status**: a 503
+from a maintenance switch is the site answering, and the banner has no business
+saying otherwise. An aborted request announces nothing, because that is the page
+changing its mind rather than the network failing.
 
 **Checking it.** `node tests/phase10-test.mjs --only=worker` stands up this
 directory over `http://localhost`, which is a secure origin as far as

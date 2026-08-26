@@ -134,11 +134,6 @@ ${(page.modules ?? []).map((src) => `    <script type="module" src="${escapeAttr
 
 ${page.bodyHtml}
 
-    <script>
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js');
-        }
-    </script>
 </body>
 
 </html>

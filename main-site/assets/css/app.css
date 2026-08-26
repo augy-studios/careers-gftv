@@ -128,6 +128,62 @@ body {
 }
 
 /* ---------------------------------------------------------------------------
+ * The connection banner, section 14
+ *
+ * "Persistent but unobtrusive", which is the same brief the phase notice above
+ * has, so it is the same slim bar. It sits above the phase notice when both are
+ * present and is not dismissible in its two connection states: it goes when the
+ * connection returns and not before.
+ *
+ * Three states, and only one of them is a problem worth colour. Being offline
+ * is a state of the network rather than a fault, so it borrows the same quiet
+ * surface as the phase notice; the update prompt is the one carrying an action,
+ * so it gets the accent tint to separate it from a page that has not changed.
+ * ------------------------------------------------------------------------ */
+
+.connection-notice {
+  background: var(--bg-alt);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.connection-notice[data-state='update'] {
+  background: color-mix(in srgb, var(--brand-dark) 12%, transparent);
+  border-bottom-color: var(--border-strong);
+  color: var(--text);
+}
+
+.connection-notice-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 0.5rem 1rem;
+  padding-top: max(0.5rem, env(safe-area-inset-top));
+}
+
+.connection-notice-inner > [data-icon] {
+  flex: none;
+  display: inline-flex;
+}
+
+.connection-notice p {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.connection-notice a,
+.connection-notice a:visited {
+  color: var(--brand-text);
+}
+
+.connection-notice .btn {
+  flex: none;
+}
+
+/* ---------------------------------------------------------------------------
  * Header and navigation
  * ------------------------------------------------------------------------ */
 

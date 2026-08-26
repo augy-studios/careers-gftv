@@ -238,7 +238,14 @@ export function renderPhaseNotice(status) {
     bar.remove();
   });
 
-  document.body.prepend(bar);
+  // Under the connection banner when there is one, and at the top otherwise.
+  // Both bars are prepended by whoever draws last, and a language change
+  // redraws this one, so without this they would swap places whenever somebody
+  // switched language while offline.
+  const connection = document.querySelector('.connection-notice');
+  if (connection) connection.after(bar);
+  else document.body.prepend(bar);
+
   hydrateIcons(bar);
 }
 

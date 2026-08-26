@@ -50,13 +50,24 @@ export async function api(path, options = {}) {
   let response;
   try {
     response = await fetch(url, init);
+    // The site answered. Whatever the status: a 503 from a maintenance switch
+    // and a 500 from a bad query are both the site being reachable, and the
+    // connection banner has no business saying otherwise.
+    announce('gftv:apireached');
   } catch (cause) {
-    // Offline, blocked, or aborted. Phase 10 gives this a proper offline
-    // story; until then it is one honest sentence.
+    // Offline, blocked, or aborted.
     if (cause?.name === 'AbortError') {
       return { ok: false, data: null, error: { code: 'aborted', message: '' } };
     }
     console.warn('[careers-gftv] request failed:', cause);
+
+    // Phase 10. Announced rather than reported to offline.js directly, which
+    // keeps the dependency one way: that file imports nothing this one needs,
+    // and this one knows nothing about a banner. An aborted request is
+    // deliberately not announced — it is the page changing its mind, not the
+    // network failing.
+    announce('gftv:apifailed');
+
     return {
       ok: false,
       data: null,
@@ -93,6 +104,24 @@ export async function api(path, options = {}) {
       details: error.details ?? null,
     },
   };
+}
+
+/**
+ * Say whether the site answered, for anything listening.
+ *
+ * Phase 10's connection banner is the only listener today. A DOM event rather
+ * than a call into offline.js on purpose: this module is imported by nearly
+ * every page module, and giving it an import of its own that reaches back into
+ * the shell would be a cycle waiting to happen.
+ *
+ * @param {'gftv:apireached'|'gftv:apifailed'} name
+ */
+function announce(name) {
+  try {
+    document.dispatchEvent(new CustomEvent(name));
+  } catch {
+    // Nothing here is worth failing a request over.
+  }
 }
 
 /**
