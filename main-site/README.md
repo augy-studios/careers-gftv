@@ -1340,6 +1340,49 @@ script duplicating two constants from `theme.js`. Two checks in the phase 10 run
 exist only to catch that pair drifting, including the sync tag itself — a tag
 that differs is a queue that never flushes in the background, silently.
 
+### Controls that cannot work offline
+
+Section 14: disabled with the reason on the control itself, never a dead button
+that fails on click. Mark one up and `offline.js` does the rest:
+
+```html
+<button data-needs-network>Send</button>
+<button data-needs-network="apply">Apply</button>
+```
+
+The value picks a more specific sentence where there is one — `apply`, `signin`,
+`upload`, or the general case. It is not a dictionary key: the four keys are
+written as literals in `reasonFor` so `check-i18n` can see them. Pages that draw
+a control after the shell's pass call `applyNetworkGating(subtree)` themselves.
+
+**There are now three reasons a control can be disabled, and they are never
+conflated.** `build-status.js` says there are two — a feature that has not
+shipped, and one an admin has switched off — and it is right to keep those
+apart. Offline is a third and a different kind of claim: it is about the reader
+rather than about us, nothing is broken, nothing is unbuilt, and it will work in
+a moment.
+
+Two consequences that are easy to get wrong and are checked:
+
+- **A control already disabled for another reason keeps that reason.** Telling
+  somebody to wait for their connection when what they are waiting for is phase
+  11 is the wrong sentence.
+- **Coming back online re-enables only what went offline disabled it**, and only
+  when nothing else still holds it down. The two passes run in whichever order
+  their promises land, so re-enabling on our own reason alone would leave a live
+  control in front of an endpoint that answers 503.
+
+Marked up: sign in, register, both second factor steps, the recovery path, the
+passkey controls, Apply, the avatar upload and removal, and the task reply.
+
+**The dashboard is the sharpest case.** `mountAdminPage` used to redirect to
+`/admin/login` on any failure from `/api/admin/me`, which offline sends an admin
+to a page that cannot load either. A network failure now draws an offline notice
+and **returns null, so every page module stops before asking for any data**. No
+sidebar is drawn: it is built from the role and access flags, which are exactly
+what could not be read. Nothing under `api/admin` is cached, so there is no
+stale management data to show even by accident.
+
 **Checking it.** `node tests/phase10-test.mjs --only=worker` stands up this
 directory over `http://localhost`, which is a secure origin as far as
 registration is concerned, and drives a real browser through install, the

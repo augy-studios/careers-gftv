@@ -1341,6 +1341,152 @@ define('queue', 'The action queue', async () => {
   }
 });
 
+define('disabled', 'Controls that cannot work offline', async () => {
+  const server = await serveSite();
+  const browser = await chromium.launch();
+  const ctx = await browser.newContext({ baseURL: server.base });
+  const page = await ctx.newPage();
+
+  const gated = (selector) =>
+    page.evaluate((css) => {
+      const el = document.querySelector(css);
+      if (!el) return null;
+      return {
+        disabled: el.disabled === true,
+        reason: el.getAttribute('title'),
+        byOffline: el.hasAttribute('data-offline-disabled'),
+        hint: el.nextElementSibling?.classList.contains('offline-hint')
+          ? el.nextElementSibling.textContent
+          : null,
+      };
+    }, selector);
+
+  try {
+    await page.goto('/login', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(2000);
+
+    const liveSignIn = await gated('#loginForm button[type="submit"]');
+    check(
+      '91. sign in works while online',
+      liveSignIn && !liveSignIn.disabled,
+      JSON.stringify(liveSignIn)
+    );
+
+    await ctx.setOffline(true);
+    await page.evaluate(() => window.dispatchEvent(new Event('offline')));
+    await page.waitForTimeout(400);
+
+    const offlineSignIn = await gated('#loginForm button[type="submit"]');
+    check('92. and is disabled offline', offlineSignIn?.disabled === true);
+    check(
+      '93. with the reason on the control itself',
+      /needs a connection/i.test(offlineSignIn?.reason ?? ''),
+      offlineSignIn?.reason ?? '(none)'
+    );
+    check(
+      '94. and beside it as text a screen reader can still reach',
+      /needs a connection/i.test(offlineSignIn?.hint ?? ''),
+      `${offlineSignIn?.hint} — a disabled control is dropped from the ` +
+        'accessibility tree in some browsers'
+    );
+
+    await ctx.setOffline(false);
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    await page.waitForTimeout(400);
+    check(
+      '95. and works again the moment the connection returns',
+      (await gated('#loginForm button[type="submit"]'))?.disabled === false
+    );
+
+    /* The three reasons stay apart ---------------------------------------- */
+
+    // A control disabled because its feature has not shipped must keep its own
+    // sentence offline, and must NOT be re-enabled when the connection comes
+    // back. That last part is the one that would be a real defect: a live
+    // control in front of an endpoint that answers 503.
+    const kept = await page.evaluate(async () => {
+      const module = await import('/assets/js/offline.js');
+      const button = document.createElement('button');
+      button.setAttribute('data-needs-network', '');
+      // Already disabled by build-status.js, with its own sentence on it.
+      button.disabled = true;
+      button.setAttribute('data-shipped', 'false');
+      button.setAttribute('title', 'Will be available in Phase 11.');
+      document.body.append(button);
+
+      const before = button.getAttribute('title');
+
+      // Genuinely offline for the duration, so the branch under test runs.
+      Object.defineProperty(navigator, 'onLine', { value: false, configurable: true });
+      module.applyNetworkGating(document);
+      const during = {
+        title: button.getAttribute('title'),
+        gotOurHint: button.nextElementSibling?.classList.contains('offline-hint') ?? false,
+      };
+      Object.defineProperty(navigator, 'onLine', { value: true, configurable: true });
+
+      return { before, during };
+    });
+    check(
+      '96. an unshipped control keeps its own sentence offline',
+      kept.during.title === kept.before && kept.during.gotOurHint === false,
+      `${JSON.stringify(kept.during)} — telling somebody to wait for their ` +
+        'connection when what they are waiting for is phase 11 is the wrong sentence'
+    );
+
+    const afterOnline = await page.evaluate(async () => {
+      const module = await import('/assets/js/offline.js');
+      const button = document.createElement('button');
+      button.setAttribute('data-needs-network', '');
+      document.body.append(button);
+
+      // Disabled by us while offline...
+      Object.defineProperty(navigator, 'onLine', { value: false, configurable: true });
+      module.applyNetworkGating(document);
+      const wasDisabled = button.disabled;
+
+      // ...and gated by build-status.js afterwards, which is the order that
+      // actually happens: its pass runs when a fetch lands.
+      button.setAttribute('data-shipped', 'false');
+
+      Object.defineProperty(navigator, 'onLine', { value: true, configurable: true });
+      module.applyNetworkGating(document);
+
+      return { wasDisabled, stillDisabled: button.disabled };
+    });
+    check(
+      '97. and one gated by both stays disabled when the connection returns',
+      afterOnline.wasDisabled === true && afterOnline.stillDisabled === true,
+      `${JSON.stringify(afterOnline)} — re-enabling on our reason alone would ` +
+        'leave a live control in front of an endpoint that refuses it'
+    );
+
+    /* The admin dashboard --------------------------------------------------- */
+
+    await ctx.route('**/api/**', (route) => route.abort('failed'));
+    await page.goto('/admin', { waitUntil: 'domcontentloaded' });
+    await until(page, () => Boolean(document.querySelector('#adminOffline')), { timeout: 15000 });
+
+    check(
+      '98. the dashboard shows an offline notice rather than redirecting to sign in',
+      page.url().endsWith('/admin'),
+      `${page.url()} — /admin/login cannot work without a connection either`
+    );
+    check(
+      '99. and draws no sidebar, because the role that decides it could not be read',
+      (await page.locator('.admin-sidebar a').count()) === 0,
+      'section 14: never let an admin act on a cached view'
+    );
+    check(
+      '100. and no management data at all',
+      (await page.locator('#adminPage:not([hidden])').count()) === 0
+    );
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
 /* -------------------------------------------------------------------------
  * Run
  * ---------------------------------------------------------------------- */

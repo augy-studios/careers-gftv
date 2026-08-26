@@ -107,7 +107,7 @@
                     <p class="field-error" data-error-for="code" hidden></p>
                 </div>
 
-                <button class="btn btn-primary" type="submit" data-i18n="auth.checkCode">
+                <button class="btn btn-primary" type="submit" data-needs-network="signin" data-needs-network-hint data-i18n="auth.checkCode">
                     Check the code
                 </button>
             </form>
@@ -160,7 +160,7 @@
                     </p>
                     <p class="field-error" data-error-for="code" hidden></p>
                 </div>
-                <button class="btn btn-secondary" type="submit" data-i18n="auth.verify">Verify</button>
+                <button class="btn btn-secondary" type="submit" data-needs-network="signin" data-i18n="auth.verify">Verify</button>
             </form>
         </section>
 
@@ -210,7 +210,7 @@
                     </p>
                 </div>
 
-                <button class="btn btn-primary" type="submit" data-i18n="auth.setPassword">
+                <button class="btn btn-primary" type="submit" data-needs-network="signin" data-i18n="auth.setPassword">
                     Set the new password
                 </button>
             </form>

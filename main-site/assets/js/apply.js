@@ -125,7 +125,7 @@ function loadState({ refresh = false } = {}) {
   return statePromise;
 }
 
-/** Which of the seven states this posting is in for this reader. */
+/** Which of the eight states this posting is in for this reader. */
 function currentState() {
   // Before the cooldown, and before everything else about the posting: somebody
   // who has been accepted is not waiting for anything and should not be told a
@@ -240,7 +240,8 @@ function paint(slot) {
           ? `<p class="apply-note">${escapeHtml(t('apply.notAppliedNote'))}</p>`
           : ''
     }
-    <button type="button" class="btn btn-primary" id="applyButton" data-feature="apply">
+    <button type="button" class="btn btn-primary" id="applyButton" data-feature="apply"
+            data-needs-network="apply" data-needs-network-hint>
       ${escapeHtml(t('job.apply'))}
     </button>
     <p class="apply-note apply-confirmation" id="applyConfirmation" role="status" hidden></p>`;
@@ -252,6 +253,12 @@ function paint(slot) {
   // state has to reach it too, or the Apply button would be live while phase 5
   // was still marked as building.
   loadBuildStatus().then((status) => applyFeatureGating(status, slot));
+
+  // And section 14's, for the same reason: this button was drawn after the
+  // page's gating pass. The two run in whichever order their promises land, and
+  // neither undoes the other — applyNetworkGating re-enables only controls it
+  // disabled itself, and only when nothing else is still holding them down.
+  applyNetworkGating(slot);
 }
 
 function cooldownSentence() {

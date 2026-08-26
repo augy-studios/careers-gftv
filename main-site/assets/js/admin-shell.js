@@ -30,6 +30,7 @@ import { api, noteStaffSession } from './api.js';
 import { t } from './i18n.js';
 import { hydrateIcons } from './icons.js';
 import { escapeHtml } from './markdown.js';
+import { applyNetworkGating } from './offline.js';
 import {
   loadBuildStatus,
   loadFeatureOverrides,
@@ -128,6 +129,24 @@ export async function mountAdminPage(options) {
   buildStatus = status;
 
   if (!result.ok) {
+    // Section 14, and the sharpest statement of it in the build: "cache its
+    // shell only, and show an offline notice instead of stale management data.
+    // Never let an admin act on a cached view of applications."
+    //
+    // Being unable to ask is not a refusal. Redirecting on a network failure
+    // would send an admin to /admin/login, which cannot work without a
+    // connection either, from a page that was working a moment ago.
+    //
+    // **Nothing of the dashboard is drawn, not even the sidebar.** The sidebar
+    // is built from this caller's role and access flags, and those are exactly
+    // what could not be read. A dashboard drawn from a guess about who somebody
+    // is would be the one thing this whole phase is careful not to do, and
+    // returning null stops every page module before it asks for any data.
+    if (result.error?.code === 'network') {
+      renderAdminOffline();
+      return null;
+    }
+
     // 401 and 403 both mean "not somebody who can be here". The sign in page
     // is the right answer to both: a staff member without portal access needs
     // to know they are signed in and still cannot get in, and the login page
@@ -527,6 +546,56 @@ function renderMaintenanceBanner() {
   )} <a href="/admin/maintenance">${escapeHtml(t('admin.maintenanceBannerLink'))}</a></p>`;
 
   document.querySelector('#adminPage')?.prepend(bar);
+}
+
+/**
+ * The dashboard with no connection: a notice, and nothing else.
+ *
+ * Section 14 permits the shell to be cached and forbids stale management data,
+ * so this draws neither a sidebar nor a page. What is on screen is one card
+ * saying why, and the address bar still holds the page that was asked for, so
+ * reloading when the connection returns lands back on it.
+ *
+ * It redraws on a language change and gets out of the way on `online`, where a
+ * reload is the honest way back: every page module stopped when mountAdminPage
+ * returned null, and there is nothing on screen to bring up to date.
+ */
+function renderAdminOffline() {
+  document.querySelector('#adminLoading')?.remove();
+
+  const draw = () => {
+    document.querySelector('#adminOffline')?.remove();
+
+    const card = document.createElement('div');
+    card.id = 'adminOffline';
+    card.className = 'glass-card placeholder';
+    card.innerHTML = `
+      <p class="eyebrow">
+        <span data-icon="offline" data-icon-size="16"></span>
+        <span>${escapeHtml(t('offline.eyebrow'))}</span>
+      </p>
+      <h1>${escapeHtml(t('admin.offlineHeading'))}</h1>
+      <p class="sentence">${escapeHtml(t('admin.offlineBody'))}</p>
+      <div class="actions">
+        <button type="button" class="btn btn-primary" id="adminOfflineRetry"
+                data-needs-network>${escapeHtml(t('offline.retry'))}</button>
+      </div>`;
+
+    const main = document.querySelector('main') ?? document.body;
+    main.prepend(card);
+
+    card
+      .querySelector('#adminOfflineRetry')
+      ?.addEventListener('click', () => window.location.reload());
+
+    hydrateIcons(card);
+    applyNetworkGating(card);
+  };
+
+  draw();
+  document.addEventListener('gftv:localechange', draw);
+  window.addEventListener('online', draw);
+  window.addEventListener('offline', draw);
 }
 
 /**

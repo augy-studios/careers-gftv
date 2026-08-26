@@ -140,7 +140,7 @@
                 session lasts 12 hours.
             </p>
 
-            <button class="btn btn-primary" type="submit" data-i18n="auth.signIn">Sign in</button>
+            <button class="btn btn-primary" type="submit" data-needs-network="signin" data-i18n="auth.signIn" data-needs-network-hint>Sign in</button>
         </form>
 
         <!-- The second step, shown only for an account with a passkey. An
@@ -156,7 +156,7 @@
 
                 <p class="callout danger" id="secondStepError" role="alert" hidden></p>
 
-                <button type="button" class="btn btn-primary" id="usePasskeyButton">
+                <button type="button" class="btn btn-primary" id="usePasskeyButton" data-needs-network="signin" data-needs-network-hint>
                     <span data-icon="key" data-icon-size="18"></span>
                     <span data-i18n="auth.usePasskey">Use your passkey</span>
                 </button>
@@ -190,7 +190,7 @@
                     </p>
                     <p class="field-error" data-error-for="code" hidden></p>
                 </div>
-                <button class="btn btn-secondary" type="submit" data-i18n="auth.verify">Verify</button>
+                <button class="btn btn-secondary" type="submit" data-needs-network="signin" data-i18n="auth.verify">Verify</button>
             </form>
         </section>
 

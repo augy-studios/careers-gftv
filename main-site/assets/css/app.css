@@ -561,6 +561,19 @@ a[data-feature][data-shipped='false'] {
   font-weight: 400;
 }
 
+/* The reason on a control that needs a connection, section 14. The same shape
+   as .feature-hint above and deliberately not the same class: they are two
+   different claims about why a control is disabled — one about the build, one
+   about the reader's connection — and sharing a class is the first step to
+   sharing a sentence. */
+.offline-hint {
+  display: block;
+  margin-top: 0.375rem;
+  color: var(--text-muted-strong);
+  font-size: 0.8125rem;
+  font-weight: 400;
+}
+
 /* The explanatory popover a disabled control opens. Its click handler does
    nothing but explain, per section 0c. */
 .feature-explainer {

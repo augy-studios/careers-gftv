@@ -226,9 +226,13 @@ export function initOffline() {
     // wording until their next successful request.
     consecutiveFailures = 0;
     render();
+    applyNetworkGating();
   });
 
-  window.addEventListener('offline', render);
+  window.addEventListener('offline', () => {
+    render();
+    applyNetworkGating();
+  });
 
   // Announced by api.js. `reached` means an HTTP response arrived, whatever its
   // status: a 503 from a maintenance switch is the site answering, and the
@@ -246,10 +250,144 @@ export function initOffline() {
 
   // Every string in the bar is written by JavaScript rather than carried on a
   // data-i18n attribute, so it has to be redrawn on a language change or it
-  // stays in the language the page opened in.
-  document.addEventListener('gftv:localechange', render);
+  // stays in the language the page opened in. The same is true of every reason
+  // sitting on a disabled control.
+  document.addEventListener('gftv:localechange', () => {
+    render();
+    applyNetworkGating();
+  });
 
   render();
+  applyNetworkGating();
+}
+
+/* -------------------------------------------------------------------------
+ * Controls that cannot work without a connection
+ *
+ * Section 14: "controls that cannot work offline are disabled with a reason on
+ * the control itself, never a dead button that fails on click."
+ *
+ * **This is a third reason a control can be disabled, and the three are never
+ * conflated.** build-status.js says in as many words that there are two — a
+ * feature that has not shipped yet, and one an admin has switched off — and it
+ * is right to keep them apart, because they are different claims about the
+ * site. Offline is a different claim again, and it is about the reader rather
+ * than about us: nothing is broken, nothing is unbuilt, and it will work in a
+ * moment. Sharing the machinery would have meant sharing the wording.
+ *
+ * Markup:
+ *
+ *   <button data-needs-network>Apply</button>
+ *   <button data-needs-network="apply" data-needs-network-hint>Apply</button>
+ *
+ * The value picks a more specific sentence where there is one. It is not a
+ * dictionary key: the keys are written out as literals in reasonFor so that
+ * check-i18n can see all four of them.
+ *
+ * `data-needs-network-hint` adds the reason beside the control as text, which
+ * matters because a disabled control is dropped from the accessibility tree in
+ * some browsers and the `title` with it. **It is opt in rather than automatic**
+ * so that two marked controls sitting side by side — the avatar's Choose and
+ * Remove — do not put the same sentence on screen twice.
+ *
+ * The three reasons resolve in this order, and the order is the point:
+ *
+ *   1. not built yet   build-status.js. The most fundamental: there is nothing
+ *                      to reach even on a perfect connection.
+ *   2. switched off    build-status.js. It exists and we have taken it down.
+ *   3. no connection   here. It exists, it is on, and you cannot reach it.
+ * ---------------------------------------------------------------------- */
+
+// Only controls this disabled are re-enabled when the connection returns.
+// Without this, coming back online would quietly enable a control that
+// build-status.js had disabled because its feature has not shipped or has been
+// switched off — turning an outage into a button that 503s.
+//
+// A WeakSet rather than a list: pages redraw, and a strong reference to a
+// detached button is a leak with no upside.
+const disabledByUs = new WeakSet();
+
+/** Already disabled for one of the two older reasons, which both outrank this. */
+function gatedElsewhere(el) {
+  return el.getAttribute('data-shipped') === 'false' || el.hasAttribute('data-maintenance');
+}
+
+function reasonFor(token) {
+  if (token === 'apply') return t('offline.needsApply');
+  if (token === 'signin') return t('offline.needsSignIn');
+  if (token === 'upload') return t('offline.needsUpload');
+  return t('offline.needsNetwork');
+}
+
+/**
+ * Disable, or re-enable, every control in `root` that needs the network.
+ *
+ * Safe to call as often as a page redraws. It is called from here on both
+ * connection events and on a language change, and pages that draw a control
+ * after that call it themselves for the subtree they just built.
+ *
+ * @param {ParentNode} [root]
+ */
+export function applyNetworkGating(root = document) {
+  const offline = !navigator.onLine;
+
+  root.querySelectorAll('[data-needs-network]').forEach((el) => {
+    if (offline) {
+      // Left alone when the feature is unbuilt or switched off. That sentence is
+      // the more fundamental of the two and overwriting it would tell somebody
+      // to check their connection about a feature that does not exist.
+      if (gatedElsewhere(el)) return;
+
+      const reason = reasonFor(el.getAttribute('data-needs-network') ?? '');
+
+      // `'disabled' in el` because not everything marked is a button. Setting
+      // the property on an anchor does nothing at all, which would leave a live
+      // link claiming to be disabled.
+      if ('disabled' in el) el.disabled = true;
+      el.setAttribute('aria-disabled', 'true');
+      el.setAttribute('title', reason);
+      el.setAttribute('data-offline-disabled', 'true');
+      disabledByUs.add(el);
+
+      if (el.hasAttribute('data-needs-network-hint')) {
+        const existing = el.nextElementSibling;
+        if (existing?.classList.contains('offline-hint')) {
+          // Replaced, not appended, so a language change rewrites the sentence
+          // rather than stacking a second one under it.
+          existing.textContent = reason;
+        } else {
+          const hint = document.createElement('p');
+          hint.className = 'offline-hint';
+          hint.textContent = reason;
+          el.after(hint);
+        }
+      }
+      return;
+    }
+
+    if (!disabledByUs.has(el)) return;
+
+    // The connection is back, but that is not enough on its own. A control can
+    // be disabled for more than one reason at a time, and build-status.js may
+    // have gated this one *after* we did — its pass runs when a fetch lands, so
+    // the order is not fixed. Re-enabling on our reason alone would put a live
+    // Apply button on a page whose feature has not shipped, or has been switched
+    // off during an outage, which is the worst of the three states: a control
+    // that works right up until the endpoint refuses it.
+    const stillHeld = gatedElsewhere(el);
+
+    // Ours to give up either way: the offline reason is gone, whoever else is
+    // still holding the control down.
+    disabledByUs.delete(el);
+    el.removeAttribute('data-offline-disabled');
+    el.nextElementSibling?.classList.contains('offline-hint') && el.nextElementSibling.remove();
+
+    if (stillHeld) return;
+
+    if ('disabled' in el) el.disabled = false;
+    el.removeAttribute('aria-disabled');
+    el.removeAttribute('title');
+  });
 }
 
 /* -------------------------------------------------------------------------

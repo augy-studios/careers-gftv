@@ -51,6 +51,7 @@ import { t } from './i18n.js';
 import { hydrateIcons, iconMarkup } from './icons.js';
 import { formatDate } from './format.js';
 import { mountAccountPage, refreshTaskBadge, pageData } from './account-shell.js';
+import { applyNetworkGating } from './offline.js';
 import { jobRowHead, escapeHtml } from './account-row.js';
 import { openApplyDialog, applyDialogOpen } from './apply-dialog.js';
 import { setWorking, showFormMessage, clearErrors, applyApiError } from './forms.js';
@@ -166,6 +167,13 @@ function draw() {
   // there is nothing at all, including nothing completed: a page with a
   // recently completed section on it is not empty.
   if (empty) empty.hidden = items.length > 0;
+
+  // Section 14. Replying is the one thing on this page that writes, and this
+  // build deliberately does not queue it: a reply is free text against a
+  // question set that may have been frozen since, so the honest offline version
+  // is the send control saying it needs a connection. The list itself reads
+  // perfectly well from the copy on the device.
+  applyNetworkGating(document);
 }
 
 function itemMarkup(item) {
@@ -254,7 +262,7 @@ function replyFormMarkup(item, isOpen) {
         )}</p>
         <p class="field-error" data-error-for="text" hidden></p>
       </div>
-      <button class="btn btn-primary" type="submit">${escapeHtml(t('tasks.replySend'))}</button>
+      <button class="btn btn-primary" type="submit" data-needs-network data-needs-network-hint>${escapeHtml(t('tasks.replySend'))}</button>
     </form>`;
 }
 
