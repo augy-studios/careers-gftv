@@ -145,6 +145,13 @@ function drawCron() {
     headline = t('admin.cronOk', { when });
   }
 
+  // A run that completed while postings sit with an unusable form is not a
+  // clean thing to look at, so the tone follows the standing state as well as
+  // the run itself. Only ever a bump: an error stays an error, a warn stays a
+  // warn, and a null — the task failed and reported no number — is not a claim
+  // that anything is broken, so it does not bump either.
+  if (tone === 'note' && results.form_checks_failed > 0) tone = 'warn';
+
   const parts = [`<p>${escapeHtml(headline)}</p>`];
 
   if (run.error) {
@@ -159,6 +166,13 @@ function drawCron() {
     ['cronTimedOut', results.prompts_timed_out],
     ['cronSwept', results.expired_rows_deleted],
     ['cronFormsChecked', results.forms_checked],
+    // Standing state, not news, and it is here because the flagged list below
+    // is news: cron.js only names a posting whose state *changed* on this run,
+    // so a form that broke last week is in neither the list nor, until this
+    // line existed, anywhere else on the page. Nine unusable forms and a panel
+    // reading "9 application forms checked" is the exact failure this panel is
+    // for — looking the same whether things are working or not.
+    ['cronFormsFailed', results.form_checks_failed],
   ].filter(([, value]) => typeof value === 'number');
 
   if (counts.length > 0) {
