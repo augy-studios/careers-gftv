@@ -147,6 +147,19 @@ const PATHS = {
   drag: '<circle cx="9" cy="7" r="1.2"/><circle cx="15" cy="7" r="1.2"/><circle cx="9" cy="12" r="1.2"/>' +
     '<circle cx="15" cy="12" r="1.2"/><circle cx="9" cy="17" r="1.2"/><circle cx="15" cy="17" r="1.2"/>',
   warning: '<path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17h.01"/>',
+  // Phase 10, section 14.
+  //
+  // The globe again, struck through. Being offline is a state of the network
+  // and not a fault, so it is deliberately not the warning triangle: the
+  // fallback page and the banner both say something true and unalarming, and
+  // an icon that shouts would be the loudest thing on either.
+  // The meridian the language globe carries is dropped here on purpose. Three
+  // strokes inside the circle plus a diagonal is a smudge at 16 pixels, which
+  // is the size it is used at, and the strike is the part that has to survive.
+  offline:
+    '<circle cx="12" cy="12" r="9"/>' +
+    '<path d="M3 12h18"/>' +
+    '<path d="M3 21 21 3"/>',
 };
 
 // A few names read better in markup with a hyphen.

@@ -69,9 +69,12 @@ main-site/
     security/         staff passkeys and trusted devices
   placeholder.html    served for every route belonging to a later phase
   404.html            genuinely unknown paths
+  offline.html        the service worker's answer for an uncached route, at
+                      /offline. The address bar keeps the route that was asked
+                      for, so its retry control is a reload
   manifest.json       PWA manifest: icons, screenshots, and the two shortcuts
   HLC-*.png           the app icons, every one of them generated. See below
-  favicon.ico         16, 32, and 48, generated with the rest
+  favicon.ico         one 256 square entry. See below
   images/install-*.png  the two install screenshots, generated
   sw.js               service worker, a pass through until phase 10
   vercel.json         rewrites, redirects, and headers
@@ -84,6 +87,8 @@ main-site/
     js/shell.js       header, nav, footer, theme modal, the single entry point
     js/build-status.js the notice bar, the disabled control pattern, placeholders
     js/status-page.js the /status page
+    js/offline-page.js  the fallback page's live connection state and its
+                      retry control, disabled with the reason while offline
     js/format.js      dates, counts, and the open until filled rule
     js/job-card.js    one card renderer, shared by the home page and the board
     js/search-page.js the board: URL state, filters, chips, suggestions
@@ -1077,6 +1082,12 @@ some brightness* and written back as *yellow at that same brightness* instead.
 - **`purpose` is explicit on all four manifest icons.** The two `maskable`
   variants put the artwork at 80% with the plate full bleed, so a launcher that
   crops to a circle never exposes a corner.
+- **`favicon.ico` is one 256 square entry**, not the conventional 16/32/48 set.
+  Every browser this site supports scales a single large PNG down itself, and
+  one entry that is right beats three that have to be kept in step. The
+  committed file was encoded by hand and is a few kilobytes smaller than what
+  `gen-icons.js` produces; the script's `FAVICON_SIZES` follows the same choice,
+  so a rerun changes the compression and never the design.
 - **`apple-touch-icon` is `HLC-180.png`.** iOS ignores the manifest's icon list
   entirely, and every page used to point that at the 2250 square master: half a
   megabyte fetched to draw a home screen icon.
