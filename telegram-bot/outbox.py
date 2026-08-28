@@ -267,8 +267,13 @@ def footer(locale: str) -> str:
 
 
 def job_url(ctx, job_id: str) -> str:
-    """A posting's canonical address, which is its uuid rather than its slug."""
-    return f"{ctx.config.site_url}/jobs/{job_id}"
+    """A posting's canonical address, from the one place that builds it.
+
+    Part 6 moved the shape onto `Config`, because `/invites` needs the same link
+    and two copies of "a posting lives at /jobs/{uuid}" is two things to get
+    right the day that address changes.
+    """
+    return ctx.config.job_url(job_id)
 
 
 @dataclass

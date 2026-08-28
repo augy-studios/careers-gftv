@@ -108,6 +108,27 @@ class Config:
     def feature_status_url(self) -> str:
         return f"{self.site_url}/api/public/feature-status"
 
+    @property
+    def jobs_feed_url(self) -> str:
+        """The public openings feed, which `/jobs` reads instead of the tables.
+
+        `vercel.json` rewrites this address onto `api/public/jobs-feed`, and the
+        address rather than the file is the contract: the site is free to move
+        the handler and this is what section 4 promised anybody aggregating
+        openings.
+        """
+        return f"{self.site_url}/api/public/jobs.json"
+
+    def job_url(self, job_id: str) -> str:
+        """A posting's canonical address, which is its uuid rather than its slug.
+
+        One definition for the whole bot, because a message outlives the wording
+        it was written from: the slug is a 301 alias generated once, and a link
+        built from one would still work while quietly being the old name for a
+        role somebody has since renamed.
+        """
+        return f"{self.site_url}/jobs/{job_id}"
+
 
 def load_config(env_file: Path | None = None) -> Config:
     """Build the configuration, or raise ConfigError naming every problem."""

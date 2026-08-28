@@ -46,6 +46,7 @@ import db
 from build_status import BuildStatus
 from commands import BOT_FEATURE, BY_NAME, COMMANDS, botfather_lines
 from config import Config, ConfigError, load_config
+from feed import JobFeed
 from handlers import CALLBACKS, HANDLERS, Context, availability
 from lang import locale_for
 from lock import AlreadyRunning, SingleInstance
@@ -262,6 +263,10 @@ async def run(config: Config) -> int:
             conn=conn,
             http=http,
             supabase=Supabase(config.supabase_url, config.supabase_service_key, http),
+            # The same http client the build status reads through, for the same
+            # reason: both are the bot asking the live site what a reader would
+            # be looking at, and neither needs a credential to do it.
+            feed=JobFeed(config, http),
         )
 
         client.add_event_handler(

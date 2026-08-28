@@ -28,6 +28,8 @@ from typing import Any
 
 import httpx
 
+from strings import DEFAULT_LOCALE
+
 log = logging.getLogger("bot.supabase")
 
 TIMEOUT = 15.0
@@ -43,7 +45,39 @@ TABLES = {
     "notifications": "gftvjobs_notifications",
     "invites": "gftvjobs_invites",
     "audit_log": "gftvjobs_audit_log",
+    # Part 6, and the whole of what the four list commands added. **Every one of
+    # them is read only, is scoped by the applicant asking, and names its
+    # columns**, which is what keeps this the narrow reach section 15 describes
+    # rather than a service key with the run of the schema. Nothing in the bot
+    # writes to any of these five.
+    #
+    # `/jobs` is deliberately absent from this list: the newest openings come
+    # from the site's own public feed, so the board and the chat cannot disagree
+    # about what is live. See feed.py.
+    "jobs": "gftvjobs_jobs",
+    "job_translations": "gftvjobs_job_translations",
+    "applications": "gftvjobs_applications",
+    "tasks": "gftvjobs_tasks",
+    "analytics": "gftvjobs_analytics",
 }
+
+# What counts as an invitation still worth answering, per migration 008's status
+# list. **The same pair `decline_invite` filters on**, and that is the point: a
+# list that offered a button for an invite the poster has withdrawn would be a
+# list of buttons that answer "there is nothing here to decline".
+OPEN_INVITE_STATUSES = ("invited", "seen")
+
+# What `/account/tasks` counts as outstanding, from OPEN_STATUSES in
+# api/_lib/tasks.js. A task at `awaiting_admin` is open and is waiting on us, and
+# it still belongs in the count, because the page it links to lists it.
+OPEN_TASK_STATUSES = ("open", "awaiting_admin")
+
+# The analytics event an unanswered apply prompt is derived from, and the reason
+# the filter is written out rather than left as "pending rows". api/_lib/apply.js
+# says it at length: phase 8 writes `view` rows into the same table at
+# `response_state` pending, and a count that forgot this would tell every reader
+# they had thirty outstanding tasks.
+APPLY_CLICK = "apply_click"
 
 # Every column a link read hands back. **The three notify columns are read
 # everywhere the link is**, because the drain's toggle check and the /notify
@@ -138,6 +172,40 @@ class Supabase:
     async def one(self, table: str, columns: str, filters: dict[str, str]) -> dict | None:
         rows = await self.select(table, columns, filters, limit=1)
         return rows[0] if rows else None
+
+    async def count(self, table: str, filters: dict[str, str]) -> int | None:
+        """How many rows match, without reading any of them.
+
+        PostgREST answers a count in `Content-Range` when it is asked for, which
+        is why this makes its own request rather than going through `_request`:
+        the number is in a header and nothing else here reads one.
+
+        **A count that could not be established is None and never 0.** The site
+        settled this for `api/admin/me` and phase 10 extended it: "the table
+        could not be read" and "there is nothing there" are different claims, and
+        only one of them is ours to make. Every caller here says so out loud
+        rather than telling somebody their tasks page is empty.
+        """
+        headers = dict(self._headers)
+        headers["Prefer"] = "count=exact"
+
+        response = await self._client.get(
+            f"{self._base}/{TABLES[table]}",
+            params={"select": "id", "limit": "1", **filters},
+            headers=headers,
+            timeout=TIMEOUT,
+        )
+
+        if response.status_code >= 400:
+            raise SupabaseError(
+                f"count {table} answered {response.status_code}: {response.text[:400]}"
+            )
+
+        # `0-0/17`, or `*/17` when the range is empty. The total is what is
+        # wanted either way, and a header that does not carry one is a count we
+        # did not get rather than a zero we can report.
+        total = response.headers.get("content-range", "").rpartition("/")[2]
+        return int(total) if total.isdigit() else None
 
     async def insert(self, table: str, row: dict, *, returning: str = "representation") -> list[dict]:
         return await self._request(
@@ -555,6 +623,143 @@ class Supabase:
             {"status": "skipped", "error": reason},
         )
         return len(rows)
+
+    # -- the four list commands, part 6 ----------------------------------
+    #
+    # All read only, all scoped by the account asking, and none of them writes a
+    # thing. A command is somebody typing a question now, so these read the
+    # tables rather than a payload: deviation 107 keeps a *notification* to what
+    # was true when it was queued, because nobody is standing there, and the
+    # opposite is right when somebody has just asked.
+
+    async def open_invites(self, applicant_id: str, limit: int = 10) -> list[dict]:
+        """Invitations still worth answering, newest first.
+
+        Filtered on the two open statuses rather than listing everything and
+        letting the message decide, so a withdrawn invite is not something this
+        process ever holds. `applied` and `declined` are answered and `withdrawn`
+        was taken back, and none of the three is an invitation any more.
+        """
+        return await self.select(
+            "invites",
+            "id, job_id, note, status, created_at",
+            {
+                "applicant_id": f"eq.{applicant_id}",
+                "status": f"in.({','.join(OPEN_INVITE_STATUSES)})",
+                "order": "created_at.desc",
+            },
+            limit=limit,
+        )
+
+    async def applications_for(self, applicant_id: str, limit: int = 10) -> list[dict]:
+        """This applicant's tracking rows, most recently moved first.
+
+        **No filter on the posting's status at all**, which is the same rule
+        api/_lib/dashboard.js opens with: these lists have to keep working for
+        postings that are closed, expired or archived, because somebody can
+        always reread what they applied for. The scope is the applicant's own
+        rows and nothing else.
+        """
+        return await self.select(
+            "applications",
+            "id, job_id, status, applied_at, updated_at",
+            {"applicant_id": f"eq.{applicant_id}", "order": "updated_at.desc"},
+            limit=limit,
+        )
+
+    async def job_titles(self, job_ids: list[str], locale: str) -> dict[str, dict]:
+        """What a set of postings are called, in one language.
+
+        Two queries whatever the length of the list, and resolved exactly as
+        `jobSummaries` resolves it: the base row holds the default language, a
+        translation marked ready overrides it, and a blank field on the
+        translation falls back rather than blanking the row. Settled 29 August
+        2026 with part 6: a role reads in this chat the way it reads on
+        `/account/applications`, because the same person is reading both.
+
+        **A translation lookup that fails leaves the base rows standing**, which
+        is the judgement dashboard.js, job-detail.js and facets.js all make: a
+        list in English is a much better answer than no list.
+
+        A posting missing from the answer has been hard deleted, and every caller
+        drops that row rather than drawing a blank title.
+        """
+        ids = list({str(job_id) for job_id in job_ids if job_id})
+        if not ids:
+            return {}
+
+        rows = await self.select(
+            "jobs",
+            "id, title, status, closes_at",
+            {"id": f"in.({','.join(ids)})"},
+            limit=len(ids),
+        )
+
+        found = {
+            row["id"]: {
+                "title": row.get("title"),
+                "status": row.get("status"),
+                "closes_at": row.get("closes_at"),
+            }
+            for row in rows
+        }
+
+        # Migration 014 forbids a translation row for the default language, so
+        # the common path costs nothing rather than costing a query that can only
+        # answer nothing.
+        if locale == DEFAULT_LOCALE or not found:
+            return found
+
+        try:
+            translated = await self.select(
+                "job_translations",
+                "job_id, title",
+                {
+                    "job_id": f"in.({','.join(ids)})",
+                    "locale": f"eq.{locale}",
+                    "is_ready": "is.true",
+                },
+                limit=len(ids),
+            )
+        except (SupabaseError, httpx.HTTPError) as cause:
+            log.warning("could not read job translations: %s", cause)
+            return found
+
+        for row in translated:
+            title = (row.get("title") or "").strip()
+            if title and row["job_id"] in found:
+                found[row["job_id"]]["title"] = title
+
+        return found
+
+    async def open_task_count(self, applicant_id: str) -> int | None:
+        """Admin raised items still waiting, which is half of what /tasks says."""
+        return await self.count(
+            "tasks",
+            {
+                "applicant_id": f"eq.{applicant_id}",
+                "status": f"in.({','.join(OPEN_TASK_STATUSES)})",
+            },
+        )
+
+    async def pending_prompt_count(self, applicant_id: str) -> int | None:
+        """Unanswered apply prompts, which is the other half.
+
+        7g and migration 008 both say these are derived live from
+        `gftvjobs_analytics` and are never copied into `gftvjobs_tasks`, so a
+        count of the tasks table alone is not the number `/account/tasks` shows.
+        Settled 29 August 2026: the bot counts what the page counts, because a
+        message saying two that links to a page showing five is a disagreement
+        nobody would ever think to report.
+        """
+        return await self.count(
+            "analytics",
+            {
+                "applicant_id": f"eq.{applicant_id}",
+                "event_type": f"eq.{APPLY_CLICK}",
+                "response_state": "eq.pending",
+            },
+        )
 
     async def audit(
         self,

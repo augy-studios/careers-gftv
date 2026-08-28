@@ -1200,6 +1200,167 @@ define('notify', 'The three notification kinds, and what can silence them', asyn
   );
 });
 
+define('commands', 'The four list commands, and what they read from the site', async () => {
+  // Part 6 is entirely bot side: no route, no page, no migration and nothing an
+  // applicant clicks on the portal. So every check here reads a file, and each
+  // one is a place the two halves have to agree while being deployed hours
+  // apart. What a person walking the bot sees is whether a list answers; what
+  // they cannot see is whether it is answering with the portal's own words.
+  const BOT = join(HERE, '..', 'telegram-bot');
+  const handlers = await readFile(join(BOT, 'handlers.py'), 'utf8');
+  const commandList = await readFile(join(BOT, 'commands.py'), 'utf8');
+  const supabasePy = await readFile(join(BOT, 'supabase.py'), 'utf8');
+  const configPy = await readFile(join(BOT, 'config.py'), 'utf8');
+  const strings = await readFile(join(BOT, 'strings.py'), 'utf8');
+
+  const listed = [...commandList.matchAll(/name="([a-z]+)"/g)].map((match) => match[1]);
+  const built = [
+    ...(handlers.match(/HANDLERS = \{([\s\S]*?)\n\}/)?.[1] ?? '').matchAll(/"([a-z]+)":/g),
+  ].map((match) => match[1]);
+
+  // `start` splits the list into what answers and what does not, so this is the
+  // check that part 6 emptied the second half rather than the check that the
+  // wording is right: nine listed, nine built, nothing left saying it arrives in
+  // a later phase.
+  check(
+    '76. every command the bot lists is one it now answers',
+    listed.length === 9 && listed.every((name) => built.includes(name)),
+    `listed ${listed.join(', ')}; built ${built.join(', ')}`
+  );
+
+  // /jobs reads the public feed rather than the postings table, settled
+  // 29 August 2026. The address is the contract rather than the file behind it,
+  // and vercel.json is what makes that address exist at all.
+  const vercel = JSON.parse(await readFile(join(SITE, 'vercel.json'), 'utf8'));
+  const feedRoute = (vercel.rewrites ?? []).find(
+    (rule) => rule.source === '/api/public/jobs.json'
+  );
+  check(
+    '77. the address the bot fetches openings from is one the site answers on',
+    /\/api\/public\/jobs\.json/.test(configPy) &&
+      feedRoute?.destination === '/api/public/jobs-feed',
+    `rewrite ${JSON.stringify(feedRoute ?? null)}`
+  );
+  check(
+    '78. and /jobs obeys the board\'s own switch rather than a Telegram one',
+    /name="jobs",\s*\n\s*feature="job_search"/.test(commandList),
+    'an admin taking the board down has to take the bot\'s copy of it down too'
+  );
+
+  // The status words. A status called one thing on /account/applications and
+  // another in the chat is two answers to one question, and the chat is the one
+  // nobody can check against anything.
+  const [enTable, zhTable] = strings.split(/\n {4}"zh": \{/);
+  const words = (table) =>
+    Object.fromEntries(
+      [...table.matchAll(/"application\.status\.([a-z_]+)": "([^"]*)"/g)].map((match) => [
+        match[1],
+        match[2],
+      ])
+    );
+  const botEn = words(enTable);
+  const botZh = words(zhTable ?? '');
+
+  const allowed = [
+    ...(
+      (await readFile(join(HERE, '..', 'migrations', '006_applications_and_events.sql'), 'utf8'))
+        .match(/gftvjobs_applications_status_check[\s\S]*?check \(status in \(([\s\S]*?)\)\)/)?.[1] ??
+      ''
+    ).matchAll(/'([a-z_]+)'/g),
+  ].map((match) => match[1]);
+
+  check(
+    '79. the bot has a word for every status an application can hold',
+    allowed.length === 9 && allowed.every((status) => botEn[status] && botZh[status]),
+    `allowed ${allowed.join(', ')}; bot ${Object.keys(botEn).join(', ')}`
+  );
+
+  const siteEn = JSON.parse(await readFile(join(SITE, 'assets', 'i18n', 'en.json'), 'utf8'));
+  const siteZh = JSON.parse(await readFile(join(SITE, 'assets', 'i18n', 'zh.json'), 'utf8'));
+  const differs = allowed.filter(
+    (status) => botEn[status] !== siteEn[`status.${status}`] || botZh[status] !== siteZh[`status.${status}`]
+  );
+  check(
+    '80. and every one of them is the word the portal already uses, in both languages',
+    differs.length === 0,
+    differs.map((status) => `${status}: ${botEn[status]} vs ${siteEn[`status.${status}`]}`).join('; ')
+  );
+
+  // What /tasks counts. 7g derives apply prompts live from gftvjobs_analytics
+  // and never copies them into gftvjobs_tasks, so a count of the tasks table
+  // alone is not the number the page shows. Both filters are copied into Python
+  // and both are checked against the module that owns them.
+  const tasksJs = await readFile(join(SITE, 'api', '_lib', 'tasks.js'), 'utf8');
+  const applyJs = await readFile(join(SITE, 'api', '_lib', 'apply.js'), 'utf8');
+  const siteOpen = [
+    ...(tasksJs.match(/OPEN_STATUSES = Object\.freeze\(\[([^\]]+)\]/)?.[1] ?? '').matchAll(
+      /'([a-z_]+)'/g
+    ),
+  ].map((match) => match[1]);
+  const botOpen = [
+    ...(supabasePy.match(/OPEN_TASK_STATUSES = \(([^)]*)\)/)?.[1] ?? '').matchAll(/"([a-z_]+)"/g),
+  ].map((match) => match[1]);
+  const clickEvent = applyJs.match(/APPLY_CLICK = '([a-z_]+)'/)?.[1];
+
+  check(
+    '81. the bot counts the same open statuses /account/tasks does',
+    siteOpen.length === 2 && siteOpen.join() === botOpen.join(),
+    `site ${siteOpen.join(', ')}; bot ${botOpen.join(', ')}`
+  );
+  check(
+    '82. and an unanswered prompt is an apply click, never a view row',
+    clickEvent && supabasePy.includes(`APPLY_CLICK = "${clickEvent}"`) &&
+      /event_type.*APPLY_CLICK[\s\S]*response_state": "eq\.pending/.test(supabasePy),
+    'a count that forgot the event type would report every posting somebody read'
+  );
+
+  // The invite list and the decline button have to agree about what an open
+  // invitation is, or the list offers a role whose button answers "there is
+  // nothing here to decline".
+  const invite008 = await readFile(
+    join(HERE, '..', 'migrations', '008_tasks_invites_and_submissions.sql'),
+    'utf8'
+  );
+  const botInvite = [
+    ...(supabasePy.match(/OPEN_INVITE_STATUSES = \(([^)]*)\)/)?.[1] ?? '').matchAll(/"([a-z_]+)"/g),
+  ].map((match) => match[1]);
+  check(
+    '83. the invitations the bot lists are the ones its decline button can write',
+    botInvite.join() === 'invited,seen' &&
+      supabasePy.includes('"status": "in.(invited,seen)"') &&
+      invite008.includes("'invited', 'seen'"),
+    botInvite.join(', ')
+  );
+
+  // Five tables joined the service key's reach for this part and every one of
+  // them is read only. A write would be a command that changed somebody's
+  // account for asking a question, and nothing on the portal would show it.
+  const written = ['jobs', 'job_translations', 'applications', 'tasks', 'analytics'].filter(
+    (table) =>
+      new RegExp(`(insert|update|delete)\\(\\s*"${table}"`).test(supabasePy) ||
+      new RegExp(`_request\\(\\s*"(POST|PATCH|DELETE)",\\s*"${table}"`).test(supabasePy)
+  );
+  check(
+    '84. and nothing part 6 reads is ever written to',
+    written.length === 0,
+    written.join(', ')
+  );
+
+  // The same rule strings.py enforces at import, checked here because this file
+  // can say which part left the gap.
+  const added = [
+    ...strings.matchAll(
+      /"(list\.[a-zA-Z]+|invites\.[a-zA-Z]+|tasks\.(?:none|one|many)|applications\.[a-zA-Z]+|application\.status\.[a-z_]+|jobs\.[a-zA-Z]+|button\.openBoard)":/g
+    ),
+  ].map((match) => match[1]);
+  const counts = added.reduce((into, key) => into.set(key, (into.get(key) ?? 0) + 1), new Map());
+  check(
+    '85. every string part 6 added exists in both languages',
+    counts.size >= 25 && [...counts.values()].every((count) => count === 2),
+    [...counts.entries()].filter(([, count]) => count !== 2).map(([key]) => key).join(', ')
+  );
+});
+
 /* -------------------------------------------------------------------------
  * Run
  * ---------------------------------------------------------------------- */

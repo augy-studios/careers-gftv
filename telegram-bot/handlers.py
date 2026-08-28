@@ -48,6 +48,7 @@ import db
 from build_status import BuildStatus
 from commands import BOT_FEATURE, BY_NAME, COMMANDS, Command
 from config import Config
+from feed import JobFeed
 from lang import locale_for
 from security import hash_code, six_digits
 from strings import DEFAULT_LOCALE, STRINGS, text
@@ -65,6 +66,9 @@ class Context:
     conn: sqlite3.Connection
     http: httpx.AsyncClient
     supabase: Supabase
+    # Part 6. `/jobs` reads the site's public feed rather than the postings
+    # table, so the board and the chat cannot disagree about what is live.
+    feed: JobFeed
 
 
 @dataclass(frozen=True)
@@ -640,12 +644,326 @@ async def handle_decline_callback(ctx: Context, event, record: dict) -> None:
 
 
 # ---------------------------------------------------------------------------
+# The four list commands, part 6
+# ---------------------------------------------------------------------------
+#
+# **These read, and they are the only commands that read anything wide.** Three
+# of them answer about the account this chat is linked to and one of them,
+# `/jobs`, answers about the public board and needs no link at all.
+#
+# Three things they share, and each one is a rule the build already had:
+#
+#   **A read that failed is not an empty list.** Every one of them tells the
+#   difference between "there is nothing" and "we could not ask", because the
+#   first is a claim about somebody's own account and getting it wrong tells
+#   them they have no invitations when they have three.
+#
+#   **They show a few and point at the portal for the rest.** A chat window is
+#   not a dashboard. Section 15 asks `/tasks` for a count and a link rather than
+#   a list at all, and the other three follow the same instinct: enough to know
+#   whether to open the portal, and a button that opens it.
+#
+#   **Nothing here writes.** The one write a list could plausibly do is
+#   declining an invitation, and that button lives on the invitation itself
+#   where section 15 puts it.
+
+# How many rows a message draws before it starts pointing at the portal instead.
+SHOWN = 5
+
+# Telegram will take a longer button label and squeeze it. A role named in full
+# on a phone pushes everything else out of the row, so the label is cut here
+# where the ellipsis can be put somewhere sensible.
+LABEL_LIMIT = 32
+
+
+async def handle_invites(ctx: Context, event, args: str, locale: str) -> None:
+    """Open invitations, with a button through to each posting. Section 15.
+
+    **Only the two open statuses**, which is the filter rather than a judgement
+    made here: an invitation the poster has withdrawn, or one already answered,
+    is not an invitation, and offering a button for it would produce a list of
+    links to roles nobody is being invited to any more.
+
+    The poster's note is not repeated here on purpose. It arrived with the
+    invitation and it is on the tasks page, and five notes stacked in one message
+    is the point at which somebody stops reading the list they asked for.
+    """
+    link = await current_link(ctx, event)
+    if link is None:
+        await event.respond(text("list.notLinked", locale), link_preview=False)
+        return
+
+    applicant = await safe_applicant(ctx, link["applicant_id"])
+    locale = account_locale(applicant, locale)
+
+    try:
+        rows = await ctx.supabase.open_invites(link["applicant_id"], limit=SHOWN + 5)
+        titles = await ctx.supabase.job_titles([row["job_id"] for row in rows], locale)
+    except (SupabaseError, httpx.HTTPError) as cause:
+        log.error("could not read invitations: %s", cause)
+        await event.respond(text("list.unavailable", locale), link_preview=False)
+        return
+
+    # A posting that has been hard deleted leaves an invite row pointing at
+    # nothing. The site's own lists drop such a row rather than drawing a blank
+    # title, and a button to a 404 would be worse than an absence.
+    listed = [row for row in rows if titles.get(row["job_id"])]
+
+    if not listed:
+        await event.respond(
+            text("invites.none", locale),
+            buttons=[[Button.url(text("button.openBoard", locale), board_url(ctx))]],
+            link_preview=False,
+        )
+        return
+
+    shown = listed[:SHOWN]
+    lines = [text("invites.heading", locale), ""]
+    buttons = []
+
+    for row in shown:
+        role = titles[row["job_id"]]["title"] or ""
+        lines.append(text("invites.row", locale, role=html.escape(str(role))))
+        buttons.append(
+            [Button.url(shorten(str(role)), ctx.config.job_url(row["job_id"]))]
+        )
+
+    if len(listed) > len(shown):
+        lines.append("")
+        lines.append(text("list.more", locale, count=len(listed) - len(shown)))
+
+    lines.append("")
+    lines.append(text("invites.record", locale))
+    buttons.append([Button.url(text("button.openTasks", locale), tasks_url(ctx))])
+
+    await event.respond("\n".join(lines), buttons=buttons, link_preview=False)
+
+
+async def handle_tasks(ctx: Context, event, args: str, locale: str) -> None:
+    """What is waiting, as a count and a link. Section 15's command list.
+
+    **A count and not a list, which is what section 15 asks for and is also the
+    honest shape.** A task can carry a set of questions that has been frozen
+    since it was sent and that has to be answered accurately; a chat window
+    paraphrasing it would be the worst of both, and `render_task` in the drain
+    says the same thing for the same reason.
+
+    **Both sources, because that is what the page counts.** 7g derives
+    unanswered apply prompts live from `gftvjobs_analytics` and never copies them
+    into `gftvjobs_tasks`, so counting the tasks table alone would put a two in
+    this chat above a link to a page showing five. Settled 29 August 2026.
+    """
+    link = await current_link(ctx, event)
+    if link is None:
+        await event.respond(text("list.notLinked", locale), link_preview=False)
+        return
+
+    applicant = await safe_applicant(ctx, link["applicant_id"])
+    locale = account_locale(applicant, locale)
+
+    try:
+        tasks = await ctx.supabase.open_task_count(link["applicant_id"])
+        prompts = await ctx.supabase.pending_prompt_count(link["applicant_id"])
+    except (SupabaseError, httpx.HTTPError) as cause:
+        log.error("could not count outstanding tasks: %s", cause)
+        await event.respond(text("list.unavailable", locale), link_preview=False)
+        return
+
+    if tasks is None or prompts is None:
+        # A count that could not be established is not zero. Telling somebody
+        # nothing is waiting for them is a claim, and this is not the moment to
+        # make it on a header PostgREST did not send.
+        log.warning("a task count came back without a number")
+        await event.respond(text("list.unavailable", locale), link_preview=False)
+        return
+
+    total = tasks + prompts
+    if total == 0:
+        key = "tasks.none"
+    elif total == 1:
+        key = "tasks.one"
+    else:
+        key = "tasks.many"
+
+    await event.respond(
+        text(key, locale, count=total),
+        buttons=[[Button.url(text("button.openTasks", locale), tasks_url(ctx))]],
+        link_preview=False,
+    )
+
+
+async def handle_applications(ctx: Context, event, args: str, locale: str) -> None:
+    """The applicant's own applications and where each one stands. Section 15.
+
+    **No filter on the posting's status**, which is dashboard.js's opening rule:
+    these lists have to keep working for postings that are closed, expired or
+    archived, because somebody can always reread what they applied for.
+
+    **The status is the word the portal uses**, taken from the same `status.*`
+    strings `/account/applications` draws. A status called one thing on the page
+    and another in the chat is two answers to one question, and the one in the
+    chat is the one nobody can check against anything.
+    """
+    link = await current_link(ctx, event)
+    if link is None:
+        await event.respond(text("list.notLinked", locale), link_preview=False)
+        return
+
+    applicant = await safe_applicant(ctx, link["applicant_id"])
+    locale = account_locale(applicant, locale)
+
+    try:
+        rows = await ctx.supabase.applications_for(link["applicant_id"], limit=SHOWN + 5)
+        titles = await ctx.supabase.job_titles([row["job_id"] for row in rows], locale)
+    except (SupabaseError, httpx.HTTPError) as cause:
+        log.error("could not read applications: %s", cause)
+        await event.respond(text("list.unavailable", locale), link_preview=False)
+        return
+
+    listed = [row for row in rows if titles.get(row["job_id"])]
+
+    if not listed:
+        await event.respond(
+            text("applications.none", locale),
+            buttons=[[Button.url(text("button.openBoard", locale), board_url(ctx))]],
+            link_preview=False,
+        )
+        return
+
+    shown = listed[:SHOWN]
+    lines = [text("applications.heading", locale), ""]
+
+    for row in shown:
+        role = titles[row["job_id"]]["title"] or ""
+        lines.append(
+            text(
+                "applications.row",
+                locale,
+                role=html.escape(str(role)),
+                status=status_word(row.get("status"), locale),
+            )
+        )
+        lines.append("")
+
+    if len(listed) > len(shown):
+        lines.append(text("list.more", locale, count=len(listed) - len(shown)))
+
+    await event.respond(
+        "\n".join(lines).strip(),
+        buttons=[
+            [Button.url(text("button.openApplications", locale), applications_url(ctx))]
+        ],
+        link_preview=False,
+    )
+
+
+async def handle_jobs(ctx: Context, event, args: str, locale: str) -> None:
+    """The newest openings, with a button through to each. Section 15.
+
+    **The one list command that needs no link**, and that is worth saying rather
+    than leaving as an accident of the code: the board is public, somebody who
+    found the bot before the site can ask what is going, and requiring an account
+    to read a list of openings would be the portal being coy about the one thing
+    it exists to advertise.
+
+    **It reads the site's feed rather than the database.** Settled 29 August
+    2026, and feed.py carries the reasoning: one implementation of which
+    postings are live, resolved into the reader's language by the site's own
+    rules, and nothing added to what the service key on a VPS can reach.
+    """
+    # Only to pick the language. An unlinked reader gets the one their Telegram
+    # client is set to, which is what part 1 settled and what this falls back to.
+    link = await current_link(ctx, event)
+    if link is not None:
+        applicant = await safe_applicant(ctx, link["applicant_id"])
+        locale = account_locale(applicant, locale)
+
+    rows = await ctx.feed.newest(locale, limit=SHOWN)
+
+    if rows is None:
+        # The feed could not be read. Not "there are no openings": this bot is
+        # on a different machine from the site and a bad minute on either is not
+        # news about GFTV's hiring.
+        await event.respond(text("list.unavailable", locale), link_preview=False)
+        return
+
+    if not rows:
+        await event.respond(
+            text("jobs.none", locale),
+            buttons=[[Button.url(text("button.openBoard", locale), board_url(ctx))]],
+            link_preview=False,
+        )
+        return
+
+    lines = [text("jobs.heading", locale), ""]
+    buttons = []
+
+    for row in rows:
+        role = row.get("title") or ""
+        lines.append(text("jobs.row", locale, role=html.escape(str(role))))
+        if row.get("department"):
+            lines.append(
+                text(
+                    "jobs.department",
+                    locale,
+                    department=html.escape(str(row["department"])),
+                )
+            )
+        lines.append("")
+        # The feed builds each posting's own address, so this hands out what the
+        # site says rather than assembling a link from an id and hoping the two
+        # rules still match.
+        buttons.append(
+            [Button.url(shorten(str(role)), row.get("url") or ctx.config.job_url(row["id"]))]
+        )
+
+    lines.append(text("jobs.notice", locale))
+    buttons.append([Button.url(text("button.openBoard", locale), board_url(ctx))])
+
+    await event.respond("\n".join(lines), buttons=buttons, link_preview=False)
+
+
+def status_word(status: str | None, locale: str) -> str:
+    """What to call an application's status, or where to look instead.
+
+    An unknown status is a real possibility rather than a defensive flourish: the
+    check constraint on `gftvjobs_applications` can gain a value in a later phase
+    and this process is pulled by hand. The build's rule is that an unknown enum
+    falls back rather than being refused, and the fallback here says to open the
+    portal rather than inventing a sentence about somebody's application.
+    """
+    key = f"application.status.{status}"
+    if status and key in STRINGS[DEFAULT_LOCALE]:
+        return text(key, locale)
+    return text("applications.statusUnknown", locale)
+
+
+def shorten(value: str, limit: int = LABEL_LIMIT) -> str:
+    """A button label that fits on a phone."""
+    trimmed = value.strip()
+    return trimmed if len(trimmed) <= limit else trimmed[: limit - 1].rstrip() + "…"
+
+
+# ---------------------------------------------------------------------------
 # Small shared things
 # ---------------------------------------------------------------------------
 
 
 def settings_url(ctx: Context) -> str:
     return f"{ctx.config.site_url}/account/settings"
+
+
+def tasks_url(ctx: Context) -> str:
+    return f"{ctx.config.site_url}/account/tasks"
+
+
+def applications_url(ctx: Context) -> str:
+    return f"{ctx.config.site_url}/account/applications"
+
+
+def board_url(ctx: Context) -> str:
+    """The one browse surface. `/search` is the listing and the results page."""
+    return f"{ctx.config.site_url}/search"
 
 
 def join(locale: str, *sentences: str) -> str:
@@ -703,6 +1021,10 @@ HANDLERS = {
     "link": handle_link,
     "unlink": handle_unlink,
     "code": handle_code,
+    "invites": handle_invites,
+    "tasks": handle_tasks,
+    "applications": handle_applications,
+    "jobs": handle_jobs,
     "notify": handle_notify,
 }
 

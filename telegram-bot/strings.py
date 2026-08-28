@@ -174,6 +174,74 @@ STRINGS: dict[str, dict[str, str]] = {
         "notify.failed": (
             "We could not reach the portal just now. Nothing has changed."
         ),
+        # The four list commands. Three of them answer about one account and say
+        # the same thing when there is no link, so they say it once: three
+        # wordings for one rule is how the rule stops being one rule.
+        "list.notLinked": (
+            "This Telegram account is not linked to a portal account, so there "
+            "is nothing to look up. Send /link to see how to link one."
+        ),
+        # Never "you have none". A read that could not be made is not an empty
+        # list, and the difference matters most on the pages that are about
+        # somebody's own account.
+        "list.unavailable": (
+            "We could not reach the portal just now, so there is nothing to "
+            "show. Please try that again in a moment."
+        ),
+        "list.more": "There are {count} more on the portal.",
+        "button.openBoard": "See every opening",
+        "invites.heading": "<b>Your open invitations</b>",
+        "invites.row": "<b>{role}</b>",
+        "invites.none": (
+            "You have no open invitations right now. Every role that is taking "
+            "applications is on the board, and you can apply to any of them "
+            "yourself."
+        ),
+        "invites.record": (
+            "<i>Each one is on your tasks page too, with the note whoever sent "
+            "it wrote.</i>"
+        ),
+        "tasks.none": (
+            "Nothing is waiting for you. That is the state that page is meant "
+            "to be in."
+        ),
+        "tasks.one": "One thing is waiting for you.",
+        "tasks.many": "{count} things are waiting for you.",
+        "applications.heading": "<b>Your applications</b>",
+        "applications.row": "<b>{role}</b>\n{status}",
+        "applications.none": (
+            "You have not applied for anything yet. The board has every role "
+            "that is open."
+        ),
+        # A status this file has no word for. It says where to look rather than
+        # inventing a sentence about somebody's application, which is the one
+        # thing a chat window has no business doing.
+        "applications.statusUnknown": "Open the portal to see where this one stands.",
+        # The same words /account/applications uses, from status.* in en.json.
+        # A status called one thing on the page and another in the chat is two
+        # answers to one question.
+        "application.status.started": "Started",
+        "application.status.submitted": "Applied",
+        "application.status.under_review": "Being read",
+        "application.status.shortlisted": "Shortlisted",
+        "application.status.interview": "Interviewing",
+        "application.status.offered": "Offered",
+        "application.status.accepted": "Accepted",
+        "application.status.rejected": "Not this time",
+        "application.status.withdrawn": "Withdrawn",
+        "jobs.heading": "<b>The newest openings</b>",
+        "jobs.row": "<b>{role}</b>",
+        "jobs.department": "Department: {department}",
+        "jobs.none": (
+            "There is nothing listed right now. New roles go up on the board as "
+            "they open."
+        ),
+        # The same line the feed carries for anybody reprinting it. A list of
+        # roles with no word about pay reads as a list of jobs.
+        "jobs.notice": (
+            "<i>Roles at GFTV are voluntary and unpaid unless the posting says "
+            "otherwise.</i>"
+        ),
         "callback.unknown": "That button is too old to act on. Send the command again.",
         "callback.notYours": "That button belongs to somebody else's conversation.",
         "feature.unavailable": (
@@ -301,6 +369,44 @@ STRINGS: dict[str, dict[str, str]] = {
         ),
         "notify.gone": "这个 Telegram 账户已不再关联那个求职账户，因此没有可以更改的设置。",
         "notify.failed": "我们暂时无法连接到求职网站，设置没有任何改动。",
+        "list.notLinked": (
+            "这个 Telegram 账户尚未关联任何求职账户，因此没有可以查询的内容。"
+            "发送 /link 可以了解如何关联。"
+        ),
+        "list.unavailable": "我们暂时无法连接到求职网站，因此无法显示内容。请稍后再试一次。",
+        "list.more": "还有 {count} 项，可以在求职网站上查看。",
+        "button.openBoard": "查看全部职位",
+        "invites.heading": "<b>您收到的职位邀请</b>",
+        "invites.row": "<b>{role}</b>",
+        "invites.none": (
+            "您目前没有待回复的职位邀请。所有正在招聘的职位都列在职位板上，您也可以自行申请。"
+        ),
+        "invites.record": (
+            "<i>每一份邀请在您的待办事项页面上也有记录，并附有邀请人写下的留言。</i>"
+        ),
+        "tasks.none": "目前没有需要您处理的事项。这正是该页面应有的状态。",
+        "tasks.one": "有 1 项事项等待您处理。",
+        "tasks.many": "有 {count} 项事项等待您处理。",
+        "applications.heading": "<b>我的申请</b>",
+        "applications.row": "<b>{role}</b>\n{status}",
+        "applications.none": "您还没有提交任何申请。职位板上列出了所有正在招聘的职位。",
+        "applications.statusUnknown": "请在求职网站上查看这份申请的最新状态。",
+        "application.status.started": "已开始",
+        "application.status.submitted": "已申请",
+        "application.status.under_review": "审阅中",
+        "application.status.shortlisted": "已入围",
+        "application.status.interview": "面试中",
+        "application.status.offered": "已录取",
+        "application.status.accepted": "已接受",
+        "application.status.rejected": "这次未获选",
+        "application.status.withdrawn": "已撤回",
+        "jobs.heading": "<b>最新职位</b>",
+        "jobs.row": "<b>{role}</b>",
+        "jobs.department": "部门：{department}",
+        "jobs.none": "目前没有正在招聘的职位。新职位开放后会发布在职位板上。",
+        "jobs.notice": (
+            "<i>除非职位说明另有注明，国际兽视的职位均为志愿性质，不提供薪酬。</i>"
+        ),
         "callback.unknown": "这个按钮太旧了，无法继续操作。请重新发送该指令。",
         "callback.notYours": "这个按钮属于其他人的对话。",
         "feature.unavailable": "此功能将在第 {phase} 阶段推出，给您带来不便，敬请谅解。",
