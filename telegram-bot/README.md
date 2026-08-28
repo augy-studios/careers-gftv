@@ -145,6 +145,11 @@ nowhere else.
 
 ## BotFather setup
 
-See `setup.md`, which lands with the bot in phase 11. It covers creating the
-bot, the about text, the description, and the command list to paste into
-BotFather.
+See [`setup.md`](setup.md). It covers the Telethon credentials from
+my.telegram.org, creating the bot, the about text, the description, the command
+list to paste into BotFather, which of the bot settings matter, and a reference
+table of every BotFather command relevant here.
+
+**The command list in that file is generated, not typed.** `python commands.py`
+prints it in every language, and `python commands.py --check setup.md` fails if
+the document has drifted from the code.

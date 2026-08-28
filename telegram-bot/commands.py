@@ -157,3 +157,59 @@ def botfather_lines(locale: str = DEFAULT_LOCALE) -> list[tuple[str, str]]:
     about where it has got to.
     """
     return [(command.name, command.describe(locale)) for command in COMMANDS]
+
+
+def botfather_block(locale: str = DEFAULT_LOCALE) -> str:
+    """The list in the exact shape BotFather's /setcommands wants.
+
+    One `name - description` per line, no leading slash, nothing else in the
+    message.
+    """
+    return "\n".join(f"{name} - {description}" for name, description in botfather_lines(locale))
+
+
+def check_document(path: str) -> list[str]:
+    """Which language blocks a document is missing or has stale.
+
+    `setup.md` carries the list as text, because somebody pastes it into
+    BotFather from there and a document that says "run this script" instead is a
+    document that gets skipped. Carrying it means it can drift, so this is the
+    check that it has not: every generated block must appear in the file
+    verbatim. Empty list means the document agrees with this file.
+    """
+    try:
+        with open(path, encoding="utf-8") as handle:
+            document = handle.read()
+    except OSError as cause:
+        return [f"{path} could not be read: {cause}"]
+
+    return [
+        f"{path} does not carry the {name} list as this file generates it"
+        for name in STRINGS
+        if botfather_block(name) not in document
+    ]
+
+
+if __name__ == "__main__":
+    # `python commands.py` prints the block for every language, which is what
+    # setup.md pastes in. `python commands.py --check setup.md` is the other
+    # half: writing that list into a document by hand is the drift deviation 91
+    # exists to prevent, so it is generated, and the copy in the document is
+    # checked against the generator rather than trusted.
+    import sys
+
+    if "--check" in sys.argv:
+        target = sys.argv[sys.argv.index("--check") + 1]
+        problems = check_document(target)
+        for problem in problems:
+            print(problem, file=sys.stderr)
+        if problems:
+            print("Regenerate with: python commands.py", file=sys.stderr)
+        else:
+            print(f"{target} carries every command list, unchanged.")
+        raise SystemExit(1 if problems else 0)
+
+    for name in STRINGS:
+        print(f"# {name}")
+        print(botfather_block(name))
+        print()
