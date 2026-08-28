@@ -30,6 +30,11 @@ import { confirmDangerousAction } from './danger-confirm.js';
 
 let user = null;
 
+// How many passkeys the account has, as of the last load. Only used to tell a
+// first passkey from a second one, which is the difference between "signing in
+// changes today" and "you already knew that".
+let passkeyCount = 0;
+
 async function boot() {
   const page = document.querySelector('#securityPage');
   if (!page) return;
@@ -226,6 +231,7 @@ async function loadPasskeys() {
   }
 
   const passkeys = result.data.passkeys ?? [];
+  passkeyCount = passkeys.length;
 
   if (passkeys.length === 0) {
     list.replaceChildren();
@@ -233,6 +239,9 @@ async function loadPasskeys() {
       empty.textContent = t('security.passkeyNone');
       empty.hidden = false;
     }
+    // Removing the last one puts the account back where it started, so the
+    // first passkey warning is no longer describing anything true.
+    document.querySelector('#passkeyFirstWarning')?.setAttribute('hidden', '');
     return;
   }
 
@@ -327,6 +336,10 @@ function wirePasskeyButton() {
       return;
     }
 
+    // Read before the two requests, because loadPasskeys() at the end of them
+    // has already moved the count on by one.
+    const isFirstPasskey = passkeyCount === 0;
+
     add.disabled = true;
 
     try {
@@ -356,6 +369,14 @@ function wirePasskeyButton() {
 
       clearPassword('#passkeyPassword');
       await loadPasskeys();
+
+      // The first passkey is the one that changes how every other device
+      // behaves: from now on the second step is on this device, and anywhere
+      // else needs a backup code or a passkey of its own. Said here, in red,
+      // instead of being found out at the next sign in on a different machine.
+      if (isFirstPasskey) {
+        document.querySelector('#passkeyFirstWarning')?.removeAttribute('hidden');
+      }
 
       // A passkey with no backup code behind it is one lost phone away from a
       // locked account, so this is the moment to say so.

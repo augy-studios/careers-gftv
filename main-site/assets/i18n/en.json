@@ -291,6 +291,7 @@
   "security.passkeyUnsupported": "This browser cannot use passkeys. Try a current version of Chrome, Safari, Edge, or Firefox.",
   "security.passkeyDomainNote": "A passkey belongs to the site that created it, so this one works on Careers@GFTV and nowhere else. If you lose the device it is on, a two factor backup code gets you past this step.",
   "security.passkeyFailed": "That passkey could not be added. Try again.",
+  "security.passkeyFirstWarning": "Keep your two factor backup codes somewhere safe. This passkey belongs to the device you just used it on, so signing in on any other device needs one of your backup codes, unless you add a passkey on that device too.",
   "security.passkeyNeedsBackupCodes": "You have no two factor backup codes. Generate a set now: without one, a lost device means you cannot get past the second step.",
   "security.passkeyLastRemoved": "That was your last passkey. Signing in is one step again, your password.",
   "auth.secondStepHeading": "One more step",

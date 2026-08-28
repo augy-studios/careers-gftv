@@ -193,6 +193,20 @@
 
                 <p class="callout danger" id="passkeyError" role="alert" hidden></p>
 
+                <!-- Shown once, the moment the first passkey on the account is
+                     added. Until then signing in was one step and worked
+                     anywhere; from now on the second step lives on a device,
+                     and somebody who does not learn that here learns it while
+                     locked out of a laptop. Red on purpose. -->
+                <div class="callout danger" id="passkeyFirstWarning" role="alert" hidden>
+                    <p data-i18n="security.passkeyFirstWarning">
+                        Keep your two factor backup codes somewhere safe. This
+                        passkey belongs to the device you just used it on, so
+                        signing in on any other device needs one of your backup
+                        codes, unless you add a passkey on that device too.
+                    </p>
+                </div>
+
                 <div class="field">
                     <label for="passkeyPassword" data-i18n="security.currentPasswordLabel">
                         Current password

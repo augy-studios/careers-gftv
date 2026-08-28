@@ -50,7 +50,7 @@ STRINGS: dict[str, dict[str, str]] = {
             "To link this Telegram account, open account settings on the portal "
             "and press <b>Link Telegram</b>. You will get a code to scan, or a "
             "link to tap if you are already reading this on the same phone.\n\n"
-            "It has to start there rather than here, because that page already "
+            "It has to start there and not here, because that page already "
             "knows which account is signed in and this chat does not."
         ),
         # Section 15 step 5: used, expired and unknown are one answer, on

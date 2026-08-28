@@ -291,6 +291,7 @@
   "security.passkeyUnsupported": "此浏览器不支持通行密钥。请改用较新版本的 Chrome、Safari、Edge 或 Firefox。",
   "security.passkeyDomainNote": "通行密钥只属于创建它的网站，因此这个密钥只能在国际兽视 Careers 上使用。如果存放它的设备遗失，可以用双重验证备用码通过这一步。",
   "security.passkeyFailed": "无法添加此通行密钥，请重试。",
+  "security.passkeyFirstWarning": "请妥善保管您的双重验证备用码。这个通行密钥属于您刚才使用的那台设备，因此在其他任何设备上登录时，都需要用到备用码，除非您也在那台设备上添加了通行密钥。",
   "security.passkeyNeedsBackupCodes": "您还没有双重验证备用码。请立即生成一组：没有备用码，一旦设备遗失，您将无法通过第二步验证。",
   "security.passkeyLastRemoved": "这是您最后一个通行密钥。登录已恢复为一个步骤，即输入密码。",
   "auth.secondStepHeading": "还有一步",
