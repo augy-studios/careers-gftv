@@ -1,0 +1,17 @@
+# Careers@GFTV Telegram bot.
+#
+# Two dependencies, and both are pinned to a major version rather than to an
+# exact one. The VPS is updated by hand, so a floating patch release is what
+# gets a security fix in without a code change, and a floating major release is
+# what breaks the bot on a morning nobody was touching it.
+#
+# Telethon, per section 15. Not python-telegram-bot, not aiogram. The 2.x line
+# is a rewrite with a different API, so the ceiling is deliberate rather than
+# cautious: an upgrade to it is a piece of work, not an upgrade.
+telethon>=1.36,<2
+
+# The HTTP client for build-status.json, the feature status endpoint, and from
+# part 2 the Supabase REST API. Async, because it is called from inside the
+# event loop that is also answering commands, and a blocking read there would
+# stop every other conversation for as long as the site took to answer.
+httpx>=0.27,<1

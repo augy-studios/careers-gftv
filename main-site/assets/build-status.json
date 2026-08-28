@@ -1,7 +1,7 @@
 {
   "$comment": "Single source of truth for the phased rollout, per section 0c of careers-gftv-spec.md. The site, the Telegram bot, and the docs site all read this one file, so the three stay in step. Flipping a phase to shipped is the only edit needed when it goes live. No copy anywhere hardcodes a phase number. Phase names and descriptions carry a translated variant per non default language, because three separate consumers render them and they are content, not interface strings; everything else the site says comes from assets/i18n.",
   "schema_version": 3,
-  "updated": "2026-08-27",
+  "updated": "2026-08-28",
   "locales": [
     "en",
     "zh"
@@ -111,7 +111,7 @@
       "number": 11,
       "name": "Telegram bot",
       "name_zh": "Telegram 机器人",
-      "status": "planned",
+      "status": "building",
       "description": "Linking a Telegram account for notifications, invitations, one tap sign in, and two factor authentication, in your chosen language.",
       "description_zh": "关联 Telegram 账户以接收通知和邀请，并使用一键登录和双重验证，且使用您选择的语言。",
       "shipped_note": null,

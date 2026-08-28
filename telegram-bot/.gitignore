@@ -6,7 +6,17 @@
 *.session-journal
 *.sqlite
 *.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
 *.db
+
+# The single instance lock, taken at startup and released by the kernel when
+# the process ends. It holds the running process id and nothing else.
+*.lock
+
+# The rotating log. It is the bot's only account of what it did, and it names
+# real Telegram accounts, so it stays on the VPS.
+logs/
 
 .env
 .env.*
