@@ -4,12 +4,13 @@ Run it from this directory, inside your own tmux session:
 
     python bot.py
 
-**One process, two loops.** Settled 28 August 2026, phase 11 open decision 4.
-Telethon's event loop and, from part 3, `security.py` live in this one process
-and share one client and one session file. That loop has to send through Telethon
-anyway, and a second process would mean a second session for the same bot token;
-safety against a double send comes from the conditional claim in the database,
-not from there happening to be one process. Phase 12's status probe is the
+**One process, three loops.** Settled 28 August 2026, phase 11 open decision 4.
+Telethon's event loop, `security.py` from part 3 and `outbox.py` from part 4 all
+live in this one process and share one client and one session file. Both of
+those have to send through Telethon anyway, and a second process would mean a
+second session for the same bot token; safety against a double send comes from
+the conditional claim in the database, not from there happening to be one
+process. Phase 12's status probe is the
 exception and stays separate, because section 15 requires it to keep recording
 while Telethon is wedged: telling "the bot is broken" apart from "the portal is
 down" is the entire job of a status page.
@@ -49,6 +50,7 @@ from handlers import CALLBACKS, HANDLERS, Context, availability
 from lang import locale_for
 from lock import AlreadyRunning, SingleInstance
 from log import setup_logging
+from outbox import OutboxLoop
 from security import SecurityLoop
 from strings import DEFAULT_LOCALE, STRINGS, text
 from supabase import Supabase
@@ -287,12 +289,22 @@ async def run(config: Config) -> int:
 
         log.info("ready")
 
-        # The second of the two tasks decision 4 settled on. It shares this
-        # client and this session file, because it sends through Telethon
-        # anyway, and it is a task rather than a process for the same reason:
-        # what stops a double send is the conditional claim in the database, not
-        # there happening to be one of anything.
-        security = asyncio.ensure_future(SecurityLoop(ctx, client).run(stopping))
+        # The other tasks decision 4 settled on. They share this client and this
+        # session file, because they send through Telethon anyway, and they are
+        # tasks rather than processes for the same reason: what stops a double
+        # send is the conditional claim in the database, not there happening to
+        # be one of anything.
+        #
+        # Two of them rather than one, because what they carry is waited for
+        # differently. `security.py` polls every two seconds and carries the
+        # things somebody is sitting in front of; `outbox.py` polls every twenty
+        # and carries what section 15 queues. Splitting them is also what lets
+        # the drain stop for a flood wait or a maintenance switch without a login
+        # code stopping with it.
+        loops = [
+            asyncio.ensure_future(SecurityLoop(ctx, client).run(stopping)),
+            asyncio.ensure_future(OutboxLoop(ctx, client).run(stopping)),
+        ]
 
         disconnected = asyncio.ensure_future(client.run_until_disconnected())
         waiting = asyncio.ensure_future(stopping.wait())
@@ -302,22 +314,25 @@ async def run(config: Config) -> int:
 
         log.info("stopping")
 
-        # The loop is asked before it is cancelled, so a send already in flight
-        # finishes rather than being torn off halfway. Section 15's restart mid
-        # drain is the one failure nothing else here would catch, and this is the
-        # side of it this process controls.
+        # The loops are asked before they are cancelled, so a send already in
+        # flight finishes rather than being torn off halfway. Section 15's
+        # restart mid drain is the one failure nothing else here would catch,
+        # and this is the side of it this process controls. The other side is
+        # the drain's own lease: a row claimed by a process that did not get
+        # this far is swept back into the queue rather than left claimed.
         stopping.set()
-        try:
-            await asyncio.wait_for(asyncio.shield(security), timeout=10)
-        except Exception:  # noqa: BLE001 - a stuck send must not stop the stop
-            security.cancel()
+        for loop in loops:
+            try:
+                await asyncio.wait_for(asyncio.shield(loop), timeout=10)
+            except Exception:  # noqa: BLE001 - a stuck send must not stop the stop
+                loop.cancel()
 
         for task in (disconnected, waiting):
             task.cancel()
         # Awaited rather than abandoned, so a cancellation does not surface
         # later as an exception nobody retrieved, in a log somebody is reading
         # to find out why the process would not stop.
-        await asyncio.gather(disconnected, waiting, security, return_exceptions=True)
+        await asyncio.gather(disconnected, waiting, *loops, return_exceptions=True)
         await client.disconnect()
 
     conn.close()

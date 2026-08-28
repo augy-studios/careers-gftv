@@ -7,7 +7,10 @@ not the second: it is polled every fifteen to thirty seconds, which is a
 reasonable wait for an invitation and an unreasonable one for somebody sitting
 in front of a login form. So there are two loops rather than one. This is the
 fast one, it runs every couple of seconds, and the only things it carries are
-the ones somebody is actively waiting for. Part 4's drain is the slow one.
+the ones somebody is actively waiting for. `outbox.py` is the slow one, and part
+4 moved the outbox out of here entirely: this file drained one test kind while
+the drain proper did not exist, and keeping a second copy of the claim after it
+did would be two things doing one job.
 
 **The bot generates the code, and that is not what section 15 reads like.** It
 says the portal sends a code, and the portal cannot: nothing on the site's side
@@ -60,15 +63,6 @@ log = logging.getLogger("bot.security")
 # timer went off. It is one conditional update against an indexed prefix that
 # matches nothing almost every time.
 CODE_POLL_SECONDS = 2.0
-
-# The outbox is looked at every fifth pass. Section 15 says fifteen to thirty
-# seconds for notifications, and ten is inside that without being another poll
-# to schedule. Part 3 drains one kind; part 4 takes this over.
-OUTBOX_EVERY = 5
-
-# Kinds this part knows how to send. Part 4 adds the three real ones, and the
-# claim underneath is already the one they need.
-OUTBOX_KINDS = ("telegram_test",)
 
 # The same cost factor as main-site/api/_lib/password.js. Written down in both
 # places because the two have to agree and neither can read the other.
@@ -137,11 +131,6 @@ class SecurityLoop:
         claimed = await self.ctx.supabase.claim_code_requests()
         for row in claimed:
             await self.send_code(row)
-
-        if self._pass % OUTBOX_EVERY == 0:
-            rows = await self.ctx.supabase.claim_notifications(OUTBOX_KINDS)
-            for row in rows:
-                await self.send_notification(row)
 
     # -- codes ----------------------------------------------------------
 
@@ -225,44 +214,6 @@ class SecurityLoop:
         # Never the code, never the account, and no link between the two. What
         # is worth having in the log is that one went out at all.
         log.info("sent a sign in code%s", " with a one tap link" if buttons else "")
-
-    # -- the outbox, one kind of it -------------------------------------
-
-    async def send_notification(self, row: dict) -> None:
-        """Send one claimed outbox row, and record how it ended."""
-        applicant_id = row["applicant_id"]
-
-        link = await self.ctx.supabase.link_for_applicant(applicant_id)
-        if link is None:
-            # Section 15: an applicant with no link gets their rows marked
-            # skipped rather than left queued forever.
-            await self.ctx.supabase.finish_notification(
-                row["id"], "skipped", "no telegram link when it was claimed"
-            )
-            return
-
-        applicant = await self.safe_applicant(applicant_id)
-        locale = self.locale_for(applicant)
-
-        try:
-            await self.client.send_message(
-                link["telegram_user_id"],
-                text("test.message", locale),
-                link_preview=False,
-            )
-        except FloodWaitError as cause:
-            log.error("flood wait of %ss while draining the outbox", cause.seconds)
-            await self.ctx.supabase.finish_notification(
-                row["id"], "failed", f"flood wait {cause.seconds}s"
-            )
-            return
-        except Exception as cause:  # noqa: BLE001
-            log.error("could not send a %s notification: %s", row.get("kind"), cause)
-            await self.ctx.supabase.finish_notification(row["id"], "failed", str(cause)[:400])
-            return
-
-        await self.ctx.supabase.finish_notification(row["id"], "sent")
-        log.info("sent a %s notification", row.get("kind"))
 
     # -- small shared things --------------------------------------------
 

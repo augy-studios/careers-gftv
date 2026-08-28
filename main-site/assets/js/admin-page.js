@@ -66,6 +66,7 @@ function draw() {
   drawRecentApplications();
   drawRecentRegistrations();
   drawCron();
+  drawOutbox();
 }
 
 /* -------------------------------------------------------------------------
@@ -203,6 +204,131 @@ function drawCron() {
               )}</span></li>`
           )
           .join('')}</ul>`
+    );
+  }
+
+  holder.className = `callout ${tone}`;
+  holder.innerHTML = parts.join('');
+}
+
+/* -------------------------------------------------------------------------
+ * The Telegram outbox, section 15 and phase 11 part 4
+ * ---------------------------------------------------------------------- */
+
+/**
+ * How long a row may sit queued before this panel says the drain looks stuck.
+ *
+ * The bot polls every twenty seconds and retries a failure for about twenty
+ * minutes before giving up, so anything still queued after half an hour is not
+ * a slow pass. It is either a bot that is not running or a kind this build of
+ * the bot does not know how to send, and both need somebody to look.
+ */
+const OUTBOX_STALE_MINUTES = 30;
+
+/**
+ * The panel that makes a bot nobody can see visible.
+ *
+ * The same job as the cron panel above it and one degree harder. The cron at
+ * least runs on this deployment; the drain runs on a VPS that this repository
+ * does not deploy to and cannot ask anything of, so what is drawn here is
+ * inferred entirely from the state of the queue:
+ *
+ *   could not be read  the query failed. Not a claim about the bot at all.
+ *   nothing yet        the table is readable and nothing has ever been queued.
+ *   failed             rows gave up after their retries. Section 15's "left
+ *                      failed for an admin to see", and this is the admin.
+ *   stuck              rows are queued and the oldest is older than a drain
+ *                      that is running could explain.
+ *   working            things are moving, or there is nothing to move.
+ *
+ * A failure outranks a stuck queue: a queue that is not moving is usually the
+ * bot being restarted, and a row that has exhausted its attempts is somebody
+ * who was told nothing.
+ */
+function drawOutbox() {
+  const holder = document.querySelector('#adminOutbox');
+  if (!holder) return;
+
+  const outbox = payload?.outbox ?? null;
+
+  if (!outbox?.readable) {
+    holder.className = 'callout warn';
+    holder.innerHTML = `<p>${escapeHtml(t('admin.outboxUnreadable'))}</p>`;
+    return;
+  }
+
+  const summary = outbox.summary ?? {};
+  const queued = summary.queued ?? 0;
+  const claimed = summary.claimed ?? 0;
+  const failed = summary.failed ?? 0;
+  const sent = summary.sent_recently ?? 0;
+  const skipped = summary.skipped_recently ?? 0;
+
+  const waitingMinutes = summary.oldest_queued_at
+    ? Math.round((hoursSince(summary.oldest_queued_at) ?? 0) * 60)
+    : null;
+
+  let tone = 'note';
+  let headline;
+
+  if (failed > 0) {
+    tone = 'error';
+    headline = t('admin.outboxFailed', { count: failed });
+  } else if (waitingMinutes !== null && waitingMinutes > OUTBOX_STALE_MINUTES) {
+    tone = 'warn';
+    headline = t('admin.outboxStuck', {
+      count: queued,
+      when: formatDateTime(summary.oldest_queued_at),
+    });
+  } else if (queued + claimed + sent + skipped === 0) {
+    // Nothing has been sent and nothing is waiting. Said plainly rather than
+    // drawn as a healthy queue, because an empty table and a working bot look
+    // identical from here and only one of them has been demonstrated.
+    headline = t('admin.outboxNothing');
+  } else {
+    headline = t('admin.outboxOk', { count: sent });
+  }
+
+  const parts = [`<p>${escapeHtml(headline)}</p>`];
+
+  const counts = [
+    ['outboxQueued', queued],
+    // Claimed is in here rather than folded into queued because they are
+    // different claims: a queued row is waiting for the bot, and a claimed one
+    // is in its hands, either being sent now or waiting out a backoff.
+    ['outboxClaimed', claimed],
+    ['outboxSkipped', skipped],
+  ].filter(([, value]) => typeof value === 'number' && value > 0);
+
+  if (counts.length > 0) {
+    parts.push(
+      `<ul class="admin-cron-counts">${counts
+        .map(([key, value]) => `<li>${escapeHtml(t(`admin.${key}`, { count: value }))}</li>`)
+        .join('')}</ul>`
+    );
+  }
+
+  // The failures themselves, which are the only thing on this panel somebody
+  // can act on. No applicant is named, deliberately: this page is open to job
+  // posters and a list of who is being messaged is not.
+  const failures = Array.isArray(summary.recent_failures) ? summary.recent_failures : [];
+
+  if (failures.length > 0) {
+    parts.push(
+      `<ul class="admin-cron-flagged">${failures
+        .map(
+          (row) =>
+            `<li><strong>${escapeHtml(row.kind ?? '')}</strong> ` +
+            `<span class="muted">${escapeHtml(
+              t('admin.outboxFailureLine', {
+                when: formatDateTime(row.created_at),
+                attempts: row.attempts ?? 0,
+              })
+            )}</span>` +
+            (row.error ? `<br><span class="muted">${escapeHtml(row.error)}</span>` : '') +
+            '</li>'
+        )
+        .join('')}</ul>`
     );
   }
 

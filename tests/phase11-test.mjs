@@ -519,10 +519,18 @@ define('wiring', 'What the two halves have to agree about', async () => {
     `site ${siteRule}, bot ${botRule}`
   );
 
-  const siteClaims = /'claimed'/.test(siteUnlink.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, ''));
+  // **Reading a claimed row is fine and writing to one is not**, which is the
+  // distinction this check learned in part 4: the admin panel counts claimed
+  // rows so that "waiting for the bot" and "in the bot's hands" are different
+  // numbers on screen. So the rule is about statements rather than about the
+  // word. Every statement naming `claimed` must be a read.
+  const statements = siteUnlink
+    .replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '')
+    .split(';')
+    .filter((statement) => /'claimed'/.test(statement));
   check(
-    '30. and neither reaches into a row the drain has already claimed',
-    !siteClaims,
+    '30. and neither writes to a row the drain has already claimed',
+    statements.every((statement) => !/\.update\(|\.insert\(|\.delete\(/.test(statement)),
     'a claimed row belongs to the drain, and two writers on one row is how a claim stops meaning anything'
   );
 });
@@ -823,6 +831,242 @@ define('seam', 'What the site and the bot have to agree about for a code', async
     '52. and the bot carries its code message in both as well',
     (strings.match(/"code\.message":/g) ?? []).length === 2,
     'strings.py stops the bot on a mismatch, but only for keys that reached the file at all'
+  );
+});
+
+/* =========================================================================
+ * 7. Part 4. The outbox panel, and what the drain has to agree with
+ * ====================================================================== */
+
+define('outbox', 'The notification queue on /admin, and the drain behind it', async () => {
+  const server = await serveSite();
+  const browser = await chromium.launch();
+  const ctx = await browser.newContext({ baseURL: server.base, serviceWorkers: 'block' });
+  const page = await ctx.newPage();
+
+  const json = (data) => ({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ ok: true, data }),
+  });
+
+  // What /api/admin/stats answers, swapped between visits rather than by
+  // registering a second route, which Playwright matches in reverse order.
+  let outbox = null;
+
+  const baseStats = {
+    postings: { draft: 0, published: 0, closed: 0, archived: 0, closing_soon: 0, no_deadline: 0, draft_without_form: 0 },
+    applications_by_status: {},
+    recent_applications: [],
+    recent_registrations: [],
+    cron: { readable: false, run: null },
+  };
+
+  const APPLICANT_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+
+  const summary = (over) => ({
+    queued: 0,
+    claimed: 0,
+    failed: 0,
+    skipped_recently: 0,
+    sent_recently: 0,
+    oldest_queued_at: null,
+    recent_failures: [],
+    ...over,
+  });
+
+  const read = async () => {
+    await page.goto('/admin', { waitUntil: 'domcontentloaded' });
+    await until(page, () => (document.querySelector('#adminOutbox')?.textContent ?? '').trim().length > 0);
+    return page.evaluate(() => ({
+      className: document.querySelector('#adminOutbox')?.className ?? '',
+      text: document.querySelector('#adminOutbox')?.textContent ?? '',
+    }));
+  };
+
+  try {
+    await ctx.route('**/api/**', (route) => route.fulfill(json({})));
+    await ctx.route('**/api/admin/me*', (route) =>
+      route.fulfill(
+        json({
+          staff: { id: 'staff-1', username: 'admin', is_admin: true, is_editor: true },
+          locales: [{ code: 'en', native_name: 'English', is_default: true }],
+          counts: {},
+        })
+      )
+    );
+    await ctx.route('**/api/admin/stats*', (route) => route.fulfill(json({ ...baseStats, outbox })));
+
+    /* Could not be read, which is a third state ---------------------------- */
+
+    outbox = { readable: false, summary: null };
+    let panel = await read();
+    check(
+      '53. an unreadable queue says so rather than reading as empty',
+      panel.className.includes('warn') && /could not be read/i.test(panel.text),
+      panel.text.trim()
+    );
+
+    /* Nothing has ever been queued ---------------------------------------- */
+
+    outbox = { readable: true, summary: summary({}) };
+    panel = await read();
+    check(
+      '54. an empty table is said plainly and is not drawn as a healthy queue',
+      panel.className.includes('note') && /Nothing has been queued/i.test(panel.text),
+      panel.text.trim()
+    );
+
+    /* Working -------------------------------------------------------------- */
+
+    outbox = { readable: true, summary: summary({ sent_recently: 12, claimed: 1, skipped_recently: 3 }) };
+    panel = await read();
+    check(
+      '55. a queue that is moving reads as a note with the day\'s count',
+      panel.className.includes('note') && panel.text.includes('12'),
+      panel.text.trim()
+    );
+    check(
+      '56. and claimed is counted separately from queued',
+      /being sent now/i.test(panel.text),
+      'a queued row is waiting for the bot and a claimed one is in its hands'
+    );
+
+    /* Stuck ---------------------------------------------------------------- */
+
+    const anHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    outbox = { readable: true, summary: summary({ queued: 4, oldest_queued_at: anHourAgo }) };
+    panel = await read();
+    check(
+      '57. a queue that has stopped moving warns that the bot may not be running',
+      panel.className.includes('warn') && panel.text.includes('4'),
+      panel.text.trim()
+    );
+
+    /* Failed, which outranks stuck ----------------------------------------- */
+
+    outbox = {
+      readable: true,
+      summary: summary({
+        queued: 4,
+        failed: 2,
+        oldest_queued_at: anHourAgo,
+        recent_failures: [
+          {
+            id: 'n-1',
+            kind: 'telegram_test',
+            error: 'User is blocked',
+            attempts: 4,
+            created_at: anHourAgo,
+            applicant_id: APPLICANT_ID,
+          },
+        ],
+      }),
+    };
+    panel = await read();
+    check(
+      '58. a row that gave up is an error and outranks a slow queue',
+      panel.className.includes('error') && panel.text.includes('2'),
+      panel.text.trim()
+    );
+    check(
+      '59. the failure names its kind and its error, which is what an admin acts on',
+      panel.text.includes('telegram_test') && panel.text.includes('User is blocked'),
+      panel.text.trim()
+    );
+    // /admin is open to job posters as well as admins, and deviation 57 settled
+    // that a list naming applicants is the property that makes a panel admins
+    // only. The route sends no applicant at all; this is the check that a
+    // payload carrying one anyway never reaches the page.
+    check(
+      '60. and no applicant is named on it',
+      !panel.text.includes(APPLICANT_ID),
+      'a panel that named who was being messaged would have to be admins only'
+    );
+  } finally {
+    await browser.close();
+    server.close();
+  }
+
+  /* The two halves of the drain ------------------------------------------- */
+
+  const site = await readFile(join(SITE, 'api', '_lib', 'telegram.js'), 'utf8');
+  const drain = await readFile(join(HERE, '..', 'telegram-bot', 'outbox.py'), 'utf8');
+  const migration = await readFile(
+    join(HERE, '..', 'migrations', '011_telegram_and_notifications.sql'),
+    'utf8'
+  );
+
+  // The kind the site queues has to be one the drain can render, because the
+  // claim filters on exactly the renderers this build holds: a kind missing from
+  // that dictionary is not a broken message, it is a row that is never claimed
+  // at all and waits, silently, for a bot that knows it.
+  const queued = [...site.matchAll(/kind: '([a-z_]+)'/g)].map((match) => match[1]);
+  const renderable = [...drain.matchAll(/^\s{4}"([a-z_]+)": render/gm)].map((match) => match[1]);
+  check(
+    '61. every kind the site queues is one the drain can render',
+    queued.length > 0 && queued.every((kind) => renderable.includes(kind)),
+    `site queues ${queued.join(', ')}, the drain renders ${renderable.join(', ')}`
+  );
+
+  // Migration 011 constrains the status column, and PostgREST answers a
+  // violation with a 400 the drain logs and nothing else notices. Both files are
+  // read rather than trusted for the same reason phase 10 checks its two copies
+  // of the queue's verdict rule.
+  const allowed = (migration.match(/check \(status in \(([^)]+)\)\)/)?.[1] ?? '')
+    .split(',')
+    .map((value) => value.trim().replace(/'/g, ''));
+  const written = [...drain.matchAll(/finish\(\s*row,\s*"([a-z]+)"/g)].map((match) => match[1]);
+  check(
+    '62. every ending the drain writes is one the table allows',
+    allowed.length === 5 && written.length > 0 && written.every((status) => allowed.includes(status)),
+    `allowed ${allowed.join(', ')}, written ${[...new Set(written)].join(', ')}`
+  );
+
+  // Section 15 fixes the poll at fifteen to thirty seconds, and the number
+  // matters to the panel above as well as to the bot: the staleness threshold
+  // there is written against a drain that polls on that order.
+  const poll = Number(drain.match(/POLL_SECONDS = ([\d.]+)/)?.[1]);
+  check(
+    '63. the drain polls inside the window section 15 gives it',
+    poll >= 15 && poll <= 30,
+    `${poll}s`
+  );
+
+  // A claim taken and never finished is the restart mid drain, and the lease is
+  // the only thing that recovers it. A lease longer than the panel's staleness
+  // threshold would mean the panel accusing a healthy bot of being dead.
+  const lease = Number(drain.match(/LEASE_MINUTES = (\d+)/)?.[1]);
+  const stale = Number(
+    (await readFile(join(SITE, 'assets', 'js', 'admin-page.js'), 'utf8')).match(
+      /OUTBOX_STALE_MINUTES = (\d+)/
+    )?.[1]
+  );
+  check(
+    '64. and a claim expires well before the panel calls the queue stuck',
+    lease > 0 && stale > lease,
+    `lease ${lease} minutes, panel warns after ${stale}`
+  );
+
+  // The claim has to be one conditional update that answers with what it moved.
+  // Deviation 91 makes this a requirement rather than a preference: it is what
+  // makes a double send after a restart impossible rather than unlikely, and no
+  // amount of checking by hand would catch a select followed by an update.
+  const supabasePy = await readFile(join(HERE, '..', 'telegram-bot', 'supabase.py'), 'utf8');
+  const claim = supabasePy.match(/async def claim_notifications[\s\S]*?return rows/)?.[0] ?? '';
+  check(
+    '65. the claim is one conditional update and never a read followed by a write',
+    /await self\.update\(/.test(claim) && !/await self\.select\(|await self\.one\(/.test(claim),
+    'nothing reads then writes: the database decides which instance owns a row'
+  );
+
+  const en = JSON.parse(await readFile(join(SITE, 'assets', 'i18n', 'en.json'), 'utf8'));
+  const zh = JSON.parse(await readFile(join(SITE, 'assets', 'i18n', 'zh.json'), 'utf8'));
+  const added = Object.keys(en).filter((key) => key.startsWith('admin.outbox'));
+  check(
+    '66. every string part 4 added exists in both languages',
+    added.length >= 11 && added.every((key) => typeof zh[key] === 'string' && zh[key].length > 0),
+    `${added.length} keys`
   );
 });
 

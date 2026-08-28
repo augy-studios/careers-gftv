@@ -20,6 +20,7 @@ import { supabase, T } from '../_lib/supabase.js';
 import { localeFromRequest } from '../_lib/validate.js';
 import { bucketCounts } from '../_lib/admin-applications.js';
 import { lastRun } from '../_lib/cron.js';
+import { outboxSummary } from '../_lib/telegram.js';
 
 /** How many rows the two recent lists carry. Enough to scan, short enough to read. */
 const RECENT = 8;
@@ -33,12 +34,13 @@ export default async function handler(req, res) {
   const locale = localeFromRequest(req);
 
   try {
-    const [postings, buckets, applications, registrations, run] = await Promise.all([
+    const [postings, buckets, applications, registrations, run, outbox] = await Promise.all([
       postingCounts(),
       bucketCounts(),
       recentApplications(locale),
       recentRegistrations(),
       lastRun(),
+      outboxSummary(),
     ]);
 
     res.setHeader('Cache-Control', 'no-store');
@@ -58,6 +60,16 @@ export default async function handler(req, res) {
       // api/admin/me keeps when it sends null rather than zero for a count.
       // The panel says "could not be read" for that case and nothing else does.
       cron: { readable: run !== undefined, run: run ?? null },
+      // The Telegram outbox, phase 11 part 4. The same three states and for the
+      // same reason: "the table could not be read" is not a claim that nothing
+      // is waiting.
+      //
+      // It is on this page rather than on /admin/maintenance because it is the
+      // same kind of thing as the panel above it. Both report a process with no
+      // reader, and this one reports a process that is not even on this
+      // deployment: the bot runs on a VPS, so a queue that stops moving is the
+      // only sign the portal gets that it has stopped running.
+      outbox: { readable: outbox !== undefined, summary: outbox ?? null },
     });
   } catch (cause) {
     return failInternal(res, cause, 'admin stats');

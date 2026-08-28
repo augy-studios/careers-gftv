@@ -397,6 +397,101 @@ export async function queueTestMessage(applicantId) {
   if (error) throw error;
 }
 
+/** How much of the outbox's history the "recently" counts cover. */
+const OUTBOX_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/** How many failures the panel names. Enough to see a pattern, short enough to read. */
+const OUTBOX_FAILURES = 5;
+
+/**
+ * What the outbox looks like right now, for the panel on /admin.
+ *
+ * **Why the portal reads a table the bot owns.** Section 15 says a notification
+ * that keeps failing is left `failed` "for an admin to see", and until this
+ * existed the only place to see one was the Supabase dashboard. That is the same
+ * shape as the cron before phase 9 drew its last run: a process with no reader,
+ * failing quietly. The drain has one further problem the cron does not, which is
+ * that it runs on a VPS this repository does not deploy, so **a queue that stops
+ * moving is the only sign the portal ever gets that the bot is not running.**
+ * The oldest queued row is what says that, which is why it is here as a time
+ * rather than as part of a count.
+ *
+ * **Nothing here names an applicant.** /admin is open to job posters as well as
+ * admins, deviation 57's reasoning holds, and a list of who is being messaged is
+ * exactly the property that made phase 9's submission list admins only. A kind,
+ * an error and a time are enough to act on: the account behind a row is one
+ * query away for somebody who is allowed to make it.
+ *
+ * @returns {Promise<object|undefined>} undefined when the table could not be
+ *          read, which is a third state and never a claim that the queue is
+ *          empty.
+ */
+export async function outboxSummary() {
+  const since = new Date(Date.now() - OUTBOX_WINDOW_MS).toISOString();
+
+  const countFor = async (build) => {
+    const { count, error } = await build(
+      supabase.from(T.notifications).select('id', { count: 'exact', head: true })
+    );
+    if (error) throw error;
+    return count ?? 0;
+  };
+
+  try {
+    const [queued, claimed, failed, skipped, sentRecently, oldest, failures] =
+      await Promise.all([
+        countFor((q) => q.eq('status', 'queued')),
+        countFor((q) => q.eq('status', 'claimed')),
+        countFor((q) => q.eq('status', 'failed')),
+        countFor((q) => q.eq('status', 'skipped').gte('created_at', since)),
+        countFor((q) => q.eq('status', 'sent').gte('sent_at', since)),
+        supabase
+          .from(T.notifications)
+          .select('created_at')
+          .eq('status', 'queued')
+          .order('created_at', { ascending: true })
+          .limit(1),
+        supabase
+          .from(T.notifications)
+          .select('id, kind, error, attempts, created_at')
+          .eq('status', 'failed')
+          .order('created_at', { ascending: false })
+          .limit(OUTBOX_FAILURES),
+      ]);
+
+    if (oldest.error) throw oldest.error;
+    if (failures.error) throw failures.error;
+
+    return {
+      queued,
+      claimed,
+      failed,
+      // Skipped is windowed and the other two standing states are not, and the
+      // difference is what each one is for. A failure is work somebody may still
+      // have to do something about however old it is; a skip is finished
+      // business, an applicant who had no link at the time, and a lifetime total
+      // of those would only ever grow.
+      skipped_recently: skipped,
+      sent_recently: sentRecently,
+      oldest_queued_at: oldest.data?.[0]?.created_at ?? null,
+      recent_failures: (failures.data ?? []).map((row) => ({
+        id: row.id,
+        kind: row.kind,
+        error: row.error,
+        attempts: row.attempts ?? 0,
+        created_at: row.created_at,
+      })),
+    };
+  } catch (cause) {
+    // Never fatal to the page it is drawn on. The overview answers about
+    // postings and applications whether or not a bot exists, and a Telegram
+    // panel that could take the dashboard down with it would be a worse trade
+    // than one that says it could not be read.
+    console.error('outbox summary failed', cause);
+    return undefined;
+  }
+}
+
 /**
  * Remove the link, and stop anything queued for a chat that no longer exists.
  *

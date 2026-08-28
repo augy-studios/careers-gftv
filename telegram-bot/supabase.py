@@ -290,15 +290,20 @@ class Supabase:
             "telegram_tokens", {"id": f"eq.{row_id}"}, {"used_at": now_iso()}
         )
 
-    # -- the outbox, part 3's corner of it -------------------------------
+    # -- the outbox -----------------------------------------------------
 
     async def claim_notifications(self, kinds: tuple[str, ...], limit: int = 20) -> list[dict]:
         """Move a batch from queued to claimed, in one conditional update.
 
-        Section 15's rule, and part 4 widens the `kinds` filter rather than
-        writing this again: part 3 drains `telegram_test` alone, because that is
-        the only kind anything writes yet, and the claim it uses is already the
-        one the three real kinds need.
+        Section 15's rule, and the whole of the defence against a double send:
+        two instances polling a second apart cannot both be handed a row,
+        because the second one's update matches nothing.
+
+        **The kinds filter is what makes an older bot safe.** The site and the
+        bot are deployed separately, so the site can queue a kind this build has
+        never heard of; naming the kinds this build can actually render means
+        such a row is never claimed at all and waits, queued, for the pull that
+        teaches this process what it is.
         """
         rows = await self.update(
             "notifications",
@@ -312,11 +317,106 @@ class Supabase:
         )
         return rows
 
+    async def notification(self, row_id: str) -> dict | None:
+        """One outbox row, read back before a scheduled retry is sent.
+
+        The schedule lives in SQLite and the truth lives here, so a retry asks
+        again rather than sending from the copy it took fifteen minutes ago. A
+        row somebody has unlinked, an admin has touched, or another process has
+        finished is one this pass must leave alone.
+        """
+        return await self.one(
+            "notifications",
+            "id, applicant_id, kind, payload, status, attempts, error, claimed_at, created_at",
+            {"id": f"eq.{row_id}"},
+        )
+
+    async def stale_claims(self, claimed_before: str, limit: int = 50) -> list[dict]:
+        """Rows claimed long enough ago that nobody can still be sending them.
+
+        This is the restart mid drain, which section 15 names as the failure
+        worth walking by hand. A claim is a lease rather than a permanent
+        transfer: the process that took it can be killed between the claim and
+        the send, and without this the row would sit `claimed` forever, which is
+        the same shape as the queued row nobody drains that rule 3 exists to
+        prevent.
+        """
+        return await self.select(
+            "notifications",
+            "id, applicant_id, kind, payload, status, attempts, error, claimed_at, created_at",
+            {
+                "status": "eq.claimed",
+                "claimed_at": f"lt.{claimed_before}",
+                "order": "claimed_at.asc",
+            },
+            limit=limit,
+        )
+
+    async def requeue_notification(
+        self, row_id: str, attempts: int, error: str | None
+    ) -> bool:
+        """Put a row back in the queue, counting the attempt that was lost.
+
+        **Filtered on still being claimed**, so this cannot resurrect a row that
+        has since been sent or skipped by anything else. The attempt is counted
+        because an abandoned claim is one delivery this row has already cost,
+        and a row that abandons a claim every time has to reach `failed`
+        eventually rather than circling for ever.
+        """
+        rows = await self.update(
+            "notifications",
+            {"id": f"eq.{row_id}", "status": "eq.claimed"},
+            {
+                "status": "queued",
+                "claimed_at": None,
+                "attempts": attempts,
+                "error": error,
+            },
+        )
+        return len(rows) > 0
+
+    async def release_notification(self, row_id: str) -> bool:
+        """Hand a claimed row back untouched, as though it was never taken.
+
+        For a kind this build cannot render, which is the one case where nothing
+        has been attempted and nothing is wrong: a newer site queued something a
+        later pull will know how to send. No attempt is counted and no error is
+        written, because neither would be true.
+        """
+        rows = await self.update(
+            "notifications",
+            {"id": f"eq.{row_id}", "status": "eq.claimed"},
+            {"status": "queued", "claimed_at": None},
+        )
+        return len(rows) > 0
+
+    async def mark_attempt(self, row_id: str, attempts: int, error: str) -> None:
+        """Record a failed attempt on a row this process is still holding.
+
+        The status stays `claimed`, which is the honest word for it: the row is
+        owned, it is waiting out a backoff in SQLite, and nothing else should
+        touch it. What this writes is the count and the reason, so the admin
+        panel can say a row is being retried and why rather than showing a claim
+        that looks stuck.
+        """
+        await self.update(
+            "notifications",
+            {"id": f"eq.{row_id}"},
+            {"attempts": attempts, "error": error},
+        )
+
     async def finish_notification(
-        self, row_id: str, status: str, error: str | None = None
+        self,
+        row_id: str,
+        status: str,
+        error: str | None = None,
+        *,
+        attempts: int | None = None,
     ) -> None:
         """Record how a claimed row ended: sent, failed, or skipped."""
         patch: dict[str, Any] = {"status": status, "error": error}
+        if attempts is not None:
+            patch["attempts"] = attempts
         if status == "sent":
             patch["sent_at"] = now_iso()
         await self.update("notifications", {"id": f"eq.{row_id}"}, patch)

@@ -9,9 +9,10 @@ scheduling, rate limits and dedupe that go with sending.
 **Tables arrive with the part that reads them.** Phase 8 left the rule behind:
 a migration applied is not a feature shipped, and `032` created a view that
 nothing read for six parts. So part 1 creates the two it uses or is about to,
-and part 4's schedule table lands in part 4. `migrate()` is the mechanism for
-that, keyed on `PRAGMA user_version`, and a later part appends to MIGRATIONS
-rather than editing what is already applied on the VPS.
+part 3's rate limit landed with `/code`, and part 4's send schedule landed with
+the drain that reads it. `migrate()` is the mechanism for that, keyed on
+`PRAGMA user_version`, and a later part appends to MIGRATIONS rather than
+editing what is already applied on the VPS.
 
 The callbacks registry is the reason the spec asks for SQLite at all: the
 payload behind a button is stored here and looked up on click, so a button in a
@@ -24,7 +25,7 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 log = logging.getLogger("bot.db")
@@ -77,6 +78,33 @@ MIGRATIONS: tuple[tuple[str, ...], ...] = (
         )
         """,
         "create index if not exists rate_limits_locked_idx on rate_limits (locked_until)",
+    ),
+    # 3. Part 4. When a notification may next be tried, per section 15's
+    # "handle flood wait errors by rescheduling in SQLite rather than sleeping
+    # the whole worker".
+    #
+    # **A row in here is one the drain still owns.** It stays `claimed` in
+    # Supabase for as long as it is scheduled, so no other claim can take it,
+    # and this file says when it may next be handed to Telegram. The two halves
+    # answer different questions on purpose: Supabase answers "who owns this
+    # row", which has to survive this machine being replaced, and SQLite answers
+    # "when may this process send again", which is worth nothing anywhere else.
+    #
+    # It is durable rather than in memory because the schedule outliving a
+    # restart is the whole point: a bot restarted a minute into a fifteen minute
+    # backoff should carry on waiting, not start again from nothing.
+    (
+        """
+        create table if not exists outbox_schedule (
+          notification_id text primary key,
+          kind            text,
+          attempts        integer not null default 0,
+          not_before      text not null,
+          reason          text,
+          updated_at      text not null
+        )
+        """,
+        "create index if not exists outbox_schedule_due_idx on outbox_schedule (not_before)",
     ),
 )
 
@@ -270,6 +298,100 @@ def clear_attempts(conn: sqlite3.Connection, bucket: str, subject: str) -> None:
     conn.execute(
         "delete from rate_limits where bucket = ? and subject = ?", (bucket, subject)
     )
+
+
+# -- the outbox schedule, part 4 --------------------------------------------
+#
+# Every time in here is written by `later()` and compared as a string. That only
+# works because they all carry the same shape and the same offset, UTC to the
+# second, which is what `now_iso()` produces: an ISO timestamp sorts correctly
+# as text only among timestamps written the same way. Nothing outside this file
+# writes these columns.
+
+
+def later(seconds: int) -> str:
+    """A time this many seconds from now, in the one format this file uses."""
+    return (
+        datetime.now(timezone.utc) + timedelta(seconds=seconds)
+    ).isoformat(timespec="seconds")
+
+
+def schedule_send(
+    conn: sqlite3.Connection,
+    notification_id: str,
+    *,
+    kind: str | None,
+    attempts: int,
+    not_before: str,
+    reason: str | None,
+) -> None:
+    """Say when this row may next be handed to Telegram.
+
+    An upsert rather than an insert: a row that fails twice is one schedule
+    entry moved forward, not two rows racing to be the next attempt.
+    """
+    conn.execute(
+        "insert into outbox_schedule "
+        "(notification_id, kind, attempts, not_before, reason, updated_at) "
+        "values (?, ?, ?, ?, ?, ?) "
+        "on conflict (notification_id) do update set "
+        "kind = excluded.kind, attempts = excluded.attempts, "
+        "not_before = excluded.not_before, reason = excluded.reason, "
+        "updated_at = excluded.updated_at",
+        (notification_id, kind, attempts, not_before, reason, now_iso()),
+    )
+
+
+def due_sends(conn: sqlite3.Connection, limit: int = 20) -> list[dict]:
+    """The scheduled rows whose wait is over, oldest deadline first."""
+    rows = conn.execute(
+        "select notification_id, kind, attempts, not_before, reason "
+        "from outbox_schedule where not_before <= ? "
+        "order by not_before asc limit ?",
+        (now_iso(), limit),
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def scheduled_ids(conn: sqlite3.Connection) -> set[str]:
+    """Every notification this process is still holding a schedule for.
+
+    The stale claim sweep asks for this before it decides a `claimed` row has
+    been abandoned. A row waiting out a fifteen minute backoff is claimed, is
+    older than the lease, and is not abandoned at all, and taking it back would
+    turn this process's own patience into a second delivery attempt.
+    """
+    rows = conn.execute("select notification_id from outbox_schedule").fetchall()
+    return {row["notification_id"] for row in rows}
+
+
+def forget_send(conn: sqlite3.Connection, notification_id: str) -> None:
+    """Drop the schedule entry, once the row has reached an ending."""
+    conn.execute(
+        "delete from outbox_schedule where notification_id = ?", (notification_id,)
+    )
+
+
+def pause_sends(conn: sqlite3.Connection, until: str) -> None:
+    """Hold every send until this time, and never bring one forward.
+
+    Telegram's flood wait is about this bot rather than about one chat, so the
+    pause is global. It is written here rather than kept in a variable for the
+    reason the schedule is: a restart during a flood wait must not be a way of
+    starting the flooding again a second later.
+    """
+    current = get_meta(conn, "outbox_paused_until")
+    if current and current >= until:
+        return
+    set_meta(conn, "outbox_paused_until", until)
+
+
+def sends_paused_until(conn: sqlite3.Connection) -> str | None:
+    """The pause, if one is still in force. None once it has passed."""
+    until = get_meta(conn, "outbox_paused_until")
+    if until and until > now_iso():
+        return until
+    return None
 
 
 def read_callback(conn: sqlite3.Connection, callback_id: str) -> dict | None:
