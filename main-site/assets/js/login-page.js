@@ -1,13 +1,19 @@
 // The applicant sign in page.
 //
 // Section 5b: username or email, plus password. Section 5d: "stay signed in"
-// is its own control and is about the session only. There is no "trust this
-// device" here, because the applicant realm has no second factor until
-// Telegram ships in phase 11, and 5d forbids offering trust on the password
-// screen in any case.
+// is its own control and is about the session only. "Trust this device" is on
+// the second step and never here, per 5d.
+//
+// **The second step is drawn from what the account actually offers.** The
+// password step answers with a list of methods, and this page shows the
+// controls for those and no others: a passkey button for an account with a
+// passkey, the Telegram note for an account with the code switched on, and one
+// code field that takes either kind of code. An account with both sees both,
+// because phase 11 part 3 added a factor rather than replacing one.
 //
 // The ?redirect= from section 4 is carried through, so somebody who was sent
-// here from a posting lands back on it.
+// here from a posting lands back on it. ?magic= is the other parameter this
+// page reads, and it is how a one tap link that could not be used says why.
 
 import { api, applicantSession } from './api.js';
 import {
@@ -29,11 +35,33 @@ const DEFAULT_AFTER_LOGIN = '/account/security';
 // it is worth nothing on its own, and it must not outlive this page.
 let challenge = null;
 
+// What the account offered at the password step. Nothing is drawn from a guess
+// about which factors exist: the server said, and this is what it said.
+let methods = [];
+
+/**
+ * Why a one tap link did not sign somebody in.
+ *
+ * Every one of these sends them back here to type the code instead, which is
+ * why they are notes rather than errors: the link failing is inconvenient and
+ * the way through is on screen. `wrong_browser` is the one worth wording
+ * carefully, because it is also what a forwarded link looks like, and the
+ * person reading it is usually the one who did the forwarding.
+ */
+const MAGIC_REASONS = {
+  unknown: 'auth.magicUnknown',
+  no_nonce: 'auth.magicNoNonce',
+  wrong_browser: 'auth.magicWrongBrowser',
+  off: 'auth.magicOff',
+  error: 'auth.magicError',
+};
+
 function boot() {
   const form = document.querySelector('#loginForm');
   if (!form) return;
 
   wirePasswordToggles(document);
+  showMagicOutcome();
 
   // Carry the redirect on the two links out of this page, so the round trip
   // survives a detour through registering or recovering.
@@ -97,7 +125,8 @@ function boot() {
     // exists, which is the whole point of the two steps.
     if (result.data?.two_factor_required === true) {
       challenge = result.data.challenge;
-      showSecondStep();
+      methods = Array.isArray(result.data.methods) ? result.data.methods : [];
+      showSecondStep(result.data.code_requested === true);
       return;
     }
 
@@ -108,21 +137,60 @@ function boot() {
    * The second step
    * ------------------------------------------------------------------ */
 
-  function showSecondStep() {
+  function showSecondStep(codeRequested) {
     form.hidden = true;
     document.querySelector('#registerCard')?.setAttribute('hidden', '');
     document.querySelector('#step2').hidden = false;
 
+    const telegram = methods.includes('telegram_code');
+    const passkey = methods.includes('passkey');
+
+    // The wording is swapped by moving the key rather than by writing text over
+    // it, so a language change after the step is on screen redraws the sentence
+    // that belongs to this account rather than the one in the markup.
+    retranslate('#secondStepBody', telegram && passkey
+      ? 'auth.secondStepBoth'
+      : telegram
+        ? 'auth.secondStepTelegram'
+        : 'auth.secondStepBody');
+
+    retranslate('#codeFormHeading', telegram ? 'auth.telegramCodeHeading' : 'auth.backupCodeHeading');
+    retranslate('#codeFormLabel', telegram ? 'auth.telegramCodeLabel' : 'auth.backupCodeLabel');
+    retranslate('#codeFormHint', telegram ? 'auth.telegramCodeHint' : 'auth.backupCodeHint');
+
+    const note = document.querySelector('#telegramCodeNote');
+    if (note) {
+      // Only when a code was actually asked for. Telling somebody a code is on
+      // its way when the request to send it failed is the one sentence on this
+      // page that would leave them waiting for nothing.
+      note.hidden = !codeRequested;
+      if (telegram && !codeRequested) secondStepError(t('auth.telegramCodeNotSent'));
+    }
+
     const usePasskeyButton = document.querySelector('#usePasskeyButton');
-    if (!passkeysSupported()) {
-      // Nothing to click on a browser that cannot do this. The backup code
-      // form below it still works, which is exactly why that path exists.
+    const codeField = document.querySelector('#backupCodeForm').elements.namedItem('code');
+
+    // Not offered when the account has none. The button used to be shown to
+    // everybody who reached this step because a passkey was the only way to
+    // reach it; an account with Telegram alone would now be looking at a
+    // control that can only fail.
+    if (!passkey) {
       usePasskeyButton.hidden = true;
-      secondStepError(t('auth.passkeyUnsupportedHere'));
-      document.querySelector('#backupCodeForm').elements.namedItem('code')?.focus();
+      codeField?.focus();
       return;
     }
 
+    if (!passkeysSupported()) {
+      // Nothing to click on a browser that cannot do this. The code form below
+      // it still works, which is exactly why that path exists.
+      usePasskeyButton.hidden = true;
+      secondStepError(t('auth.passkeyUnsupportedHere'));
+      codeField?.focus();
+      return;
+    }
+
+    // The passkey is the faster of the two when it is there, so it keeps the
+    // focus even for an account that also has a code on the way.
     usePasskeyButton.focus();
   }
 
@@ -205,6 +273,22 @@ function boot() {
     finish(result.data);
   });
 
+  /**
+   * Point an element at a different dictionary key and redraw it now.
+   *
+   * The attribute is what survives: translateDom re-reads it on every
+   * gftv:localechange, so an element whose text was assigned directly would
+   * snap back to the markup's wording the moment somebody switched language
+   * mid sign in. That is the rule the build already has, arriving from the one
+   * direction where it is easy to miss.
+   */
+  function retranslate(selector, key) {
+    const element = document.querySelector(selector);
+    if (!element) return;
+    element.setAttribute('data-i18n', key);
+    element.textContent = t(key);
+  }
+
   function secondStepError(message) {
     const holder = document.querySelector('#secondStepError');
     if (!holder) return;
@@ -240,6 +324,33 @@ function boot() {
 
     window.location.href = remaining === 0 ? '/account/security?codes=none' : target;
   }
+}
+
+/**
+ * Say why a one tap link did not work, and take the parameter off the URL.
+ *
+ * The parameter is stripped with history.replaceState, which is what every
+ * other deep link in this build does with its own: leaving it there means the
+ * sentence comes back on every refresh, long after it stopped being true, and
+ * it means somebody's bookmark carries a note about a link they used last week.
+ */
+function showMagicOutcome() {
+  const form = document.querySelector('#loginForm');
+  const params = new URLSearchParams(window.location.search);
+  const reason = params.get('magic');
+  if (!form || !reason) return;
+
+  // An unrecognised value is somebody editing the URL. The generic sentence is
+  // the honest answer to it and to a reason a later part might add.
+  showFormMessage(form, 'note', t(MAGIC_REASONS[reason] ?? 'auth.magicUnknown'));
+
+  params.delete('magic');
+  const query = params.toString();
+  window.history.replaceState(
+    {},
+    '',
+    `${window.location.pathname}${query ? `?${query}` : ''}`
+  );
 }
 
 if (document.readyState === 'loading') {

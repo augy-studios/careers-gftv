@@ -87,6 +87,37 @@ STRINGS: dict[str, dict[str, str]] = {
         ),
         "unlink.done": "Unlinked. You can link this account again whenever you like.",
         "unlink.failed": "We could not reach the portal just now. Nothing has changed.",
+        "button.signIn": "Sign in",
+        # The code is on its own line and nothing follows it on that line, so
+        # tapping to copy on a phone takes the code and not a sentence around it.
+        "code.message": (
+            "<b>{code}</b>\n\n"
+            "Your sign in code. It works once and lasts five minutes.\n\n"
+            "If you did not just try to sign in, somebody has your password. "
+            "Do not enter this code, and change your password on the portal."
+        ),
+        "code.notLinked": (
+            "This Telegram account is not linked to a portal account, so there "
+            "is nothing to sign in to. Send /link to see how to link one."
+        ),
+        "code.notEnabled": (
+            "This account does not ask for a code when it signs in, so there is "
+            "nowhere to type one. You can turn that on in account settings, "
+            "under Telegram."
+        ),
+        "code.tooMany": (
+            "That is a lot of codes. Try again in about {minutes} minutes, or "
+            "use one of your two factor backup codes to sign in."
+        ),
+        "code.failed": (
+            "We could not reach the portal just now, so no code was issued. "
+            "Please try that again in a moment."
+        ),
+        "test.message": (
+            "This is the test message you asked for in account settings. "
+            "Everything is working, and this is what a notification from the "
+            "portal will look like."
+        ),
         "callback.unknown": "That button is too old to act on. Send the command again.",
         "callback.notYours": "That button belongs to somebody else's conversation.",
         "feature.unavailable": (
@@ -150,6 +181,30 @@ STRINGS: dict[str, dict[str, str]] = {
         ),
         "unlink.done": "已解除关联。您随时可以重新关联这个账户。",
         "unlink.failed": "我们暂时无法连接到求职网站，您的账户没有任何改动。",
+        "button.signIn": "登录",
+        "code.message": (
+            "<b>{code}</b>\n\n"
+            "这是您的登录验证码，只能使用一次，有效期五分钟。\n\n"
+            "如果这不是您本人正在登录，说明有人知道了您的密码。"
+            "请不要输入此验证码，并立即到求职网站上修改密码。"
+        ),
+        "code.notLinked": (
+            "这个 Telegram 账户尚未关联任何求职账户，因此没有可以登录的账户。"
+            "发送 /link 可以了解如何关联。"
+        ),
+        "code.notEnabled": (
+            "这个账户在登录时不需要验证码，因此没有地方可以输入。"
+            "您可以在账户设置的 Telegram 部分开启这项功能。"
+        ),
+        "code.tooMany": (
+            "验证码请求次数过多。请在大约 {minutes} 分钟后再试，"
+            "或使用您的双重验证备用码登录。"
+        ),
+        "code.failed": "我们暂时无法连接到求职网站，因此没有生成验证码。请稍后再试一次。",
+        "test.message": (
+            "这是您在账户设置中请求的测试消息。一切正常，"
+            "求职网站发来的通知就是这个样子。"
+        ),
         "callback.unknown": "这个按钮太旧了，无法继续操作。请重新发送该指令。",
         "callback.notYours": "这个按钮属于其他人的对话。",
         "feature.unavailable": "此功能将在第 {phase} 阶段推出，给您带来不便，敬请谅解。",

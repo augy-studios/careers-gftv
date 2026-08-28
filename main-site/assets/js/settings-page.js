@@ -35,7 +35,7 @@ import { mountAccountPage, renderAccountIdentity, avatarNode } from './account-s
 import { escapeHtml } from './account-row.js';
 import { confirmDangerousAction } from './danger-confirm.js';
 import { toAvatarWebp, canEncodeWebp, AvatarError } from './avatar.js';
-import { mountTelegram } from './telegram-link.js';
+import { mountTelegram, telegramTwofaOn } from './telegram-link.js';
 import { wipeAll } from './idb.js';
 import {
   clearErrors,
@@ -346,6 +346,22 @@ function reportTargetLine(report) {
  * The danger zone
  * ---------------------------------------------------------------------- */
 
+/**
+ * Ask for a code to be pushed while the fourth panel is opening.
+ *
+ * Answers the sentence to draw under the field, never a thrown error: the code
+ * step works without this request succeeding, because `/code` in the chat
+ * issues one too. What differs is only what the note says.
+ */
+async function requestDangerCode() {
+  const result = await api('/api/account/telegram', {
+    method: 'POST',
+    body: { action: 'code' },
+  });
+
+  return result.ok ? t('danger.codeSent') : t('danger.codeNotSent');
+}
+
 function wireDangerZone() {
   const button = document.querySelector('#deleteAccount');
   if (!button) return;
@@ -367,6 +383,12 @@ function wireDangerZone() {
       irreversible: t('settings.deleteForms'),
       confirmLabel: t('settings.deleteAction'),
       username: user.username,
+      // 7g step 3's second half, from phase 11 part 3: with Telegram 2FA on,
+      // the danger zone asks for a fresh code as well as the password. What is
+      // read here is only what to draw. The endpoint asks the database the same
+      // question again and refuses without a code whatever this said.
+      requireCode: telegramTwofaOn(),
+      onCodeStep: requestDangerCode,
     });
 
     if (!confirmed) return;
@@ -377,6 +399,7 @@ function wireDangerZone() {
       body: {
         confirm_username: user.username,
         password: confirmed.password,
+        code: confirmed.code,
       },
     });
 

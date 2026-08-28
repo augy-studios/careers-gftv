@@ -290,12 +290,47 @@
 
                     <div id="telegramLinked" class="stack" hidden>
                         <p id="telegramLinkedLine"></p>
-                        <button type="button" class="btn btn-secondary" id="telegramUnlink"
-                                data-feature="telegram_link" data-feature-hint
-                                data-needs-network data-needs-network-hint
-                                data-i18n="settings.telegramUnlink">
-                            Unlink Telegram
-                        </button>
+
+                        <!-- 7g's three controls for a linked account: a test
+                             message, the second factor switch, and the unlink.
+                             The switch carries telegram_2fa rather than
+                             telegram_link, because 8.12 can take the second
+                             factor down without taking linking with it, and a
+                             switch that claimed otherwise would be the site
+                             disagreeing with its own maintenance page. -->
+                        <div class="stack" id="telegramTwofa">
+                            <label class="check-row">
+                                <input type="checkbox" id="telegramTwofaToggle"
+                                       data-feature="telegram_2fa"
+                                       data-needs-network>
+                                <span data-i18n="settings.telegramTwofaLabel">
+                                    Ask for a code from Telegram when I sign in
+                                </span>
+                            </label>
+                            <p class="field-hint" data-i18n="settings.telegramTwofaHint">
+                                Your password is still asked for every time. If
+                                you ever lose Telegram, one of your two factor
+                                backup codes gets you past this step, so keep
+                                that set somewhere you can reach without your
+                                phone.
+                            </p>
+                            <p class="callout danger" id="telegramTwofaError" role="alert" hidden></p>
+                        </div>
+
+                        <p class="button-row">
+                            <button type="button" class="btn btn-secondary" id="telegramTest"
+                                    data-feature="telegram_link" data-feature-hint
+                                    data-needs-network data-needs-network-hint
+                                    data-i18n="settings.telegramTest">
+                                Send a test message
+                            </button>
+                            <button type="button" class="btn btn-secondary" id="telegramUnlink"
+                                    data-feature="telegram_link" data-feature-hint
+                                    data-needs-network
+                                    data-i18n="settings.telegramUnlink">
+                                Unlink Telegram
+                            </button>
+                        </p>
                     </div>
                 </section>
 

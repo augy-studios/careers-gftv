@@ -59,7 +59,38 @@ MIGRATIONS: tuple[tuple[str, ...], ...] = (
         """,
         "create index if not exists callbacks_kind_idx on callbacks (kind)",
     ),
+    # 2. Part 3. The per Telegram user half of section 15's rate limit.
+    #
+    # The site holds the per account half in gftvjobs_rate_limits and cannot
+    # hold this one: it never learns which Telegram account is typing, and the
+    # thing being bounded here is a person sending /code over and over. Same
+    # shape as the site's table, deliberately, so the two read the same way.
+    (
+        """
+        create table if not exists rate_limits (
+          bucket       text not null,
+          subject      text not null,
+          window_start text not null,
+          attempts     integer not null default 0,
+          locked_until text,
+          primary key (bucket, subject, window_start)
+        )
+        """,
+        "create index if not exists rate_limits_locked_idx on rate_limits (locked_until)",
+    ),
 )
+
+# How many, how long a window, and how long the lock lasts.
+#
+# Deliberately looser than the site's telegramCode bucket at ten an hour. This
+# one counts requests from one Telegram account, and somebody who has just
+# linked and is trying the thing out is the ordinary case rather than the
+# suspicious one. What it stops is a script holding a chat open and issuing
+# codes at an account all afternoon, which would be a notification every few
+# seconds on somebody's phone.
+LIMITS: dict[str, tuple[int, int, int]] = {
+    "code": (12, 60 * 60, 30 * 60),
+}
 
 
 def now_iso() -> str:
@@ -178,6 +209,66 @@ def remember_callback(
             chat_id,
             now_iso(),
         ),
+    )
+
+
+def note_attempt(conn: sqlite3.Connection, bucket: str, subject: str) -> int:
+    """Count one attempt, and answer how many seconds to wait, or zero.
+
+    **Counted before the work rather than after**, because what is being limited
+    here is asking rather than failing: every /code that answers puts a message
+    on somebody's phone, so a successful one costs exactly what a pointless one
+    does and should be counted the same.
+
+    A fixed window, like the site's. The same slippage applies and matters even
+    less: the worst case is a couple of extra codes on a limit of twelve.
+    """
+    limit, window, lock = LIMITS[bucket]
+    now = int(datetime.now(timezone.utc).timestamp())
+    window_start = str(now - (now % window))
+
+    row = conn.execute(
+        "select attempts, locked_until from rate_limits "
+        "where bucket = ? and subject = ? and window_start = ?",
+        (bucket, subject, window_start),
+    ).fetchone()
+
+    locked = conn.execute(
+        "select max(locked_until) as until from rate_limits "
+        "where bucket = ? and subject = ?",
+        (bucket, subject),
+    ).fetchone()
+
+    until = int(locked["until"]) if locked and locked["until"] else 0
+    if until > now:
+        # Already locked out. Not counted again: an attempt that was refused
+        # before it did anything must not extend the lock it just met, or a
+        # lockout becomes something nobody can wait out.
+        return until - now
+
+    attempts = (row["attempts"] if row else 0) + 1
+    locked_until = str(now + lock) if attempts >= limit else None
+
+    conn.execute(
+        "insert into rate_limits (bucket, subject, window_start, attempts, locked_until) "
+        "values (?, ?, ?, ?, ?) "
+        "on conflict (bucket, subject, window_start) do update set "
+        "attempts = excluded.attempts, locked_until = excluded.locked_until",
+        (bucket, subject, window_start, attempts, locked_until),
+    )
+
+    return lock if locked_until else 0
+
+
+def clear_attempts(conn: sqlite3.Connection, bucket: str, subject: str) -> None:
+    """Forget one subject's counters. Nothing calls this on a code request.
+
+    It is here for the shape rather than for a caller: the site clears a bucket
+    when somebody gets a password right, and there is no equivalent moment here,
+    because asking for a code is not a guess at anything.
+    """
+    conn.execute(
+        "delete from rate_limits where bucket = ? and subject = ?", (bucket, subject)
     )
 
 

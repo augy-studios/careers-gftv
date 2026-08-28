@@ -1,8 +1,11 @@
 // POST /api/account/danger/delete
 //
-// Section 7g's danger zone, the only destructive action it lists that this phase
-// can actually perform. Unlinking Telegram and disabling Telegram 2FA are the
-// other two, and both wait for phase 11 to have a Telegram to unlink.
+// Section 7g's danger zone. Unlinking Telegram and disabling Telegram 2FA are
+// the other two actions it lists, and both landed in phase 11 on the settings
+// page's own panel rather than here: deleting an account is the one that cannot
+// be undone, and it is the only one that needs this file's ritual in full.
+//
+// Phase 11 part 3 added 7g step 3's second half, the fresh Telegram code.
 //
 // **There is no separate verify-password route, and that is deliberate.**
 // Section 9 lists `api/account/danger/*` as "verify password, then each
@@ -46,6 +49,7 @@ import { ok, fail, ERR, methodNotAllowed, failInternal, readJson } from '../../_
 import { supabase, T } from '../../_lib/supabase.js';
 import { requireApplicant } from '../../_lib/session.js';
 import { verifyRealmPassword } from '../../_lib/accounts.js';
+import { linkState, verifyLoginCode } from '../../_lib/telegram.js';
 import { AUDIT, recordAudit } from '../../_lib/audit.js';
 import { removeAllAvatarObjects } from '../../_lib/avatars.js';
 import { clearCookie, COOKIE } from '../../_lib/cookies.js';
@@ -84,10 +88,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Step 3. If Telegram 2FA is ever enabled on an account, 7g requires a fresh
-    // code from the bot at this step as well. Phase 11 owns that, and there is
-    // nothing to ask for until it exists, so there is no half check here
-    // pretending otherwise.
+    // Step 3, the password half.
     const correct = await verifyRealmPassword('applicant', session.user.id, body.password);
 
     if (!correct) {
@@ -95,6 +96,31 @@ export default async function handler(req, res) {
       return fail(res, ERR.UNAUTHORISED, 'That password was not right.', {
         details: { password: FIELD.INVALID },
       });
+    }
+
+    // Step 3, the second factor half, added by phase 11 part 3. 7g: "If Telegram
+    // 2FA is enabled on the account, also require a fresh code from the bot at
+    // this step, since that is the point of having it."
+    //
+    // **A trusted device never gets past this**, which 5d says outright and
+    // which is the reason the check is on the account rather than on the
+    // browser: trust exists to save somebody a step at sign in, and the thing
+    // being asked for here is not a sign in.
+    //
+    // The read fails closed. An account that says it wants a code, on a request
+    // where we could not find out whether the code was right, does not get to
+    // delete itself on the strength of a password.
+    const link = await linkState(session.user.id);
+
+    if (link?.twofaEnabled === true) {
+      const verified = await verifyLoginCode(session.user.id, body.code);
+
+      if (!verified) {
+        await recordFailures('danger', subjects, LIMITS.danger);
+        return fail(res, ERR.UNAUTHORISED, 'That code was not right.', {
+          details: { code: FIELD.INVALID },
+        });
+      }
     }
 
     // Before the delete, never after. The account is about to stop existing and

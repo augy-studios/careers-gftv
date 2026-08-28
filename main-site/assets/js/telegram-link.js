@@ -13,6 +13,12 @@
 // token expires, the moment the link appears, and whenever the section is put
 // away, because a poll nobody is watching is a request nobody asked for.
 //
+// **Part 3 added the three controls 7g asks for on a linked account**: the test
+// message, the second factor switch, and the unlink that was already here. The
+// switch is the only control on this page that changes how somebody signs in,
+// which is why it puts itself back when the server refuses rather than sitting
+// where it was left claiming a state the account does not have.
+//
 // **The token is shown once and is never stored.** It lives in a variable for
 // as long as the panel is open. Nothing goes into localStorage or IndexedDB: it
 // is a credential with a ten minute life, and phase 10's own rule is that what
@@ -36,6 +42,19 @@ let poll = null;
 let expiresAt = null;
 let countdown = null;
 
+/**
+ * Whether this account asks for a Telegram code at sign in.
+ *
+ * Read by the danger zone, which has to know whether to draw 7g step 3's fourth
+ * panel. It answers false while the state is unknown, which is the safe
+ * direction for exactly one reason: the endpoint asks the database the same
+ * question and refuses without a code regardless, so being wrong here shows
+ * somebody one panel too few rather than letting anything through.
+ */
+export function telegramTwofaOn() {
+  return state.link?.twofaEnabled === true;
+}
+
 export function mountTelegram() {
   const section = document.querySelector('#telegramSection');
   if (!section) return;
@@ -51,6 +70,14 @@ export function mountTelegram() {
   });
   document.querySelector('#telegramCopy')?.addEventListener('click', () => {
     runAction(copyLink, 'copy telegram link');
+  });
+  document.querySelector('#telegramTest')?.addEventListener('click', () => {
+    runAction(sendTest, 'send telegram test message');
+  });
+
+  // change rather than click, so the keyboard and the pointer both arrive here.
+  document.querySelector('#telegramTwofaToggle')?.addEventListener('change', (event) => {
+    runAction(() => setTwofa(event.target.checked === true), 'toggle telegram 2fa');
   });
 
   // The linked line and the countdown are written rather than translated in
@@ -120,6 +147,81 @@ function showLinked(link) {
   line.textContent = who
     ? t('settings.telegramLinkedAs', { who, date: formatDate(link.linkedAt) })
     : t('settings.telegramLinkedOn', { date: formatDate(link.linkedAt) });
+
+  const toggle = document.querySelector('#telegramTwofaToggle');
+  if (toggle) toggle.checked = link.twofaEnabled === true;
+  twofaError(null);
+}
+
+/* -------------------------------------------------------------------------
+ * The second factor, and the test message
+ * ---------------------------------------------------------------------- */
+
+/**
+ * Switch the code at sign in on or off.
+ *
+ * **The checkbox is put back when the server refuses.** A control that stays
+ * where somebody left it while the account says otherwise is the worst kind of
+ * wrong: it is a security setting reporting a state it does not have. The
+ * refusal worth handling by name is 5c's, that a 2FA backup code set has to
+ * exist first, and it is answered with the sentence and a way to the page that
+ * generates one rather than with a generic failure.
+ */
+async function setTwofa(enabled) {
+  twofaError(null);
+
+  const result = await api('/api/account/telegram', {
+    method: 'POST',
+    body: { action: 'twofa', enabled },
+  });
+
+  if (!result.ok) {
+    const toggle = document.querySelector('#telegramTwofaToggle');
+    if (toggle) toggle.checked = state.link?.twofaEnabled === true;
+
+    twofaError(
+      result.error?.details?.reason === 'no_backup_codes'
+        ? t('settings.telegramTwofaNeedsCodes')
+        : (result.error?.message ?? t('error.unexpected'))
+    );
+    return;
+  }
+
+  if (state.link) state.link.twofaEnabled = result.data.twofaEnabled === true;
+
+  accountMessage(
+    'ok',
+    result.data.twofaEnabled ? t('settings.telegramTwofaOn') : t('settings.telegramTwofaOff')
+  );
+}
+
+/**
+ * Ask for a test message.
+ *
+ * It says a message is on its way rather than that one has arrived, which is
+ * the only thing this side knows: the site writes a row and returns, and the
+ * bot sends it on its own schedule. Claiming delivery would be the page
+ * asserting something no part of the site ever finds out.
+ */
+async function sendTest() {
+  const result = await api('/api/account/telegram', {
+    method: 'POST',
+    body: { action: 'test' },
+  });
+
+  accountMessage(
+    result.ok ? 'ok' : 'error',
+    result.ok
+      ? t('settings.telegramTestSent')
+      : (result.error?.message ?? t('error.unexpected'))
+  );
+}
+
+function twofaError(message) {
+  const holder = document.querySelector('#telegramTwofaError');
+  if (!holder) return;
+  holder.textContent = message ?? '';
+  holder.hidden = !message;
 }
 
 /* -------------------------------------------------------------------------
@@ -270,6 +372,11 @@ async function remove() {
     consequences: [
       t('settings.telegramUnlinkConsequence1'),
       t('settings.telegramUnlinkConsequence2'),
+      // Added in part 3, and it belongs in the list whether or not the switch
+      // is on today: unlinking revokes every trusted device either way, so a
+      // panel that only mentioned it sometimes would surprise somebody the one
+      // time it mattered.
+      t('settings.telegramUnlinkConsequence3'),
     ],
     confirmLabel: t('settings.telegramUnlinkConfirm'),
   });

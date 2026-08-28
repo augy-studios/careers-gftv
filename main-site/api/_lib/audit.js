@@ -129,6 +129,17 @@ export const AUDIT = Object.freeze({
   // is still the applicant's action.
   TELEGRAM_LINKED: 'telegram_linked',
   TELEGRAM_UNLINKED: 'telegram_unlinked',
+  // Part 3, and both directions for the reason the two feature actions above
+  // have both: turning a second factor off is the event worth having a record
+  // of, and a log that recorded only that could never say how long the account
+  // had one. Each of these revokes every trusted device on the account as well,
+  // per 5d, which is a second thing the row accounts for.
+  //
+  // A successful sign in is still not logged, Telegram code or otherwise. The
+  // rule this file opened with holds: one row per sign in is a table that grows
+  // without telling anybody anything.
+  TELEGRAM_2FA_ENABLED: 'telegram_2fa_enabled',
+  TELEGRAM_2FA_DISABLED: 'telegram_2fa_disabled',
   // 7i and 8.11. The two actions on /admin/translations that write here at all:
   // everything else on that page is an admin editing wording, which phase 7
   // settled is not an audit event. Granting is, because it hands somebody

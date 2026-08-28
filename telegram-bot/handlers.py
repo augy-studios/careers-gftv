@@ -39,6 +39,7 @@ import logging
 import sqlite3
 import uuid
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 
 import httpx
 from telethon import Button
@@ -48,6 +49,7 @@ from build_status import BuildStatus
 from commands import BOT_FEATURE, BY_NAME, COMMANDS, Command
 from config import Config
 from lang import locale_for
+from security import hash_code, six_digits
 from strings import DEFAULT_LOCALE, STRINGS, text
 from supabase import Supabase, SupabaseError
 
@@ -372,6 +374,81 @@ async def handle_unlink_callback(ctx: Context, event, record: dict) -> None:
 
 
 # ---------------------------------------------------------------------------
+# code, section 15's login codes
+# ---------------------------------------------------------------------------
+
+
+async def handle_code(ctx: Context, event, args: str, locale: str) -> None:
+    """Issue a sign in code on request. Section 15's command list.
+
+    **This one generates and sends in place rather than through the loop**, and
+    the difference is who is waiting. `security.py` exists because the site
+    cannot send and has to leave a request for something that can; here the
+    person is in this chat, the bot is already holding the message, and going
+    through a table to talk to itself two seconds later would be a round trip
+    for nothing.
+
+    What it does not skip is any of the rules. The link is read now rather than
+    assumed, the older codes are spent before a new one is written, the hash is
+    stored and the digits are not, and no magic link is ever made: nothing here
+    came from a browser, and a one tap sign in link with nothing to bind it to
+    is a credential anybody who sees the message can use.
+    """
+    link = await current_link(ctx, event)
+    if link is None:
+        await event.respond(text("code.notLinked", locale), link_preview=False)
+        return
+
+    applicant = await safe_applicant(ctx, link["applicant_id"])
+    locale = account_locale(applicant, locale)
+
+    if link.get("twofa_enabled") is not True:
+        # A code for an account that does not ask for one has nowhere to be
+        # typed: the sign in never reaches a second step, and the danger zone
+        # only asks when the switch is on. Issuing one anyway would be handing
+        # somebody a credential that cannot be used, which is worse than a
+        # sentence saying where the switch is.
+        await event.respond(text("code.notEnabled", locale), link_preview=False)
+        return
+
+    # Section 15's per Telegram user limit. The site holds the per account half
+    # and cannot hold this one, because it never learns who is typing.
+    wait = db.note_attempt(ctx.conn, "code", str(event.sender_id))
+    if wait:
+        # Named rather than silent, per section 15: "back off after repeated
+        # failures rather than silently ignoring them."
+        await event.respond(
+            text("code.tooMany", locale, minutes=max(1, wait // 60)),
+            link_preview=False,
+        )
+        return
+
+    code = six_digits()
+
+    try:
+        await ctx.supabase.spend_codes(link["applicant_id"])
+        await ctx.supabase.create_code_row(
+            link["applicant_id"],
+            await hash_code(code),
+            code_expiry(),
+        )
+    except (SupabaseError, httpx.HTTPError) as cause:
+        log.error("could not issue a code: %s", cause)
+        await event.respond(text("code.failed", locale), link_preview=False)
+        return
+
+    log.info("issued a sign in code on request")
+    await event.respond(
+        text("code.message", locale, code=html.escape(code)), link_preview=False
+    )
+
+
+def code_expiry() -> str:
+    """Five minutes from now, per section 15, in the shape PostgREST wants."""
+    return (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
+
+
+# ---------------------------------------------------------------------------
 # Small shared things
 # ---------------------------------------------------------------------------
 
@@ -434,6 +511,7 @@ HANDLERS = {
     "start": handle_start,
     "link": handle_link,
     "unlink": handle_unlink,
+    "code": handle_code,
 }
 
 # The same idea for buttons. A callback row's `kind` decides what runs, so a

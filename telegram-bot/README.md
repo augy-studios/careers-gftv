@@ -38,6 +38,36 @@ returns. The bot polls that table, claims a batch, sends, and marks each row
 sent or failed. Security messages, such as a password change, are sent directly
 rather than queued and cannot be switched off.
 
+### Where a login code comes from
+
+**The bot generates it, which is not what section 15 reads like.** The
+specification says the portal sends a six digit code, and the portal cannot:
+nothing on the site's side can reach Telegram. So whatever sends the message is
+the only thing that can know what it says, and `gftvjobs_telegram_tokens` stores
+hashes and never a code.
+
+What happens instead is that the site writes a row meaning *somebody asked for a
+code*, with `token_hash` set to `pending:` and some randomness. `security.py`
+claims a batch of those every two seconds in one conditional update, generates
+the digits, writes back the bcrypt hash, and sends the message. The code exists
+in one process and one chat message.
+
+**Two loops rather than one, and the difference is who is waiting.** A code is
+polled for every two seconds because somebody is sitting in front of a login
+form; the outbox is polled every ten because an invitation can wait. Both use
+the same conditional claim, so two instances cannot both send.
+
+**The one tap link is only ever made for a request that came from a browser.**
+The site sets a nonce in a cookie and stores its hash on the row, and the bot
+makes the link only when that hash is there. `/code` typed into the chat has no
+browser behind it, so it gets the digits and no link: a one tap sign in with
+nothing to bind it to is a credential for whoever sees the message.
+
+The bot's own copy of bcrypt has to agree with the site's `bcryptjs`, at cost 12
+in both. `tests/phase11-test.mjs --only=seam` checks exactly that, against a hash
+a real Python bcrypt produced, because the failure it prevents is a correct code
+refused at a login form with nothing in any log to explain it.
+
 ## Commands
 
 Nine, and only nine. There is no `help`; `start` carries that content.
@@ -88,6 +118,7 @@ until phase 11 ships.
 | `supabase.py` | The whole of the bot's reach into the shared database, over PostgREST. Nothing here reads and then writes. |
 | `commands.py` | **The command list, and the only copy of it.** `start` prints from it, Telegram's menu is registered from it, and `setup.md` will give BotFather the same lines. |
 | `handlers.py` | One handler per built command, and the rule that decides what answers. |
+| `security.py` | The fast loop. Sign in codes, the one tap link that rides with them, and the test message. Two seconds, beside the command loop and never inside it. |
 | `strings.py` | Everything the bot says, in every language. Not the site's dictionaries. |
 | `build_status.py` | What has shipped and what an admin has switched off. |
 | `config.py` | The environment, validated once, with every problem reported together. |

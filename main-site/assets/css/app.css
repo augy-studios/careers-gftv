@@ -5429,3 +5429,29 @@ ul.field-hint {
   background: var(--surface);
   font-size: 0.85rem;
 }
+
+/* Two buttons on one line where there is room and stacked where there is not.
+   Used by the linked panel, whose test and unlink sit side by side, and not by
+   the danger zone, whose one button is deliberately on its own. */
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+/* The second factor switch, set apart from the two buttons under it. A rule
+   rather than a card: it is part of the Telegram panel and giving it a surface
+   of its own would read as a separate feature. */
+#telegramTwofa {
+  padding-block: 0.75rem;
+  border-block: 1px solid var(--border);
+}
+
+/* The six digit field in the danger zone's fourth step. Wide enough for six
+   characters and no wider, so it does not read as a place to type a sentence,
+   and spaced so a code read off a phone can be checked against what was typed. */
+#dangerCode {
+  max-width: 9rem;
+  font-size: 1.1rem;
+  letter-spacing: 0.2em;
+}

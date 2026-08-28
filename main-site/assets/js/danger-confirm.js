@@ -39,8 +39,18 @@ const FOCUSABLE =
  *   username: string,
  *   irreversible?: string,
  *   skipPassword?: boolean,
- *   skipUsername?: boolean
+ *   skipUsername?: boolean,
+ *   requireCode?: boolean,
+ *   onCodeStep?: () => Promise<string|null>
  * }} options
+ *   requireCode adds 7g step 3's second half, the fresh Telegram code an
+ *   account with 2FA on has to produce alongside its password. It is a fourth
+ *   panel rather than a second field on the password one, because the code does
+ *   not exist yet when that panel opens: onCodeStep runs as it is shown, which
+ *   is what asks for the code to be sent, and its resolved string is drawn as a
+ *   note under the field. Asking for a code before somebody has committed to
+ *   the password step would push a notification at every person who opened this
+ *   dialog to read what it said and then closed it.
  *   skipUsername drops step 2, so the steps are "read what this does" and
  *   "prove it is you". Added 23 August 2026, when deviation 38 was reversed: an
  *   admin deleting somebody else's posting or account types their own password
@@ -58,17 +68,20 @@ const FOCUSABLE =
  *   into any panel that asks. **Nothing in the danger zone proper may pass it.**
  *   7g fixes all three steps there, and the endpoints behind those actions
  *   verify the password server side regardless of what this component did.
- * @returns {Promise<{ password: string|null }|null>}
+ * @returns {Promise<{ password: string|null, code: string|null }|null>}
  */
 export function confirmDangerousAction(options) {
   return new Promise((resolve) => {
     const previousFocus = document.activeElement;
-    // Which steps this run actually shows. Two of the three are optional and
-    // never both: an action asking for neither an identifier nor a password
+    // Which steps this run actually shows. Two of the first three are optional
+    // and never both: an action asking for neither an identifier nor a password
     // would be an ordinary "are you sure", which is what confirmAction is for.
-    const steps = [1, options.skipUsername ? null : 2, options.skipPassword ? null : 3].filter(
-      (value) => value !== null
-    );
+    const steps = [
+      1,
+      options.skipUsername ? null : 2,
+      options.skipPassword ? null : 3,
+      options.requireCode ? 4 : null,
+    ].filter((value) => value !== null);
     const totalSteps = steps.length;
     let step = 1;
 
@@ -114,6 +127,16 @@ export function confirmDangerousAction(options) {
           </div>
         </section>
 
+        <section data-step="4" hidden>
+          <div class="field">
+            <label for="dangerCode">${escapeHtml(t('danger.codeLabel'))}</label>
+            <input id="dangerCode" type="text" inputmode="numeric" autocomplete="one-time-code"
+                   autocapitalize="none" spellcheck="false" maxlength="6">
+            <p class="field-hint" data-code-note>${escapeHtml(t('danger.codeHint'))}</p>
+            <p class="field-error" data-code-error hidden></p>
+          </div>
+        </section>
+
         <!-- Cancel first and styled no quieter than the continue, per 7g. A
              cancel that is harder to find than the confirm is how people end
              up doing the thing they came to avoid. -->
@@ -135,6 +158,7 @@ export function confirmDangerousAction(options) {
     const stepLabel = wrap.querySelector('[data-step-label]');
     const usernameInput = wrap.querySelector('#dangerUsername');
     const passwordInput = wrap.querySelector('#dangerPassword');
+    const codeInput = wrap.querySelector('#dangerCode');
 
     function render() {
       wrap.querySelectorAll('[data-step]').forEach((section) => {
@@ -151,8 +175,32 @@ export function confirmDangerousAction(options) {
         step === steps[steps.length - 1] ? options.confirmLabel : t('danger.continue');
 
       const focusTarget =
-        step === 2 ? usernameInput : step === 3 ? passwordInput : advance;
+        step === 2
+          ? usernameInput
+          : step === 3
+            ? passwordInput
+            : step === 4
+              ? codeInput
+              : advance;
       focusTarget.focus();
+    }
+
+    /**
+     * Ask for the code as its panel opens, and say what happened.
+     *
+     * The note is replaced rather than added to, so a second run of this does
+     * not stack two sentences about the same code. A failure leaves the field
+     * in place: `/code` in the chat produces one too, and taking the input away
+     * because our push did not go out would close the door somebody already has
+     * a key to.
+     */
+    async function requestCode() {
+      const note = wrap.querySelector('[data-code-note]');
+      if (!options.onCodeStep || !note) return;
+
+      note.textContent = t('danger.codeSending');
+      const message = await options.onCodeStep();
+      note.textContent = message ?? t('danger.codeHint');
     }
 
     function showError(selector, message) {
@@ -170,7 +218,7 @@ export function confirmDangerousAction(options) {
         // so that a caller passing both flags gets a confirmation instead of a
         // dialog with no way forward.
         if (options.skipUsername && options.skipPassword) {
-          close({ password: null });
+          close({ password: null, code: null });
           return;
         }
 
@@ -192,7 +240,7 @@ export function confirmDangerousAction(options) {
         // password. The caller's endpoint is still the thing that decides
         // whether the action may happen at all.
         if (options.skipPassword) {
-          close({ password: null });
+          close({ password: null, code: null });
           return;
         }
 
@@ -201,16 +249,40 @@ export function confirmDangerousAction(options) {
         return;
       }
 
-      const password = passwordInput.value;
-      if (password === '') {
-        showError('[data-password-error]', t('auth.passwordRequired'));
-        passwordInput.focus();
+      if (step === 3) {
+        const typed = passwordInput.value;
+        if (typed === '') {
+          showError('[data-password-error]', t('auth.passwordRequired'));
+          passwordInput.focus();
+          return;
+        }
+        showError('[data-password-error]', null);
+
+        if (!options.requireCode) {
+          // Handed straight to the caller, which sends it to an endpoint that
+          // decides. Nothing here has verified anything.
+          close({ password: typed, code: null });
+          return;
+        }
+
+        step = 4;
+        render();
+        // After the panel is on screen, so the note it writes into is there to
+        // be written into. Not awaited: the field is usable while the request
+        // is in flight, and somebody who already has a code from the chat
+        // should not be made to wait for a push they do not need.
+        requestCode();
         return;
       }
 
-      // Handed straight to the caller, which sends it to an endpoint that
-      // decides. Nothing here has verified anything.
-      close({ password });
+      const code = codeInput.value.trim();
+      if (code === '') {
+        showError('[data-code-error]', t('danger.codeRequired'));
+        codeInput.focus();
+        return;
+      }
+
+      close({ password: passwordInput.value, code });
     });
 
     wrap.querySelector('[data-cancel]').addEventListener('click', () => close(null));
@@ -240,8 +312,10 @@ export function confirmDangerousAction(options) {
       document.removeEventListener('keydown', onKeydown, true);
       // The password lived in this input and nowhere else. Clearing it is
       // theatre against a memory dump and worth doing anyway against the next
-      // person to open the developer tools.
+      // person to open the developer tools. The code goes with it: it is single
+      // use and about to be spent, but it is still a credential on screen.
       passwordInput.value = '';
+      codeInput.value = '';
       wrap.remove();
       document.body.setAttribute('data-scroll-locked', 'false');
       if (previousFocus instanceof HTMLElement) previousFocus.focus();

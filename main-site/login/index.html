@@ -149,12 +149,22 @@
         <section id="step2" hidden>
             <div class="glass-card card stack">
                 <h2 data-i18n="auth.secondStepHeading">One more step</h2>
-                <p data-i18n="auth.secondStepBody">
+                <p id="secondStepBody" data-i18n="auth.secondStepBody">
                     Use the passkey on this device, or one of your two factor
                     backup codes.
                 </p>
 
                 <p class="callout danger" id="secondStepError" role="alert" hidden></p>
+
+                <!-- Section 15's push. Shown only when the account asked for a
+                     Telegram code, and it says a code has been sent rather than
+                     that one has arrived: nothing on this side knows the
+                     second thing, because the site never waits on the bot. -->
+                <p class="callout" id="telegramCodeNote" role="status" hidden
+                   data-i18n="auth.telegramCodeSent">
+                    A six digit code is on its way to Telegram. If it does not
+                    arrive, send /code to the bot and it will issue another.
+                </p>
 
                 <button type="button" class="btn btn-primary" id="usePasskeyButton" data-needs-network="signin" data-needs-network-hint>
                     <span data-icon="key" data-icon-size="18"></span>
@@ -176,14 +186,19 @@
                   style="margin-top: 1.5rem;">
                 <div class="callout danger form-message" data-form-message role="alert" hidden></div>
 
-                <h2 data-i18n="auth.backupCodeHeading">Cannot reach your passkey</h2>
+                <h2 id="codeFormHeading" data-i18n="auth.backupCodeHeading">Cannot reach your passkey</h2>
                 <div class="field">
-                    <label for="backupCode" data-i18n="auth.backupCodeLabel">
+                    <label for="backupCode" id="codeFormLabel" data-i18n="auth.backupCodeLabel">
                         Two factor backup code
                     </label>
                     <input id="backupCode" name="code" type="text" autocomplete="one-time-code"
                            autocapitalize="none" spellcheck="false" placeholder="k7m2-9xqp">
-                    <p class="field-hint" data-i18n="auth.backupCodeHint">
+                    <!-- One field takes both kinds of code, per 7g. The hint is
+                         rewritten when Telegram is one of the offered methods,
+                         because the shorter sentence is wrong for an account
+                         that has both and the longer one is noise for an account
+                         that has neither. -->
+                    <p class="field-hint" id="codeFormHint" data-i18n="auth.backupCodeHint">
                         One of the ten codes from your security page. Each one
                         works once. An account recovery code is a different set
                         and is not accepted here.

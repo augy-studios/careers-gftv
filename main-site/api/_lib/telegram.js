@@ -20,13 +20,56 @@
 // leaving three live credentials for their own account lying in a table. Only
 // the newest QR works, which is also what somebody looking at two screens
 // expects.
+//
+// **Part 3 added the other two purposes**, and they invert who generates the
+// secret. A linking token is written here in full because the person carrying
+// it is standing in front of this site; a login code and a magic link are
+// written here as a *request* and filled in by the bot, because the bot is the
+// only thing that can deliver them and a secret this file generated would have
+// to cross the table in the clear to reach it. See PENDING_PREFIX.
 
 import { supabase, T } from './supabase.js';
 import { randomToken, sha256 } from './tokens.js';
+import { verifySecret, verifyAgainstNothing } from './password.js';
+import { revokeAllTrustedDevices } from './session.js';
 import { optionalEnv } from './env.js';
 
 /** Ten minutes, per section 15 step 5. */
 export const LINK_TOKEN_TTL_MS = 10 * 60 * 1000;
+
+/** Five minutes, per section 15's login codes and magic links. */
+export const CODE_TTL_MS = 5 * 60 * 1000;
+
+/**
+ * How many wrong guesses one code takes before it is dead.
+ *
+ * 5c asks for a cap per code as well as per account. The per account half is
+ * the `telegramCode` rate limit bucket; this is the per code half, and it is
+ * the tighter of the two on purpose: six digits is a million values, and five
+ * guesses against one code is the ceiling that makes the five minute life the
+ * thing that matters rather than the guessing.
+ */
+export const CODE_ATTEMPT_CAP = 5;
+
+/**
+ * What sits in `token_hash` on a row the bot has not filled in yet.
+ *
+ * **The site asks for a code and the bot generates it**, which is the reverse
+ * of how section 15 reads and is forced by the rule above it: the site never
+ * calls the bot, so the process that sends the message is the only one that can
+ * know what it says. A code the site generated would have to reach the bot
+ * through this table in the clear, which is exactly what "stored hashed, never
+ * in the clear" forbids. So the site writes a row that means *somebody wants a
+ * code*, and the bot claims it, generates six digits, sends them, and writes
+ * back the bcrypt hash. The plaintext exists in one process and one chat
+ * message and nowhere else.
+ *
+ * The sentinel is a prefix rather than a null because migration 011 has
+ * `token_hash text not null` and this phase adds no migration. A bcrypt hash
+ * always starts `$2`, so the two can never be confused, and the random tail is
+ * what the bot's conditional claim matches on.
+ */
+export const PENDING_PREFIX = 'pending:';
 
 /**
  * The bot the deep link points at.
@@ -108,6 +151,252 @@ export async function createLinkToken(applicantId) {
   return { token, url: deepLink(token), expiresAt: expiresAt.toISOString() };
 }
 
+/* -------------------------------------------------------------------------
+ * Login codes and magic links, section 15
+ * ---------------------------------------------------------------------- */
+
+/**
+ * Ask for a code to be sent, and kill every code already outstanding.
+ *
+ * Section 15: six digits, five minutes, single use, "invalidated on a
+ * successful login or on issuing a newer code". The second half is this call's
+ * first statement, and it covers the magic link too: one request produces one
+ * message, and the message before it stops working the moment this one is
+ * written. Two live codes for one account is two chances for somebody reading
+ * over a shoulder.
+ *
+ * **A nonce means a browser is waiting.** Passing one asks for the one tap
+ * magic link as well, bound to that browser; passing none asks for the code
+ * alone, which is what `/code` typed into the chat gets. The bot decides what
+ * to send by whether the row carries a nonce hash, so a request that came from
+ * no browser can never produce a link that signs one in.
+ *
+ * @param {string} applicantId
+ * @param {{ nonce?: string|null }} [options]
+ * @returns {Promise<{ expiresAt: string }>}
+ */
+export async function requestLoginCode(applicantId, options = {}) {
+  const now = new Date();
+
+  const { error: spendError } = await supabase
+    .from(T.telegramTokens)
+    .update({ used_at: now.toISOString() })
+    .eq('applicant_id', applicantId)
+    .in('purpose', ['login_code', 'magic_link'])
+    .is('used_at', null);
+
+  if (spendError) throw spendError;
+
+  const expiresAt = new Date(now.getTime() + CODE_TTL_MS);
+
+  const { error } = await supabase.from(T.telegramTokens).insert({
+    applicant_id: applicantId,
+    token_hash: `${PENDING_PREFIX}${randomToken(18)}`,
+    purpose: 'login_code',
+    expires_at: expiresAt.toISOString(),
+    browser_nonce_hash: options.nonce ? sha256(options.nonce) : null,
+  });
+
+  if (error) throw error;
+
+  return { expiresAt: expiresAt.toISOString() };
+}
+
+/**
+ * Kill every outstanding code and magic link for one account.
+ *
+ * Section 15: "invalidated on a successful login or on issuing a newer code."
+ * The second half is inside `requestLoginCode`; this is the first, and it is
+ * called on *any* successful second step rather than only on the code path. A
+ * sign in finished with a passkey leaves the pushed code and its one tap link
+ * live for the rest of their five minutes otherwise, which is a credential
+ * sitting in a chat window for a sign in that has already happened.
+ *
+ * @param {string} applicantId
+ */
+export async function spendOutstandingCodes(applicantId) {
+  const { error } = await supabase
+    .from(T.telegramTokens)
+    .update({ used_at: new Date().toISOString() })
+    .eq('applicant_id', applicantId)
+    .in('purpose', ['login_code', 'magic_link'])
+    .is('used_at', null);
+
+  if (error) throw error;
+}
+
+/**
+ * Check a typed six digit code and spend it.
+ *
+ * Only the newest outstanding code is ever considered. `requestLoginCode`
+ * spends the older ones as it writes a new one, so this reading the newest is
+ * belt and braces rather than the mechanism.
+ *
+ * **A row still carrying the pending sentinel is not a wrong code**, it is a
+ * message that has not been sent yet, and the answer is the same either way on
+ * purpose: telling somebody typing at a login form that their code exists but
+ * has not left the building yet is a distinction only an attacker benefits
+ * from. The caller's generic sentence covers both.
+ *
+ * @param {string} applicantId
+ * @param {string} typed
+ * @returns {Promise<boolean>}
+ */
+export async function verifyLoginCode(applicantId, typed) {
+  const digits = String(typed ?? '').replace(/\D/g, '');
+
+  const { data, error } = await supabase
+    .from(T.telegramTokens)
+    .select('id, token_hash, attempts')
+    .eq('applicant_id', applicantId)
+    .eq('purpose', 'login_code')
+    .is('used_at', null)
+    .gt('expires_at', new Date().toISOString())
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  if (error) throw error;
+
+  const row = data?.[0];
+
+  // No code, or one nobody has been sent yet. Pay for a comparison anyway, so
+  // an account with nothing outstanding does not answer faster than one with a
+  // live code and a wrong guess.
+  if (!row || row.token_hash.startsWith(PENDING_PREFIX) || digits.length !== 6) {
+    await verifyAgainstNothing(digits);
+    return false;
+  }
+
+  // 5c's per code cap. Spent rather than merely refused: a code that has been
+  // guessed at five times is a code somebody else is working on.
+  if ((row.attempts ?? 0) >= CODE_ATTEMPT_CAP) {
+    await supabase
+      .from(T.telegramTokens)
+      .update({ used_at: new Date().toISOString() })
+      .eq('id', row.id);
+    await verifyAgainstNothing(digits);
+    return false;
+  }
+
+  // Counted before the comparison, not after. A cap that is written once the
+  // answer is known is a cap that a request abandoned mid-flight walks past.
+  const { error: countError } = await supabase
+    .from(T.telegramTokens)
+    .update({ attempts: (row.attempts ?? 0) + 1 })
+    .eq('id', row.id);
+
+  if (countError) throw countError;
+
+  const matched = await verifySecret(digits, row.token_hash);
+  if (!matched) return false;
+
+  // Section 15: invalidated on a successful login. The magic link issued
+  // alongside this code goes with it, since the sign in it existed for has just
+  // happened by another route.
+  await spendOutstandingCodes(applicantId);
+
+  return true;
+}
+
+/**
+ * Spend a magic link, or say why not.
+ *
+ * **A full login, not a second factor**, per section 15, so the answer here is
+ * enough to create a session on its own. What makes that safe is the nonce: the
+ * cookie was set in the browser that asked for the link, the hash of it is on
+ * the row, and a link opened anywhere else matches nothing.
+ *
+ * **A request with no nonce cookie at all does not spend the token.** That is
+ * the one branch worth reading twice. Anything that fetches a URL without
+ * carrying cookies — an unfurler, a link checker, a scanner in front of a
+ * corporate mail box — would otherwise burn somebody's one tap sign in before
+ * their thumb reached it, and the failure would look exactly like a bug in the
+ * bot. A wrong nonce is different and is spent: that link has demonstrably
+ * been somewhere it should not have been.
+ *
+ * @param {string} token
+ * @param {string|null} nonce
+ * @returns {Promise<{ ok: true, applicantId: string } | { ok: false, reason: 'unknown'|'no_nonce'|'wrong_browser' }>}
+ */
+export async function consumeMagicLink(token, nonce) {
+  const value = String(token ?? '');
+  if (value === '') return { ok: false, reason: 'unknown' };
+
+  const { data, error } = await supabase
+    .from(T.telegramTokens)
+    .select('id, applicant_id, browser_nonce_hash')
+    .eq('token_hash', sha256(value))
+    .eq('purpose', 'magic_link')
+    .is('used_at', null)
+    .gt('expires_at', new Date().toISOString())
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) return { ok: false, reason: 'unknown' };
+
+  if (!nonce) return { ok: false, reason: 'no_nonce' };
+
+  const spend = async () => {
+    const { error: spendError } = await supabase
+      .from(T.telegramTokens)
+      .update({ used_at: new Date().toISOString() })
+      .eq('id', data.id);
+    if (spendError) throw spendError;
+  };
+
+  if (data.browser_nonce_hash !== sha256(nonce)) {
+    await spend();
+    return { ok: false, reason: 'wrong_browser' };
+  }
+
+  await spend();
+  return { ok: true, applicantId: data.applicant_id };
+}
+
+/**
+ * Turn the second factor on or off for a linked account.
+ *
+ * Answers false when there is no link, which is not an error: the row that
+ * would carry the flag is the link itself, so an account with nothing linked
+ * has nowhere to record that it wants a code from a chat it does not have.
+ *
+ * @param {string} applicantId
+ * @param {boolean} enabled
+ * @returns {Promise<boolean>} whether a link was updated
+ */
+export async function setTwofa(applicantId, enabled) {
+  const { data, error } = await supabase
+    .from(T.telegramLinks)
+    .update({ twofa_enabled: enabled === true })
+    .eq('applicant_id', applicantId)
+    .select('id');
+
+  if (error) throw error;
+  return (data?.length ?? 0) > 0;
+}
+
+/**
+ * Queue the test message from 7g's Telegram panel.
+ *
+ * The outbox, not the token table, because it is a message rather than a
+ * credential. It is also the first row anything in this build has ever written
+ * to `gftvjobs_notifications`, which has been empty since migration 011 created
+ * it, and that is deliberate: part 4 generalises the claim the bot makes for
+ * this one kind into the drain proper rather than inventing it there.
+ *
+ * @param {string} applicantId
+ * @returns {Promise<void>}
+ */
+export async function queueTestMessage(applicantId) {
+  const { error } = await supabase.from(T.notifications).insert({
+    applicant_id: applicantId,
+    kind: 'telegram_test',
+    payload: { requested_at: new Date().toISOString() },
+  });
+
+  if (error) throw error;
+}
+
 /**
  * Remove the link, and stop anything queued for a chat that no longer exists.
  *
@@ -123,11 +412,15 @@ export async function createLinkToken(applicantId) {
  * **Nothing is deleted.** The outbox is the record of what we tried to send, and
  * a row marked skipped says something a missing row does not.
  *
- * Sessions and trusted devices are untouched, unlike the admin's assisted
- * unlink in 8.9. That one is part of handing an account back to somebody who
- * may have lost control of it; this one is a person tidying up their own
- * settings, and signing them out of everything for it would be a punishment for
- * housekeeping.
+ * **Trusted devices go, and sessions stay.** Part 2 left both alone and said so;
+ * that was right while there was no second factor behind this link and wrong
+ * from the moment part 3 gave it one. 5d lists unlinking Telegram among the
+ * things that revoke every trusted device, and the reason is not this sign in
+ * but the next one: a browser trusted while 2FA was on would skip the second
+ * step again if the account were ever re-linked. Sessions are still untouched,
+ * unlike the admin's assisted unlink in 8.9 — that one is part of handing an
+ * account back to somebody who may have lost control of it, and this one is a
+ * person tidying up their own settings.
  *
  * @param {string} applicantId
  * @returns {Promise<{ removed: boolean, skipped: number }>}
@@ -155,5 +448,8 @@ export async function unlink(applicantId) {
 
   if (skipError) throw skipError;
 
-  return { removed: (deleted?.length ?? 0) > 0, skipped: stopped?.length ?? 0 };
+  const removed = (deleted?.length ?? 0) > 0;
+  if (removed) await revokeAllTrustedDevices('applicant', applicantId);
+
+  return { removed, skipped: stopped?.length ?? 0 };
 }

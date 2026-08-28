@@ -22,6 +22,7 @@ after a restart, so it is made impossible by the query rather than unlikely.
 from __future__ import annotations
 
 import logging
+import uuid
 from datetime import datetime, timezone
 from typing import Any
 
@@ -164,6 +165,161 @@ class Supabase:
             "id, username, display_name, locale",
             {"id": f"eq.{applicant_id}"},
         )
+
+    # -- login codes and magic links, section 15 -------------------------
+
+    async def claim_code_requests(self, limit: int = 10) -> list[dict]:
+        """Take every code request nobody has started sending, in one statement.
+
+        **The claim and the send are two steps and this is the first**, exactly
+        as the outbox works. The site writes `token_hash` as `pending:<random>`
+        to mean *somebody wants a code*; this moves the whole batch to
+        `sending:<random>` and answers with the rows it moved, so a second
+        instance that starts polling a millisecond later claims nothing and
+        sends nothing. Deviation 91: the double send is made impossible by the
+        query rather than unlikely by there being one process.
+
+        The filter is a prefix match rather than a list of ids, which is what
+        makes it one statement for a whole batch. A bcrypt hash starts `$2` and
+        can never match it.
+        """
+        rows = await self.update(
+            "telegram_tokens",
+            {
+                "token_hash": "like.pending:*",
+                "purpose": "eq.login_code",
+                "used_at": "is.null",
+                "expires_at": f"gt.{now_iso()}",
+                "limit": str(limit),
+                "order": "created_at.asc",
+            },
+            {"token_hash": f"sending:{uuid.uuid4().hex}"},
+        )
+        return rows
+
+    async def store_code_hash(self, row_id: str, code_hash: str) -> bool:
+        """Write the hash of the code that is about to be sent.
+
+        Written before the message goes out, not after. A hash stored for a
+        message that then failed to send is a code nobody can use, which expires
+        in five minutes; a message sent against a row with no hash on it is a
+        code that cannot be verified at all, and the person is holding it.
+        """
+        rows = await self.update(
+            "telegram_tokens",
+            {"id": f"eq.{row_id}"},
+            {"token_hash": code_hash},
+        )
+        return len(rows) > 0
+
+    async def create_code_row(
+        self, applicant_id: str, code_hash: str, expires_at: str
+    ) -> dict:
+        """A code the bot issued on its own, for `/code` typed into the chat.
+
+        No `browser_nonce_hash`, and that absence is the whole difference: no
+        browser asked for this, so no magic link is ever made for it. A one tap
+        sign in link produced by a chat message would be a credential with
+        nothing to bind it to.
+        """
+        rows = await self.insert(
+            "telegram_tokens",
+            {
+                "applicant_id": applicant_id,
+                "token_hash": code_hash,
+                "purpose": "login_code",
+                "expires_at": expires_at,
+            },
+        )
+        return rows[0]
+
+    async def create_magic_row(
+        self,
+        applicant_id: str,
+        token_hash: str,
+        nonce_hash: str,
+        expires_at: str,
+    ) -> dict:
+        """The one tap link that rides along with a pushed code.
+
+        The nonce hash is copied from the request row rather than made here. It
+        belongs to the browser that asked, the site is the only thing that ever
+        saw the nonce itself, and a link this side bound to anything else would
+        be a link bound to nothing.
+        """
+        rows = await self.insert(
+            "telegram_tokens",
+            {
+                "applicant_id": applicant_id,
+                "token_hash": token_hash,
+                "purpose": "magic_link",
+                "browser_nonce_hash": nonce_hash,
+                "expires_at": expires_at,
+            },
+        )
+        return rows[0]
+
+    async def spend_codes(self, applicant_id: str) -> int:
+        """Kill every outstanding code and link for one account.
+
+        Section 15: invalidated on issuing a newer code. The site does this as
+        it writes a request; `/code` does it here, and the two have to agree,
+        which is why both spend the magic links as well as the codes. A newer
+        code that left an older one tap link alive would be a sign in credential
+        outliving the sign in it was issued for.
+        """
+        rows = await self.update(
+            "telegram_tokens",
+            {
+                "applicant_id": f"eq.{applicant_id}",
+                "purpose": "in.(login_code,magic_link)",
+                "used_at": "is.null",
+            },
+            {"used_at": now_iso()},
+        )
+        return len(rows)
+
+    async def fail_code_request(self, row_id: str) -> None:
+        """Give up on a claimed request without leaving it half sent.
+
+        Marked used rather than put back. A retry would mean a second message
+        for one request, and the person is looking at a login form with a
+        working fallback on it: `/code` in the chat, and their backup codes.
+        """
+        await self.update(
+            "telegram_tokens", {"id": f"eq.{row_id}"}, {"used_at": now_iso()}
+        )
+
+    # -- the outbox, part 3's corner of it -------------------------------
+
+    async def claim_notifications(self, kinds: tuple[str, ...], limit: int = 20) -> list[dict]:
+        """Move a batch from queued to claimed, in one conditional update.
+
+        Section 15's rule, and part 4 widens the `kinds` filter rather than
+        writing this again: part 3 drains `telegram_test` alone, because that is
+        the only kind anything writes yet, and the claim it uses is already the
+        one the three real kinds need.
+        """
+        rows = await self.update(
+            "notifications",
+            {
+                "status": "eq.queued",
+                "kind": f"in.({','.join(kinds)})",
+                "limit": str(limit),
+                "order": "created_at.asc",
+            },
+            {"status": "claimed", "claimed_at": now_iso()},
+        )
+        return rows
+
+    async def finish_notification(
+        self, row_id: str, status: str, error: str | None = None
+    ) -> None:
+        """Record how a claimed row ended: sent, failed, or skipped."""
+        patch: dict[str, Any] = {"status": status, "error": error}
+        if status == "sent":
+            patch["sent_at"] = now_iso()
+        await self.update("notifications", {"id": f"eq.{row_id}"}, patch)
 
     async def spend_link_token(self, token_hash: str) -> dict | None:
         """Take an unused, unexpired linking token, in one statement.

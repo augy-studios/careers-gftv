@@ -100,6 +100,19 @@ export const LIMITS = Object.freeze({
   // who leaves the page and comes back gets a fresh one, and being told to wait
   // an hour to link an account is a worse failure than fifteen extra rows.
   telegramLink: { limit: 15, windowMs: 60 * 60 * 1000, lockMs: 15 * 60 * 1000 },
+  // Phase 11 part 3. Asking for a sign in code to be pushed to a phone, which
+  // is the one action in this build that makes something happen on a device
+  // that is not in front of the caller. Section 15: "rate limit per account and
+  // per Telegram user". This is the account half; the bot holds the other half
+  // in its own SQLite, because it is the only side that knows which Telegram
+  // account is typing.
+  //
+  // Tighter than telegramLink and for a different reason. A linking token is a
+  // row in a table nobody feels; a code is a notification on somebody's phone,
+  // and a hundred of them is harassment delivered through a feature that exists
+  // to protect them. Ten an hour is far more than a real sign in needs and few
+  // enough that a borrowed session cannot be used as a doorbell.
+  telegramCode: { limit: 10, windowMs: 60 * 60 * 1000, lockMs: 30 * 60 * 1000 },
   // The dashboard's writes, phase 7. Per staff account, counted on success,
   // and deliberately loose: an admin working through a morning of postings,
   // statuses, and tags does a great many writes, and a limit they can reach is

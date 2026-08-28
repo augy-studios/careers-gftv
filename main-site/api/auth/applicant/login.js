@@ -2,13 +2,31 @@
 //
 // Section 5b. Username or email, plus password. No approval check.
 //
-// A second step, when the account has a passkey. Passkeys were added to this
-// realm during phase 2 and are what gives it a second factor at all: the
-// Telegram code from section 15 does not arrive until phase 11, and the
-// totp_secret column stays unused throughout.
+// A second step, when the account has a passkey or has switched Telegram 2FA
+// on. Passkeys were added to this realm during phase 2 and were the only second
+// factor it had; phase 11 part 3 finished the Telegram half that phase 2 left
+// deliberately disabled. The totp_secret column stays unused throughout.
 //
-// An account with no passkey signs in exactly as it did before, in one step.
+// An account with neither signs in exactly as it did before, in one step.
 // Nobody is forced into a second factor they did not set up.
+//
+// **The two factors sit side by side and never replace each other.** Somebody
+// with a passkey who then switches Telegram 2FA on is offered both, and either
+// satisfies the step. Making one supersede the other would mean an account
+// losing a factor it set up, silently, because it set up a second one.
+//
+// **Asking for the code is a write and it happens here, not on the client.**
+// The row is written before this responds, so the browser being closed between
+// the two steps cannot leave a code nobody asked for. The site does not wait
+// for a Telegram send: it writes the request and returns, per section 15.
+//
+// **This route deliberately does not consult the `telegram_2fa` switch.** Every
+// other route touching this feature does, and the difference is what refusing
+// would mean here: not a control that says come back later, but an account that
+// asked for two steps being either let through on one or locked out of a
+// password it typed correctly. The switch still bites where it can afford to —
+// the one tap link is refused on the way back in, and the code is on screen
+// beside it.
 //
 // Section 9: "Generic error text on failed login so the response does not
 // reveal whether a username exists." Every failure below answers with the same
@@ -25,7 +43,9 @@ import {
   CHALLENGE_MINUTES,
 } from '../../_lib/session.js';
 import { hasPasskeys } from '../../_lib/webauthn.js';
+import { linkState, requestLoginCode, CODE_TTL_MS } from '../../_lib/telegram.js';
 import { randomToken } from '../../_lib/tokens.js';
+import { setCookie, COOKIE } from '../../_lib/cookies.js';
 import { supabase, T } from '../../_lib/supabase.js';
 import { validateLocale } from '../../_lib/validate.js';
 import {
@@ -104,9 +124,20 @@ export default async function handler(req, res) {
       user.locale = locale.value;
     }
 
-    // The second factor, when there is one. Passkeys are what gives this realm
-    // one at all; Telegram joins them in phase 11.
-    const secondFactor = await hasPasskeys('applicant', user.id);
+    // The second factor, when there is one. Either of the two is enough to make
+    // this a two step sign in, and both are offered when both exist.
+    // A failure to read either of these throws, and the outer catch answers 500.
+    // That is deliberate and is the one place in this route that fails closed
+    // rather than open: an unreadable link table must never be reported as "this
+    // account has no second factor", because the account that would let straight
+    // through on a password alone is exactly the one that asked for two steps.
+    const [passkey, telegram] = await Promise.all([
+      hasPasskeys('applicant', user.id),
+      linkState(user.id),
+    ]);
+
+    const telegramFactor = telegram?.twofaEnabled === true;
+    const secondFactor = passkey || telegramFactor;
 
     // 5d. A trusted device skips the second factor and never the password,
     // which was already checked above. The token rotates inside this call.
@@ -141,9 +172,42 @@ export default async function handler(req, res) {
 
     if (challengeError) return failInternal(res, challengeError, 'applicant login challenge');
 
+    // The push, and the one tap link that rides with it. The nonce is set as a
+    // cookie here and stored only as a hash, so the magic link works in this
+    // browser and in no other, per section 15.
+    //
+    // A failure to ask for the code is not a failure to sign in. The step still
+    // stands, the backup codes still work, and `/code` in the chat still issues
+    // one, so this is logged and carried rather than thrown: refusing the whole
+    // sign in because the outbox row could not be written would take the account
+    // down over the convenience half of the step.
+    let codeSent = false;
+    if (telegramFactor) {
+      try {
+        const nonce = randomToken(32);
+        await requestLoginCode(user.id, { nonce });
+        setCookie(res, COOKIE.magicLinkNonce, nonce, {
+          expires: new Date(Date.now() + CODE_TTL_MS),
+        });
+        codeSent = true;
+      } catch (cause) {
+        console.error('[careers-gftv] login code request:', cause);
+      }
+    }
+
+    const methods = [
+      ...(passkey ? ['passkey'] : []),
+      ...(telegramFactor ? ['telegram_code'] : []),
+      'backup_code',
+    ];
+
     return ok(res, {
       two_factor_required: true,
-      methods: ['passkey', 'backup_code'],
+      methods,
+      // Whether a code was asked for, not whether one arrived. Nothing on this
+      // side knows the second thing: the bot sends it, and section 15 is
+      // explicit that the site never waits on that.
+      code_requested: codeSent,
       challenge,
       expires_at: expiresAt.toISOString(),
     });
