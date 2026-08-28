@@ -153,6 +153,7 @@ with a comment saying exactly where to get it, and the bot has its own
 | `SITE_URL` | site, bot | The portal's own origin, no trailing slash. |
 | `FORM_WEBHOOK_SECRET` | site | Generate with `openssl rand -hex 32`. |
 | `CRON_SECRET` | site | Generate with `openssl rand -hex 32`. |
+| `TELEGRAM_BOT_USERNAME` | site | **Optional.** The bot the linking deep link and QR point at, without the `@`. Defaults to `careersgftv_bot`, which section 15 fixes. Set it only to point a preview deployment at a test bot. Public: it is in the link itself. |
 | `TELEGRAM_BOT_TOKEN` | bot | BotFather, `/mybots`, select the bot, API Token. |
 | `TELEGRAM_API_ID`, `TELEGRAM_API_HASH` | bot | my.telegram.org, API development tools. |
 | `DONATION_URL` | bot | Shown as a button on the start message. |

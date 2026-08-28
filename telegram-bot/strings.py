@@ -43,6 +43,52 @@ STRINGS: dict[str, dict[str, str]] = {
         "join.sentence": " ",
         "button.portal": "Open the portal",
         "button.donate": "Support GFTV",
+        "button.settings": "Open account settings",
+        "button.unlinkYes": "Yes, unlink",
+        "button.unlinkNo": "Keep it linked",
+        "link.instructions": (
+            "To link this Telegram account, open account settings on the portal "
+            "and press <b>Link Telegram</b>. You will get a code to scan, or a "
+            "link to tap if you are already reading this on the same phone.\n\n"
+            "It has to start there rather than here, because that page already "
+            "knows which account is signed in and this chat does not."
+        ),
+        # Section 15 step 5: used, expired and unknown are one answer, on
+        # purpose. Which of the three it was is exactly what somebody holding a
+        # link that is not theirs would like to be told.
+        "link.refused": (
+            "That code did not work. Open account settings on the portal and ask "
+            "for a new one, and it will be ready to use straight away."
+        ),
+        "link.failed": (
+            "Something went wrong while linking and nothing has been changed. "
+            "Ask for a new code in account settings and try once more."
+        ),
+        "link.unavailable": (
+            "We could not reach the portal just now. Nothing has changed. Please "
+            "try that again in a moment."
+        ),
+        "link.done": "Done. This Telegram account is now linked to {who}.",
+        "link.doneNoName": "Done. This Telegram account is now linked.",
+        "link.alreadyThis": (
+            "This Telegram account is already linked. Send /unlink first if you "
+            "want to link it to a different portal account."
+        ),
+        "link.alreadyOther": (
+            "This Telegram account is already linked to a portal account. Send "
+            "/unlink first if you want to link it to a different one."
+        ),
+        "unlink.notLinked": "This Telegram account is not linked to anything.",
+        "unlink.confirm": (
+            "Unlink this Telegram account?\n\n"
+            "Your portal account and everything in it stays exactly as it is. "
+            "This only stops us sending you anything here, and invitations and "
+            "updates keep arriving on your tasks page as they always do."
+        ),
+        "unlink.done": "Unlinked. You can link this account again whenever you like.",
+        "unlink.failed": "We could not reach the portal just now. Nothing has changed.",
+        "callback.unknown": "That button is too old to act on. Send the command again.",
+        "callback.notYours": "That button belongs to somebody else's conversation.",
         "feature.unavailable": (
             "Will be available in Phase {phase}. Sorry for the inconvenience caused."
         ),
@@ -71,6 +117,41 @@ STRINGS: dict[str, dict[str, str]] = {
         "join.sentence": "",
         "button.portal": "打开求职网站",
         "button.donate": "支持国际兽视",
+        "button.settings": "打开账户设置",
+        "button.unlinkYes": "是的，解除关联",
+        "button.unlinkNo": "保持关联",
+        "link.instructions": (
+            "要关联这个 Telegram 账户，请在求职网站上打开账户设置，然后点击"
+            "<b>关联 Telegram</b>。系统会给您一个二维码，如果您正是在同一台手机上"
+            "阅读这条消息，也可以直接点击链接。\n\n"
+            "关联必须从那里开始，而不是从这里开始，因为那个页面已经知道是哪个账户"
+            "登录了，而这个聊天并不知道。"
+        ),
+        "link.refused": (
+            "这个二维码无法使用。请在求职网站的账户设置中重新获取一个，新的可以立即使用。"
+        ),
+        "link.failed": (
+            "关联过程中出了问题，您的账户没有任何改动。请在账户设置中重新获取一个二维码再试一次。"
+        ),
+        "link.unavailable": "我们暂时无法连接到求职网站，您的账户没有任何改动。请稍后再试一次。",
+        "link.done": "已完成。这个 Telegram 账户现在已关联到 {who}。",
+        "link.doneNoName": "已完成。这个 Telegram 账户现在已关联。",
+        "link.alreadyThis": (
+            "这个 Telegram 账户已经关联过了。如果您想关联到另一个求职账户，请先发送 /unlink。"
+        ),
+        "link.alreadyOther": (
+            "这个 Telegram 账户已经关联到某个求职账户。如果您想关联到另一个账户，请先发送 /unlink。"
+        ),
+        "unlink.notLinked": "这个 Telegram 账户目前没有关联任何账户。",
+        "unlink.confirm": (
+            "要解除这个 Telegram 账户的关联吗？\n\n"
+            "您的求职账户及其中的所有内容都不会改变。这只会让我们不再通过这里向您发送信息；"
+            "邀请和进度更新仍会像往常一样，送到您的待办事项页面。"
+        ),
+        "unlink.done": "已解除关联。您随时可以重新关联这个账户。",
+        "unlink.failed": "我们暂时无法连接到求职网站，您的账户没有任何改动。",
+        "callback.unknown": "这个按钮太旧了，无法继续操作。请重新发送该指令。",
+        "callback.notYours": "这个按钮属于其他人的对话。",
         "feature.unavailable": "此功能将在第 {phase} 阶段推出，给您带来不便，敬请谅解。",
         "feature.unavailableUnknown": "此功能尚未推出，给您带来不便，敬请谅解。",
         "feature.maintenance": "此功能暂时无法使用，我们正在修复。",

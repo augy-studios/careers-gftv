@@ -91,6 +91,15 @@ export const LIMITS = Object.freeze({
   // Re-encoding is cheap, but an unbounded upload endpoint is not. Per account
   // and per IP, since the thing being bounded is bytes rather than guesses.
   avatar: { limit: 12, windowMs: 60 * 60 * 1000, lockMs: 30 * 60 * 1000 },
+  // Phase 11. Issuing a linking token and unlinking, counted on success for the
+  // same reason report and apply are: there is no secret to guess, and what is
+  // worth bounding is how many rows one account can write in an hour.
+  //
+  // Fifteen is generous for a thing somebody does once. It is loose on purpose
+  // because the flow legitimately restarts: a token lasts ten minutes, a person
+  // who leaves the page and comes back gets a fresh one, and being told to wait
+  // an hour to link an account is a worse failure than fifteen extra rows.
+  telegramLink: { limit: 15, windowMs: 60 * 60 * 1000, lockMs: 15 * 60 * 1000 },
   // The dashboard's writes, phase 7. Per staff account, counted on success,
   // and deliberately loose: an admin working through a morning of postings,
   // statuses, and tags does a great many writes, and a limit they can reach is

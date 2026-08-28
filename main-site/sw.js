@@ -70,7 +70,7 @@
 //                     because a kill switch that forgets itself on the deploy
 //                     that broke something is not a kill switch.
 
-const VERSION = 'careers-gftv-phase11-v89';
+const VERSION = 'careers-gftv-phase11-v90';
 
 const SHELL = `careers-gftv-shell-${VERSION}`;
 const PUBLIC_DATA = 'careers-gftv-public';
@@ -253,6 +253,7 @@ const PRECACHE = [
   '/assets/js/staff-security-page.js',
   '/assets/js/status-page.js',
   '/assets/js/tasks-page.js',
+  '/assets/js/telegram-link.js',
   '/assets/js/theme.js',
   '/assets/js/translation-report.js',
   '/assets/js/translations-page.js',

@@ -2,15 +2,22 @@
 
 The Careers@GFTV Telegram bot, `careersgftv_bot`.
 
-**Status: phase 11 part 1, the skeleton, is here.** The process starts, holds a
-single instance lock, opens its SQLite database, reads what has shipped from the
-live site, and answers `start` with the command list. Every other command is
-registered, is listed, and replies with the sentence the site uses for something
-that is not built yet. See [the build status page](https://careers.globalfurry.tv/status).
+**Status: phase 11 parts 1 and 2 are here.** The process starts, holds a single
+instance lock, opens its SQLite database, reads what has shipped from the live
+site, and answers `start`, `link` and `unlink`. Linking works from both ends: the
+site issues a token and shows a QR, and `/start <token>` turns it into a link.
+Every other command is registered, is listed, and replies with the sentence the
+site uses for something that is not built yet.
+See [the build status page](https://careers.globalfurry.tv/status).
 
-The parts still to come are linking, login codes and the magic link, the outbox
-drain, the three notification kinds, the four list commands, and the seam that
-carries `setup.md` and the checklist.
+The parts still to come are login codes and the magic link, the outbox drain,
+the three notification kinds, the four list commands, and the seam that carries
+the checklist.
+
+**Deploying a part is a restart, and the order matters.** The site half of a
+part deploys itself when it is merged; this half does not. So for anything that
+spans both, pull and restart the bot *first*, then merge, or the portal offers a
+control that leads at a process running last week's code.
 
 ## What it will do
 
@@ -78,6 +85,7 @@ until phase 11 ships.
 | File | What it holds |
 |---|---|
 | `bot.py` | The process. Config, lock, database, Telethon, the dispatcher, shutdown. |
+| `supabase.py` | The whole of the bot's reach into the shared database, over PostgREST. Nothing here reads and then writes. |
 | `commands.py` | **The command list, and the only copy of it.** `start` prints from it, Telegram's menu is registered from it, and `setup.md` will give BotFather the same lines. |
 | `handlers.py` | One handler per built command, and the rule that decides what answers. |
 | `strings.py` | Everything the bot says, in every language. Not the site's dictionaries. |

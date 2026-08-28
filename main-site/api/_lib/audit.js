@@ -118,6 +118,17 @@ export const AUDIT = Object.freeze({
   APPLICANT_PASSWORD_SET: 'applicant_password_set',
   APPLICANT_RESET_FORCED: 'applicant_reset_forced',
   APPLICANT_TELEGRAM_UNLINKED: 'applicant_telegram_unlinked',
+  // Phase 11. The applicant's own two, and they are not the same event as the
+  // admin action above them: that one is somebody being unlinked, these are
+  // somebody unlinking. What a log has to answer later is who decided.
+  //
+  // **TELEGRAM_LINKED is written by the bot, not by this codebase.** The site
+  // issues a token and returns; the row that says a link exists is written by
+  // the process that received the token, which is the only thing that knows the
+  // link happened. It writes the same realm and the same actor id, because it
+  // is still the applicant's action.
+  TELEGRAM_LINKED: 'telegram_linked',
+  TELEGRAM_UNLINKED: 'telegram_unlinked',
   // 7i and 8.11. The two actions on /admin/translations that write here at all:
   // everything else on that page is an admin editing wording, which phase 7
   // settled is not an audit event. Granting is, because it hands somebody

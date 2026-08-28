@@ -33,18 +33,23 @@ messages the bot during the build reaches one that works, which is the point.
 
 from __future__ import annotations
 
+import hashlib
 import html
 import logging
 import sqlite3
+import uuid
 from dataclasses import dataclass
 
 import httpx
 from telethon import Button
 
+import db
 from build_status import BuildStatus
 from commands import BOT_FEATURE, BY_NAME, COMMANDS, Command
 from config import Config
-from strings import text
+from lang import locale_for
+from strings import DEFAULT_LOCALE, STRINGS, text
+from supabase import Supabase, SupabaseError
 
 log = logging.getLogger("bot.handlers")
 
@@ -57,6 +62,7 @@ class Context:
     status: BuildStatus
     conn: sqlite3.Connection
     http: httpx.AsyncClient
+    supabase: Supabase
 
 
 @dataclass(frozen=True)
@@ -108,21 +114,33 @@ async def handle_start(ctx: Context, event, args: str, locale: str) -> None:
     parts: list[str] = []
 
     if args.strip():
-        # A deep link payload, from t.me/<bot>?start=<token>. Part 2 turns this
-        # into the linking flow. Until then it is answered rather than dropped,
-        # because somebody who scanned a QR code deserves to know what happened
-        # to it. The payload is a single use secret and is never logged.
+        # A deep link payload, from t.me/<bot>?start=<token>, which is what the
+        # QR in account settings encodes. The payload is a single use credential
+        # and is never logged, here or anywhere else.
         #
-        # It goes above the introduction rather than below it: this is the
-        # answer to the thing they just did, and burying it under a paragraph
-        # about what the portal is reads as no answer at all.
+        # The answer goes above the introduction rather than below it: this is
+        # the answer to the thing they just did, and burying it under a
+        # paragraph about what the portal is reads as no answer at all.
         link_state = await availability(BY_NAME["link"], ctx, locale)
+
         if not link_state.available:
-            separator = text("join.sentence", locale)
             parts.append(
-                separator.join([text("start.payload", locale), link_state.sentence])
+                join(locale, text("start.payload", locale), link_state.sentence)
             )
-            log.info("start carried a payload and linking is not built yet")
+            log.info("start carried a payload and linking is not answering")
+        else:
+            outcome = await consume_link_token(ctx, event, args.strip())
+            locale = outcome.locale or locale
+
+            if outcome.linked:
+                # Somebody who has just linked does not need the whole
+                # introduction underneath the confirmation. They came from the
+                # settings page, so they know what this is, and the command list
+                # is one keystroke away.
+                await event.respond(outcome.message, link_preview=False)
+                return
+
+            parts.append(outcome.message)
 
     parts.append(text("start.intro", locale))
 
@@ -159,6 +177,253 @@ async def handle_start(ctx: Context, event, args: str, locale: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Linking, section 15 steps 2 to 5
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class LinkOutcome:
+    """What happened to a deep link payload, and what to say about it."""
+
+    linked: bool
+    message: str
+    locale: str | None = None
+
+
+async def consume_link_token(ctx: Context, event, payload: str) -> LinkOutcome:
+    """Turn a `/start <token>` into a link, or explain why not.
+
+    **The token is claimed before the link is written**, in one conditional
+    update that answers with the row it moved. Section 15 step 3 lists the other
+    order, and this is the safer half of the same thing: two people opening the
+    same link in the same second cannot both be handed an account, because only
+    one of them owns the token afterwards. See `spend_link_token`.
+
+    **A token that is used, expired or unknown gets one sentence and no
+    detail**, per step 5. The three cases are deliberately indistinguishable
+    from outside: telling somebody which of them it was tells anybody holding a
+    stolen link whether it is worth trying again.
+    """
+    sender = await event.get_sender()
+    telegram_user_id = event.sender_id
+    fallback = await client_locale(ctx, sender)
+
+    # Hex SHA-256 of the payload, which is what api/_lib/tokens.js stored. The
+    # token itself is never written down anywhere on this side.
+    token_hash = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+    try:
+        existing = await ctx.supabase.link_for_telegram_user(telegram_user_id)
+    except (SupabaseError, httpx.HTTPError) as cause:
+        log.error("could not read the link for this telegram account: %s", cause)
+        return LinkOutcome(False, text("link.unavailable", fallback), fallback)
+
+    if existing:
+        # Already linked. Answered before the token is spent, so somebody who
+        # taps an old link twice does not burn a fresh one to be told this.
+        applicant = await safe_applicant(ctx, existing["applicant_id"])
+        locale = account_locale(applicant, fallback)
+        key = "link.alreadyThis" if applicant else "link.alreadyOther"
+        return LinkOutcome(False, text(key, locale), locale)
+
+    try:
+        token = await ctx.supabase.spend_link_token(token_hash)
+    except (SupabaseError, httpx.HTTPError) as cause:
+        log.error("could not spend a linking token: %s", cause)
+        return LinkOutcome(False, text("link.unavailable", fallback), fallback)
+
+    if token is None:
+        log.info("a linking token was refused: used, expired or unknown")
+        return LinkOutcome(False, text("link.refused", fallback), fallback)
+
+    applicant = await safe_applicant(ctx, token["applicant_id"])
+    locale = account_locale(applicant, fallback)
+
+    try:
+        link = await ctx.supabase.create_link(
+            token["applicant_id"],
+            telegram_user_id,
+            getattr(sender, "username", None),
+            display_name(sender),
+        )
+    except (SupabaseError, httpx.HTTPError) as cause:
+        # The token is spent and there is no link. Migration 011's unique
+        # constraint on applicant_id is the likely cause: the account linked a
+        # different Telegram account while this token was in flight.
+        log.error("could not write the link: %s", cause)
+        return LinkOutcome(False, text("link.failed", locale), locale)
+
+    log.info("linked telegram %s to an applicant account", telegram_user_id)
+
+    await ctx.supabase.audit(
+        "telegram_linked",
+        applicant,
+        {"source": "bot", "telegram_user_id": telegram_user_id},
+        target_id=link.get("id"),
+    )
+
+    who = (applicant or {}).get("display_name") or (applicant or {}).get("username")
+    message = (
+        text("link.done", locale, who=html.escape(str(who)))
+        if who
+        else text("link.doneNoName", locale)
+    )
+    return LinkOutcome(True, message, locale)
+
+
+async def handle_link(ctx: Context, event, args: str, locale: str) -> None:
+    """For somebody who found the bot before the site. Section 15's command list.
+
+    There is nothing this end can do on its own, and that is not a gap. The bot
+    has no way to know which portal account is asking, and a bot that accepted a
+    username here would be a bot that could be talked into linking somebody
+    else's account. So it says where the button is, and the button is on a page
+    that already knows who is signed in.
+    """
+    link = await current_link(ctx, event)
+    if link is not None:
+        await event.respond(text("link.alreadyThis", locale), link_preview=False)
+        return
+
+    await event.respond(
+        text("link.instructions", locale),
+        buttons=[[Button.url(text("button.settings", locale), settings_url(ctx))]],
+        link_preview=False,
+    )
+
+
+async def handle_unlink(ctx: Context, event, args: str, locale: str) -> None:
+    """Remove the link, behind a confirmation button. Section 15's command list.
+
+    The button's meaning is stored in SQLite and looked up on click, per section
+    15, so it keeps working across every restart. What is packed into the
+    callback data is an opaque id and nothing else: a button that carried an
+    account id in its payload would be a button somebody could forge.
+    """
+    link = await current_link(ctx, event)
+    if link is None:
+        await event.respond(text("unlink.notLinked", locale), link_preview=False)
+        return
+
+    applicant = await safe_applicant(ctx, link["applicant_id"])
+    locale = account_locale(applicant, locale)
+
+    callback_id = uuid.uuid4().hex
+    db.remember_callback(
+        ctx.conn,
+        callback_id,
+        "unlink",
+        {"applicant_id": link["applicant_id"], "locale": locale},
+        telegram_user_id=event.sender_id,
+        chat_id=event.chat_id,
+    )
+
+    await event.respond(
+        text("unlink.confirm", locale),
+        buttons=[
+            [
+                Button.inline(text("button.unlinkYes", locale), f"cb:{callback_id}".encode()),
+                Button.inline(text("button.unlinkNo", locale), b"cb:cancel"),
+            ]
+        ],
+        link_preview=False,
+    )
+
+
+async def handle_unlink_callback(ctx: Context, event, record: dict) -> None:
+    """The confirmation button coming back.
+
+    **Who clicked is checked against who was offered the button.** A message can
+    be forwarded, and an inline button in a forwarded message is still live for
+    whoever taps it. The registry stores the Telegram account the button was
+    drawn for, and a click from anybody else is answered and ignored.
+    """
+    locale = record["payload"].get("locale") or DEFAULT_LOCALE
+
+    if record["telegram_user_id"] not in (None, event.sender_id):
+        await event.answer(text("callback.notYours", locale), alert=True)
+        return
+
+    applicant_id = record["payload"].get("applicant_id")
+    applicant = await safe_applicant(ctx, applicant_id)
+
+    try:
+        removed = await ctx.supabase.remove_link(applicant_id)
+        skipped = (
+            await ctx.supabase.skip_queued(
+                applicant_id, "telegram unlinked before it was sent"
+            )
+            if removed
+            else 0
+        )
+    except (SupabaseError, httpx.HTTPError) as cause:
+        log.error("could not unlink: %s", cause)
+        await event.answer(text("unlink.failed", locale), alert=True)
+        return
+
+    if removed:
+        log.info("unlinked an applicant from telegram, %d queued rows skipped", skipped)
+        await ctx.supabase.audit(
+            "telegram_unlinked", applicant, {"source": "bot", "skipped": skipped}
+        )
+
+    await event.answer()
+    await event.edit(text("unlink.done" if removed else "unlink.notLinked", locale))
+
+
+# ---------------------------------------------------------------------------
+# Small shared things
+# ---------------------------------------------------------------------------
+
+
+def settings_url(ctx: Context) -> str:
+    return f"{ctx.config.site_url}/account/settings"
+
+
+def join(locale: str, *sentences: str) -> str:
+    """Two sentences on one line, spaced the way the language wants."""
+    return text("join.sentence", locale).join(s for s in sentences if s)
+
+
+def display_name(sender) -> str | None:
+    first = getattr(sender, "first_name", None) or ""
+    last = getattr(sender, "last_name", None) or ""
+    full = f"{first} {last}".strip()
+    return full or None
+
+
+async def client_locale(ctx: Context, sender) -> str:
+    """The language to use for somebody with no account to read one from."""
+    supported = tuple(name for name in await ctx.status.locales() if name in STRINGS)
+    return locale_for(getattr(sender, "lang_code", None), supported or (DEFAULT_LOCALE,))
+
+
+def account_locale(applicant: dict | None, fallback: str) -> str:
+    """The account's own language, which wins the moment there is an account."""
+    stored = (applicant or {}).get("locale")
+    return stored if stored in STRINGS else fallback
+
+
+async def safe_applicant(ctx: Context, applicant_id: str | None) -> dict | None:
+    """Read the account, and treat a failure as not knowing rather than as no."""
+    if not applicant_id:
+        return None
+    try:
+        return await ctx.supabase.applicant(applicant_id)
+    except (SupabaseError, httpx.HTTPError) as cause:
+        log.warning("could not read applicant %s: %s", applicant_id, cause)
+        return None
+
+
+async def current_link(ctx: Context, event) -> dict | None:
+    try:
+        return await ctx.supabase.link_for_telegram_user(event.sender_id)
+    except (SupabaseError, httpx.HTTPError) as cause:
+        log.error("could not read the link: %s", cause)
+        return None
+
+
+# ---------------------------------------------------------------------------
 # The registry
 # ---------------------------------------------------------------------------
 
@@ -167,4 +432,13 @@ async def handle_start(ctx: Context, event, args: str, locale: str) -> None:
 # message read the same dictionary, so there is nothing to keep in step.
 HANDLERS = {
     "start": handle_start,
+    "link": handle_link,
+    "unlink": handle_unlink,
+}
+
+# The same idea for buttons. A callback row's `kind` decides what runs, so a
+# button drawn six weeks ago still means what it meant, which is the whole
+# reason section 15 asks for the registry to be in SQLite.
+CALLBACKS = {
+    "unlink": handle_unlink_callback,
 }

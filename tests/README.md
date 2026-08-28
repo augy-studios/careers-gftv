@@ -176,6 +176,26 @@ nothing and reporting a clean pass. Worth copying into the other phase files:
 this whole phase is about failures that are silent, and a run that checked
 nothing looks exactly like a run where everything held.
 
+### Phase 11's sections
+
+`node tests/phase11-test.mjs`, same `--only=` habit. **The site half only.**
+Deviation 91 settled that the Python on the VPS is checked by a person against a
+checklist, and this file does not pretend otherwise; what is here is ordinary
+portal work on `/account/settings`.
+
+| Section | Covers |
+|---|---|
+| `qr` | The QR encoder written for the linking flow, round tripped through `jsqr`, an independent decoder and a devDependency that never reaches a browser. Every version from 1 to 9, the capacity boundary between two versions, multi byte text, and a refusal rather than a truncation past what version 9 holds. **Needs no deployment, no credentials, and no network.** |
+| `panel` | The panel in a browser: the control disabled with the phase sentence while phase 11 has not shipped and live once it has, asking for a code, the deep link on screen and on the button, the page flipping to linked while it sits there, unlinking behind a confirmation, and a read that could not be made showing as its own state rather than as "not linked". **It also reads the `d` attribute back out of the drawn SVG, rebuilds the matrix and decodes that**, because the encoder and the path builder are two separate places the symbol can be wrong. Same, needs nothing. |
+| `wiring` | What the two halves have to agree about: the new module in the precache list, all three controls carrying both reasons they can be disabled, every string in both languages, and **that the site's unlink and the bot's unlink still skip the same rows**. That rule is written twice in two languages against one table, and phase 10's lesson was that a duplicated rule needs a check that the copies still agree. Same, needs nothing. |
+
+**Service workers are blocked in the `panel` context, and that is deliberate.**
+Every page here registers one, and an active worker serves
+`/assets/build-status.json` from its own precache, where `page.route` never sees
+the request. The stubbed phase list then silently stopped arriving after a
+reload. It passed alone and failed in a full run, which is the worst shape a
+check can have. What the worker does is phase 10's file's job.
+
 ## What a run writes
 
 - **Postings**, all titled `SMOKE P7 <timestamp> …`. A full run makes about

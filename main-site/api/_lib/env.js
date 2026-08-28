@@ -19,6 +19,11 @@ const KNOWN = [
   'SITE_URL',
   'FORM_WEBHOOK_SECRET',
   'CRON_SECRET',
+  // Phase 11, and the only optional one in the list. It is read through
+  // optionalEnv with the username section 15 fixes as the default, so it is
+  // named here for the documentation rather than to be required: unset is the
+  // normal state, and setting it points a preview deployment at a test bot.
+  'TELEGRAM_BOT_USERNAME',
 ];
 
 /**

@@ -45,11 +45,12 @@ import db
 from build_status import BuildStatus
 from commands import BOT_FEATURE, BY_NAME, COMMANDS, botfather_lines
 from config import Config, ConfigError, load_config
-from handlers import HANDLERS, Context, availability
+from handlers import CALLBACKS, HANDLERS, Context, availability
 from lang import locale_for
 from lock import AlreadyRunning, SingleInstance
 from log import setup_logging
 from strings import DEFAULT_LOCALE, STRINGS, text
+from supabase import Supabase
 
 # `/name`, optionally addressed to the bot in a group, optionally with the rest
 # of the line as an argument. The deep link payload arrives as `/start <token>`.
@@ -174,6 +175,50 @@ def build_dispatcher(ctx: Context, log: logging.Logger):
     return dispatch
 
 
+def build_callbacks(ctx: Context, log: logging.Logger):
+    """Inline buttons coming back.
+
+    **The payload is looked up, never trusted.** What travels in the callback
+    data is an opaque id; what it means is a row in SQLite written when the
+    button was drawn. Section 15 asks for exactly this, so a button in an old
+    message keeps working across every restart, and it has a second effect worth
+    naming: a button cannot be forged by editing what is in it, because there is
+    nothing in it to edit.
+    """
+
+    async def dispatch(event) -> None:
+        raw = (event.data or b"").decode("utf-8", "replace")
+
+        if raw == "cb:cancel":
+            await event.answer()
+            await event.delete()
+            return
+
+        if not raw.startswith("cb:"):
+            await event.answer()
+            return
+
+        record = db.read_callback(ctx.conn, raw[3:])
+        if record is None:
+            # The registry is bot local and the database file could have been
+            # replaced. Saying so is better than a button that does nothing.
+            await event.answer(text("callback.unknown", DEFAULT_LOCALE), alert=True)
+            return
+
+        handler = CALLBACKS.get(record["kind"])
+        if handler is None:
+            await event.answer(text("callback.unknown", DEFAULT_LOCALE), alert=True)
+            return
+
+        try:
+            await handler(ctx, event, record)
+        except Exception:  # noqa: BLE001 - the reply matters more than the type
+            log.exception("callback %s failed", record["kind"])
+            await event.answer(text("generic.error", DEFAULT_LOCALE), alert=True)
+
+    return dispatch
+
+
 async def run(config: Config) -> int:
     log = setup_logging(config.log_level, config.log_dir)
 
@@ -208,12 +253,19 @@ async def run(config: Config) -> int:
         me = await client.get_me()
         log.info("connected as @%s", getattr(me, "username", "unknown"))
 
-        ctx = Context(config=config, status=status, conn=conn, http=http)
+        ctx = Context(
+            config=config,
+            status=status,
+            conn=conn,
+            http=http,
+            supabase=Supabase(config.supabase_url, config.supabase_service_key, http),
+        )
 
         client.add_event_handler(
             build_dispatcher(ctx, log),
             events.NewMessage(incoming=True, func=lambda e: e.is_private),
         )
+        client.add_event_handler(build_callbacks(ctx, log), events.CallbackQuery())
 
         await register_commands(client, status)
         log.info("commands:")

@@ -218,24 +218,85 @@
                     </p>
                 </section>
 
-                <!-- Telegram. Section 0c's disabled control pattern: visible,
-                     disabled, and saying which phase it arrives in. -->
-                <section class="glass-card card stack">
+                <!-- Telegram, section 15's linking flow.
+                     Every control here carries data-feature, so until phase 11
+                     ships they stay disabled and say which phase they arrive
+                     in, per 0c. data-needs-network is phase 10's third reason a
+                     control can be off, and it is a different claim from both
+                     of those: this page is precached and opens offline, and
+                     linking is the one thing on it that cannot work there. -->
+                <section class="glass-card card stack" id="telegramSection">
                     <h2>
                         <span data-icon="bell" data-icon-size="18"></span>
                         <span data-i18n="settings.telegramHeading">Telegram</span>
                     </h2>
                     <p data-i18n="settings.telegramBody">
                         Linking Telegram gets you notifications, invitations, one
-                        tap sign in, and a second step at sign in. The bot itself
-                        is a later phase, so the control is here and switched off,
-                        not absent.
+                        tap sign in, and a second step at sign in. Everything sent
+                        there is in the portal too, so nothing arrives only in a
+                        chat.
                     </p>
-                    <button type="button" class="btn btn-secondary"
-                            data-feature="telegram_link" data-feature-hint
-                            data-i18n="settings.telegramLink">
-                        Link Telegram
-                    </button>
+
+                    <!-- The third state, per phase 10: this page opens offline
+                         and both of the other answers are claims about somebody's
+                         account. Not knowing is its own sentence. -->
+                    <p class="muted" id="telegramUnknown" data-i18n="settings.telegramUnknown" hidden>
+                        We could not check whether Telegram is linked. That needs
+                        a connection.
+                    </p>
+
+                    <div id="telegramUnlinked" hidden>
+                        <button type="button" class="btn btn-secondary" id="telegramStart"
+                                data-feature="telegram_link" data-feature-hint
+                                data-needs-network data-needs-network-hint
+                                data-i18n="settings.telegramLink">
+                            Link Telegram
+                        </button>
+                    </div>
+
+                    <div id="telegramCode" class="stack" hidden>
+                        <p data-i18n="settings.telegramSteps">
+                            Scan this with the phone your Telegram is on, or open
+                            the link on this device. It works once and lasts ten
+                            minutes.
+                        </p>
+
+                        <div id="telegramQr" class="telegram-qr"></div>
+
+                        <p>
+                            <a class="btn btn-primary" id="telegramOpen" href="#"
+                               rel="noopener" data-i18n="settings.telegramOpen">
+                                Open Telegram
+                            </a>
+                        </p>
+
+                        <p class="telegram-url">
+                            <code id="telegramUrl"></code>
+                            <button type="button" class="btn btn-secondary small"
+                                    id="telegramCopy" data-i18n="settings.telegramCopy">
+                                Copy the link
+                            </button>
+                        </p>
+
+                        <p class="muted" id="telegramExpiry"></p>
+
+                        <button type="button" class="btn btn-secondary" id="telegramRestart"
+                                data-feature="telegram_link" data-feature-hint
+                                data-needs-network data-needs-network-hint
+                                data-i18n="settings.telegramRestart" hidden>
+                            Show a new code
+                        </button>
+                    </div>
+
+                    <div id="telegramLinked" class="stack" hidden>
+                        <p id="telegramLinkedLine"></p>
+                        <button type="button" class="btn btn-secondary" id="telegramUnlink"
+                                data-feature="telegram_link" data-feature-hint
+                                data-needs-network data-needs-network-hint
+                                data-i18n="settings.telegramUnlink">
+                            Unlink Telegram
+                        </button>
+                    </div>
                 </section>
 
                 <!-- 7h's other half: a reporter who never hears anything again

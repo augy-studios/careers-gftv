@@ -5383,3 +5383,49 @@ ul.field-hint {
 .admin-cron-flagged li + li {
   margin-block-start: 0.25rem;
 }
+
+/* ---------------------------------------------------------------------------
+ * Phase 11. The Telegram linking panel on /account/settings.
+ *
+ * Two things, and both are about the QR being scannable rather than pretty.
+ * ------------------------------------------------------------------------ */
+
+/* The symbol itself. White plate and a fixed maximum, because a QR stretched to
+   the width of a desktop card is harder to scan rather than easier: a phone
+   camera wants the whole thing in frame at a comfortable distance.
+
+   crispEdges is load bearing. Antialiasing a module edge produces grey pixels
+   along every boundary, and a scanner thresholding those reads modules that are
+   not there. The quiet zone is drawn into the SVG itself, per the standard, so
+   the padding here is only what separates it from the text above it. */
+.telegram-qr {
+  display: flex;
+  justify-content: center;
+  margin-block: 0.75rem;
+}
+
+.telegram-qr svg {
+  width: min(15rem, 60vw);
+  height: auto;
+  border-radius: var(--radius-sm);
+  shape-rendering: crispEdges;
+}
+
+/* The link in text, for a person on a laptop who wants to send it to their own
+   phone. Same shape as phase 9's copy row: the link wraps rather than scrolls,
+   because reading it accurately is the whole point. */
+.telegram-url {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.telegram-url code {
+  flex: 1 1 18rem;
+  overflow-wrap: anywhere;
+  padding: 0.3rem 0.5rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: 0.85rem;
+}

@@ -35,6 +35,7 @@ import { mountAccountPage, renderAccountIdentity, avatarNode } from './account-s
 import { escapeHtml } from './account-row.js';
 import { confirmDangerousAction } from './danger-confirm.js';
 import { toAvatarWebp, canEncodeWebp, AvatarError } from './avatar.js';
+import { mountTelegram } from './telegram-link.js';
 import { wipeAll } from './idb.js';
 import {
   clearErrors,
@@ -61,6 +62,7 @@ async function boot() {
   wireProfileForm();
   wireAvatar();
   wireDangerZone();
+  mountTelegram();
   loadReports();
 
   // The report list writes its own strings and does not carry data-i18n
