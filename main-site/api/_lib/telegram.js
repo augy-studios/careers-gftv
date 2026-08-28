@@ -376,6 +376,86 @@ export async function setTwofa(applicantId, enabled) {
 }
 
 /**
+ * The kinds this build can queue, per section 15.
+ *
+ * **One list, in one place, because the bot's is the other half of it.** The
+ * drain claims a batch by naming the kinds it can render, so a kind the site
+ * queues that `RENDERERS` in `telegram-bot/outbox.py` has never heard of is not
+ * a message that fails: it is a row that is never claimed at all and waits,
+ * silently, for the pull that teaches the bot what it is. That is deliberate and
+ * it is what makes two deployments on two schedules safe, but it only works if
+ * adding a kind here is an obvious act rather than a string typed at a call
+ * site. `tests/phase11-test.mjs` reads this object and the bot's dictionary and
+ * fails when they disagree.
+ */
+export const KIND = Object.freeze({
+  invite: 'invite',
+  taskRaised: 'task_raised',
+  applicationStatusChanged: 'application_status_changed',
+});
+
+/**
+ * Put one notification in the outbox, and never fail what raised it.
+ *
+ * **A failure here is swallowed on purpose.** Telegram is a second channel and
+ * never the only record: the task, the invite row and the application event are
+ * all written before this is called, and an applicant with no link never
+ * receives one of these at all. Letting a failed insert take an invite down with
+ * it would trade the delivery nobody is guaranteed for the record everybody
+ * depends on. It is the same reasoning `raisePostingQuestions` uses, and the
+ * same reasoning behind an audit write never failing its own request.
+ *
+ * **Nothing here asks whether the applicant has a link.** The row is queued
+ * either way and the bot marks it `skipped` when it comes to send it, per
+ * section 15. Checking here would be a read the drain has to repeat anyway, and
+ * it would answer a question that can change in the seconds between.
+ *
+ * @param {string} applicantId
+ * @param {string} kind one of KIND
+ * @param {object} payload what the message is rendered from
+ * @returns {Promise<boolean>} whether the row was written
+ */
+export async function queueNotification(applicantId, kind, payload = {}) {
+  const written = await queueNotifications([{ applicantId, kind, payload }]);
+  return written > 0;
+}
+
+/**
+ * The same, for everybody an admin ticked. One insert rather than a loop.
+ *
+ * 8.5's bulk invite reaches up to the recipient cap in one action, and a loop
+ * here would be one round trip each and a half written queue if the fifth throws.
+ *
+ * @param {Array<{ applicantId: string, kind: string, payload?: object }>} rows
+ * @returns {Promise<number>} how many were written
+ */
+export async function queueNotifications(rows) {
+  const wanted = rows.filter((row) => row.applicantId && KINDS.includes(row.kind));
+  if (wanted.length === 0) return 0;
+
+  try {
+    const { error } = await supabase.from(T.notifications).insert(
+      wanted.map((row) => ({
+        applicant_id: row.applicantId,
+        kind: row.kind,
+        payload: row.payload ?? {},
+      }))
+    );
+    if (error) throw error;
+    return wanted.length;
+  } catch (cause) {
+    // Loud in the log and invisible to the caller. The admin panel's queue
+    // counts are the other half of noticing this: a queue that stays empty on a
+    // morning of invitations is the same evidence as one that stops moving.
+    console.error('[careers-gftv] outbox queue:', cause);
+    return 0;
+  }
+}
+
+/** The values of KIND, for the membership test above. */
+const KINDS = Object.values(KIND);
+
+/**
  * Queue the test message from 7g's Telegram panel.
  *
  * The outbox, not the token table, because it is a message rather than a

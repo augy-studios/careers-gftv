@@ -48,11 +48,14 @@ because the person there is halfway through signing in.
 from __future__ import annotations
 
 import asyncio
+import html
 import logging
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
 import httpx
+from telethon import Button
 from telethon.errors import FloodWaitError
 from telethon.errors.rpcerrorlist import (
     InputUserDeactivatedError,
@@ -63,7 +66,7 @@ from telethon.errors.rpcerrorlist import (
 
 import db
 from strings import DEFAULT_LOCALE, STRINGS, text
-from supabase import SupabaseError
+from supabase import NOTIFY_COLUMN, SupabaseError
 
 log = logging.getLogger("bot.outbox")
 
@@ -126,7 +129,7 @@ class Rendered:
     buttons: list | None = None
 
 
-async def render_test(ctx, row: dict, applicant: dict | None, locale: str) -> Rendered:
+async def render_test(ctx, row: dict, applicant: dict | None, locale: str, link: dict) -> Rendered:
     """The test message from the Telegram panel in account settings.
 
     Not one of section 15's three kinds and not subject to the `notify` toggles,
@@ -137,15 +140,135 @@ async def render_test(ctx, row: dict, applicant: dict | None, locale: str) -> Re
     return Rendered(text("test.message", locale))
 
 
+async def render_invite(ctx, row: dict, applicant: dict | None, locale: str, link: dict) -> Rendered:
+    """An invitation to apply for a role. Section 15's "Invites over Telegram".
+
+    **Everything the message says comes from the payload.** The site wrote the
+    role, the department and the poster's note into the outbox row at the moment
+    the invite was sent, so this reads no postings table and says what was true
+    then rather than what is true now. The role title and the department are in
+    the language they are stored in and the sentence around them is in the
+    applicant's, which is exactly what `/account/tasks` does with the same task.
+
+    **The decline button writes back to `gftvjobs_invites`**, per section 15, and
+    its meaning lives in SQLite so it still works after a restart or a month.
+    What travels in the callback data is an opaque id: an invite that carried its
+    own job and applicant ids in a button would be a button somebody could forge.
+    """
+    payload = row.get("payload") or {}
+    job_id = payload.get("job_id")
+    role = payload.get("job_title") or payload.get("title") or ""
+    department = payload.get("department")
+    note = payload.get("body")
+
+    lines = [
+        text("notify.inviteHeading", locale),
+        text("notify.inviteRole", locale, role=html.escape(str(role))),
+    ]
+    if department:
+        lines.append(text("notify.inviteDepartment", locale, department=html.escape(str(department))))
+    if note:
+        lines.append("\n" + text("notify.inviteNote", locale, note=html.escape(str(note))))
+
+    buttons = []
+    if job_id:
+        buttons.append(Button.url(text("button.viewRole", locale), job_url(ctx, job_id)))
+
+        callback_id = uuid.uuid4().hex
+        db.remember_callback(
+            ctx.conn,
+            callback_id,
+            "decline_invite",
+            {
+                "job_id": job_id,
+                "applicant_id": row["applicant_id"],
+                "locale": locale,
+            },
+            telegram_user_id=link["telegram_user_id"],
+        )
+        buttons.append(Button.inline(text("button.decline", locale), f"cb:{callback_id}".encode()))
+
+    return Rendered("\n".join(lines) + footer(locale), [buttons] if buttons else None)
+
+
+async def render_task(ctx, row: dict, applicant: dict | None, locale: str, link: dict) -> Rendered:
+    """Something is waiting on the tasks page. 7g's inbox, delivered.
+
+    The title is the one an admin wrote and is sent as it was written. The bot
+    adds no summary of the body and no preview of the questions: a task can ask
+    for anything, the page renders it properly, and a chat window paraphrasing a
+    request somebody has to answer accurately would be the worst of both.
+    """
+    payload = row.get("payload") or {}
+    title = payload.get("title") or ""
+
+    message = (
+        text("notify.taskHeading", locale)
+        + "\n"
+        + text("notify.taskTitle", locale, title=html.escape(str(title)))
+    )
+    buttons = [[Button.url(text("button.openTasks", locale), f"{ctx.config.site_url}/account/tasks")]]
+    return Rendered(message + footer(locale), buttons)
+
+
+async def render_decision(ctx, row: dict, applicant: dict | None, locale: str, link: dict) -> Rendered:
+    """An accept or a reject, carrying the message its poster wrote.
+
+    **The status is not in here and is not missing.** 8.3 refuses a decision
+    without a message for a reason, and the message is what the applicant reads
+    on the dashboard; rendering an internal status enum beside it would be this
+    process writing decision copy that the route deliberately will not let the
+    site write. The role is named so a message about one of four applications is
+    not a riddle, and everything else is the poster's own words.
+    """
+    payload = row.get("payload") or {}
+    title = payload.get("title") or ""
+    body = payload.get("body")
+    role = payload.get("job_title")
+
+    lines = [text("notify.decisionHeading", locale)]
+    if role:
+        lines.append(text("notify.decisionRole", locale, role=html.escape(str(role))))
+    lines.append("\n<b>" + html.escape(str(title)) + "</b>")
+    if body:
+        lines.append(html.escape(str(body)))
+
+    buttons = [
+        [
+            Button.url(
+                text("button.openApplications", locale),
+                f"{ctx.config.site_url}/account/applications",
+            )
+        ]
+    ]
+    return Rendered("\n".join(lines) + footer(locale), buttons)
+
+
 # One entry per kind this build can actually send. **The claim reads this
 # dictionary**, so adding a kind here is the whole of making it deliverable, and
-# leaving one out is the whole of making an older bot leave it alone. Part 5
-# adds `invite`, `task_raised` and `application_status_changed`, and the
-# unsubscribe footer section 15 asks for arrives with them, since it is the
-# `notify` toggles it points at.
+# leaving one out is the whole of making an older bot leave it alone: a kind a
+# newer site queues that is missing from here is never claimed, and waits.
 RENDERERS = {
     "telegram_test": render_test,
+    "invite": render_invite,
+    "task_raised": render_task,
+    "application_status_changed": render_decision,
 }
+
+
+def footer(locale: str) -> str:
+    """The unsubscribe hint section 15 asks for on the bottom of every one.
+
+    On the three real kinds and not on the test message, which is what the
+    absence of a `NOTIFY_COLUMN` entry means: a hint pointing at a switch that
+    does not govern the message it is printed under would be a lie in small type.
+    """
+    return "\n\n" + text("notify.footer", locale)
+
+
+def job_url(ctx, job_id: str) -> str:
+    """A posting's canonical address, which is its uuid rather than its slug."""
+    return f"{ctx.config.site_url}/jobs/{job_id}"
 
 
 @dataclass
@@ -417,11 +540,27 @@ class OutboxLoop:
             tally.skipped += 1
             return True
 
+        column = NOTIFY_COLUMN.get(row.get("kind"))
+        if column and link.get(column) is False:
+            # Switched off with /notify. **Read now rather than at claim time**,
+            # for the same reason the link is: somebody who silences a kind while
+            # a batch is in flight has silenced it, and a claim taken twenty
+            # seconds ago is not a promise about what they want now.
+            #
+            # `is False` rather than a falsy test. A column PostgREST did not
+            # return, because an older bot's select did not name it, must read as
+            # "no answer" and never as "switched off": silence is not consent's
+            # opposite here, it is a message the applicant asked for going
+            # missing. Migration 011 defaults all three to true.
+            await self.finish(row, "skipped", "the applicant has this kind switched off")
+            tally.skipped += 1
+            return True
+
         applicant = await self.safe_applicant(applicant_id)
         locale = self.locale_for(applicant)
 
         try:
-            rendered = await render(self.ctx, row, applicant, locale)
+            rendered = await render(self.ctx, row, applicant, locale, link)
         except Exception as cause:  # noqa: BLE001 - a bad payload is not a crash
             # A row whose payload is missing something the message needs. It
             # will be missing it in fifteen minutes too, so this is `failed`
@@ -432,10 +571,11 @@ class OutboxLoop:
             return True
 
         if rendered is None:
-            # A renderer's own decision that this row should not be sent, which
-            # is how part 5's `notify` toggles will answer. Skipped, because
-            # nothing failed and nothing is owed.
-            await self.finish(row, "skipped", "the applicant has this kind switched off")
+            # A renderer's own decision that this row should not be sent, for
+            # something only it can know. The toggles are checked above rather
+            # than here, because whether an applicant wants a kind is a property
+            # of the account and not of the message.
+            await self.finish(row, "skipped", "the renderer had nothing to send")
             tally.skipped += 1
             return True
 

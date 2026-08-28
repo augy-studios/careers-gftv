@@ -51,7 +51,7 @@ from config import Config
 from lang import locale_for
 from security import hash_code, six_digits
 from strings import DEFAULT_LOCALE, STRINGS, text
-from supabase import Supabase, SupabaseError
+from supabase import NOTIFY_COLUMN, Supabase, SupabaseError
 
 log = logging.getLogger("bot.handlers")
 
@@ -449,6 +449,197 @@ def code_expiry() -> str:
 
 
 # ---------------------------------------------------------------------------
+# notify, section 15's per kind toggles
+# ---------------------------------------------------------------------------
+
+# The order the three appear in, which is the order somebody meets them: an
+# invitation is the message this whole channel exists for, a task is the ordinary
+# one, and a decision is the rare one. The labels come from `strings.py` keyed on
+# the kind, so a kind added later needs one string and no code here.
+NOTIFY_KINDS = ("invite", "task_raised", "application_status_changed")
+
+
+async def handle_notify(ctx: Context, event, args: str, locale: str) -> None:
+    """Choose which notifications arrive here. Section 15's command list.
+
+    **The toggles are only here, and that is a decision rather than an
+    omission.** The site could carry the same three switches on the settings
+    panel; two places writing one row is how two sentences about one rule drift
+    apart, and this is the place section 15 names.
+
+    **Security messages are not in the list**, per section 15, and the message
+    says so rather than leaving somebody hunting for the switch that turns a
+    login code off. Silencing those is what an attacker would want.
+    """
+    link = await current_link(ctx, event)
+    if link is None:
+        await event.respond(text("notify.notLinked", locale), link_preview=False)
+        return
+
+    applicant = await safe_applicant(ctx, link["applicant_id"])
+    locale = account_locale(applicant, locale)
+
+    await event.respond(
+        text("notify.intro", locale),
+        buttons=notify_buttons(ctx, link, locale, event.sender_id, event.chat_id),
+        link_preview=False,
+    )
+
+
+def notify_buttons(ctx: Context, link: dict, locale: str, telegram_user_id: int, chat_id: int):
+    """One row per kind, each button showing the state it is in now.
+
+    **A button's meaning is the kind and never the value.** The registry row says
+    "this button toggles invitations for this account", so a message from six
+    weeks ago still does the right thing when the switch has been flipped twice
+    since, and the redraw after a click reuses the same three ids rather than
+    writing three more rows for every tap.
+    """
+    rows = []
+
+    for kind in NOTIFY_KINDS:
+        column = NOTIFY_COLUMN[kind]
+        # A column PostgREST did not return reads as on, exactly as the drain
+        # treats it: migration 011 defaults all three to true, and the state
+        # drawn here has to be the state that decides whether a message is sent.
+        on = link.get(column) is not False
+
+        callback_id = notify_callback_id(ctx, link, kind, locale, telegram_user_id, chat_id)
+        label = text(f"notify.state.{'on' if on else 'off'}", locale, kind=text(f"notify.kind.{kind}", locale))
+        rows.append([Button.inline(label, f"cb:{callback_id}".encode())])
+
+    return rows
+
+
+def notify_callback_id(
+    ctx: Context, link: dict, kind: str, locale: str, telegram_user_id: int, chat_id: int
+) -> str:
+    """A stable id per account and kind, so a redraw does not grow the registry.
+
+    Derived rather than random, which is the one place in this build a callback
+    id is: the three buttons on this message are redrawn on every tap, and a
+    fresh uuid each time would write three rows per click for ever. It is a hash
+    of the account, the kind and a per install secret, so it is not guessable
+    from outside and the click check below still decides who may use it.
+    """
+    material = f"notify:{link['applicant_id']}:{kind}:{telegram_user_id}"
+    callback_id = hashlib.sha256(material.encode("utf-8")).hexdigest()[:32]
+
+    db.remember_callback(
+        ctx.conn,
+        callback_id,
+        "notify",
+        {"applicant_id": link["applicant_id"], "kind": kind, "locale": locale},
+        telegram_user_id=telegram_user_id,
+        chat_id=chat_id,
+    )
+    return callback_id
+
+
+async def handle_notify_callback(ctx: Context, event, record: dict) -> None:
+    """One toggle, flipped, and the whole keyboard redrawn from what is stored.
+
+    **The value is read live rather than carried in the button**, so two taps
+    from two devices end with the switch in the state the second one asked for
+    rather than in whatever the older message thought it was.
+    """
+    locale = record["payload"].get("locale") or DEFAULT_LOCALE
+
+    if record["telegram_user_id"] not in (None, event.sender_id):
+        await event.answer(text("callback.notYours", locale), alert=True)
+        return
+
+    kind = record["payload"].get("kind")
+    column = NOTIFY_COLUMN.get(kind)
+    if column is None:
+        await event.answer(text("callback.unknown", locale), alert=True)
+        return
+
+    # The link is re-read rather than trusted, which also answers the case that
+    # matters: somebody who unlinked since this message was sent has no row to
+    # write to, and telling them the switch moved would be a lie.
+    link = await current_link(ctx, event)
+    if link is None or link["applicant_id"] != record["payload"].get("applicant_id"):
+        await event.answer(text("notify.gone", locale), alert=True)
+        return
+
+    applicant = await safe_applicant(ctx, link["applicant_id"])
+    locale = account_locale(applicant, locale)
+    wanted = link.get(column) is False
+
+    try:
+        updated = await ctx.supabase.set_notify(link["applicant_id"], column, wanted)
+    except (SupabaseError, httpx.HTTPError) as cause:
+        log.error("could not change a notify toggle: %s", cause)
+        await event.answer(text("notify.failed", locale), alert=True)
+        return
+
+    await event.answer(
+        text(
+            "notify.changed",
+            locale,
+            kind=text(f"notify.kind.{kind}", locale),
+            state=text(f"notify.word.{'on' if wanted else 'off'}", locale),
+        )
+    )
+    await event.edit(
+        text("notify.intro", locale),
+        buttons=notify_buttons(
+            ctx, updated or link, locale, event.sender_id, record["chat_id"] or event.chat_id
+        ),
+        link_preview=False,
+    )
+
+
+async def handle_decline_callback(ctx: Context, event, record: dict) -> None:
+    """The decline button on an invitation, per section 15.
+
+    **It writes to `gftvjobs_invites` and to nothing else.** The task on the
+    dashboard is left exactly where it is, because it is the record that this
+    person was invited and that record does not change when they say no thank
+    you. What changes is the invite's status, which is what an admin reads.
+
+    A row already withdrawn, applied to, or declined is answered without being
+    written, and the filter rather than a check is what makes that true even for
+    two taps a second apart.
+    """
+    locale = record["payload"].get("locale") or DEFAULT_LOCALE
+
+    if record["telegram_user_id"] not in (None, event.sender_id):
+        await event.answer(text("callback.notYours", locale), alert=True)
+        return
+
+    job_id = record["payload"].get("job_id")
+    applicant_id = record["payload"].get("applicant_id")
+
+    try:
+        declined = await ctx.supabase.decline_invite(job_id, applicant_id)
+    except (SupabaseError, httpx.HTTPError) as cause:
+        log.error("could not decline an invite: %s", cause)
+        await event.answer(text("notify.failed", locale), alert=True)
+        return
+
+    if not declined:
+        # Withdrawn by the poster, applied to already, or declined a moment ago
+        # on another device. All three are "there is nothing here to decline",
+        # and none of them is an error worth an alert about our own tables.
+        await event.answer(text("decline.nothing", locale), alert=True)
+        return
+
+    applicant = await safe_applicant(ctx, applicant_id)
+    log.info("an invitation was declined from telegram")
+    await ctx.supabase.audit(
+        "invite_declined",
+        applicant,
+        {"source": "bot", "job_id": job_id},
+        target_table="invites",
+    )
+
+    await event.answer()
+    await event.edit(text("decline.done", locale), buttons=None)
+
+
+# ---------------------------------------------------------------------------
 # Small shared things
 # ---------------------------------------------------------------------------
 
@@ -512,6 +703,7 @@ HANDLERS = {
     "link": handle_link,
     "unlink": handle_unlink,
     "code": handle_code,
+    "notify": handle_notify,
 }
 
 # The same idea for buttons. A callback row's `kind` decides what runs, so a
@@ -519,4 +711,6 @@ HANDLERS = {
 # reason section 15 asks for the registry to be in SQLite.
 CALLBACKS = {
     "unlink": handle_unlink_callback,
+    "notify": handle_notify_callback,
+    "decline_invite": handle_decline_callback,
 }

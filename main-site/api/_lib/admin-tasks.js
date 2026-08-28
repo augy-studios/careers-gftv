@@ -16,6 +16,14 @@
 //   never orphan an answer already given. There is no update path for the
 //   column, deliberately: the way to ask a different question is a new task.
 //
+// And the rule phase 11 part 5 added, which is the same shape:
+//
+//   **Raising a task is what queues a Telegram notification.** Section 15's
+//   three kinds each match something written here, so the mapping lives in one
+//   place and every raise site gets delivery without asking for it. A queue
+//   failure never fails a raise, because the task is the record and Telegram is
+//   a second channel for it.
+//
 // And the one that is easy to lose in a review:
 //
 //   **Nothing here ever inserts an apply prompt into gftvjobs_tasks.** The
@@ -27,6 +35,7 @@
 import { supabase, T } from './supabase.js';
 import { hasQuestions } from './questions.js';
 import { OPEN_STATUSES, TASK_TYPES } from './tasks.js';
+import { KIND, queueNotifications } from './telegram.js';
 
 /** What the admin views read back after a write. */
 const TASK_COLUMNS = [
@@ -50,6 +59,67 @@ const TASK_COLUMNS = [
 ].join(', ');
 
 /**
+ * Which notification kind a task of each type is delivered as.
+ *
+ * **One mapping, here, rather than a queue call at each raise site.** Section
+ * 15's three kinds each correspond to something this file already writes, and
+ * putting the decision anywhere else would mean a raise site added in a later
+ * phase quietly delivering nothing: the task would appear on the dashboard and
+ * the chat would stay silent, which is the failure nobody reports because
+ * nothing looks broken. Raising a task and telling the applicant about it are
+ * one act, so they are one function.
+ *
+ * A type with no entry here is `task_raised`, which is what `info_request` is
+ * and what anything added later will be until somebody decides otherwise. That
+ * is the safe default: a message saying something is waiting is true of every
+ * task by definition.
+ *
+ * **A notice is `application_status_changed` and nothing else is.** Only
+ * `raiseDecisionNotice` writes one, so an accept or a reject with the message
+ * its poster wrote is the entire set, settled 29 August 2026. A status moved
+ * without a message stays silent in Telegram exactly as it stays silent on the
+ * dashboard, because Telegram is a second channel for what the portal recorded
+ * and never a channel of its own.
+ */
+const NOTIFY_KIND = Object.freeze({
+  invite: KIND.invite,
+  notice: KIND.applicationStatusChanged,
+  info_request: KIND.taskRaised,
+});
+
+/**
+ * What the bot renders a message from, taken from the task that was written.
+ *
+ * **The payload is a copy and not a reference**, the same instinct that freezes
+ * a question set at raise time. The bot renders from what was true when this was
+ * queued, so a posting renamed an hour later does not rewrite the message an
+ * applicant is about to receive, and the drain needs no read of its own beyond
+ * the link it has to check anyway.
+ *
+ * **The role title inside it is the posting's own**, in the language it is
+ * stored in, exactly as the task title on `/account/tasks` is. The bot writes
+ * the sentence around it in the applicant's language and leaves the title alone,
+ * which is the rule every other surface in this build already follows.
+ */
+function notificationFor(task, input) {
+  const extra = input.notify ?? {};
+  return {
+    applicantId: task.applicant_id,
+    kind: NOTIFY_KIND[task.task_type] ?? KIND.taskRaised,
+    payload: {
+      task_id: task.id,
+      task_type: task.task_type,
+      title: task.title,
+      body: task.body ?? null,
+      job_id: task.job_id ?? null,
+      job_title: extra.jobTitle ?? null,
+      department: extra.department ?? null,
+      raised_at: task.created_at ?? new Date().toISOString(),
+    },
+  };
+}
+
+/**
  * Raise one task on one applicant.
  *
  * @param {{
@@ -60,7 +130,8 @@ const TASK_COLUMNS = [
  *   title: string,
  *   body?: string|null,
  *   questions?: object[],
- *   raisedBy?: string|null
+ *   raisedBy?: string|null,
+ *   notify?: { jobTitle?: string|null, department?: string|null }
  * }} input
  * @returns {Promise<object>} the task row
  */
@@ -82,6 +153,13 @@ export async function raiseTask(input) {
 
   const { data, error } = await supabase.from(T.tasks).insert(row).select(TASK_COLUMNS).single();
   if (error) throw error;
+
+  // The task is written first and the notification second, which is the same
+  // ordering phase 9's webhook uses and for the same reason: a failure leaves a
+  // record somebody can act on rather than a message about something that does
+  // not exist. queueNotifications never throws, so this cannot fail a raise.
+  await queueNotifications([notificationFor(data, input)]);
+
   return data;
 }
 
@@ -113,7 +191,20 @@ export async function raiseTasks(inputs) {
 
   const { data, error } = await supabase.from(T.tasks).insert(rows).select(TASK_COLUMNS);
   if (error) throw error;
-  return data ?? [];
+
+  const written = data ?? [];
+
+  // One insert for the whole send, matching the one above it. Each task is
+  // paired with its input by applicant rather than by position: everything the
+  // input still contributes is the posting it is about, and matching on the
+  // order rows happen to come back in would be trusting PostgREST for something
+  // it has never promised.
+  const extras = new Map(inputs.map((input) => [input.applicantId, input]));
+  await queueNotifications(
+    written.map((task) => notificationFor(task, extras.get(task.applicant_id) ?? {}))
+  );
+
+  return written;
 }
 
 /**

@@ -41,8 +41,33 @@ TABLES = {
     "telegram_links": "gftvjobs_telegram_links",
     "telegram_tokens": "gftvjobs_telegram_tokens",
     "notifications": "gftvjobs_notifications",
+    "invites": "gftvjobs_invites",
     "audit_log": "gftvjobs_audit_log",
 }
+
+# Every column a link read hands back. **The three notify columns are read
+# everywhere the link is**, because the drain's toggle check and the /notify
+# command are the same question asked from two directions, and a select that
+# named them in one place and not the other would answer "off" for a kind
+# somebody had switched on. Migration 011 defaults all three to true.
+LINK_COLUMNS = (
+    "id, applicant_id, telegram_user_id, telegram_username, twofa_enabled, linked_at, "
+    "notify_invite, notify_task_raised, notify_application_status_changed"
+)
+
+# Which column carries the toggle for each notification kind, per migration 011.
+# **One dictionary, read by both sides of the toggle**: the drain checks it
+# before it sends and `/notify` writes through it, so the switch somebody flips
+# and the switch that is honoured are the same column by construction. A kind
+# missing from here is a kind nobody can silence, which is what a security
+# message is and what the test message from account settings is.
+NOTIFY_COLUMN = {
+    "invite": "notify_invite",
+    "task_raised": "notify_task_raised",
+    "application_status_changed": "notify_application_status_changed",
+}
+
+NOTIFY_COLUMNS = frozenset(NOTIFY_COLUMN.values())
 
 
 def now_iso() -> str:
@@ -148,16 +173,59 @@ class Supabase:
         """The portal account this Telegram account is linked to, if any."""
         return await self.one(
             "telegram_links",
-            "id, applicant_id, telegram_user_id, telegram_username, twofa_enabled, linked_at",
+            LINK_COLUMNS,
             {"telegram_user_id": f"eq.{telegram_user_id}"},
         )
 
     async def link_for_applicant(self, applicant_id: str) -> dict | None:
         return await self.one(
             "telegram_links",
-            "id, applicant_id, telegram_user_id, telegram_username, twofa_enabled, linked_at",
+            LINK_COLUMNS,
             {"applicant_id": f"eq.{applicant_id}"},
         )
+
+    async def set_notify(self, applicant_id: str, column: str, wanted: bool) -> dict | None:
+        """Turn one notification kind on or off for one account.
+
+        **The column name is never taken from a message.** It comes from
+        `NOTIFY_COLUMN` in outbox.py, which is the same dictionary the drain
+        checks before it sends, so the switch somebody flips and the switch that
+        is read are the same one by construction rather than by two lists
+        agreeing. Anything else is refused here rather than sent to PostgREST as
+        a filter, because a column name is not user input in any circumstances.
+        """
+        if column not in NOTIFY_COLUMNS:
+            raise SupabaseError(f"{column} is not a notify column")
+
+        rows = await self.update(
+            "telegram_links",
+            {"applicant_id": f"eq.{applicant_id}"},
+            {column: bool(wanted)},
+        )
+        return rows[0] if rows else None
+
+    async def decline_invite(self, job_id: str, applicant_id: str) -> bool:
+        """The decline button on an invitation, per section 15.
+
+        **Only a row that was sent and not answered can be declined**, which is
+        the filter rather than a check above it: an invite already withdrawn by
+        the poster, or one where the applicant has since applied, must not be
+        rewritten by a button in a message from last month. Section 15 asks for
+        the button to keep working forever, and this is what makes that safe.
+
+        `seen` is accepted as well as `invited` and nothing writes `seen` yet, so
+        the second half of that filter is for the day something does.
+        """
+        rows = await self.update(
+            "invites",
+            {
+                "job_id": f"eq.{job_id}",
+                "applicant_id": f"eq.{applicant_id}",
+                "status": "in.(invited,seen)",
+            },
+            {"status": "declined"},
+        )
+        return len(rows) > 0
 
     async def applicant(self, applicant_id: str) -> dict | None:
         return await self.one(
@@ -495,6 +563,7 @@ class Supabase:
         metadata: dict | None = None,
         *,
         target_id: str | None = None,
+        target_table: str = "telegram_links",
     ) -> None:
         """Write one audit row, and never fail the thing it was recording.
 
@@ -510,7 +579,7 @@ class Supabase:
                     "actor_id": (applicant or {}).get("id"),
                     "actor_label": (applicant or {}).get("username"),
                     "action": action,
-                    "target_table": TABLES["telegram_links"],
+                    "target_table": TABLES[target_table],
                     "target_id": target_id,
                     "metadata": metadata or {},
                 },

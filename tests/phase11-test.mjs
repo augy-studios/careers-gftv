@@ -1001,11 +1001,18 @@ define('outbox', 'The notification queue on /admin, and the drain behind it', as
   // claim filters on exactly the renderers this build holds: a kind missing from
   // that dictionary is not a broken message, it is a row that is never claimed
   // at all and waits, silently, for a bot that knows it.
-  const queued = [...site.matchAll(/kind: '([a-z_]+)'/g)].map((match) => match[1]);
+  const kindBlock = site.match(/export const KIND = Object\.freeze\(\{([\s\S]*?)\}\);/)?.[1] ?? '';
+  const queued = [
+    // The three from part 5, named in one frozen object so a kind cannot be
+    // added by typing a string at a call site, and the test message part 3
+    // wrote, which is still the only kind queued from outside that object.
+    ...[...kindBlock.matchAll(/'([a-z_]+)'/g)].map((match) => match[1]),
+    ...[...site.matchAll(/kind: '([a-z_]+)'/g)].map((match) => match[1]),
+  ];
   const renderable = [...drain.matchAll(/^\s{4}"([a-z_]+)": render/gm)].map((match) => match[1]);
   check(
     '61. every kind the site queues is one the drain can render',
-    queued.length > 0 && queued.every((kind) => renderable.includes(kind)),
+    queued.length >= 4 && queued.every((kind) => renderable.includes(kind)),
     `site queues ${queued.join(', ')}, the drain renders ${renderable.join(', ')}`
   );
 
@@ -1067,6 +1074,129 @@ define('outbox', 'The notification queue on /admin, and the drain behind it', as
     '66. every string part 4 added exists in both languages',
     added.length >= 11 && added.every((key) => typeof zh[key] === 'string' && zh[key].length > 0),
     `${added.length} keys`
+  );
+});
+
+/* -------------------------------------------------------------------------
+ * The three kinds and the toggles, part 5
+ *
+ * Every check here reads a file. The messages themselves are walked by a person
+ * in a real chat, per deviation 91, and what a person cannot check by reading a
+ * chat window is whether the two halves still describe the same three kinds:
+ * the site queues into a table the bot claims from, both sides name the kinds
+ * separately, and a disagreement is silent at both ends. That is what this is.
+ * ---------------------------------------------------------------------- */
+
+define('notify', 'The three notification kinds, and what can silence them', async () => {
+  const site = await readFile(join(SITE, 'api', '_lib', 'telegram.js'), 'utf8');
+  const tasks = await readFile(join(SITE, 'api', '_lib', 'admin-tasks.js'), 'utf8');
+  const drain = await readFile(join(HERE, '..', 'telegram-bot', 'outbox.py'), 'utf8');
+  const supabasePy = await readFile(join(HERE, '..', 'telegram-bot', 'supabase.py'), 'utf8');
+  const strings = await readFile(join(HERE, '..', 'telegram-bot', 'strings.py'), 'utf8');
+  const migration = await readFile(
+    join(HERE, '..', 'migrations', '011_telegram_and_notifications.sql'),
+    'utf8'
+  );
+
+  const kindBlock = site.match(/export const KIND = Object\.freeze\(\{([\s\S]*?)\}\);/)?.[1] ?? '';
+  const kinds = [...kindBlock.matchAll(/'([a-z_]+)'/g)].map((match) => match[1]);
+
+  // Section 15 fixes the set: invite, task_raised, application_status_changed,
+  // all three in the first version. Three is as much the check as the names are,
+  // since a fourth queued by the site is a row an older bot never claims.
+  check(
+    '67. the site names exactly section 15\'s three kinds',
+    kinds.length === 3 &&
+      ['invite', 'task_raised', 'application_status_changed'].every((kind) => kinds.includes(kind)),
+    kinds.join(', ')
+  );
+
+  // The mapping from a task type to a kind is the whole of what makes a raise
+  // deliver anything, and every type gftvjobs_tasks allows has to be in it or a
+  // task of that type reaches the outbox as the default and nobody meant it to.
+  const mapped = [...(tasks.match(/const NOTIFY_KIND = Object\.freeze\(\{([\s\S]*?)\}\);/)?.[1] ?? '')
+    .matchAll(/^\s{2}([a-z_]+):/gm)].map((match) => match[1]);
+  const types = [...(
+    await readFile(join(SITE, 'api', '_lib', 'tasks.js'), 'utf8')
+  ).match(/TASK_TYPES = Object\.freeze\(\[([^\]]+)\]/)?.[1].matchAll(/'([a-z_]+)'/g)].map(
+    (match) => match[1]
+  );
+  check(
+    '68. every task type a task can hold is mapped to a kind',
+    types.length > 0 && types.every((type) => mapped.includes(type)),
+    `types ${types.join(', ')}, mapped ${mapped.join(', ')}`
+  );
+
+  // Only raiseDecisionNotice writes a notice, so mapping notice onto
+  // application_status_changed is what settles "only the decision notice", 29
+  // August 2026. A second writer of that type would quietly widen it.
+  const notices = [...tasks.matchAll(/type: 'notice'/g)].length;
+  const decisions = [
+    ...(await readFile(join(SITE, 'api', '_lib', 'admin-applications.js'), 'utf8')).matchAll(
+      /type: 'notice'/g
+    ),
+  ].length;
+  check(
+    '69. a notice task is raised in one place, which is what makes the kind mean one thing',
+    notices === 0 && decisions === 1,
+    `admin-tasks ${notices}, admin-applications ${decisions}`
+  );
+
+  // The toggle the applicant flips and the toggle the drain reads are the same
+  // column or the switch does nothing, and it does nothing silently: the message
+  // simply keeps arriving. One dictionary, checked against the migration that
+  // created the columns.
+  const columnBlock = supabasePy.match(/NOTIFY_COLUMN = \{([\s\S]*?)\}/)?.[1] ?? '';
+  const toggles = Object.fromEntries(
+    [...columnBlock.matchAll(/"([a-z_]+)": "([a-z_]+)"/g)].map((match) => [match[1], match[2]])
+  );
+  check(
+    '70. every kind the site queues has a toggle the bot honours',
+    kinds.every((kind) => typeof toggles[kind] === 'string'),
+    Object.keys(toggles).join(', ')
+  );
+  check(
+    '71. and every toggle column exists on the table migration 011 created',
+    Object.values(toggles).length === 3 &&
+      Object.values(toggles).every((column) => migration.includes(`${column}  `) || migration.includes(`${column} `)),
+    Object.values(toggles).join(', ')
+  );
+
+  // Section 15: security messages are not subject to the toggles. The absence of
+  // an entry is what implements that, so it is worth a check of its own rather
+  // than being left as something everybody remembers.
+  check(
+    '72. and nothing gives the login code or the test message one',
+    !Object.keys(toggles).includes('telegram_test') && !/notify_(code|login|security)/.test(supabasePy),
+    'silencing a security message is what an attacker would want'
+  );
+
+  // Section 15: always include an unsubscribe hint in the footer of a
+  // notification. It points at /notify, which has to be a command that answers.
+  check(
+    '73. every notification carries the unsubscribe hint, and the test message does not',
+    /def footer\(/.test(drain) &&
+      (drain.match(/\+ footer\(locale\)/g) ?? []).length === 3 &&
+      /notify\.footer/.test(drain),
+    'the hint belongs on the three kinds a toggle governs'
+  );
+  check(
+    '74. and the command it names is one the bot answers',
+    /"notify": handle_notify/.test(
+      await readFile(join(HERE, '..', 'telegram-bot', 'handlers.py'), 'utf8')
+    ),
+    'a footer pointing at an unbuilt command would be worse than no footer'
+  );
+
+  // The same rule strings.py enforces at import, checked here as well because
+  // this file can say which part left a gap. Both languages, every new key.
+  const en = [...strings.matchAll(/"(notify\.[a-zA-Z_.]+|decline\.[a-z]+|button\.(?:viewRole|decline|openTasks|openApplications))":/g)]
+    .map((match) => match[1]);
+  const counts = en.reduce((into, key) => into.set(key, (into.get(key) ?? 0) + 1), new Map());
+  check(
+    '75. every string part 5 added exists in both languages',
+    counts.size >= 20 && [...counts.values()].every((count) => count === 2),
+    [...counts.entries()].filter(([, count]) => count !== 2).map(([key]) => key).join(', ')
   );
 });
 

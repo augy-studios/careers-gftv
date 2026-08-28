@@ -384,6 +384,12 @@ export async function raiseDecisionNotice(application, message, staffUser) {
     // an applicant could sweep off the list while somebody waited for it.
     questions: [],
     raisedBy: staffUser.id,
+    // The role this decision is about, for the Telegram message. **The status
+    // itself is deliberately not carried**: what an applicant reads is the
+    // message its poster wrote, here as on the dashboard, and a status enum
+    // rendered into a chat would be this build writing the decision copy the
+    // route refuses to let it write.
+    notify: { jobTitle: application.job?.title ?? null },
   });
 }
 

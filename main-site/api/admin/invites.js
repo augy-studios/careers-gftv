@@ -190,14 +190,44 @@ async function readTargets(body) {
 
   const { data: job, error } = await supabase
     .from(T.jobs)
-    .select('id, title, status')
+    .select('id, title, status, department_id')
     .eq('id', jobId)
     .maybeSingle();
 
   if (error) throw error;
   if (!job) return { details: { job_id: FIELD.INVALID } };
 
-  return { job, applicantIds, note: note.value };
+  return {
+    job: { ...job, department: await departmentName(job.department_id) },
+    applicantIds,
+    note: note.value,
+  };
+}
+
+/**
+ * The department's own name, for the invite that goes to Telegram.
+ *
+ * Section 15: the message names the role and the department. It is read here,
+ * once per send rather than once per recipient, and it is the base row's name in
+ * the language it is stored in, matching the posting title beside it and the
+ * task title on the dashboard. A failure to read it is a message without a
+ * department, never a failed invite.
+ */
+async function departmentName(departmentId) {
+  if (!departmentId) return null;
+
+  const { data, error } = await supabase
+    .from(T.departments)
+    .select('name')
+    .eq('id', departmentId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[careers-gftv] invite department:', error);
+    return null;
+  }
+
+  return data?.name ?? null;
 }
 
 /**

@@ -97,6 +97,12 @@ export const AUDIT = Object.freeze({
   // nobody recorded the end of is one nobody can explain later.
   INVITE_SENT: 'invite_sent',
   INVITE_WITHDRAWN: 'invite_withdrawn',
+  // **INVITE_DECLINED is written by the bot, not by this codebase**, in the same
+  // way and for the same reason as TELEGRAM_LINKED below: the decline button
+  // lives in a chat message and the process that received the tap is the only
+  // one that knows it happened. It is here so that the one list of actions this
+  // build writes is complete, and so that nothing invents a second spelling.
+  INVITE_DECLINED: 'invite_declined',
   APPLICANT_SHORTLISTED: 'applicant_shortlisted',
   // 8.8. Who can reach the dashboard, in all three directions. The third is not
   // a tidy up: handing the decision back to somebody's gftv.asia role is a

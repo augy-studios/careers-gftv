@@ -249,8 +249,9 @@ export async function shortlistApplicants(input) {
  * second channel for the same invite and must not treat a row it has already
  * delivered as new.
  *
- * @param {{ job: { id: string, title: string }, applicantIds: string[],
- *           note?: string|null, staffId?: string|null, title: string }} input
+ * @param {{ job: { id: string, title: string, department?: string|null },
+ *           applicantIds: string[], note?: string|null, staffId?: string|null,
+ *           title: string }} input
  * @returns {Promise<{ invited: string[], skipped: string[] }>}
  */
 export async function inviteApplicants(input) {
@@ -315,6 +316,14 @@ export async function inviteApplicants(input) {
         title: input.title,
         body: input.note ?? null,
         raisedBy: input.staffId ?? null,
+        // What the Telegram message needs beyond the task, per section 15: it
+        // names the role and the department, where the task's own title is one
+        // sentence with the role inside it. The bot writes its own frame around
+        // these in the applicant's language.
+        notify: {
+          jobTitle: input.job.title,
+          department: input.job.department ?? null,
+        },
       }))
     );
   }

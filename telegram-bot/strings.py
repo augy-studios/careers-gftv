@@ -118,6 +118,62 @@ STRINGS: dict[str, dict[str, str]] = {
             "Everything is working, and this is what a notification from the "
             "portal will look like."
         ),
+        # The three notification kinds. The role and the department inside them
+        # are the posting's own words in the language it is stored in, exactly as
+        # the same task reads on the dashboard, and only the sentences around
+        # them are translated.
+        "notify.inviteHeading": "<b>You have been invited to apply</b>",
+        "notify.inviteRole": "Role: <b>{role}</b>",
+        "notify.inviteDepartment": "Department: {department}",
+        "notify.inviteNote": "{note}",
+        "notify.taskHeading": "<b>Something is waiting for you</b>",
+        "notify.taskTitle": "{title}",
+        "notify.decisionHeading": "<b>An update on your application</b>",
+        "notify.decisionRole": "Role: <b>{role}</b>",
+        # Section 15: always include an unsubscribe hint in the footer of a
+        # notification. It names the command rather than describing where a
+        # setting lives, because the command is one tap from reading this.
+        "notify.footer": "<i>Send /notify to choose what arrives here.</i>",
+        "button.viewRole": "View the role",
+        "button.decline": "Decline",
+        "button.openTasks": "Open your tasks",
+        "button.openApplications": "Open your applications",
+        "decline.done": (
+            "Declined, and the team has been told. The invitation stays on your "
+            "tasks page as a record, and you can still apply to the role yourself "
+            "if you change your mind."
+        ),
+        "decline.nothing": (
+            "There is nothing to decline here any more. The invitation may have "
+            "been withdrawn, or you may have answered it already."
+        ),
+        "notify.intro": (
+            "<b>What arrives here</b>\n\n"
+            "Tap one to switch it on or off. Everything keeps appearing on the "
+            "portal either way, so nothing is lost by turning a kind off here.\n\n"
+            "Sign in codes are not on this list. Those only ever arrive because "
+            "somebody is signing in to your account, so they cannot be switched "
+            "off."
+        ),
+        "notify.kind.invite": "Invitations to apply",
+        "notify.kind.task_raised": "Things waiting for you",
+        "notify.kind.application_status_changed": "Updates on your applications",
+        "notify.state.on": "{kind}: on",
+        "notify.state.off": "{kind}: off",
+        "notify.word.on": "on",
+        "notify.word.off": "off",
+        "notify.changed": "{kind} is now {state}.",
+        "notify.notLinked": (
+            "This Telegram account is not linked to a portal account, so nothing "
+            "is being sent here. Send /link to see how to link one."
+        ),
+        "notify.gone": (
+            "This Telegram account is no longer linked to that portal account, so "
+            "there is nothing to change."
+        ),
+        "notify.failed": (
+            "We could not reach the portal just now. Nothing has changed."
+        ),
         "callback.unknown": "That button is too old to act on. Send the command again.",
         "callback.notYours": "That button belongs to somebody else's conversation.",
         "feature.unavailable": (
@@ -205,6 +261,46 @@ STRINGS: dict[str, dict[str, str]] = {
             "这是您在账户设置中请求的测试消息。一切正常，"
             "求职网站发来的通知就是这个样子。"
         ),
+        "notify.inviteHeading": "<b>您收到了一份职位邀请</b>",
+        "notify.inviteRole": "职位：<b>{role}</b>",
+        "notify.inviteDepartment": "部门：{department}",
+        "notify.inviteNote": "{note}",
+        "notify.taskHeading": "<b>有事项等待您处理</b>",
+        "notify.taskTitle": "{title}",
+        "notify.decisionHeading": "<b>您的申请有新进展</b>",
+        "notify.decisionRole": "职位：<b>{role}</b>",
+        "notify.footer": "<i>发送 /notify 可以选择在这里收到哪些通知。</i>",
+        "button.viewRole": "查看职位",
+        "button.decline": "婉拒邀请",
+        "button.openTasks": "打开待办事项",
+        "button.openApplications": "打开我的申请",
+        "decline.done": (
+            "已婉拒，我们也已经通知了团队。这份邀请仍会保留在您的待办事项页面上作为记录；"
+            "如果您改变主意，随时可以自行申请这个职位。"
+        ),
+        "decline.nothing": (
+            "这份邀请已经无法婉拒了。可能是招聘方已经撤回，也可能是您之前已经回复过。"
+        ),
+        "notify.intro": (
+            "<b>这里会收到哪些通知</b>\n\n"
+            "点击任意一项即可开启或关闭。无论开关如何，所有内容在求职网站上都能查看，"
+            "关闭某一类通知不会遗漏任何信息。\n\n"
+            "登录验证码不在此列。验证码只有在有人登录您的账户时才会发出，因此无法关闭。"
+        ),
+        "notify.kind.invite": "职位邀请",
+        "notify.kind.task_raised": "待处理事项",
+        "notify.kind.application_status_changed": "申请进展",
+        "notify.state.on": "{kind}：已开启",
+        "notify.state.off": "{kind}：已关闭",
+        "notify.word.on": "已开启",
+        "notify.word.off": "已关闭",
+        "notify.changed": "{kind}{state}。",
+        "notify.notLinked": (
+            "这个 Telegram 账户尚未关联任何求职账户，因此不会收到任何通知。"
+            "发送 /link 可以了解如何关联。"
+        ),
+        "notify.gone": "这个 Telegram 账户已不再关联那个求职账户，因此没有可以更改的设置。",
+        "notify.failed": "我们暂时无法连接到求职网站，设置没有任何改动。",
         "callback.unknown": "这个按钮太旧了，无法继续操作。请重新发送该指令。",
         "callback.notYours": "这个按钮属于其他人的对话。",
         "feature.unavailable": "此功能将在第 {phase} 阶段推出，给您带来不便，敬请谅解。",
