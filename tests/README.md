@@ -207,6 +207,36 @@ the request. The stubbed phase list then silently stopped arriving after a
 reload. It passed alone and failed in a full run, which is the worst shape a
 check can have. What the worker does is phase 10's file's job.
 
+### Phase 12's sections
+
+`node tests/phase12-test.mjs`, same `--only=` habit. **Phase 12 has no new
+feature, which is what this file is for**: every phase before it could be
+checked by asking whether the new thing works, and there is nothing here to ask
+that about. What stands in its place is a list of surfaces with a width against
+each, at the six widths section 3 names — 320, 375, 414, 768, 1024 and 1440.
+
+| Section | Covers |
+|---|---|
+| `responsive` | The seven public pages at all six widths in both languages, served from the working tree over `127.0.0.1`. Sideways scroll, table cells under the floor, and short button labels wrapping — each reported once per page with the offending element's ancestor chain rather than once per width. **The board is drawn from fixtures carrying the limits rather than the averages**: a 60 character tag name in both languages, a department longer than its column, a uuid, `closes_at` null so the "open until filled" sentence is drawn, and a posting with no translation so the badge is there. Every other endpoint answers 503, loudly, because a page measured in its error state is the narrower page. It asserts that the 华文 run is rendering 华文 and that the cards actually arrived, since both failures report the same clean six as a correct run. **Needs no deployment, no credentials, and no network.** |
+| `landscape` | One 736 by 375 viewport. Turned sideways a phone is a wide screen with no height, so what is measured is not width but how much of it the pinned furniture takes: **the union of what is on screen**, half the viewport being the line. Summing heights instead reported 436px of a 375px viewport, because a closed off canvas drawer is full height, fixed, and entirely off the left edge. Same, needs nothing. |
+| `responsive-admin` | Six admin pages, both languages, at the same six widths, **against a deployment with a staff credential**, because an admin page is a session and a database rather than a document. Skipped by name without `STAFF_USER` and `STAFF_PASS`. It also checks that the label phase 12 hides between 1024 and 1279 is hidden from the layout and not from the accessibility tree, which is one `display: none` away from being lost. |
+| `responsive-account` | The applicant's own five pages, the same way, with `APPLICANT_USER` and `APPLICANT_PASS`. **Signed out all five redirect to `/login`**, so a run without a credential would measure the login page five times and report it as coverage — which is why this skips by name rather than running. It also checks `.nav-account-name` at 1024: a display name is arbitrary text of arbitrary length in a fixed width bar, capped with an ellipsis rather than wrapped, because a name that wraps takes the row with it. |
+
+**`PATCH_CSS=1` serves the working tree's stylesheets in place of the
+deployment's**, borrowed from `layout-check.mjs`:
+
+```sh
+PATCH_CSS=1 STAFF_USER=... STAFF_PASS='...' node tests/phase12-test.mjs --only=responsive-admin
+```
+
+Without it a CSS rule written in answer to a finding cannot be proved until it
+has been pushed, which is the wrong way round for a part whose whole output is
+CSS.
+
+**This section writes nothing.** It signs in and navigates; it creates no
+posting, no application and no tag, so it is the one credentialed run that needs
+no cleanup and does not touch the deletion budget below.
+
 ## What a run writes
 
 - **Postings**, all titled `SMOKE P7 <timestamp> …`. A full run makes about

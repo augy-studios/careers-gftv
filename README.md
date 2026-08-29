@@ -8,7 +8,7 @@ collected in Google Forms: the portal's job is to gate access, hand the
 applicant over, log the handoff, and track what happened next. It is a GFTV
 HelloApp and follows the same conventions as the other GFTV PWAs.
 
-**Phases 1 to 11 of 15 have shipped.** The database
+**Phases 1 to 11 of 15 have shipped, and phase 12 is being built.** The database
 schema and the shared server side code, then signing in, then the job board,
 the postings themselves, applying to one, and the applicant's own account area.
 The public surface is the home page, `/search` with its filters and
@@ -311,6 +311,12 @@ STAFF_USER=yourname STAFF_PASS='...' node tests/phase7-test.mjs --only=editor
 
 # Phase 10 is the exception: no deployment, no credentials, no network.
 node tests/phase10-test.mjs
+
+# Phase 12's public sections need nothing either. Its admin section needs a
+# staff credential, and PATCH_CSS=1 serves the working tree's stylesheets so a
+# CSS fix can be proved before it is pushed.
+node tests/phase12-test.mjs --only=responsive,landscape
+PATCH_CSS=1 STAFF_USER=... STAFF_PASS='...' node tests/phase12-test.mjs
 ```
 
 Three things to know before the first run, all of which

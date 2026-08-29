@@ -416,7 +416,8 @@ body {
   }
 
   .site-nav a,
-  .site-nav .nav-signout {
+  .site-nav .nav-signout,
+  .site-nav .nav-suggest {
     min-height: 40px;
     /* A row of nav items must not wrap its labels. Without this the anchors
        shrink to their longest word and "Find a role" stacks three lines high,
@@ -424,13 +425,55 @@ body {
     white-space: nowrap;
   }
 
-  /* The drawer gives this width: 100% so it fills a column. On a row that makes
-     it demand the whole nav and crush everything beside it, and because the
-     button only exists once somebody is signed in, the signed out header looks
-     perfectly fine. Reset it here in place of scoping the rule above, so the
-     two layouts stay readable side by side. */
-  .site-nav .nav-signout {
+  /* The drawer gives these width: 100% so they fill a column. On a row that
+     makes them demand the whole nav and crush everything beside them, and
+     because both buttons only exist once somebody is signed in, the signed out
+     header looks perfectly fine. Reset it here in place of scoping the rule
+     above, so the two layouts stay readable side by side.
+
+     **`.nav-suggest` was missing from both rules until phase 12 part 1**, which
+     is why "Show suggestions" stood two lines high on every admin page at
+     exactly 1024px and nowhere else: at 768 the drawer's own column is wide
+     enough and at 1440 the row has room to spare, so only the width where the
+     full layout first appears was wrong. It is 7i's layer, added after this
+     block was written, and nothing pointed at the block. */
+  .site-nav .nav-signout,
+  .site-nav .nav-suggest {
     width: auto;
+  }
+}
+
+/* **From 1024 to 1279 the row is full, and the label is what gives.** With a
+   staff session the header carries the brand plus six items — Admin, Find a
+   role, My applications, Build status, Sign in, and this toggle — which comes
+   to 817px of a 992px content box at 1024px, so the row overflowed by 4px the
+   moment its labels stopped wrapping. This is the item to shorten rather than
+   any of the others: every one of them is a destination and this is a switch,
+   the icon and the pressed state say which way it is set, and the tooltip and
+   the drawer both still spell it out.
+
+   **Hidden from the layout and not from a screen reader**, so the button keeps
+   its name without an aria-label duplicating a string the dictionary already
+   holds. `position: relative` on the button is load bearing: an absolutely
+   positioned label with no containing block is exactly what escaped a table's
+   scroller and made a whole page scroll sideways once already. */
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .site-nav .nav-suggest {
+    position: relative;
+    gap: 0;
+  }
+
+  .site-nav .nav-suggest > span[data-i18n] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
   }
 }
 

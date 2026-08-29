@@ -1,7 +1,7 @@
 {
   "$comment": "Single source of truth for the phased rollout, per section 0c of careers-gftv-spec.md. The site, the Telegram bot, and the docs site all read this one file, so the three stay in step. Flipping a phase to shipped is the only edit needed when it goes live. No copy anywhere hardcodes a phase number. Phase names and descriptions carry a translated variant per non default language, because three separate consumers render them and they are content, not interface strings; everything else the site says comes from assets/i18n.",
   "schema_version": 3,
-  "updated": "2026-08-29",
+  "updated": "2026-08-30",
   "locales": [
     "en",
     "zh"
@@ -121,7 +121,7 @@
       "number": 12,
       "name": "Polish",
       "name_zh": "打磨完善",
-      "status": "planned",
+      "status": "building",
       "description": "An accessibility and responsive pass across every page, theme, language, and screen size, plus the discovery files search engines read.",
       "description_zh": "针对每个页面、主题、语言和屏幕尺寸进行无障碍与响应式检查，并加入供搜索引擎读取的站点文件。",
       "shipped_note": null,
