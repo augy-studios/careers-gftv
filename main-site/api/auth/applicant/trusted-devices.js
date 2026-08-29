@@ -1,5 +1,5 @@
 // GET  /api/auth/applicant/trusted-devices   list them
-// POST /api/auth/applicant/trusted-devices   { action } revoke or revoke_all
+// POST /api/auth/applicant/trusted-devices   { action } rename, revoke, revoke_all
 //
 // Section 5d: "Account settings lists trusted devices with when each was added
 // and last used, a revoke button per device, and a revoke all."
@@ -22,7 +22,7 @@ import {
 } from '../../_lib/respond.js';
 import { verifyRealmPassword } from '../../_lib/accounts.js';
 import { auditApplicant, AUDIT } from '../../_lib/audit.js';
-import { FIELD } from '../../_lib/validate.js';
+import { FIELD, validateDeviceName } from '../../_lib/validate.js';
 import {
   LIMITS,
   limited,
@@ -33,6 +33,7 @@ import {
 import {
   requireApplicant,
   listTrustedDevices,
+  renameCurrentApplicantDevice,
   revokeTrustedDevice,
   revokeAllTrustedDevices,
   TRUSTED_DEVICE_DAYS,
@@ -52,11 +53,35 @@ export default async function handler(req, res) {
       });
     }
 
-    // Revoking is a security downgrade: it is what somebody would do to make
-    // the second factor stop being asked for. A session alone is not enough.
     const body = await readJson(req, res);
     if (!body) return;
 
+    // Naming the device you are sitting at is answered before the password gate
+    // below rather than behind it, because it is not a security downgrade: it
+    // changes what a list calls this browser and nothing about what the browser
+    // can do. The nickname is asked for in a modal seconds after a sign in, and
+    // a password box that appears there teaches exactly the habit 5d's own
+    // wording is trying to avoid.
+    if (body.action === 'rename') {
+      const name = validateDeviceName(body.label);
+      if (!name.ok) {
+        return fail(res, ERR.BAD_REQUEST, 'Give this device a name.', {
+          details: { label: name.code },
+        });
+      }
+
+      // Identified by the device cookie inside renameCurrentApplicantDevice, so
+      // this can only ever be the browser making the request.
+      const renamed = await renameCurrentApplicantDevice(req, session.user.id, name.value);
+      if (!renamed) {
+        return fail(res, ERR.NOT_FOUND, 'This browser is not a trusted device.');
+      }
+
+      return ok(res, { label: name.value });
+    }
+
+    // Revoking is a security downgrade: it is what somebody would do to make
+    // the second factor stop being asked for. A session alone is not enough.
     const subjects = [subjectForIp(req), subjectForUser('applicant', session.user.id)];
     if (await limited(res, 'password_change', subjects)) return;
 
@@ -82,10 +107,11 @@ export default async function handler(req, res) {
       return ok(res, { revoked_all: true });
     }
 
-    if (!id) {
-      return fail(res, ERR.BAD_REQUEST, 'Say which device to revoke, or ask for all of them.');
-    }
-
+    // Read before it is tested. The duplicated guard that used to sit above this
+    // declaration made every single device revoke throw a ReferenceError from
+    // the temporal dead zone and answer 500, while revoke all worked, which is
+    // why nothing on the page looked broken until somebody used the per row
+    // button. Found on 30 August 2026.
     const id = typeof body.id === 'string' ? body.id : '';
     if (!id) {
       return fail(res, ERR.BAD_REQUEST, 'Say which device to revoke, or ask for all of them.');

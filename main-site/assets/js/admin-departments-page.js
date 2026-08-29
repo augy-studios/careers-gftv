@@ -20,7 +20,7 @@ import { hydrateIcons, iconMarkup } from './icons.js';
 import { escapeHtml } from './markdown.js';
 import { createDialog } from './dialog.js';
 import { confirmAction } from './danger-confirm.js';
-import { mountAdminPage, adminMessage, emptyRow, adminLocales } from './admin-shell.js';
+import { mountAdminPage, adminApiError, adminMessage, emptyRow, adminLocales } from './admin-shell.js';
 
 const PATH = '/admin/departments';
 
@@ -42,7 +42,7 @@ async function load() {
   const result = await api('/api/admin/departments');
 
   if (!result.ok) {
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 
@@ -158,7 +158,7 @@ async function move(index, direction) {
   });
 
   if (!result.ok) {
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 
@@ -287,7 +287,7 @@ async function save(department, dialog) {
         node.hidden = false;
       }
     }
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 
@@ -326,7 +326,7 @@ async function remove(department) {
   });
 
   if (!result.ok) {
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 

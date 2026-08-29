@@ -39,7 +39,7 @@ import { hydrateIcons, iconMarkup } from './icons.js';
 import { escapeHtml } from './markdown.js';
 import { COMMITMENTS } from './format.js';
 import { confirmAction } from './danger-confirm.js';
-import { mountAdminPage, adminMessage, adminLocales } from './admin-shell.js';
+import { mountAdminPage, adminApiError, adminMessage, adminLocales } from './admin-shell.js';
 import { mountQuestionComposer } from './admin-questions.js';
 
 const PATH = '/admin/jobs';
@@ -101,7 +101,7 @@ async function boot() {
   ]);
 
   if (id && !loaded.ok) {
-    adminMessage('error', loaded.error?.message ?? t('error.unexpected'));
+    adminApiError(loaded.error);
     return;
   }
 
@@ -865,7 +865,7 @@ async function addTagByName(raw) {
 
   const result = await api('/api/admin/tags', { method: 'POST', body: { action: 'save', name } });
   if (!result.ok) {
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 
@@ -1051,7 +1051,7 @@ async function save() {
   if (!result.ok) {
     const details = result.error?.details ?? {};
     for (const [field, code] of Object.entries(details)) showFieldError(field, code);
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 

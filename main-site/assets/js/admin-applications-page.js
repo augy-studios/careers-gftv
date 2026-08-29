@@ -31,7 +31,7 @@ import { createDialog } from './dialog.js';
 import { confirmDangerousAction } from './danger-confirm.js';
 import {
   mountAdminPage,
-  adminMessage,
+  adminApiError, adminMessage,
   emptyRow,
   runAction,
   isAdminUser,
@@ -198,7 +198,7 @@ async function load() {
   list?.removeAttribute('aria-busy');
 
   if (!result.ok) {
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 
@@ -410,7 +410,7 @@ function closeDetail() {
 async function openDetail(id) {
   const result = await api(`/api/admin/applications?id=${encodeURIComponent(id)}`);
   if (!result.ok) {
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 
@@ -609,7 +609,7 @@ function wireDetail(body, application) {
     });
 
     if (!result.ok) {
-      adminMessage('error', result.error?.message ?? t('error.unexpected'));
+      adminApiError(result.error);
       return;
     }
 
@@ -625,7 +625,7 @@ function wireDetail(body, application) {
     });
 
     if (!result.ok) {
-      adminMessage('error', result.error?.message ?? t('error.unexpected'));
+      adminApiError(result.error);
       return;
     }
 
@@ -646,7 +646,7 @@ function wireDetail(body, application) {
       });
 
       if (!result.ok) {
-        adminMessage('error', result.error?.message ?? t('error.unexpected'));
+        adminApiError(result.error);
         return;
       }
 
@@ -664,7 +664,7 @@ async function sendNote(id, note) {
   });
 
   if (!result.ok) {
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 
@@ -739,7 +739,7 @@ async function applyBulk() {
   });
 
   if (!result.ok) {
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 
@@ -778,7 +778,7 @@ async function deleteBulk() {
   });
 
   if (!measured.ok) {
-    adminMessage('error', measured.error?.message ?? t('error.unexpected'));
+    adminApiError(measured.error);
     return;
   }
 
@@ -830,7 +830,7 @@ async function deleteBulk() {
   });
 
   if (!result.ok) {
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 
@@ -935,7 +935,7 @@ function openDecisionComposer(rows, status, note) {
           });
 
     if (!result.ok) {
-      adminMessage('error', result.error?.message ?? t('error.unexpected'));
+      adminApiError(result.error);
       return;
     }
 
@@ -1060,7 +1060,7 @@ function openTaskComposer(rows) {
     });
 
     if (!result.ok) {
-      adminMessage('error', result.error?.message ?? t('error.unexpected'));
+      adminApiError(result.error);
       return;
     }
 

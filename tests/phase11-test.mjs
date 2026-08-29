@@ -679,14 +679,41 @@ define('signin', 'The sign in page with a Telegram code in play', async () => {
 
     /* A one tap link that could not be used --------------------------------- */
 
+    // This check used to assert only that the message box was visible, which is
+    // the shape deviation 115 caught on the QR: the source was right, three
+    // checks agreed with it, and the screen was wrong. On 30 August 2026 the box
+    // was visible and read `auth.magicOff`, because this is the one message on
+    // this page drawn before the dictionary has landed. So it waits for the
+    // sentence itself, out of the dictionary, rather than for a box with
+    // anything at all in it.
+    const dictionary = JSON.parse(
+      await readFile(join(SITE, 'assets', 'i18n', 'en.json'), 'utf8')
+    );
+    const sentence = dictionary['auth.magicWrongBrowser'];
+
     await page.goto('/login?magic=wrong_browser&redirect=%2Faccount', {
       waitUntil: 'domcontentloaded',
     });
-    const said = await until(
-      page,
-      () => !document.querySelector('#loginForm [data-form-message]')?.hidden
+
+    let said = true;
+    try {
+      await page.waitForFunction(
+        (want) => {
+          const el = document.querySelector('#loginForm [data-form-message]');
+          return !!el && !el.hidden && (el.textContent ?? '').trim() === want;
+        },
+        sentence,
+        { timeout: 10000 }
+      );
+    } catch {
+      said = false;
+    }
+
+    check(
+      '41. a refused sign in link says why in words, not as a dictionary key',
+      said,
+      await page.textContent('#loginForm [data-form-message]')
     );
-    check('41. a refused sign in link says why on the page it lands on', said);
     check(
       '42. and the parameter is taken off the URL, so a refresh does not repeat it',
       !page.url().includes('magic=') && page.url().includes('redirect='),

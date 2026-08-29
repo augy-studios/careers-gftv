@@ -27,7 +27,7 @@ import { hydrateIcons } from './icons.js';
 import { escapeHtml } from './markdown.js';
 import { formatDate } from './format.js';
 import { confirmAction } from './danger-confirm.js';
-import { mountAdminPage, adminMessage, emptyRow } from './admin-shell.js';
+import { mountAdminPage, adminApiError, adminMessage, emptyRow } from './admin-shell.js';
 
 /**
  * The note's cap, matching NOTE_MAX in api/_lib/maintenance.js.
@@ -58,7 +58,7 @@ async function load() {
   const result = await api('/api/admin/maintenance', { locale: false });
 
   if (!result.ok) {
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 
@@ -205,7 +205,7 @@ async function flip(feature, off) {
 
   if (!result.ok) {
     // Also already showing the state that is still true, for the same reason.
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 

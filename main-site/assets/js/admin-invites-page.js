@@ -27,7 +27,7 @@ import { escapeHtml } from './markdown.js';
 import { createDialog } from './dialog.js';
 import { confirmAction } from './danger-confirm.js';
 import { formatDate } from './format.js';
-import { mountAdminPage, adminMessage, emptyRow, runAction } from './admin-shell.js';
+import { mountAdminPage, adminApiError, adminMessage, emptyRow, runAction } from './admin-shell.js';
 
 const PATH = '/admin/invites';
 
@@ -77,7 +77,7 @@ async function loadJobs() {
   const result = await api('/api/admin/invites?jobs=1');
 
   if (!result.ok) {
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 
@@ -124,7 +124,7 @@ async function load() {
   const result = await api(`/api/admin/invites?job=${encodeURIComponent(jobId)}`);
 
   if (!result.ok) {
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 
@@ -447,7 +447,7 @@ async function sendPicked(action) {
         node.hidden = false;
       }
     }
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 
@@ -494,7 +494,7 @@ async function send(action, rows, note) {
   });
 
   if (!result.ok) {
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 
@@ -519,7 +519,7 @@ async function withdraw(row) {
   });
 
   if (!result.ok) {
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 
@@ -540,7 +540,7 @@ async function remove(row) {
   });
 
   if (!result.ok) {
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 

@@ -31,7 +31,7 @@ import { escapeHtml } from './markdown.js';
 import { createDialog } from './dialog.js';
 import { confirmAction, confirmDangerousAction } from './danger-confirm.js';
 import { formatDate } from './format.js';
-import { mountAdminPage, adminMessage, emptyRow, runAction } from './admin-shell.js';
+import { mountAdminPage, adminApiError, adminMessage, emptyRow, runAction } from './admin-shell.js';
 
 const PATH = '/admin/applicants';
 
@@ -95,7 +95,7 @@ async function load() {
   const result = await api(`/api/admin/applicants?${search.toString()}`);
 
   if (!result.ok) {
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 
@@ -215,7 +215,7 @@ async function openAccount(id) {
   const result = await api(`/api/admin/applicants?id=${encodeURIComponent(id)}`);
 
   if (!result.ok) {
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 
@@ -398,7 +398,7 @@ async function act(body, successKey, account) {
   const result = await api('/api/admin/applicants', { method: 'POST', body });
 
   if (!result.ok) {
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return false;
   }
 
@@ -666,7 +666,7 @@ async function setPassword(account) {
             node.hidden = false;
           }
         }
-        adminMessage('error', result.error?.message ?? t('error.unexpected'));
+        adminApiError(result.error);
         return;
       }
 

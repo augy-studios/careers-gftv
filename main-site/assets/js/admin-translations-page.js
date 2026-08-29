@@ -72,7 +72,7 @@ import { confirmAction } from './danger-confirm.js';
 import { formatDate } from './format.js';
 import {
   mountAdminPage,
-  adminMessage,
+  adminApiError, adminMessage,
   emptyRow,
   runAction,
   adminLocales,
@@ -440,7 +440,7 @@ async function load() {
   const result = await api(`/api/admin/translations?${search.toString()}`);
 
   if (!result.ok) {
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 
@@ -698,7 +698,7 @@ async function loadAudit() {
   const result = await api(`/api/admin/translations?${search.toString()}`);
 
   if (!result.ok) {
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 
@@ -898,7 +898,7 @@ async function loadHelpers() {
   const result = await api(`/api/admin/translations?${search.toString()}`);
 
   if (!result.ok) {
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 
@@ -1213,7 +1213,7 @@ async function grant(applicant, locale) {
   });
 
   if (!result.ok) {
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 
@@ -1265,7 +1265,7 @@ async function revoke(helper) {
   });
 
   if (!result.ok) {
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 
@@ -1281,7 +1281,7 @@ async function openReport(id) {
   const result = await api(`/api/admin/translations?id=${encodeURIComponent(id)}`);
 
   if (!result.ok) {
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 
@@ -1605,7 +1605,7 @@ async function saveWording(report) {
 
   if (!result.ok) {
     showErrors(root, result.error?.details);
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 
@@ -1645,7 +1645,7 @@ async function saveResolution(report) {
 
   if (!result.ok) {
     showErrors(root, result.error?.details);
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 

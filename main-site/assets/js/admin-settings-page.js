@@ -30,7 +30,7 @@ import { api } from './api.js';
 import { t } from './i18n.js';
 import { escapeHtml } from './markdown.js';
 import { confirmAction } from './danger-confirm.js';
-import { mountAdminPage, adminMessage, adminLocales, runAction } from './admin-shell.js';
+import { mountAdminPage, adminApiError, adminMessage, adminLocales, runAction } from './admin-shell.js';
 
 const PATH = '/admin/settings';
 
@@ -76,7 +76,7 @@ async function load() {
   const result = await api('/api/admin/settings');
 
   if (!result.ok) {
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 
@@ -340,7 +340,7 @@ async function save() {
 
   if (!result.ok) {
     showFieldErrors(result.error?.details ?? {});
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 
@@ -405,7 +405,7 @@ async function toggleApplications(open) {
   });
 
   if (!result.ok) {
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 

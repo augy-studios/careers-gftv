@@ -18,7 +18,7 @@ import { t } from './i18n.js';
 import { hydrateIcons } from './icons.js';
 import { escapeHtml } from './markdown.js';
 import { formatDate, formatDateTime, hoursSince } from './format.js';
-import { mountAdminPage, adminMessage, emptyRow } from './admin-shell.js';
+import { mountAdminPage, adminApiError, adminMessage, emptyRow } from './admin-shell.js';
 
 const PATH = '/admin';
 
@@ -52,7 +52,7 @@ async function load() {
   const result = await api('/api/admin/stats');
 
   if (!result.ok) {
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 

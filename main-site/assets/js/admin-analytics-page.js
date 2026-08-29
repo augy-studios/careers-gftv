@@ -28,7 +28,7 @@ import { createDialog, translateWithin } from './dialog.js';
 import { formatDate } from './format.js';
 import {
   mountAdminPage,
-  adminMessage,
+  adminApiError, adminMessage,
   emptyRow,
   runAction,
   isAdminUser,
@@ -182,7 +182,7 @@ async function load() {
   const result = await api(`/api/admin/analytics?${query()}`);
 
   if (!result.ok) {
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 
@@ -340,7 +340,7 @@ async function openDetail(jobId) {
   const result = await api(`/api/admin/analytics?job=${encodeURIComponent(jobId)}`);
 
   if (!result.ok) {
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 
@@ -853,7 +853,7 @@ async function confirmLink(submission, applicantId, dialog) {
   });
 
   if (!result.ok) {
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 

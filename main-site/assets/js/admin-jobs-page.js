@@ -28,7 +28,7 @@ import { hydrateIcons, iconMarkup } from './icons.js';
 import { escapeHtml } from './markdown.js';
 import { formatDate } from './format.js';
 import { confirmDangerousAction } from './danger-confirm.js';
-import { mountAdminPage, adminMessage, emptyRow, isAdminUser } from './admin-shell.js';
+import { mountAdminPage, adminApiError, adminMessage, emptyRow, isAdminUser } from './admin-shell.js';
 
 const PATH = '/admin/jobs';
 
@@ -160,7 +160,7 @@ async function load() {
   list?.removeAttribute('aria-busy');
 
   if (!result.ok) {
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 
@@ -342,7 +342,7 @@ async function changeStatus(job, status) {
       );
       return;
     }
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 
@@ -357,7 +357,7 @@ async function duplicate(job) {
   });
 
   if (!result.ok) {
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 
@@ -413,7 +413,7 @@ async function remove(job) {
   });
 
   if (!result.ok) {
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 

@@ -132,6 +132,24 @@ function announce(name) {
  * English, which is better than a code on screen.
  */
 function translateError(error) {
+  // **A feature that has been switched off is not a feature that was never
+  // built**, and `not_yet_available` is deliberately the code for both: 0c
+  // reuses it because every client already branches on it for "this is not
+  // something you can do right now", and `details.reason` is what separates the
+  // two. Without this branch an admin who takes invites down for ten minutes is
+  // told, on the page they used yesterday, that the feature is not built yet —
+  // a lie about a shipped feature, and it makes a real outage indistinguishable
+  // from an unbuilt phase, which is the one thing 0c's two sentences exist to
+  // keep apart. Found on /admin/invites, 30 August 2026.
+  if (error.details?.reason === 'maintenance') {
+    const sentence = t('feature.maintenance');
+    // Shown exactly as the admin typed it and never translated, per 8.12.
+    // Nobody writes a better sentence in the middle of an outage than the
+    // person looking at it, which is what the note box on that page says.
+    const note = typeof error.details.note === 'string' ? error.details.note.trim() : '';
+    return note ? `${sentence} ${note}` : sentence;
+  }
+
   const key = `error.${error.code}`;
   const translated = t(key);
   if (translated !== key) return translated;

@@ -396,10 +396,51 @@ export async function trustApplicantDevice(res, userId, label = null) {
 
   if (error) {
     console.error('[careers-gftv] trustApplicantDevice:', error);
-    return;
+    return false;
   }
 
   setCookie(res, COOKIE.applicantDevice, token, { expires: expiresAt });
+  return true;
+}
+
+/**
+ * Rename the device row this browser holds the token for. Applicant only.
+ *
+ * **The device is named by the cookie and never by an id from the caller**,
+ * which is what makes this the one action on the trusted devices endpoint that
+ * does not ask for the password. Somebody can only ever rename the browser they
+ * are sitting in front of, so there is nothing here to point at another
+ * account's row, and no id has to be handed to a page that has just finished
+ * signing in. Renaming is also not a security downgrade: it changes what a list
+ * calls a device and not what the device can do.
+ *
+ * There is deliberately no staff twin. `gftvhello_trusted_devices` has no label
+ * column and section 2 forbids adding one, which is the same reason
+ * `trustStaffDevice` accepts a label and drops it.
+ *
+ * @param {import('http').IncomingMessage} req
+ * @param {string} userId
+ * @param {string} label
+ * @returns {Promise<boolean>} false when this browser is not a trusted device
+ */
+export async function renameCurrentApplicantDevice(req, userId, label) {
+  const token = readCookie(req, COOKIE.applicantDevice);
+  if (!token) return false;
+
+  const { data, error } = await supabase
+    .from(T.trustedDevices)
+    .update({ label })
+    .eq('user_id', userId)
+    .eq('device_token_hash', applicantDeviceHash(userId, token))
+    .select('id')
+    .maybeSingle();
+
+  if (error) {
+    console.error('[careers-gftv] renameCurrentApplicantDevice:', error);
+    return false;
+  }
+
+  return Boolean(data);
 }
 
 /**

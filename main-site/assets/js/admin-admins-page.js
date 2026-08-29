@@ -32,7 +32,7 @@ import { escapeHtml } from './markdown.js';
 import { createDialog } from './dialog.js';
 import { confirmAction } from './danger-confirm.js';
 import { formatDate } from './format.js';
-import { mountAdminPage, adminMessage, emptyRow, runAction } from './admin-shell.js';
+import { mountAdminPage, adminApiError, adminMessage, emptyRow, runAction } from './admin-shell.js';
 import {
   loadBuildStatus,
   isFeatureShipped,
@@ -76,7 +76,7 @@ async function load() {
     // A job poster who typed the URL gets a 403 here, and the honest thing is
     // to say so instead of drawing an empty table. The sidebar does not offer
     // them the item at all, per deviation 34.
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 
@@ -304,7 +304,7 @@ async function setState(account, state) {
   });
 
   if (!result.ok) {
-    adminMessage('error', result.error?.message ?? t('error.unexpected'));
+    adminApiError(result.error);
     return;
   }
 

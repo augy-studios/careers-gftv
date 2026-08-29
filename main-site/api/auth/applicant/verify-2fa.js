@@ -163,9 +163,18 @@ export default async function handler(req, res) {
     }
     clearCookie(res, COOKIE.magicLinkNonce);
 
-    // 5d: offered only now, never on the password screen.
+    // 5d: offered only now, never on the password screen. The label is the
+    // coarse one from the user agent, and it rides back in the response so the
+    // page can offer it as the starting point for a nickname rather than asking
+    // somebody to name a device from an empty box. A failed insert is not a
+    // trusted device: `device_trusted` follows what the write actually did.
+    let deviceTrusted = false;
+    let trustedLabel = null;
+
     if (body.trust_device === true) {
-      await trustApplicantDevice(res, user.id, deviceLabel(req));
+      trustedLabel = deviceLabel(req);
+      deviceTrusted = await trustApplicantDevice(res, user.id, trustedLabel);
+      if (!deviceTrusted) trustedLabel = null;
     }
 
     await createApplicantSession(res, user.id, challenge.stay_signed_in === true);
@@ -175,7 +184,8 @@ export default async function handler(req, res) {
     return ok(res, {
       user: publicApplicant(user),
       used_backup_code: usedBackupCode,
-      device_trusted: body.trust_device === true,
+      device_trusted: deviceTrusted,
+      device_label: trustedLabel,
       codes: counts,
       codes_low: counts.backup < 3,
     });

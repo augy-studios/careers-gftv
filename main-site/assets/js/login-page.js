@@ -27,6 +27,7 @@ import {
   withRedirect,
 } from './forms.js';
 import { passkeysSupported, usePasskey, wasCancelled } from './passkeys.js';
+import { createDialog } from './dialog.js';
 import { t, getLocale } from './i18n.js';
 
 const DEFAULT_AFTER_LOGIN = '/account/security';
@@ -62,6 +63,7 @@ function boot() {
 
   wirePasswordToggles(document);
   showMagicOutcome();
+  document.addEventListener('gftv:localechange', paintMagicOutcome);
 
   // Carry the redirect on the two links out of this page, so the round trip
   // survives a detour through registering or recovering.
@@ -85,6 +87,9 @@ function boot() {
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     clearErrors(form);
+
+    // Whatever happens next is a better answer than why last week's link failed.
+    magicReason = null;
 
     const values = readForm(form);
 
@@ -308,7 +313,17 @@ function boot() {
    * cannot get back in alone. That last case is worth a stop and not a
    * badge they will scroll past on their way out.
    */
-  function finish(data) {
+  async function finish(data) {
+    // A device that has just been trusted for the first time gets one chance to
+    // be named, here, because this is the only moment anybody knows which of
+    // the rows in that list is the machine in front of them. Skipping is
+    // ordinary: the automatic label already went in when the row was written,
+    // so the modal is an improvement on a good answer and never a gate in front
+    // of somebody's own account.
+    if (data?.device_trusted === true) {
+      await askDeviceNickname(data.device_label ?? null);
+    }
+
     const remaining = data?.codes?.recovery ?? 0;
     const target = redirectTarget() ?? DEFAULT_AFTER_LOGIN;
 
@@ -326,6 +341,12 @@ function boot() {
   }
 }
 
+// Why the one tap link did not work, held between the boot that reads it off the
+// URL and the paint that can finally put a sentence on screen. Cleared the
+// moment somebody uses the form, so a later language switch does not resurrect
+// a note about a link over the answer to what they just did.
+let magicReason = null;
+
 /**
  * Say why a one tap link did not work, and take the parameter off the URL.
  *
@@ -333,6 +354,15 @@ function boot() {
  * other deep link in this build does with its own: leaving it there means the
  * sentence comes back on every refresh, long after it stopped being true, and
  * it means somebody's bookmark carries a note about a link they used last week.
+ *
+ * **The sentence is painted twice, and the second time is the one that shows.**
+ * This is the only message on this page written before anybody clicks anything,
+ * so it is the only one that runs while the dictionary is still being fetched:
+ * `shell.js` starts that fetch and `t()` answers with the key itself until it
+ * lands. In English nothing hides that, because the page is only held blank for
+ * a non default language, so `auth.magicOff` went on screen as its own name.
+ * `gftv:localechange` fires once when the dictionary applies and again on every
+ * switch, which makes it the redraw signal rather than a timer.
  */
 function showMagicOutcome() {
   const form = document.querySelector('#loginForm');
@@ -340,9 +370,8 @@ function showMagicOutcome() {
   const reason = params.get('magic');
   if (!form || !reason) return;
 
-  // An unrecognised value is somebody editing the URL. The generic sentence is
-  // the honest answer to it and to a reason a later part might add.
-  showFormMessage(form, 'note', t(MAGIC_REASONS[reason] ?? 'auth.magicUnknown'));
+  magicReason = reason;
+  paintMagicOutcome();
 
   params.delete('magic');
   const query = params.toString();
@@ -351,6 +380,130 @@ function showMagicOutcome() {
     '',
     `${window.location.pathname}${query ? `?${query}` : ''}`
   );
+}
+
+/**
+ * Ask what to call the device that has just been trusted.
+ *
+ * **This is the only moment anybody knows which row in that list is the machine
+ * they are sitting at.** 5d's list is there so somebody can recognise their own
+ * devices, and `deviceLabel()` can only ever say "Windows, Chrome" — which is
+ * exactly the same thing it says about the other three Windows machines. So the
+ * name is asked for once, when the row is written, and the automatic label is
+ * offered as the starting point rather than an empty box.
+ *
+ * **Skipping is an ordinary answer**, and so is closing it. The row already has
+ * its label, so every way out of this modal leaves a trusted device with a name
+ * on it; nothing here is a gate in front of somebody's own account. It is not
+ * shown again for the same device, because a device is only trusted once.
+ *
+ * Only ever the applicant realm. `gftvhello_trusted_devices` has no label
+ * column and section 2 forbids adding one, so `/admin/login` has nothing to ask
+ * about.
+ *
+ * @param {string|null} suggested the automatic label already on the row
+ * @returns {Promise<void>} when it has been named, skipped, or closed
+ */
+function askDeviceNickname(suggested) {
+  return new Promise((resolve) => {
+    // Every string is a key on an attribute rather than text written in here,
+    // so createDialog's own translation pass fills them and a language change
+    // reaches them. Nothing is interpolated into this markup at all: the
+    // suggestion is written onto the input as a value below, because it is
+    // derived from a User-Agent header and that is somebody else's text.
+    const dialog = createDialog({
+      id: 'deviceNameDialog',
+      titleKey: 'devices.nameTitle',
+      bodyHtml: `
+        <div class="modal-body">
+          <p class="muted" data-i18n="devices.nameBody"></p>
+
+          <div class="field">
+            <label for="deviceNameInput" data-i18n="devices.nameLabel"></label>
+            <input id="deviceNameInput" type="text" maxlength="40" autocomplete="off"
+                   spellcheck="false" data-autofocus>
+            <p class="field-error" data-error-for="label" hidden></p>
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" class="btn btn-quiet" data-skip
+                    data-i18n="devices.nameSkip"></button>
+            <button type="button" class="btn btn-primary" data-save
+                    data-i18n="devices.nameSave"></button>
+          </div>
+        </div>`,
+    });
+
+    const input = dialog.panel.querySelector('#deviceNameInput');
+    const error = dialog.panel.querySelector('[data-error-for="label"]');
+    const save = dialog.panel.querySelector('[data-save]');
+    let settled = false;
+
+    input.value = suggested ?? '';
+
+    function done() {
+      if (settled) return;
+      settled = true;
+      dialog.close();
+      dialog.element.remove();
+      resolve();
+    }
+
+    // The three ways out that are not the save button. dialog.js closes on all
+    // of them by itself; these listeners are what let the sign in carry on.
+    dialog.panel.querySelector('[data-skip]').addEventListener('click', done);
+    dialog.element.addEventListener('click', (event) => {
+      if (event.target === dialog.element || event.target.closest('[data-close-dialog]')) done();
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !settled) done();
+    });
+
+    save.addEventListener('click', async () => {
+      const value = input.value.trim();
+
+      // Nothing to say, or the same thing the row already says. Both are a skip
+      // rather than a write, which keeps the "I just pressed the blue button"
+      // path from depending on the network at all.
+      if (value === '' || value === (suggested ?? '')) {
+        done();
+        return;
+      }
+
+      save.disabled = true;
+      error.hidden = true;
+
+      const result = await api('/api/auth/applicant/trusted-devices', {
+        method: 'POST',
+        locale: false,
+        body: { action: 'rename', label: value },
+      });
+
+      if (!result.ok) {
+        // The device is trusted either way and already carries the automatic
+        // label, so this says what is true and leaves the way out open.
+        error.textContent = t('devices.nameFailed');
+        error.hidden = false;
+        save.disabled = false;
+        return;
+      }
+
+      done();
+    });
+
+    dialog.open();
+    input.select();
+  });
+}
+
+/** The sentence itself, in whatever language is loaded when this runs. */
+function paintMagicOutcome() {
+  const form = document.querySelector('#loginForm');
+  if (!form || !magicReason) return;
+
+  // An unrecognised value is somebody editing the URL. The generic sentence is
+  // the honest answer to it and to a reason a later part might add.
+  showFormMessage(form, 'note', t(MAGIC_REASONS[magicReason] ?? 'auth.magicUnknown'));
 }
 
 if (document.readyState === 'loading') {

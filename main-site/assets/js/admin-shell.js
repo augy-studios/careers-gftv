@@ -610,6 +610,13 @@ export function offSentence(featureKey) {
  * Small shared pieces
  * ---------------------------------------------------------------------- */
 
+/** The callout tone each kind of message wears. */
+const MESSAGE_TONE = Object.freeze({
+  ok: 'note',
+  maintenance: 'warn',
+  error: 'danger',
+});
+
 /**
  * Show a message at the top of a page's content.
  *
@@ -617,14 +624,21 @@ export function offSentence(featureKey) {
  * on a failure so a screen reader hears it without moving focus, role="status"
  * on a success so it does not interrupt.
  *
- * @param {'ok'|'error'} kind
+ * **`maintenance` is amber rather than red, and that is the point of having it.**
+ * A feature that is off is off because an admin turned it off, and the admin
+ * reading this is very often that admin. Red says something has gone wrong;
+ * amber says this is the switch doing what it was flipped to do, which is the
+ * same distinction the maintenance panel's own tones make. It still carries
+ * role="alert", because the action they took did not happen.
+ *
+ * @param {'ok'|'error'|'maintenance'} kind
  * @param {string} text
  */
 export function adminMessage(kind, text) {
   const holder = document.querySelector('#adminMessage');
   if (!holder) return;
 
-  holder.className = `callout ${kind === 'ok' ? 'note' : 'danger'}`;
+  holder.className = `callout ${MESSAGE_TONE[kind] ?? 'danger'}`;
   holder.setAttribute('role', kind === 'ok' ? 'status' : 'alert');
   holder.textContent = text;
   holder.hidden = false;
@@ -637,6 +651,24 @@ export function adminMessage(kind, text) {
       }, 6000)
     );
   }
+}
+
+/**
+ * Report a failed API call, in the tone the failure deserves.
+ *
+ * Every admin page had the same line written out: the error's message, or the
+ * generic sentence when there was none. One helper instead, because the tone is
+ * now a decision rather than a constant and a decision written out fourteen
+ * times is a decision that will be made differently in one of them.
+ *
+ * `api.js` has already turned the code and `details.reason` into a sentence in
+ * the reader's language; this only has to decide how loudly to say it.
+ *
+ * @param {{ message?: string, details?: { reason?: string } } | null} error
+ */
+export function adminApiError(error) {
+  const maintenance = error?.details?.reason === 'maintenance';
+  adminMessage(maintenance ? 'maintenance' : 'error', error?.message ?? t('error.unexpected'));
 }
 
 /** Hide whatever adminMessage last put on screen. */

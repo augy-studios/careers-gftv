@@ -28,6 +28,10 @@ const USERNAME_MIN = 3;
 const USERNAME_MAX = 32;
 const DISPLAY_NAME_MAX = 60;
 const EMAIL_MAX = 254;
+// Shorter than a display name on purpose. It is read in a list beside a date
+// and a revoke button, and "the laptop I use at my sister's place" wrapping onto
+// three lines helps nobody pick their own device out.
+const DEVICE_NAME_MAX = 40;
 
 /**
  * A username: letters, digits, underscore, hyphen, full stop.
@@ -79,6 +83,25 @@ export function validateDisplayName(value) {
   if (cleaned.length > DISPLAY_NAME_MAX) return { ok: false, code: FIELD.TOO_LONG };
 
   return { ok: true, value: cleaned };
+}
+
+/**
+ * What somebody calls one of their own trusted devices.
+ *
+ * The same cleaning as a display name and a tighter ceiling, because it is read
+ * in a list rather than in a sentence. Nobody but its owner ever sees it, which
+ * is why it is bounded rather than restricted: 5d's list exists so a person can
+ * recognise their own laptop, and "Mum's iPad" has an apostrophe in it.
+ *
+ * @param {unknown} value
+ */
+export function validateDeviceName(value) {
+  const cleaned = validateDisplayName(value);
+  if (!cleaned.ok) return cleaned;
+
+  if (cleaned.value.length > DEVICE_NAME_MAX) return { ok: false, code: FIELD.TOO_LONG };
+
+  return cleaned;
 }
 
 /**
