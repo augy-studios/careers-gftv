@@ -411,6 +411,47 @@ define('panel', 'The Telegram panel on /account/settings, in a browser', async (
       (await page.getAttribute('#telegramQr svg rect', 'fill')) === '#ffffff'
     );
 
+    /* What the cascade did to it, which the attributes above cannot see -----
+     *
+     * The defect these two catch was found by looking at the page on
+     * 29 August 2026, with checks 15 to 17 passing on the same tree. theme.css
+     * strokes every svg with currentColor at 1.75 for the icon set, stroke is
+     * inherited, and one unit in this viewBox is one module: every module was
+     * outlined at nearly two modules wide until the light ones closed up. A
+     * navy block in the light theme, a pale grey one in the dark, and the
+     * attributes correct throughout. **Read the computed style, not the
+     * attribute**, on anything a stylesheet written for something else can
+     * reach. */
+
+    const painted = async () =>
+      page.evaluate(() => {
+        const read = (sel) => {
+          const style = getComputedStyle(document.querySelector(sel));
+          return { fill: style.fill, stroke: style.stroke, width: style.strokeWidth };
+        };
+        return { path: read('#telegramQr svg path'), plate: read('#telegramQr svg rect') };
+      });
+
+    const light = await painted();
+    check(
+      '18. nothing strokes the modules, whatever the icon rule says',
+      light.path.stroke === 'none' && light.plate.stroke === 'none',
+      JSON.stringify(light)
+    );
+
+    // The other half of the same rule, and the reason it is asserted in the
+    // dark theme rather than only in the light one: a scanner thresholds the
+    // image, so the reader's theme is none of its business. currentColor
+    // reaching this symbol is what made it grey on white.
+    await page.evaluate(() => document.documentElement.setAttribute('data-mode', 'dark'));
+    const dark = await painted();
+    check(
+      '19. and it is black on white after the cascade, in the dark theme too',
+      dark.path.fill === 'rgb(0, 0, 0)' && dark.plate.fill === 'rgb(255, 255, 255)',
+      JSON.stringify(dark)
+    );
+    await page.evaluate(() => document.documentElement.setAttribute('data-mode', 'light'));
+
     /* The flip, without a refresh ----------------------------------------- */
 
     linkState = {
@@ -426,32 +467,32 @@ define('panel', 'The Telegram panel on /account/settings, in a browser', async (
       () => !document.querySelector('#telegramLinked')?.hidden,
       { timeout: 15000 }
     );
-    check('18. the page flips to linked while it sits there, per section 15 step 4', flipped);
+    check('20. the page flips to linked while it sits there, per section 15 step 4', flipped);
     check(
-      '19. and names the Telegram account it linked to',
+      '21. and names the Telegram account it linked to',
       ((await page.textContent('#telegramLinkedLine')) ?? '').includes('@samtan_tg'),
       await page.textContent('#telegramLinkedLine')
     );
-    check('20. the code panel goes when it is spent', await page.locator('#telegramCode').isHidden());
+    check('22. the code panel goes when it is spent', await page.locator('#telegramCode').isHidden());
 
     /* Unlinking ------------------------------------------------------------ */
 
     await page.click('#telegramUnlink');
     const asked = await until(page, () => Boolean(document.querySelector('.danger-dialog [data-confirm]')));
-    check('21. unlinking asks first', asked);
+    check('23. unlinking asks first', asked);
     // `.danger-dialog` and not `.modal`. The shell's own theme and language
     // dialogs are in the static markup of every page and carry `.modal`, so the
     // looser selector reads the first of those and finds a colour picker. The
     // same family of mistake as waiting for an element that was already there.
     check(
-      '22. and says what it does not do, since nothing about the account changes',
+      '24. and says what it does not do, since nothing about the account changes',
       ((await page.textContent('.danger-dialog')) ?? '').includes('stays exactly as it is'),
       await page.textContent('.danger-dialog')
     );
 
     await page.click('.danger-dialog [data-confirm]');
     const back = await until(page, () => !document.querySelector('#telegramUnlinked')?.hidden);
-    check('23. confirming returns the section to offering a link', back);
+    check('25. confirming returns the section to offering a link', back);
 
     /* The third state ------------------------------------------------------ */
 
@@ -459,12 +500,12 @@ define('panel', 'The Telegram panel on /account/settings, in a browser', async (
     await page.reload({ waitUntil: 'domcontentloaded' });
     const unknown = await until(page, () => !document.querySelector('#telegramUnknown')?.hidden);
     check(
-      '24. a read that could not be made is its own state, not a No',
+      '26. a read that could not be made is its own state, not a No',
       unknown,
       'phase 10: saying "not linked" because we could not ask invites a linked person to link again'
     );
     check(
-      '25. and neither of the two answers is shown beside it',
+      '27. and neither of the two answers is shown beside it',
       (await page.locator('#telegramUnlinked').isHidden()) &&
         (await page.locator('#telegramLinked').isHidden())
     );
@@ -481,7 +522,7 @@ define('panel', 'The Telegram panel on /account/settings, in a browser', async (
 define('wiring', 'What the two halves have to agree about', async () => {
   const sw = await readFile(join(SITE, 'sw.js'), 'utf8');
   check(
-    '26. the new module is precached, like every other page module',
+    '28. the new module is precached, like every other page module',
     sw.includes("'/assets/js/telegram-link.js'"),
     'the settings page is precached, so a module it imports and the worker does not hold is a page that half loads offline'
   );
@@ -500,7 +541,7 @@ define('wiring', 'What the two halves have to agree about', async () => {
   const zh = JSON.parse(await readFile(join(SITE, 'assets', 'i18n', 'zh.json'), 'utf8'));
   const added = Object.keys(en).filter((key) => key.startsWith('settings.telegram'));
   check(
-    '28. every telegram string exists in both languages',
+    '30. every telegram string exists in both languages',
     added.length >= 20 && added.every((key) => typeof zh[key] === 'string' && zh[key].length > 0),
     `${added.length} keys`
   );
@@ -517,7 +558,7 @@ define('wiring', 'What the two halves have to agree about', async () => {
   const siteRule = /\.eq\('status', 'queued'\)/.test(siteUnlink);
   const botRule = /"status": "eq\.queued"/.test(botUnlink);
   check(
-    '29. both halves skip only queued rows on an unlink',
+    '31. both halves skip only queued rows on an unlink',
     siteRule && botRule,
     `site ${siteRule}, bot ${botRule}`
   );
@@ -532,7 +573,7 @@ define('wiring', 'What the two halves have to agree about', async () => {
     .split(';')
     .filter((statement) => /'claimed'/.test(statement));
   check(
-    '30. and neither writes to a row the drain has already claimed',
+    '32. and neither writes to a row the drain has already claimed',
     statements.every((statement) => !/\.update\(|\.insert\(|\.delete\(/.test(statement)),
     'a claimed row belongs to the drain, and two writers on one row is how a claim stops meaning anything'
   );
@@ -584,24 +625,24 @@ define('signin', 'The sign in page with a Telegram code in play', async () => {
     /* Telegram alone ------------------------------------------------------ */
 
     await page.goto('/login', { waitUntil: 'domcontentloaded' });
-    check('31. the password step hands over to the second one', await signIn());
+    check('33. the password step hands over to the second one', await signIn());
 
     check(
-      '32. an account with no passkey is not shown a passkey button',
+      '34. an account with no passkey is not shown a passkey button',
       await page.locator('#usePasskeyButton').isHidden(),
       'the button used to be shown to everybody who got this far, because a passkey was the only way to get here'
     );
     check(
-      '33. and is told a code is on its way',
+      '35. and is told a code is on its way',
       await page.locator('#telegramCodeNote').isVisible()
     );
     check(
-      '34. the one code field asks for either kind of code',
+      '36. the one code field asks for either kind of code',
       ((await page.textContent('#codeFormLabel')) ?? '').includes('backup'),
       await page.textContent('#codeFormLabel')
     );
     check(
-      '35. and the wording follows the language rather than the markup',
+      '37. and the wording follows the language rather than the markup',
       (await page.getAttribute('#codeFormHint', 'data-i18n')) === 'auth.telegramCodeHint',
       'assigned text would snap back to the markup on the next gftv:localechange'
     );
@@ -613,7 +654,7 @@ define('signin', 'The sign in page with a Telegram code in play', async () => {
     await signIn();
 
     check(
-      '36. an account with both is offered both',
+      '38. an account with both is offered both',
       (await page.locator('#usePasskeyButton').isVisible()) &&
         (await page.locator('#telegramCodeNote').isVisible()),
       'part 3 added a factor rather than replacing one'
@@ -626,12 +667,12 @@ define('signin', 'The sign in page with a Telegram code in play', async () => {
     await signIn();
 
     check(
-      '37. a code that was never asked for is not announced as on its way',
+      '39. a code that was never asked for is not announced as on its way',
       await page.locator('#telegramCodeNote').isHidden(),
       'the one sentence on this page that would leave somebody waiting for nothing'
     );
     check(
-      '38. and the fallback is named instead',
+      '40. and the fallback is named instead',
       ((await page.textContent('#secondStepError')) ?? '').includes('/code'),
       await page.textContent('#secondStepError')
     );
@@ -645,9 +686,9 @@ define('signin', 'The sign in page with a Telegram code in play', async () => {
       page,
       () => !document.querySelector('#loginForm [data-form-message]')?.hidden
     );
-    check('39. a refused sign in link says why on the page it lands on', said);
+    check('41. a refused sign in link says why on the page it lands on', said);
     check(
-      '40. and the parameter is taken off the URL, so a refresh does not repeat it',
+      '42. and the parameter is taken off the URL, so a refresh does not repeat it',
       !page.url().includes('magic=') && page.url().includes('redirect='),
       page.url()
     );
@@ -730,7 +771,7 @@ define('twofa', 'Turning the second factor on, and the bcrypt seam', async () =>
     await until(page, () => !document.querySelector('#telegramLinked')?.hidden);
 
     const toggle = page.locator('#telegramTwofaToggle');
-    check('41. a linked account gets the second factor switch', await toggle.isVisible());
+    check('43. a linked account gets the second factor switch', await toggle.isVisible());
 
     await toggle.check();
     const refused = await until(
@@ -738,12 +779,12 @@ define('twofa', 'Turning the second factor on, and the bcrypt seam', async () =>
       () => !document.querySelector('#telegramTwofaError')?.hidden
     );
     check(
-      '42. turning it on with no backup codes is refused by name',
+      '44. turning it on with no backup codes is refused by name',
       refused && ((await page.textContent('#telegramTwofaError')) ?? '').includes('backup codes'),
       await page.textContent('#telegramTwofaError')
     );
     check(
-      '43. and the switch goes back rather than claiming a state the account does not have',
+      '45. and the switch goes back rather than claiming a state the account does not have',
       (await toggle.isChecked()) === false,
       'a security control sitting where somebody left it while the account says otherwise is the worst kind of wrong'
     );
@@ -754,7 +795,7 @@ define('twofa', 'Turning the second factor on, and the bcrypt seam', async () =>
       page,
       () => document.querySelector('#telegramTwofaToggle')?.checked === true
     );
-    check('44. and it stays on once the account can afford to lose Telegram', accepted);
+    check('46. and it stays on once the account can afford to lose Telegram', accepted);
   } finally {
     await browser.close();
     server.close();
@@ -772,12 +813,12 @@ define('seam', 'What the site and the bot have to agree about for a code', async
   const FROM_PYTHON = '$2b$12$92.xe3F42rHFHJovXSyp2evh53.WeHgRfAmuB4Aay.6SEdDEQ6gTy';
 
   check(
-    '45. the site verifies a hash the bot wrote',
+    '47. the site verifies a hash the bot wrote',
     await verifySecret('483920', FROM_PYTHON),
     'bcryptjs and python bcrypt have to read each other, or a correct code is refused at sign in'
   );
   check(
-    '46. and refuses a wrong code against it',
+    '48. and refuses a wrong code against it',
     (await verifySecret('483921', FROM_PYTHON)) === false
   );
 
@@ -790,12 +831,12 @@ define('seam', 'What the site and the bot have to agree about for a code', async
 
   const prefix = site.match(/PENDING_PREFIX = '([^']+)'/)?.[1];
   check(
-    '47. the sentinel the site writes is the one the bot claims on',
+    '49. the sentinel the site writes is the one the bot claims on',
     Boolean(prefix) && bot.includes(`"like.${prefix}*"`),
     `site ${prefix}, and the bot filters on ${bot.match(/"like\.[^"]+"/)?.[0]}`
   );
   check(
-    '48. and it can never be mistaken for a hash',
+    '50. and it can never be mistaken for a hash',
     Boolean(prefix) && !prefix.startsWith('$2'),
     'a bcrypt hash always starts $2, which is what keeps a request and a real code apart in one column'
   );
@@ -803,14 +844,14 @@ define('seam', 'What the site and the bot have to agree about for a code', async
   const siteMinutes = site.match(/CODE_TTL_MS = (\d+) \* 60 \* 1000/)?.[1];
   const botMinutes = handlers.match(/timedelta\(minutes=(\d+)\)/)?.[1];
   check(
-    '49. five minutes means five minutes on both sides',
+    '51. five minutes means five minutes on both sides',
     siteMinutes === '5' && botMinutes === '5',
     `site ${siteMinutes}, bot ${botMinutes}`
   );
 
   const magic = await readFile(join(SITE, 'api', 'auth', 'applicant', 'magic.js'), 'utf8');
   check(
-    '50. the magic link answers GET and nothing else',
+    '52. the magic link answers GET and nothing else',
     /methodNotAllowed\(req, res, \['GET'\]\)/.test(magic),
     'a HEAD here would be a request to sign somebody in with the answer thrown away'
   );
@@ -821,7 +862,7 @@ define('seam', 'What the site and the bot have to agree about for a code', async
     (key) => key.startsWith('auth.magic') || key.startsWith('danger.code')
   );
   check(
-    '51. every string part 3 added exists in both languages',
+    '53. every string part 3 added exists in both languages',
     added.length >= 10 && added.every((key) => typeof zh[key] === 'string' && zh[key].length > 0),
     `${added.length} keys`
   );
@@ -831,7 +872,7 @@ define('seam', 'What the site and the bot have to agree about for a code', async
   // is the cheap half: the two blocks that carry part 3's wording both exist.
   const strings = await readFile(join(HERE, '..', 'telegram-bot', 'strings.py'), 'utf8');
   check(
-    '52. and the bot carries its code message in both as well',
+    '54. and the bot carries its code message in both as well',
     (strings.match(/"code\.message":/g) ?? []).length === 2,
     'strings.py stops the bot on a mismatch, but only for keys that reached the file at all'
   );
@@ -905,7 +946,7 @@ define('outbox', 'The notification queue on /admin, and the drain behind it', as
     outbox = { readable: false, summary: null };
     let panel = await read();
     check(
-      '53. an unreadable queue says so rather than reading as empty',
+      '55. an unreadable queue says so rather than reading as empty',
       panel.className.includes('warn') && /could not be read/i.test(panel.text),
       panel.text.trim()
     );
@@ -915,7 +956,7 @@ define('outbox', 'The notification queue on /admin, and the drain behind it', as
     outbox = { readable: true, summary: summary({}) };
     panel = await read();
     check(
-      '54. an empty table is said plainly and is not drawn as a healthy queue',
+      '56. an empty table is said plainly and is not drawn as a healthy queue',
       panel.className.includes('note') && /Nothing has been queued/i.test(panel.text),
       panel.text.trim()
     );
@@ -925,12 +966,12 @@ define('outbox', 'The notification queue on /admin, and the drain behind it', as
     outbox = { readable: true, summary: summary({ sent_recently: 12, claimed: 1, skipped_recently: 3 }) };
     panel = await read();
     check(
-      '55. a queue that is moving reads as a note with the day\'s count',
+      '57. a queue that is moving reads as a note with the day\'s count',
       panel.className.includes('note') && panel.text.includes('12'),
       panel.text.trim()
     );
     check(
-      '56. and claimed is counted separately from queued',
+      '58. and claimed is counted separately from queued',
       /being sent now/i.test(panel.text),
       'a queued row is waiting for the bot and a claimed one is in its hands'
     );
@@ -941,7 +982,7 @@ define('outbox', 'The notification queue on /admin, and the drain behind it', as
     outbox = { readable: true, summary: summary({ queued: 4, oldest_queued_at: anHourAgo }) };
     panel = await read();
     check(
-      '57. a queue that has stopped moving warns that the bot may not be running',
+      '59. a queue that has stopped moving warns that the bot may not be running',
       panel.className.includes('warn') && panel.text.includes('4'),
       panel.text.trim()
     );
@@ -968,12 +1009,12 @@ define('outbox', 'The notification queue on /admin, and the drain behind it', as
     };
     panel = await read();
     check(
-      '58. a row that gave up is an error and outranks a slow queue',
+      '60. a row that gave up is an error and outranks a slow queue',
       panel.className.includes('error') && panel.text.includes('2'),
       panel.text.trim()
     );
     check(
-      '59. the failure names its kind and its error, which is what an admin acts on',
+      '61. the failure names its kind and its error, which is what an admin acts on',
       panel.text.includes('telegram_test') && panel.text.includes('User is blocked'),
       panel.text.trim()
     );
@@ -982,7 +1023,7 @@ define('outbox', 'The notification queue on /admin, and the drain behind it', as
     // only. The route sends no applicant at all; this is the check that a
     // payload carrying one anyway never reaches the page.
     check(
-      '60. and no applicant is named on it',
+      '62. and no applicant is named on it',
       !panel.text.includes(APPLICANT_ID),
       'a panel that named who was being messaged would have to be admins only'
     );
@@ -1014,7 +1055,7 @@ define('outbox', 'The notification queue on /admin, and the drain behind it', as
   ];
   const renderable = [...drain.matchAll(/^\s{4}"([a-z_]+)": render/gm)].map((match) => match[1]);
   check(
-    '61. every kind the site queues is one the drain can render',
+    '63. every kind the site queues is one the drain can render',
     queued.length >= 4 && queued.every((kind) => renderable.includes(kind)),
     `site queues ${queued.join(', ')}, the drain renders ${renderable.join(', ')}`
   );
@@ -1028,7 +1069,7 @@ define('outbox', 'The notification queue on /admin, and the drain behind it', as
     .map((value) => value.trim().replace(/'/g, ''));
   const written = [...drain.matchAll(/finish\(\s*row,\s*"([a-z]+)"/g)].map((match) => match[1]);
   check(
-    '62. every ending the drain writes is one the table allows',
+    '64. every ending the drain writes is one the table allows',
     allowed.length === 5 && written.length > 0 && written.every((status) => allowed.includes(status)),
     `allowed ${allowed.join(', ')}, written ${[...new Set(written)].join(', ')}`
   );
@@ -1038,7 +1079,7 @@ define('outbox', 'The notification queue on /admin, and the drain behind it', as
   // there is written against a drain that polls on that order.
   const poll = Number(drain.match(/POLL_SECONDS = ([\d.]+)/)?.[1]);
   check(
-    '63. the drain polls inside the window section 15 gives it',
+    '65. the drain polls inside the window section 15 gives it',
     poll >= 15 && poll <= 30,
     `${poll}s`
   );
@@ -1053,7 +1094,7 @@ define('outbox', 'The notification queue on /admin, and the drain behind it', as
     )?.[1]
   );
   check(
-    '64. and a claim expires well before the panel calls the queue stuck',
+    '66. and a claim expires well before the panel calls the queue stuck',
     lease > 0 && stale > lease,
     `lease ${lease} minutes, panel warns after ${stale}`
   );
@@ -1065,7 +1106,7 @@ define('outbox', 'The notification queue on /admin, and the drain behind it', as
   const supabasePy = await readFile(join(HERE, '..', 'telegram-bot', 'supabase.py'), 'utf8');
   const claim = supabasePy.match(/async def claim_notifications[\s\S]*?return rows/)?.[0] ?? '';
   check(
-    '65. the claim is one conditional update and never a read followed by a write',
+    '67. the claim is one conditional update and never a read followed by a write',
     /await self\.update\(/.test(claim) && !/await self\.select\(|await self\.one\(/.test(claim),
     'nothing reads then writes: the database decides which instance owns a row'
   );
@@ -1074,7 +1115,7 @@ define('outbox', 'The notification queue on /admin, and the drain behind it', as
   const zh = JSON.parse(await readFile(join(SITE, 'assets', 'i18n', 'zh.json'), 'utf8'));
   const added = Object.keys(en).filter((key) => key.startsWith('admin.outbox'));
   check(
-    '66. every string part 4 added exists in both languages',
+    '68. every string part 4 added exists in both languages',
     added.length >= 11 && added.every((key) => typeof zh[key] === 'string' && zh[key].length > 0),
     `${added.length} keys`
   );
@@ -1108,7 +1149,7 @@ define('notify', 'The three notification kinds, and what can silence them', asyn
   // all three in the first version. Three is as much the check as the names are,
   // since a fourth queued by the site is a row an older bot never claims.
   check(
-    '67. the site names exactly section 15\'s three kinds',
+    '69. the site names exactly section 15\'s three kinds',
     kinds.length === 3 &&
       ['invite', 'task_raised', 'application_status_changed'].every((kind) => kinds.includes(kind)),
     kinds.join(', ')
@@ -1125,7 +1166,7 @@ define('notify', 'The three notification kinds, and what can silence them', asyn
     (match) => match[1]
   );
   check(
-    '68. every task type a task can hold is mapped to a kind',
+    '70. every task type a task can hold is mapped to a kind',
     types.length > 0 && types.every((type) => mapped.includes(type)),
     `types ${types.join(', ')}, mapped ${mapped.join(', ')}`
   );
@@ -1140,7 +1181,7 @@ define('notify', 'The three notification kinds, and what can silence them', asyn
     ),
   ].length;
   check(
-    '69. a notice task is raised in one place, which is what makes the kind mean one thing',
+    '71. a notice task is raised in one place, which is what makes the kind mean one thing',
     notices === 0 && decisions === 1,
     `admin-tasks ${notices}, admin-applications ${decisions}`
   );
@@ -1154,12 +1195,12 @@ define('notify', 'The three notification kinds, and what can silence them', asyn
     [...columnBlock.matchAll(/"([a-z_]+)": "([a-z_]+)"/g)].map((match) => [match[1], match[2]])
   );
   check(
-    '70. every kind the site queues has a toggle the bot honours',
+    '72. every kind the site queues has a toggle the bot honours',
     kinds.every((kind) => typeof toggles[kind] === 'string'),
     Object.keys(toggles).join(', ')
   );
   check(
-    '71. and every toggle column exists on the table migration 011 created',
+    '73. and every toggle column exists on the table migration 011 created',
     Object.values(toggles).length === 3 &&
       Object.values(toggles).every((column) => migration.includes(`${column}  `) || migration.includes(`${column} `)),
     Object.values(toggles).join(', ')
@@ -1169,7 +1210,7 @@ define('notify', 'The three notification kinds, and what can silence them', asyn
   // an entry is what implements that, so it is worth a check of its own rather
   // than being left as something everybody remembers.
   check(
-    '72. and nothing gives the login code or the test message one',
+    '74. and nothing gives the login code or the test message one',
     !Object.keys(toggles).includes('telegram_test') && !/notify_(code|login|security)/.test(supabasePy),
     'silencing a security message is what an attacker would want'
   );
@@ -1177,14 +1218,14 @@ define('notify', 'The three notification kinds, and what can silence them', asyn
   // Section 15: always include an unsubscribe hint in the footer of a
   // notification. It points at /notify, which has to be a command that answers.
   check(
-    '73. every notification carries the unsubscribe hint, and the test message does not',
+    '75. every notification carries the unsubscribe hint, and the test message does not',
     /def footer\(/.test(drain) &&
       (drain.match(/\+ footer\(locale\)/g) ?? []).length === 3 &&
       /notify\.footer/.test(drain),
     'the hint belongs on the three kinds a toggle governs'
   );
   check(
-    '74. and the command it names is one the bot answers',
+    '76. and the command it names is one the bot answers',
     /"notify": handle_notify/.test(
       await readFile(join(HERE, '..', 'telegram-bot', 'handlers.py'), 'utf8')
     ),
@@ -1197,7 +1238,7 @@ define('notify', 'The three notification kinds, and what can silence them', asyn
     .map((match) => match[1]);
   const counts = en.reduce((into, key) => into.set(key, (into.get(key) ?? 0) + 1), new Map());
   check(
-    '75. every string part 5 added exists in both languages',
+    '77. every string part 5 added exists in both languages',
     counts.size >= 20 && [...counts.values()].every((count) => count === 2),
     [...counts.entries()].filter(([, count]) => count !== 2).map(([key]) => key).join(', ')
   );
@@ -1226,7 +1267,7 @@ define('commands', 'The four list commands, and what they read from the site', a
   // wording is right: nine listed, nine built, nothing left saying it arrives in
   // a later phase.
   check(
-    '76. every command the bot lists is one it now answers',
+    '78. every command the bot lists is one it now answers',
     listed.length === 9 && listed.every((name) => built.includes(name)),
     `listed ${listed.join(', ')}; built ${built.join(', ')}`
   );
@@ -1239,13 +1280,13 @@ define('commands', 'The four list commands, and what they read from the site', a
     (rule) => rule.source === '/api/public/jobs.json'
   );
   check(
-    '77. the address the bot fetches openings from is one the site answers on',
+    '79. the address the bot fetches openings from is one the site answers on',
     /\/api\/public\/jobs\.json/.test(configPy) &&
       feedRoute?.destination === '/api/public/jobs-feed',
     `rewrite ${JSON.stringify(feedRoute ?? null)}`
   );
   check(
-    '78. and /jobs obeys the board\'s own switch rather than a Telegram one',
+    '80. and /jobs obeys the board\'s own switch rather than a Telegram one',
     /name="jobs",\s*\n\s*feature="job_search"/.test(commandList),
     'an admin taking the board down has to take the bot\'s copy of it down too'
   );
@@ -1273,7 +1314,7 @@ define('commands', 'The four list commands, and what they read from the site', a
   ].map((match) => match[1]);
 
   check(
-    '79. the bot has a word for every status an application can hold',
+    '81. the bot has a word for every status an application can hold',
     allowed.length === 9 && allowed.every((status) => botEn[status] && botZh[status]),
     `allowed ${allowed.join(', ')}; bot ${Object.keys(botEn).join(', ')}`
   );
@@ -1284,7 +1325,7 @@ define('commands', 'The four list commands, and what they read from the site', a
     (status) => botEn[status] !== siteEn[`status.${status}`] || botZh[status] !== siteZh[`status.${status}`]
   );
   check(
-    '80. and every one of them is the word the portal already uses, in both languages',
+    '82. and every one of them is the word the portal already uses, in both languages',
     differs.length === 0,
     differs.map((status) => `${status}: ${botEn[status]} vs ${siteEn[`status.${status}`]}`).join('; ')
   );
@@ -1306,12 +1347,12 @@ define('commands', 'The four list commands, and what they read from the site', a
   const clickEvent = applyJs.match(/APPLY_CLICK = '([a-z_]+)'/)?.[1];
 
   check(
-    '81. the bot counts the same open statuses /account/tasks does',
+    '83. the bot counts the same open statuses /account/tasks does',
     siteOpen.length === 2 && siteOpen.join() === botOpen.join(),
     `site ${siteOpen.join(', ')}; bot ${botOpen.join(', ')}`
   );
   check(
-    '82. and an unanswered prompt is an apply click, never a view row',
+    '84. and an unanswered prompt is an apply click, never a view row',
     clickEvent && supabasePy.includes(`APPLY_CLICK = "${clickEvent}"`) &&
       /event_type.*APPLY_CLICK[\s\S]*response_state": "eq\.pending/.test(supabasePy),
     'a count that forgot the event type would report every posting somebody read'
@@ -1328,7 +1369,7 @@ define('commands', 'The four list commands, and what they read from the site', a
     ...(supabasePy.match(/OPEN_INVITE_STATUSES = \(([^)]*)\)/)?.[1] ?? '').matchAll(/"([a-z_]+)"/g),
   ].map((match) => match[1]);
   check(
-    '83. the invitations the bot lists are the ones its decline button can write',
+    '85. the invitations the bot lists are the ones its decline button can write',
     botInvite.join() === 'invited,seen' &&
       supabasePy.includes('"status": "in.(invited,seen)"') &&
       invite008.includes("'invited', 'seen'"),
@@ -1344,7 +1385,7 @@ define('commands', 'The four list commands, and what they read from the site', a
       new RegExp(`_request\\(\\s*"(POST|PATCH|DELETE)",\\s*"${table}"`).test(supabasePy)
   );
   check(
-    '84. and nothing part 6 reads is ever written to',
+    '86. and nothing part 6 reads is ever written to',
     written.length === 0,
     written.join(', ')
   );
@@ -1358,7 +1399,7 @@ define('commands', 'The four list commands, and what they read from the site', a
   ].map((match) => match[1]);
   const counts = added.reduce((into, key) => into.set(key, (into.get(key) ?? 0) + 1), new Map());
   check(
-    '85. every string part 6 added exists in both languages',
+    '87. every string part 6 added exists in both languages',
     counts.size >= 25 && [...counts.values()].every((count) => count === 2),
     [...counts.entries()].filter(([, count]) => count !== 2).map(([key]) => key).join(', ')
   );

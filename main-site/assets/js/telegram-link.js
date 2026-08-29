@@ -268,6 +268,12 @@ async function start() {
  * version 9 symbol. One path costs one node and scales to any size without
  * blurring, and `shape-rendering: crispEdges` in the stylesheet is what stops a
  * browser antialiasing the module edges into something a scanner reads as grey.
+ *
+ * **The colours below are not the whole story, and cannot be.** `theme.css`
+ * strokes every svg with currentColor for the icon set, a presentation
+ * attribute loses to a stylesheet, and a stroke measured in module widths
+ * floods the symbol. `.telegram-qr svg` in `app.css` is what opts this one out
+ * and pins it to black on white in every theme. Do not delete that rule.
  */
 function drawQr(qr) {
   const holder = document.querySelector('#telegramQr');

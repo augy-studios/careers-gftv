@@ -5411,6 +5411,30 @@ ul.field-hint {
   shape-rendering: crispEdges;
 }
 
+/* A QR is not an icon, and theme.css's icon rule reaches it anyway: every svg
+   gets stroke: currentColor at 1.75, stroke is inherited by children, and one
+   unit in this viewBox is one module. Every module was outlined at nearly two
+   modules wide until the light ones closed up — a navy block in the light
+   theme, a pale grey one in the dark, unscannable in both, with the attributes
+   correct the whole time.
+
+   The two colours are pinned here as well as on the elements. A QR is black on
+   white in every theme and at every brightness: a scanner thresholds the image,
+   so the reader's theme is none of its business, and currentColor reaching this
+   symbol is exactly the bug above. */
+.telegram-qr svg,
+.telegram-qr svg * {
+  stroke: none;
+}
+
+.telegram-qr svg rect {
+  fill: #ffffff;
+}
+
+.telegram-qr svg path {
+  fill: #000000;
+}
+
 /* The link in text, for a person on a laptop who wants to send it to their own
    phone. Same shape as phase 9's copy row: the link wraps rather than scrolls,
    because reading it accurately is the whole point. */
