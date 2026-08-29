@@ -231,9 +231,12 @@
                 </p>
             </section>
 
-            <!-- Telegram 2FA. Section 0c's disabled control pattern: visible,
-                 disabled, and saying which phase it arrives in. Hiding it would
-                 teach people it does not exist. -->
+            <!-- Telegram 2FA. Phase 11 shipped the switch on /account/settings,
+                 beside the link it depends on, so this section points there
+                 rather than carrying a second copy of it: one page writes that
+                 column and one wording explains it. It stays visible because
+                 somebody looking for the second factor looks here first, and a
+                 missing section teaches them it does not exist. -->
             <section class="glass-card card stack">
                 <h2>
                     <span data-icon="bell" data-icon-size="18"></span>
@@ -241,15 +244,15 @@
                 </h2>
                 <p data-i18n="security.twoFactorBody">
                     A code from the Careers@GFTV Telegram bot at every sign in.
-                    The bot itself is a later phase, so the switch is here and
-                    turned off, not missing.
+                    The switch is beside the Telegram link in your account
+                    settings, since linking Telegram is what makes it possible.
                 </p>
-                <label class="check-row">
-                    <input type="checkbox" data-feature="telegram_2fa" data-feature-hint>
-                    <span data-i18n="security.twoFactorToggle">
-                        Ask for a Telegram code when I sign in
-                    </span>
-                </label>
+                <p>
+                    <a class="btn btn-secondary" href="/account/settings"
+                       data-i18n="security.twoFactorLink">
+                        Account settings
+                    </a>
+                </p>
             </section>
 
             <!-- Password, with the two consequences stated before the button,

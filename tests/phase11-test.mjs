@@ -332,11 +332,14 @@ define('panel', 'The Telegram panel on /account/settings, in a browser', async (
     });
 
     // The phase list, so the gate can be seen doing its job in both positions.
+    // The status is written either way rather than only on the way up: phase 11
+    // reads `shipped` in the file itself now, and a fixture that only forces the
+    // shipped half would quietly stop testing the gated one.
     const statusFile = JSON.parse(await readFile(join(SITE, 'assets', 'build-status.json'), 'utf8'));
     await ctx.route('**/assets/build-status.json', (route) => {
       const copy = structuredClone(statusFile);
-      if (shipped) {
-        for (const phase of copy.phases) if (phase.number === 11) phase.status = 'shipped';
+      for (const phase of copy.phases) {
+        if (phase.number === 11) phase.status = shipped ? 'shipped' : 'building';
       }
       return route.fulfill({
         status: 200,

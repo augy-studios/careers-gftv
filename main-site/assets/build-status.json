@@ -1,7 +1,7 @@
 {
   "$comment": "Single source of truth for the phased rollout, per section 0c of careers-gftv-spec.md. The site, the Telegram bot, and the docs site all read this one file, so the three stay in step. Flipping a phase to shipped is the only edit needed when it goes live. No copy anywhere hardcodes a phase number. Phase names and descriptions carry a translated variant per non default language, because three separate consumers render them and they are content, not interface strings; everything else the site says comes from assets/i18n.",
   "schema_version": 3,
-  "updated": "2026-08-28",
+  "updated": "2026-08-29",
   "locales": [
     "en",
     "zh"
@@ -111,11 +111,11 @@
       "number": 11,
       "name": "Telegram bot",
       "name_zh": "Telegram 机器人",
-      "status": "building",
+      "status": "shipped",
       "description": "Linking a Telegram account for notifications, invitations, one tap sign in, and two factor authentication, in your chosen language.",
       "description_zh": "关联 Telegram 账户以接收通知和邀请，并使用一键登录和双重验证，且使用您选择的语言。",
-      "shipped_note": null,
-      "shipped_note_zh": null
+      "shipped_note": "Linking a Telegram account went live with this. Open your account settings, scan the code with the phone your Telegram is on, and the bot takes it from there. Once linked, what the team needs from you reaches you in a chat as well as on this site: a question or a task raised against your application, an invitation to apply for a role, with the button to decline it on the invitation itself, and a decision once one is made, with whatever the person deciding wrote. You choose which of those three you want, in the chat, and turning one off never affects signing in. You can also ask the bot rather than wait to be told: your invitations, your outstanding tasks, your applications and where each has got to, and the newest openings, all in the language your account is set to. Signing in gains two things: one tap sign in, where the link the bot sends works only in the browser that asked for it, and an optional code at every sign in as your second step, with your two factor backup codes as the way past it if you ever lose your phone. Nothing arrives only in a chat. Everything the bot sends is on this site too, and unlinking leaves your account exactly as it is. An accessibility and responsive pass across every page, theme, language, and screen size arrives in the next phase.",
+      "shipped_note_zh": "关联 Telegram 账户的功能随此阶段上线。打开账户设置，用装有 Telegram 的手机扫描二维码，其余交给机器人完成。关联之后，团队需要您处理的事情除了出现在本网站，也会送到聊天中：针对您申请的提问或待办事项、邀请您申请某个职位（婉拒的按钮就在邀请讯息上），以及有结果时的决定，连同做出决定的人所写的说明。这三类通知您可以自行选择要收哪些，直接在聊天中设置；关闭通知绝不会影响登录。您也可以主动询问机器人，不必等我们通知：您的邀请、您的待办事项、您的申请及各自的进展，以及最新发布的职位，全部以您账户设置的语言呈现。登录方面增加了两项：一键登录，机器人发来的链接只在提出请求的那个浏览器中有效；以及可自行选择的登录验证码，作为登录的第二步，万一手机不在身边，双重验证备用码就是通过这一步的途径。没有任何内容只出现在聊天中：机器人发送的一切在本网站上也都找得到，取消关联后您的账户也完全保持原样。针对每个页面、主题、语言和屏幕尺寸的无障碍与响应式检查，将在下一阶段上线。"
     },
     {
       "number": 12,

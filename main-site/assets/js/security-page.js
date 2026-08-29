@@ -9,9 +9,10 @@
 //   5d "Account settings lists trusted devices with when each was added and
 //      last used, a revoke button per device, and a revoke all."
 //
-// Also here, and disabled through the section 0c pattern, not hidden:
-// the Telegram two factor toggle. Its delivery half cannot work until the bot
-// ships in phase 11, so the control says that on itself instead of pretending.
+// The Telegram two factor toggle is named here and not built here. Phase 11
+// shipped it on /account/settings, beside the link it depends on, so this page
+// carries the sentence and a link to it rather than a second control writing
+// the same column.
 
 import { api, applicantSession } from './api.js';
 import { generateAndShow } from './recovery-codes.js';
