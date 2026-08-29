@@ -58,6 +58,21 @@ from supabase import SupabaseError
 
 log = logging.getLogger("bot.security")
 
+# Telegram's own copy button, and the import is guarded on purpose. It arrived
+# with the layer that carried Bot API 8.0's `copy_text`, and `requirements.txt`
+# floats Telethon within 1.x rather than pinning it, so a VPS that has not been
+# updated for a while has a client without the constructor. A missing convenience
+# must not stop a login code going out: without it the message is exactly what it
+# was before, and the digits are still on their own line to be tapped and held.
+try:
+    from telethon.tl.types import KeyboardButtonCopy
+except ImportError:  # pragma: no cover - depends on the installed Telethon
+    KeyboardButtonCopy = None
+    log.warning(
+        "this Telethon has no copy button, so sign in codes go out without one. "
+        "pip install --upgrade 'telethon<2' to get it back"
+    )
+
 # How often the codes are looked for. Two seconds is what makes a pushed code
 # feel like it arrived because somebody pressed a button rather than because a
 # timer went off. It is one conditional update against an indexed prefix that
@@ -91,6 +106,26 @@ async def hash_code(code: str) -> str:
     return await asyncio.to_thread(
         lambda: bcrypt.hashpw(code.encode("utf-8"), bcrypt.gensalt(BCRYPT_ROUNDS)).decode("ascii")
     )
+
+
+def copy_code_row(code: str, locale: str) -> list | None:
+    """The copy button row, or nothing when this Telethon cannot draw one.
+
+    **One helper for both senders**, because there are two places a code message
+    is built and they are not the same code path: this file fills in a request
+    the site left behind, and `handlers.py` answers `/code` in the chat it was
+    typed in. The digits differ, the button does not, and two copies of it is
+    how the two messages would end up offering different things.
+
+    Telegram does the copying itself — the payload travels with the button and
+    the tap never reaches us, so there is no callback to register and nothing in
+    SQLite to remember. That also means the row is safe to attach to a message
+    that already has a sign in button: they are separate rows, so a mis-tap gets
+    the other convenience rather than the wrong account.
+    """
+    if KeyboardButtonCopy is None:
+        return None
+    return [KeyboardButtonCopy(text=text("button.copyCode", locale), copy_text=code)]
 
 
 class SecurityLoop:
@@ -165,7 +200,12 @@ class SecurityLoop:
             log.error("a claimed code request could not be written back to")
             return
 
-        buttons = None
+        # Rows in the order somebody meets them: sign in when there is a browser
+        # waiting for one, and copy underneath it, which is where a fallback
+        # belongs. The copy row is unconditional, so a code typed for at a
+        # keyboard and one asked for from a phone both get it.
+        rows: list = []
+        signed_in_row = False
         nonce_hash = row.get("browser_nonce_hash")
 
         if nonce_hash:
@@ -182,13 +222,19 @@ class SecurityLoop:
                     row["expires_at"],
                 )
                 url = f"{self.ctx.config.site_url}/api/auth/applicant/magic?token={token}"
-                buttons = [[Button.url(text("button.signIn", locale), url)]]
+                rows.append([Button.url(text("button.signIn", locale), url)])
+                signed_in_row = True
             except (SupabaseError, httpx.HTTPError) as cause:
                 # The code still works and the message still goes out. A one tap
                 # link is the convenience half of this and is not worth failing a
                 # sign in over.
                 log.error("could not write the magic link row: %s", cause)
 
+        copy_row = copy_code_row(code, locale)
+        if copy_row:
+            rows.append(copy_row)
+
+        buttons = rows or None
         message = text("code.message", locale, code=html.escape(code))
 
         try:
@@ -212,8 +258,10 @@ class SecurityLoop:
             return
 
         # Never the code, never the account, and no link between the two. What
-        # is worth having in the log is that one went out at all.
-        log.info("sent a sign in code%s", " with a one tap link" if buttons else "")
+        # is worth having in the log is that one went out at all. The test is the
+        # sign in row rather than `buttons`, which is now truthy for a message
+        # carrying nothing but the copy button.
+        log.info("sent a sign in code%s", " with a one tap link" if signed_in_row else "")
 
     # -- small shared things --------------------------------------------
 

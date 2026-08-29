@@ -50,7 +50,7 @@ from commands import BOT_FEATURE, BY_NAME, COMMANDS, Command
 from config import Config
 from feed import JobFeed
 from lang import locale_for
-from security import hash_code, six_digits
+from security import copy_code_row, hash_code, six_digits
 from strings import DEFAULT_LOCALE, STRINGS, text
 from supabase import NOTIFY_COLUMN, Supabase, SupabaseError
 
@@ -442,8 +442,14 @@ async def handle_code(ctx: Context, event, args: str, locale: str) -> None:
         return
 
     log.info("issued a sign in code on request")
+    # The same copy button the pushed code carries, from the same helper. No
+    # sign in button ever goes on this one: nothing here came from a browser,
+    # and the docstring above says why that matters.
+    copy_row = copy_code_row(code, locale)
     await event.respond(
-        text("code.message", locale, code=html.escape(code)), link_preview=False
+        text("code.message", locale, code=html.escape(code)),
+        buttons=[copy_row] if copy_row else None,
+        link_preview=False,
     )
 
 

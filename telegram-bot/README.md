@@ -54,8 +54,17 @@ in one process and one chat message.
 
 **Two loops rather than one, and the difference is who is waiting.** A code is
 polled for every two seconds because somebody is sitting in front of a login
-form; the outbox is polled every ten because an invitation can wait. Both use
+form; the outbox is polled every twenty because an invitation can wait. Both use
 the same conditional claim, so two instances cannot both send.
+
+**Every code message carries a copy button**, on both paths, from one helper in
+`security.py`. Telegram copies the digits itself: the payload rides with the
+button, the tap never reaches the bot, and there is nothing to register in the
+callback registry. The constructor arrived with Bot API 8.0's `copy_text`, and
+`requirements.txt` floats Telethon within 1.x, so **the import is guarded**: a
+VPS on an older 1.x logs a line at startup and sends the message without the
+button rather than failing a login. `pip install --upgrade 'telethon<2'` is the
+fix, and the bold digits on their own line stay tap-and-holdable either way.
 
 **The one tap link is only ever made for a request that came from a browser.**
 The site sets a nonce in a cookie and stores its hash on the row, and the bot
@@ -77,7 +86,7 @@ Nine, and only nine. There is no `help`; `start` carries that content.
 | `start` | What the bot does, the command list, and buttons to the portal and the donation link. Also handles the deep link payload for account linking and one tap code delivery. |
 | `link` | Begins linking this Telegram account to a portal account, for someone who found the bot before the site. |
 | `unlink` | Removes the link, behind a confirmation button. |
-| `code` | Sends a fresh one time login code for the linked account. |
+| `code` | Sends a fresh one time login code for the linked account, with a button that copies it. |
 | `invites` | Open job invitations, with a button through to each posting. |
 | `tasks` | Outstanding task count, with a link to the tasks page. |
 | `applications` | The applicant's own applications and their current statuses. |

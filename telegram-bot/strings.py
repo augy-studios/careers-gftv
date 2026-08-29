@@ -88,6 +88,10 @@ STRINGS: dict[str, dict[str, str]] = {
         "unlink.done": "Unlinked. You can link this account again whenever you like.",
         "unlink.failed": "We could not reach the portal just now. Nothing has changed.",
         "button.signIn": "Sign in",
+        # Telegram copies the digits itself when this is tapped, so the label
+        # says what happens rather than what to do next. Not "Copy and sign in":
+        # the button copies, and where the code is typed is the sentence above.
+        "button.copyCode": "Copy the code",
         # The code is on its own line and nothing follows it on that line, so
         # tapping to copy on a phone takes the code and not a sentence around it.
         "code.message": (
@@ -306,6 +310,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "unlink.done": "已解除关联。您随时可以重新关联这个账户。",
         "unlink.failed": "我们暂时无法连接到求职网站，您的账户没有任何改动。",
         "button.signIn": "登录",
+        "button.copyCode": "复制验证码",
         "code.message": (
             "<b>{code}</b>\n\n"
             "这是您的登录验证码，只能使用一次，有效期五分钟。\n\n"
