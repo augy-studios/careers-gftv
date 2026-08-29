@@ -171,6 +171,21 @@ const ALIASES = {
 };
 
 /**
+ * The floor every icon is drawn at, settled 30 August 2026 in phase 12.
+ *
+ * **An icon smaller than this is decoration nobody can read.** The build had
+ * asked for 12 in one place, 14 in four, 15 in fifteen and 16 in twenty, all of
+ * them beside 16px text, and they came out as marks rather than as pictures of
+ * anything. 18 is not an arbitrary floor: it is already the most common size in
+ * the build, so this makes the norm the minimum instead of leaving four sizes
+ * below it.
+ *
+ * **It is a floor and never a size.** Anything asking for more keeps what it
+ * asked for, which is why `Math.max` rather than an assignment.
+ */
+export const MIN_SIZE = 18;
+
+/**
  * Build one icon element.
  * @param {string} name
  * @param {{ size?: number, label?: string }} [options] label makes the icon
@@ -186,7 +201,10 @@ export function icon(name, options = {}) {
     return null;
   }
 
-  const size = options.size ?? 20;
+  // Every icon in the build is made here, including the ones written into an
+  // innerHTML string through iconMarkup, so this is the one place the floor
+  // has to be applied and the only place it can be applied completely.
+  const size = Math.max(options.size ?? 20, MIN_SIZE);
   const wrapper = document.createElement('div');
   wrapper.innerHTML =
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" ` +

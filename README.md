@@ -313,10 +313,10 @@ STAFF_USER=yourname STAFF_PASS='...' node tests/phase7-test.mjs --only=editor
 node tests/phase10-test.mjs
 
 # Phase 12's public sections need nothing either. Its admin section needs a
-# staff credential, and PATCH_CSS=1 serves the working tree's stylesheets so a
-# CSS fix can be proved before it is pushed.
+# staff credential, and PATCH_ASSETS=1 serves the working tree's stylesheets
+# and scripts so a fix can be proved before it is pushed.
 node tests/phase12-test.mjs --only=responsive,landscape
-PATCH_CSS=1 STAFF_USER=... STAFF_PASS='...' node tests/phase12-test.mjs
+PATCH_ASSETS=1 STAFF_USER=... STAFF_PASS='...' node tests/phase12-test.mjs
 ```
 
 Three things to know before the first run, all of which

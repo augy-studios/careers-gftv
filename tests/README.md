@@ -222,16 +222,23 @@ each, at the six widths section 3 names — 320, 375, 414, 768, 1024 and 1440.
 | `responsive-admin` | Six admin pages, both languages, at the same six widths, **against a deployment with a staff credential**, because an admin page is a session and a database rather than a document. Skipped by name without `STAFF_USER` and `STAFF_PASS`. It also checks that the label phase 12 hides between 1024 and 1279 is hidden from the layout and not from the accessibility tree, which is one `display: none` away from being lost. |
 | `responsive-account` | The applicant's own five pages, the same way, with `APPLICANT_USER` and `APPLICANT_PASS`. **Signed out all five redirect to `/login`**, so a run without a credential would measure the login page five times and report it as coverage — which is why this skips by name rather than running. It also checks `.nav-account-name` at 1024: a display name is arbitrary text of arbitrary length in a fixed width bar, capped with an ellipsis rather than wrapped, because a name that wraps takes the row with it. |
 
-**`PATCH_CSS=1` serves the working tree's stylesheets in place of the
-deployment's**, borrowed from `layout-check.mjs`:
+Every section also checks that **no icon is drawn under `MIN_SIZE`**, which the
+file imports from `main-site/assets/js/icons.js` so the check and the build
+cannot disagree about what too small means.
+
+**`PATCH_ASSETS=1` serves the working tree's stylesheets and scripts in place of
+the deployment's**, borrowed from `layout-check.mjs`, which calls it `PATCH_CSS`
+and patches only stylesheets. Both spellings work here:
 
 ```sh
-PATCH_CSS=1 STAFF_USER=... STAFF_PASS='...' node tests/phase12-test.mjs --only=responsive-admin
+PATCH_ASSETS=1 STAFF_USER=... STAFF_PASS='...' node tests/phase12-test.mjs --only=responsive-admin
 ```
 
-Without it a CSS rule written in answer to a finding cannot be proved until it
-has been pushed, which is the wrong way round for a part whose whole output is
-CSS.
+Without it a fix written in answer to a finding cannot be proved until it has
+been pushed, which is the wrong way round for a part whose whole output is CSS
+and one constant. **Leaving it off is also the cleanest negative test there is**:
+the deployment still carries whatever has not shipped yet, so a check that
+passes patched and fails unpatched has just proved both halves of itself.
 
 **This section writes nothing.** It signs in and navigates; it creates no
 posting, no application and no tag, so it is the one credentialed run that needs

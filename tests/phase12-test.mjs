@@ -36,6 +36,11 @@ import { readFile, stat } from 'node:fs/promises';
 import { join, extname, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// The floor itself, from the file that applies it, so the check and the build
+// cannot disagree about what "too small" is. `icons.js` touches `document` only
+// inside its functions, so importing it here costs nothing.
+import { MIN_SIZE } from '../main-site/assets/js/icons.js';
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SITE = join(HERE, '..', 'main-site');
 
@@ -108,6 +113,36 @@ const CELL_FLOOR = 88;
 // bootstrap in every page reads before first paint.
 const LOCALES = ['en', 'zh'];
 
+// **Serve the working tree's assets in place of the deployment's**, so a fix
+// written in answer to a finding is proved before it is pushed rather than
+// after. `layout-check.mjs` calls this `PATCH_CSS` and patches stylesheets;
+// phase 12 changes scripts too — the icon floor is in `icons.js` — so the name
+// here says assets and the older spelling keeps working, because a habit worth
+// borrowing is worth not breaking.
+const PATCH = process.env.PATCH_ASSETS === '1' || process.env.PATCH_CSS === '1';
+
+/** Stylesheets and scripts from this working tree, for a context on a
+ *  deployment. Anything not in the tree falls through to the network. */
+async function patchAssets(ctx) {
+  if (!PATCH) return false;
+  await ctx.route('**/assets/{css,js}/**', async (route) => {
+    const { pathname } = new URL(route.request().url());
+    try {
+      const body = await readFile(join(SITE, pathname.replace(/^\//, '')), 'utf8');
+      return route.fulfill({
+        status: 200,
+        contentType: pathname.endsWith('.css')
+          ? 'text/css; charset=utf-8'
+          : 'application/javascript; charset=utf-8',
+        body,
+      });
+    } catch {
+      return route.fallback();
+    }
+  });
+  return true;
+}
+
 const PUBLIC_PAGES = ['/', '/search', '/about', '/faq', '/status', '/login', '/register'];
 
 // Signed out, all five redirect to /login, so a run without a credential would
@@ -153,8 +188,14 @@ const LONG_TITLE = {
   zh: '义务字幕审校暨术语统筹专员（华文）',
 };
 
-// 40 characters, which is what validateDeviceName and the tag editor allow.
-const LONG_TAG = { en: 'Subtitling, terminology and style guide', zh: '字幕、术语与文体风格指南规范说明' };
+// `NAME_MAX` in api/admin/tags.js is 60, so this is a tag name an admin can
+// actually save. 59 characters in English and 23 in 华文, which is the more
+// interesting half: 23 Han characters set wider than 23 Latin ones and break
+// in different places.
+const LONG_TAG = {
+  en: 'Subtitling, terminology and house style guide for reviewers',
+  zh: '字幕、术语与文体风格指南及审校人员参考规范说明',
+};
 
 function fixtureJob(index, locale) {
   const long = index === 0;
@@ -324,7 +365,7 @@ async function serveSite(locale = 'en') {
  *  preference. Everything is reported with the offending element's ancestor
  *  chain, because "this page scrolls sideways" without it is a finding nobody
  *  can act on. */
-function measure(floorPx) {
+function measure({ floorPx, iconFloor }) {
   window.scrollTo(5000, 0);
   const scrolled = window.scrollX;
   window.scrollTo(0, 0);
@@ -387,7 +428,32 @@ function measure(floorPx) {
     }
   }
 
-  return { scrolled, target, widest, tight: tight.slice(0, 6), cramped: cramped.slice(0, 6) };
+  // **No icon is drawn smaller than the floor.** Two things can put one below
+  // it and they need one check between them: somebody asking for a size under
+  // `MIN_SIZE`, which `icons.js` clamps, and a squeezed flex wrapper dragging
+  // `max-width: 100%` down with it, which `[data-icon] { flex: none }` stops.
+  // What a reader sees is the rendered box, so that is what is measured.
+  const small = [];
+  for (const svg of document.querySelectorAll('[data-icon] svg')) {
+    const box = svg.getBoundingClientRect();
+    if (box.width === 0 && box.height === 0) continue;
+    if (box.width < iconFloor - 0.5 || box.height < iconFloor - 0.5) {
+      const parent = svg.parentElement?.parentElement;
+      small.push(
+        `${Math.round(box.width)}x${Math.round(box.height)} in ` +
+          `${parent?.tagName.toLowerCase() ?? '?'}.${String(parent?.className || '').split(' ')[0]}`
+      );
+    }
+  }
+
+  return {
+    scrolled,
+    target,
+    widest,
+    tight: tight.slice(0, 6),
+    cramped: cramped.slice(0, 6),
+    small: [...new Set(small)].slice(0, 6),
+  };
 }
 
 /** One page at one width, settled and measured. */
@@ -402,7 +468,7 @@ async function walk(page, base, path, width) {
   await page.waitForLoadState('networkidle').catch(() => {});
   await page.evaluate(() => document.querySelector('#applyDialog')?.close());
 
-  return page.evaluate(measure, CELL_FLOOR);
+  return page.evaluate(measure, { floorPx: CELL_FLOOR, iconFloor: MIN_SIZE });
 }
 
 /** A browser context with the language and theme already chosen.
@@ -456,6 +522,13 @@ function report(label, results) {
     `${label} has no short button label wrapping`,
     cramped.length === 0,
     cramped.map((r) => `${r.width}px: ${r.cramped.join(', ')}`).join('; ')
+  );
+
+  const small = results.filter((r) => r.small.length > 0);
+  check(
+    `${label} draws no icon under ${MIN_SIZE}px`,
+    small.length === 0,
+    small.map((r) => `${r.width}px: ${r.small.join(', ')}`).join('; ')
   );
 }
 
@@ -653,22 +726,8 @@ define('responsive-admin', 'The admin pages at six widths, against a deployment'
       ['gftv-careers', locale]
     );
 
-    // **A CSS fix for what this section finds cannot be proved by this section
-    // until it is deployed, which is the wrong way round.** `PATCH_CSS=1`
-    // serves the working tree's stylesheets in place of the deployment's, so a
-    // rule written in answer to a finding is checked before it is pushed rather
-    // than after. Borrowed from layout-check.mjs, which needed it first.
-    if (process.env.PATCH_CSS === '1') {
-      console.log('      PATCH_CSS=1: stylesheets are the working tree\'s, not the deployment\'s');
-      await ctx.route('**/assets/css/*.css', async (route) => {
-        const { pathname } = new URL(route.request().url());
-        try {
-          const body = await readFile(join(SITE, pathname.replace(/^\//, '')), 'utf8');
-          return route.fulfill({ status: 200, contentType: 'text/css; charset=utf-8', body });
-        } catch {
-          return route.fallback();
-        }
-      });
+    if (await patchAssets(ctx)) {
+      console.log("      PATCH_ASSETS: stylesheets and scripts are the working tree's");
     }
 
     const page = await ctx.newPage();
@@ -717,7 +776,7 @@ define('responsive-admin', 'The admin pages at six widths, against a deployment'
         // file. A table that has not arrived is a table that cannot be too
         // narrow, which is the failure this section would otherwise miss.
         await page.waitForLoadState('networkidle').catch(() => {});
-        results.push({ width, ...(await page.evaluate(measure, CELL_FLOOR)) });
+        results.push({ width, ...(await page.evaluate(measure, { floorPx: CELL_FLOOR, iconFloor: MIN_SIZE })) });
       }
       report(`${path} in ${locale}`, results);
     }
@@ -772,17 +831,7 @@ define('responsive-account', 'The account pages at six widths, against a deploym
         ['gftv-careers', locale]
       );
 
-      if (process.env.PATCH_CSS === '1') {
-        await ctx.route('**/assets/css/*.css', async (route) => {
-          const { pathname } = new URL(route.request().url());
-          try {
-            const body = await readFile(join(SITE, pathname.replace(/^\//, '')), 'utf8');
-            return route.fulfill({ status: 200, contentType: 'text/css; charset=utf-8', body });
-          } catch {
-            return route.fallback();
-          }
-        });
-      }
+      await patchAssets(ctx);
 
       const page = await ctx.newPage();
 
@@ -833,7 +882,7 @@ define('responsive-account', 'The account pages at six widths, against a deploym
           await page.setViewportSize({ width, height: 800 });
           await page.goto(`${base}${path}`, { waitUntil: 'domcontentloaded' });
           await page.waitForLoadState('networkidle').catch(() => {});
-          results.push({ width, ...(await page.evaluate(measure, CELL_FLOOR)) });
+          results.push({ width, ...(await page.evaluate(measure, { floorPx: CELL_FLOOR, iconFloor: MIN_SIZE })) });
         }
         report(`${path} in ${locale}`, results);
       }

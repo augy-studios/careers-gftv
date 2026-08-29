@@ -443,6 +443,22 @@ body {
   }
 }
 
+/* **An icon keeps the size it was drawn at, in a flex row or anywhere else.**
+   `hydrateIcons` makes each wrapper `inline-flex`, and `theme.css` gives the
+   symbol inside it `flex: none` — but the wrapper is itself a flex item in the
+   row around it, and a wrapper that shrinks takes `max-width: 100%` with it,
+   which crushes the icon and then `height: auto` follows the width down. The
+   symbol is protected and the box holding it was not.
+
+   Phase 12 also puts a floor under the size itself, in `icons.js`, because the
+   commonest reason an icon was too small to read was that something asked for
+   12 or 14 rather than that anything squeezed it. **The two answer different
+   halves**: `MIN_SIZE` decides what is drawn, this decides that what is drawn
+   survives the layout. */
+[data-icon] {
+  flex: none;
+}
+
 /* **From 1024 to 1279 the row is full, and the label is what gives.** With a
    staff session the header carries the brand plus six items — Admin, Find a
    role, My applications, Build status, Sign in, and this toggle — which comes
