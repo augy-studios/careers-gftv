@@ -132,7 +132,9 @@ notify - Choose which notifications you receive here.
 ```
 
 If that block and `python commands.py` ever disagree, the file is right and this
-document is stale. Fix the document.
+document is stale. Fix the document. **`python commands.py --check` says so
+without anybody comparing lines by eye**, and it reads the table in `README.md`
+in the same pass.
 
 ### This step is optional, and worth doing anyway
 
@@ -157,10 +159,11 @@ So pasting the English block into BotFather buys one thing: the menu is right
 before the bot has ever been started, and it stays right if the process is down.
 The bot overwrites it with the same content the moment it next runs.
 
-**Every command is listed, including the ones that are not built yet.** A
-command missing from the menu and then answering when typed is worse than one
-that is listed and honest about where it has got to. Anything unbuilt replies
-with the sentence the site uses for a feature that has not shipped.
+**Every command is listed, and since phase 11 part 6 every one of them answers.**
+The rule that put unbuilt commands in the menu anyway outlives them: a command
+missing from the menu and then answering when typed is worse than one that is
+listed and honest about where it has got to, so a tenth command is listed the
+day it is written rather than the day it works.
 
 ---
 
@@ -221,10 +224,10 @@ and start number, which build status was read and what it says, `connected as
 
 Then, in Telegram:
 
-- `/start` replies with the introduction, the commands that work, the ones that
-  do not, and a button through to the portal.
-- A command that is not built yet replies with the phase sentence rather than
-  silence.
+- `/start` replies with the introduction, all nine commands, and a button
+  through to the portal.
+- A command whose feature an admin has switched off replies with the maintenance
+  sentence rather than with silence or with a claim that it was never built.
 - Typing something that is not a command at all gets a single line pointing at
   `/start`.
 - The menu button beside the message box lists all nine commands.
@@ -233,6 +236,11 @@ Then, in Telegram:
 id of the one holding the lock and exit status 3. That is deliberate: an old
 instance left polling after a bad restart is the failure this component is most
 exposed to.
+
+That is enough to know the process is up and talking to Telegram. **Proving the
+build is a different job**, and it is the by-hand checklist in
+[`README.md`](README.md#the-by-hand-checklist), which is the only coverage the
+Python has.
 
 ---
 

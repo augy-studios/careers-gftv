@@ -8,7 +8,7 @@ collected in Google Forms: the portal's job is to gate access, hand the
 applicant over, log the handoff, and track what happened next. It is a GFTV
 HelloApp and follows the same conventions as the other GFTV PWAs.
 
-**Phases 1 to 9 of 15 have shipped, and phase 10 is being built.** The database
+**Phases 1 to 11 of 15 have shipped.** The database
 schema and the shared server side code, then signing in, then the job board,
 the postings themselves, applying to one, and the applicant's own account area.
 The public surface is the home page, `/search` with its filters and
@@ -20,7 +20,9 @@ running the board — the overview, the tabbed per language editor, applicant
 tracking, teams and tags, invites, the translation queue, and the maintenance
 switches — and phase 9 is the machine side: the daily maintenance run and the
 Google Forms submission webhook. Phase 10 is the offline half, which is what
-makes this an installable PWA that stays useful with no connection. Live status:
+makes this an installable PWA that stays useful with no connection, and phase 11
+is the Telegram bot: linking, a sign in code and a one tap link, and the three
+kinds of notification an applicant can switch off one at a time. Live status:
 [careers.globalfurry.tv/status](https://careers.globalfurry.tv/status).
 
 `/jobs/{uuid}` is the one server rendered route in the portal, and deliberately
@@ -52,7 +54,7 @@ nothing is unbuilt, and it will work again in a moment.
 |---|---|
 | `main-site/` | The portal. Static HTML, CSS, and JavaScript with no build step, plus Vercel serverless functions in `main-site/api/`. This is the Vercel root directory for the portal project. |
 | `migrations/` | Every numbered SQL file, run by hand in the Supabase SQL editor. Nothing automated applies these. |
-| `telegram-bot/` | The `careersgftv_bot` Telegram bot, being built through phase 11. Linking, sign in codes and the one tap link answer today; the outbox drain and the four list commands are the parts still to come. Runs on a Debian VPS under tmux, deployed by pulling this repository and restarting the process by hand. |
+| `telegram-bot/` | The `careersgftv_bot` Telegram bot, phase 11, all nine commands answering. Linking from either end, sign in codes and the one tap link, the outbox drain behind the three notification kinds, and the four list commands. Runs on a Debian VPS under tmux, deployed by pulling this repository and restarting the process by hand. **It has no scripted checks at all**, by deviation 91: a person walks the checklist in its README. |
 | `docs-site/` | The public documentation site for `docs.careers.globalfurry.tv`. Scaffold only until phase 13. Its own Vercel project on the same repo. |
 | `apps-script/` | The Google Apps Script that each job's application form runs on submit, per section 13. Not deployed by anything: it is pasted into a form by hand. See [The application form webhook](#the-application-form-webhook). |
 | `tests/` | Playwright checks, run by hand against a deployment. Not a CI suite: they need a staff credential and they write real rows. Phase 10's is the exception and needs neither, because a service worker cannot be checked by asking a deployment anything. |
@@ -65,7 +67,7 @@ lives in its directory and how to work with it.
 | This file | The project, the directories, the current phase, running the migrations, and where the specification and environment variables live. |
 | [`main-site/README.md`](main-site/README.md) | Local development, environment variables, the two auth realms, the API route map, the Vercel settings, and the offline test checklist. |
 | [`migrations/README.md`](migrations/README.md) | Every migration file in order, how to run them, and the rule about never editing an applied file. |
-| [`telegram-bot/README.md`](telegram-bot/README.md) | What the bot does, the nine commands, running it under tmux, and its environment variables. |
+| [`telegram-bot/README.md`](telegram-bot/README.md) | What the bot does, the nine commands, running it under tmux, its environment variables, and **the by-hand checklist that stands in for the test file it does not have**. |
 | [`docs-site/README.md`](docs-site/README.md) | What the docs site covers, adding a page, previewing, and the screenshot capture. |
 | [`tests/README.md`](tests/README.md) | Running the Playwright checks, what a run writes, what it cannot check, and how to write a new phase's. |
 
@@ -323,6 +325,11 @@ Three things to know before the first run, all of which
 - **A clean run is not full coverage.** Anything needing SQL, a second staff
   account, a redeploy, a real Google Form, or a person on a keyboard is skipped
   not silently passed, and the count at the end says how many.
+
+**The bot has none of this.** `tests/phase11-test.mjs` is the site half of that
+phase and nothing else; the Python on the VPS is checked by a person walking
+[the checklist in `telegram-bot/README.md`](telegram-bot/README.md#the-by-hand-checklist),
+which was settled as deviation 91 rather than arrived at by omission.
 
 Alongside them are three small debug scripts, each the shortest way to reproduce
 one specific failure. They are kept as much for the shape as for the bug.

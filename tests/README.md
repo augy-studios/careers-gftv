@@ -179,9 +179,14 @@ nothing looks exactly like a run where everything held.
 ### Phase 11's sections
 
 `node tests/phase11-test.mjs`, same `--only=` habit. **The site half only.**
-Deviation 91 settled that the Python on the VPS is checked by a person against a
-checklist, and this file does not pretend otherwise; what is here is ordinary
-portal work on `/account/settings`.
+Deviation 91 settled that the Python on the VPS is checked by a person against
+[the checklist in `telegram-bot/README.md`](../telegram-bot/README.md#the-by-hand-checklist),
+and this file does not pretend otherwise: **nothing here starts the bot or sends
+a message.** What is here is ordinary portal work on `/account/settings`,
+`/login` and `/account/security`, plus four sections that read the bot's own
+source as text. Those exist for one reason: what a person walking a chat window
+can see is that an answer arrived, and what they cannot see is whether the two
+halves still name the same kinds, the same columns and the same status words.
 
 | Section | Covers |
 |---|---|
@@ -190,6 +195,9 @@ portal work on `/account/settings`.
 | `wiring` | What the two halves have to agree about: the new module in the precache list, all three controls carrying both reasons they can be disabled, every string in both languages, and **that the site's unlink and the bot's unlink still skip the same rows**. That rule is written twice in two languages against one table, and phase 10's lesson was that a duplicated rule needs a check that the copies still agree. Same, needs nothing. |
 | `signin` | Part 3's second step, in a browser: an account with Telegram alone is not shown a passkey button it cannot use, an account with both is offered both, a code that was asked for is announced and one that could not be asked for names the fallback instead, and a refused one tap link says why on the page it lands on and takes its parameter off the URL. Same, needs nothing. |
 | `twofa` | The switch on the settings panel: refused by name when the account has no 2FA backup codes, **put back rather than left sitting where somebody left it**, and staying on once the codes exist. A security control that reports a state the account does not have is the worst kind of wrong. Same, needs nothing. |
+| `outbox` | Part 4's queue, from the portal's side: the five states the `/admin` panel can be in, drawn in a browser, and six things the two halves have to agree about — including the one that would be silent, **every kind the site queues being one the drain can render**. A kind this build cannot render is never claimed, which is the whole reason the two halves can be deployed hours apart. Same, needs nothing. |
+| `notify` | Part 5's three kinds and the toggles. Every check reads a file rather than a page, because the disagreement it exists to catch — the site queuing a kind under one name and the bot reading another, or a notify column one side does not know about — is silent at both ends and would look exactly like a notification nobody happened to send. Same, needs nothing. |
+| `commands` | Part 6's four lists, the same way. **The portal's own words**: nine application statuses compared value by value against `status.*` in both dictionaries, so a chat window never invents a sentence about somebody's application. Same, needs nothing. |
 | `seam` | **The boundary between the two languages.** The bot writes a bcrypt hash in Python and the site reads it with bcryptjs, so the check is a real Python hash verified by the site's own `verifySecret` rather than a claim that the two agree; the failure it catches is a correct code refused at a login form with nothing in any log to explain it. Also the pending sentinel the site writes against the prefix the bot claims on, five minutes meaning five minutes on both sides, and that the magic link answers GET and nothing else. Same, needs nothing. |
 
 **Service workers are blocked in the `panel` context, and that is deliberate.**

@@ -2,22 +2,24 @@
 
 The Careers@GFTV Telegram bot, `careersgftv_bot`.
 
-**Status: phase 11 parts 1 and 2 are here.** The process starts, holds a single
-instance lock, opens its SQLite database, reads what has shipped from the live
-site, and answers `start`, `link` and `unlink`. Linking works from both ends: the
-site issues a token and shows a QR, and `/start <token>` turns it into a link.
-Every other command is registered, is listed, and replies with the sentence the
-site uses for something that is not built yet.
+**Status: all seven parts of phase 11 are here.** The process starts, holds a
+single instance lock, opens its SQLite database, reads what has shipped and what
+an admin has switched off from the live site, and answers all nine commands.
+Linking works from both ends: the site issues a token and shows a QR, and
+`/start <token>` turns it into a link. A login code and the one tap sign in link
+come from a loop of their own, the outbox drain delivers the three notification
+kinds, and `notify` decides which of them arrive.
 See [the build status page](https://careers.globalfurry.tv/status).
-
-The parts still to come are login codes and the magic link, the outbox drain,
-the three notification kinds, the four list commands, and the seam that carries
-the checklist.
 
 **Deploying a part is a restart, and the order matters.** The site half of a
 part deploys itself when it is merged; this half does not. So for anything that
 spans both, pull and restart the bot *first*, then merge, or the portal offers a
 control that leads at a process running last week's code.
+
+**Nothing in this directory is checked by a script.** That was settled
+deliberately and it is deviation 91, which carries the reasoning and the two
+things built differently because of it. What stands in place of a suite is
+[the by-hand checklist](#the-by-hand-checklist) below, walked by a person.
 
 ## What it will do
 
@@ -93,19 +95,19 @@ Nine, and only nine. There is no `help`; `start` carries that content.
 | `jobs` | The newest openings, with buttons through to each posting. |
 | `notify` | Toggles which notification kinds this account receives. |
 
-A command that is not built yet replies with the same sentence the site puts on
-a control for an unshipped feature, rather than failing or going quiet. One that
-is built, and whose feature an admin has switched off, gets the maintenance
-sentence instead. The two are never mixed: telling somebody a feature they used
-last week arrives in a later phase is a lie about a shipped feature, and it
-makes a real outage indistinguishable from an unbuilt one.
+**All nine answer, and the not-built-yet half of that machinery is now unused
+rather than removed.** A command with no handler replies with the same sentence
+the site puts on a control for an unshipped feature; one that is built, and
+whose feature an admin has switched off, gets the maintenance sentence instead.
+The two are never mixed: telling somebody a feature they used last week arrives
+in a later phase is a lie about a shipped feature, and it makes a real outage
+indistinguishable from an unbuilt one. The machinery stays because a tenth
+command arrives the same way the first nine did, listed before it works.
 
 What decides the first of those is whether a handler exists, not whether the
 phase has shipped. It has to be: the phase cannot be flipped to shipped until
 the bot has been walked through by hand, and a bot that refused every command
-until the flip could not be walked through at all. The site's own gate is
-unaffected, so the Link control in account settings stays disabled to everybody
-until phase 11 ships.
+until the flip could not be walked through at all.
 
 ## Build conventions, for phase 11
 
@@ -125,9 +127,11 @@ until phase 11 ships.
 |---|---|
 | `bot.py` | The process. Config, lock, database, Telethon, the dispatcher, shutdown. |
 | `supabase.py` | The whole of the bot's reach into the shared database, over PostgREST. Nothing here reads and then writes. |
-| `commands.py` | **The command list, and the only copy of it.** `start` prints from it, Telegram's menu is registered from it, and `setup.md` will give BotFather the same lines. |
+| `commands.py` | **The command list, and the only copy of it.** `start` prints from it, Telegram's menu is registered from it, `setup.md` gives BotFather the same lines, and `--check` proves both documents still agree with it. |
 | `handlers.py` | One handler per built command, and the rule that decides what answers. |
-| `security.py` | The fast loop. Sign in codes, the one tap link that rides with them, and the test message. Two seconds, beside the command loop and never inside it. |
+| `security.py` | The fast loop. Sign in codes and the one tap link that rides with them. Two seconds, beside the command loop and never inside it. |
+| `outbox.py` | The slow loop. The claim, the three renderers, the retries and their backoff, `skipped`, the stale claim sweep, and the flood wait that reschedules rather than sleeping the worker. Twenty seconds. |
+| `feed.py` | The public openings feed, with a short cache per language, behind `jobs`. |
 | `strings.py` | Everything the bot says, in every language. Not the site's dictionaries. |
 | `build_status.py` | What has shipped and what an admin has switched off. |
 | `config.py` | The environment, validated once, with every problem reported together. |
@@ -182,6 +186,106 @@ Exit codes:
 | 3 | Another instance is already running, and its process id is named. |
 | 1 | Anything else, with the traceback in the log. |
 
+## The by-hand checklist
+
+**This is the only coverage the Python has.** Deviation 91 traded a scripted
+suite for a person and a list, so the list is the suite: `tests/phase11-test.mjs`
+covers the site half of phase 11 and knows nothing at all about the process
+running on the VPS.
+
+Walk it in order, in one sitting, against a bot that has been pulled and
+restarted and a site that has been deployed — **in that order**, per the note at
+the top of this file. What it needs: an applicant account, an admin account, a
+Telegram account that has never been linked to either, and a second browser for
+step 14. About forty minutes.
+
+1. **Start the bot.** The log names, in order, the SQLite migration if this is a
+   first run, the pid and the start number, which build status was read and what
+   it says, `connected as @careersgftv_bot`, the command list with what answers
+   today, and `ready`.
+2. **Start a second one in another pane.** It refuses, prints the pid holding
+   `bot.lock`, and exits 3. It must not wait, retry, or take the lock.
+3. **Kill the first one outright** rather than stopping it cleanly, and start it
+   again. It starts: the kernel released the lock, so there is never a stale
+   file to clear by hand. Cheapest check here, and one of the two the deferral
+   below would otherwise have swallowed.
+4. **`/start` from a Telegram account that has linked nothing.** The
+   introduction, all nine commands, a button to the portal, and the donation
+   button if `DONATION_URL` is set. **Nothing in the reply names the bot.**
+5. **Type something that is not a command.** One line pointing at `/start`, not
+   silence and not an error.
+6. **`/invites` while unlinked.** The sentence asking you to link, rather than an
+   empty list, which would be an answer about somebody's invitations.
+7. **On the site, `/account/settings` as the applicant, and press Link.** The QR
+   and the deep link both appear, and the QR is scannable in both themes.
+8. **Scan it with the phone.** The chat opens on the token and the bot confirms
+   the link by name.
+9. **Leave that settings page where it is.** It flips to linked without a
+   refresh.
+10. **Send the test message from the panel.** It arrives.
+11. **`/code` in the chat.** Six bold digits and a copy button, and **no sign in
+    button**, because nothing there came from a browser and a one tap link with
+    nothing to bind it to is a credential for whoever sees the message. Tap the
+    copy button. **No button at all means the VPS is on an older Telethon** —
+    `pip install --upgrade 'telethon<2'`, not a code change.
+12. **Ask for several in a row.** The rate limit sentence arrives instead of a
+    fresh code.
+13. **Sign out, and sign in from `/login` asking for a Telegram code.** The
+    message carries the sign in button on top and the copy row underneath. The
+    digits work in the form.
+14. **Open that sign in button's link in a different browser.** Refused, with
+    the reason on the page it lands on and the parameter taken off the URL.
+15. **Open it in the browser that asked for it.** Signed in, one tap.
+16. **Turn the Telegram second factor on, in `/account/security`.** It refuses
+    by name until the account has backup codes, and the switch goes back rather
+    than sitting where it was left. Make the codes, turn it on, sign out, and
+    sign in again: the second step asks for a code and the code arrives.
+17. **`/notify`.** Three toggles with their current state. Turn one off and back
+    on, and confirm the message redraws each time rather than answering in a new
+    one.
+18. **As the admin, invite the applicant to a role.** The invitation arrives
+    with the role, the department, any note, a button through to the posting,
+    and a **Decline** button. The drain's log line for that pass names what it
+    claimed, sent, skipped and failed.
+19. **Press Decline.** The chat says so, `/admin/invites` shows the invitation
+    declined, and **the task raised beside it is untouched**.
+20. **Raise a request for more information.** It arrives with the task title and
+    a button to the tasks page.
+21. **Move one of the applicant's applications to another status.** It arrives
+    carrying the portal's own word for that status.
+22. **Every one of those three carries the unsubscribe footer.**
+23. **Turn task notifications off in `/notify`, then raise another task.** The
+    row is marked `skipped` rather than left queued, and the outbox panel on
+    `/admin` counts it as skipped.
+24. **`/invites`, `/tasks`, `/applications`, `/jobs`.** Each answers, each list
+    has a button through to what it names, and the status words match the ones
+    the portal shows on the same rows.
+25. **Switch the Telegram client to 华文** and repeat `/start` and one list. The
+    whole reply is in 华文, including the status words.
+26. **`/admin/maintenance`.** All four switches read On. Turn `telegram_link`
+    off and confirm the bot answers with the **maintenance** sentence and not
+    the not-built-yet one — the two are never interchangeable. Turn it back on,
+    and confirm the bot picks that up **with no restart**.
+27. **Turn `telegram_notifications` off with a row queued.** The drain pauses
+    rather than marking anything skipped, and the queue drains when it goes back
+    on. The other of the two cheap checks from the deferral below.
+28. **`/unlink`.** A confirmation button; No leaves the link alone, Yes removes
+    it, and the settings panel shows unlinked.
+29. **With the link gone, raise one more task.** The row goes to `skipped`,
+    never queued forever, and the `/admin` panel shows it as such.
+
+**Three things this list deliberately does not ask for**, deferred on
+30 August 2026 and written here rather than left silent: **a restart in the
+middle of a drain**, **the stale claim sweep**, and **a row exhausting its
+retries and reaching `failed`**. All three need rows genuinely in flight, and
+this portal has little enough traffic that few ever are. The risk they cover
+arrives with the next deploy rather than with the next applicant, and what makes
+the deferral acceptable is where the correctness lives: the claim is one
+conditional update, so a double send is impossible by the query rather than by a
+test. **What is untested is whether a row can be lost, not whether one can be
+sent twice.** Steps 3 and 27 are the two of the five that cost under a minute
+and depend on no traffic at all, which is why they are in the list.
+
 ## Environment variables
 
 Every one is documented in `.env.example` with a comment saying where to get
@@ -199,5 +303,9 @@ list to paste into BotFather, which of the bot settings matter, and a reference
 table of every BotFather command relevant here.
 
 **The command list in that file is generated, not typed.** `python commands.py`
-prints it in every language, and `python commands.py --check setup.md` fails if
-the document has drifted from the code.
+prints it in every language, and **`python commands.py --check` reads both
+documents that carry a copy of the list** — `setup.md`'s blocks and the table in
+this file — and fails naming whichever has drifted from `commands.py`. A
+document carrying no copy at all fails too, because a check that found nothing
+to look at and reported a clean pass is the worst possible answer in a component
+whose every failure is silent.

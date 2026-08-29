@@ -28,6 +28,7 @@ a number written down here. 0c: no copy anywhere hardcodes a phase number.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 from strings import DEFAULT_LOCALE, STRINGS
@@ -168,21 +169,20 @@ def botfather_block(locale: str = DEFAULT_LOCALE) -> str:
     return "\n".join(f"{name} - {description}" for name, description in botfather_lines(locale))
 
 
-def check_document(path: str) -> list[str]:
-    """Which language blocks a document is missing or has stale.
+# A document carries the list in one of two shapes, and both can go stale.
+# `setup.md` carries the generated blocks, because somebody pastes one into
+# BotFather from there. `README.md` carries a table, because a reader wants the
+# nine names beside what each returns rather than a block to paste.
+_TABLE_HEADING = "## Commands"
+_TABLE_ROW = re.compile(r"^\|\s*`(/?[a-z][a-z_]*)`\s*\|", re.MULTILINE)
+_BLOCK_LINE = re.compile(rf"^{COMMANDS[0].name} - ", re.MULTILINE)
 
-    `setup.md` carries the list as text, because somebody pastes it into
-    BotFather from there and a document that says "run this script" instead is a
-    document that gets skipped. Carrying it means it can drift, so this is the
-    check that it has not: every generated block must appear in the file
-    verbatim. Empty list means the document agrees with this file.
-    """
-    try:
-        with open(path, encoding="utf-8") as handle:
-            document = handle.read()
-    except OSError as cause:
-        return [f"{path} could not be read: {cause}"]
+# What `--check` looks at when it is given no paths of its own.
+DOCUMENTS: tuple[str, ...] = ("setup.md", "README.md")
 
+
+def _check_blocks(path: str, document: str) -> list[str]:
+    """Every generated block must appear in the document verbatim."""
     return [
         f"{path} does not carry the {name} list as this file generates it"
         for name in STRINGS
@@ -190,23 +190,85 @@ def check_document(path: str) -> list[str]:
     ]
 
 
+def _check_table(path: str, document: str) -> list[str]:
+    """The `## Commands` table must name every command, in this file's order.
+
+    A table is not pasted anywhere, so it cannot be generated the way the
+    BotFather block is and still be worth reading. What it can be is checked:
+    the names and their order, which is the half that drifts when a command is
+    added and one document is updated and the other is not. The sentence beside
+    each name is prose and is left to a person.
+    """
+    section = document.split(_TABLE_HEADING, 1)[1]
+    section = section.split("\n## ", 1)[0]
+    listed = [name.lstrip("/") for name in _TABLE_ROW.findall(section)]
+    expected = [command.name for command in COMMANDS]
+    if listed == expected:
+        return []
+
+    problems = [
+        f"{path}: the {_TABLE_HEADING} table does not list /{name}"
+        for name in expected
+        if name not in listed
+    ]
+    problems += [
+        f"{path}: the {_TABLE_HEADING} table lists /{name}, which this file does not"
+        for name in listed
+        if name not in expected
+    ]
+    if not problems:
+        problems.append(
+            f"{path}: the {_TABLE_HEADING} table names every command in a different order"
+        )
+    return problems
+
+
+def check_document(path: str) -> list[str]:
+    """Where a document has gone stale against this file.
+
+    Carrying the list means it can drift, so every copy a document carries is
+    checked against the generator rather than trusted. **A document carrying no
+    copy at all is itself a problem**, because the only reason to check it is
+    that it names the commands somewhere, and a check that quietly found nothing
+    to look at is the shape deviation 90 warns about. Empty list means the
+    document agrees with this file.
+    """
+    try:
+        with open(path, encoding="utf-8") as handle:
+            document = handle.read()
+    except OSError as cause:
+        return [f"{path} could not be read: {cause}"]
+
+    problems: list[str] = []
+    carries_block = bool(_BLOCK_LINE.search(document))
+    carries_table = _TABLE_HEADING in document
+    if carries_block:
+        problems += _check_blocks(path, document)
+    if carries_table:
+        problems += _check_table(path, document)
+    if not carries_block and not carries_table:
+        problems.append(f"{path} carries no copy of the command list at all")
+    return problems
+
+
 if __name__ == "__main__":
     # `python commands.py` prints the block for every language, which is what
-    # setup.md pastes in. `python commands.py --check setup.md` is the other
-    # half: writing that list into a document by hand is the drift deviation 91
-    # exists to prevent, so it is generated, and the copy in the document is
-    # checked against the generator rather than trusted.
+    # setup.md pastes in. `python commands.py --check` is the other half:
+    # writing that list into a document by hand is the drift deviation 91 exists
+    # to prevent, so it is generated, and every copy in every document is
+    # checked against the generator rather than trusted. Named paths override
+    # the two it knows about.
     import sys
 
     if "--check" in sys.argv:
-        target = sys.argv[sys.argv.index("--check") + 1]
-        problems = check_document(target)
+        targets = sys.argv[sys.argv.index("--check") + 1 :] or list(DOCUMENTS)
+        problems = [problem for target in targets for problem in check_document(target)]
         for problem in problems:
             print(problem, file=sys.stderr)
         if problems:
             print("Regenerate with: python commands.py", file=sys.stderr)
         else:
-            print(f"{target} carries every command list, unchanged.")
+            print(f"{', '.join(targets)}: every copy of the list is current.")
         raise SystemExit(1 if problems else 0)
 
     for name in STRINGS:
