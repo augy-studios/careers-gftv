@@ -225,6 +225,7 @@ each, at the six widths section 3 names — 320, 375, 414, 768, 1024 and 1440.
 | `a11y-admin` | The eight rules above over the six admin pages in both languages, **against a deployment with a staff credential**, skipped by name without one. **Read only on purpose**: it loads pages and asks questions, and never flips a maintenance switch, sends a task or edits a posting. The interactive admin surfaces on section 12's list — the bulk bar, the question composer's reorder controls, the annotation sheet, the handoff modal, the account picker — are all writes against the real database and belong in the same sitting as phase 11's by-hand walk. |
 | `a11y-account` | The eight rules over the applicant's own five pages, with `APPLICANT_USER` and `APPLICANT_PASS`. It prints the row count of each page rather than asserting one, because whether the credential has content is a fact about the credential — but **a freshly registered account passed all five clean and three of them failed the moment it had rows**, so the numbers are what say which of the two a run was. See `create-applicant.mjs` below. |
 | `responsive-account` | The applicant's own five pages, the same way, with `APPLICANT_USER` and `APPLICANT_PASS`. **Signed out all five redirect to `/login`**, so a run without a credential would measure the login page five times and report it as coverage — which is why this skips by name rather than running. It also checks `.nav-account-name` at 1024: a display name is arbitrary text of arbitrary length in a fixed width bar, capped with an ellipsis rather than wrapped, because a name that wraps takes the row with it. |
+| `contrast` | Every colour part 3 names, in **all four theme combinations**, against 1.4.3 for text and 1.4.11 for a boundary or a state indicator: the four callout tones, the three language pills and the tab dots, both switch states, the star on and off, and ten text tokens — each on the three surfaces this build paints, `--bg`, a `.glass-card`'s `--surface`, and `--bg-alt`. **Nothing is read out of the stylesheet**: `--surface` is an alpha, `--callout-*-bg` is a `color-mix`, and a callout's border is `currentColor`, so every pair is `getComputedStyle` on a real element composited down its ancestor chain. Transitions are suppressed first, because a custom property flips on the instant while `body`'s background eases over `--transition`. **Needs no deployment, no credential and no network.** |
 
 Every responsive section also checks that **no icon is drawn under `MIN_SIZE`**,
 which the file imports from `main-site/assets/js/icons.js` so the check and the
@@ -255,9 +256,40 @@ and one constant. **Leaving it off is also the cleanest negative test there is**
 the deployment still carries whatever has not shipped yet, so a check that
 passes patched and fails unpatched has just proved both halves of itself.
 
+**Two things in `contrast` are measured and deliberately not asserted**, and
+both print their number rather than being skipped, so an exemption stays a
+decision somebody made rather than a hole nobody can see. The note callout's
+border is 1.21:1 to 1.72:1 and stays there: 1.4.11 covers user interface
+components, and a callout is static prose with a `--surface-active` fill that
+already sets it apart. The star's fill is 1.82:1 to 2.09:1 in light mode and
+stays there too: the stroke is what draws the star's shape, it is asserted at
+3:1, and `app.css` argued this before part 3 arrived. Both are written up beside
+the rules they excuse.
+
 **This whole file writes nothing.** It signs in and navigates; it creates no
 posting, no application, no tag and no task, so it is the one credentialed run
 that needs no cleanup and does not touch the deletion budget below.
+
+### Looking at the four themes
+
+`node tests/capture-themes.mjs [output directory]`, defaulting to a gitignored
+`theme-shots/`. **It is not a check and never passes or fails**: it produces
+twenty JPEGs — five surfaces across the four theme combinations — for a person
+to look at, and the person is the check.
+
+It exists because `contrast` is arithmetic, and arithmetic cannot tell you that
+a token which clears AA looks wrong. **It earned that on its first run.** In
+hello light an unchecked switch draws its track from `--surface-active`, 70% of
+the brand yellow, and a checked one from `--callout-ok-bg`, a 14% green tint, so
+the *off* state is the louder of the two. Both clear 1.4.11 comfortably and no
+check reports it, because it is a hierarchy problem rather than a contrast one.
+
+The theme is set through the same `localStorage` keys the pre-paint script in
+every `<head>` reads, so nothing is captured mid theme transition. The fifth
+surface is a swatch sheet rather than a page: both switch states, the three
+language pills, both stars and the four callout tones are a session and a
+database away on a real page, so they are rendered from the same classes and
+containers `contrast` measures.
 
 ### Making the applicant the account sections need
 

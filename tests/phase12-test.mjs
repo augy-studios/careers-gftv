@@ -1375,7 +1375,483 @@ define('a11y-keyboard', 'The combobox, the filter sheet, the dialog and the conn
 });
 
 /* =========================================================================
- * 5. The same eight rules over the admin pages
+ * 5. The measured colours, in all four theme combinations
+ * ====================================================================== */
+
+// Section 12 asks for a WCAG AA pass "across every theme, mode, and language",
+// and section 8 item 9 has been carrying the narrower half of it since phase
+// 10: the four panel tones, the star colours and the language pills have never
+// been measured, only chosen. This is the section that measures them.
+//
+// **AA here is 1.4.3 and 1.4.11, text and non-text.** Settled at the start of
+// part 3, and it is not a widening for its own sake: three of the four things
+// part 3 names — the language pills, the two switch states and the four panel
+// tones — are not text at all, so a text-only reading would have left this part
+// measuring its own labels and calling that a colour pass. Text is 4.5:1, or
+// 3:1 where 1.4.3's own definition makes it large; a component boundary or a
+// state indicator is 3:1.
+//
+// **The colours are read out of the browser, never out of the stylesheet.**
+// Almost nothing here is a hex value: --surface is an alpha over --bg,
+// --callout-ok-bg is a color-mix at 14%, --text-muted-strong is a color-mix
+// against transparent, and every callout's border is currentColor. Reading
+// theme.css and doing the arithmetic by hand is how somebody writes a pass that
+// agrees with nothing a reader ever sees. So every pair here is
+// getComputedStyle on a real element inside a real container, composited down
+// the ancestor chain the way a compositor does it.
+//
+// **The one approximation, named rather than buried.** .glass-card carries
+// backdrop-filter: blur() saturate(150%), and compositing background-colors
+// cannot account for the saturate. What sits behind every glass card in this
+// build is a flat --bg, and saturating a flat near-neutral moves it very
+// little — but that is a reasoned approximation and not a measurement, and if
+// a card ever ends up over an image this section is measuring the wrong thing.
+
+// The two axes, and the four combinations section 12 names. Deviation 117
+// reduced *layout* to one of these on the argument that neither axis changes a
+// size or a breakpoint. This is the other side of that reduction: what the
+// axes do change is colour, and here all four are walked.
+const THEMES = [
+  ['classic', 'light'],
+  ['hello', 'light'],
+  ['classic', 'dark'],
+  ['hello', 'dark'],
+];
+
+// 1.4.3 for text, 1.4.11 for a component boundary or a state indicator.
+const AA_TEXT = 4.5;
+const AA_LARGE = 3;
+const AA_NONTEXT = 3;
+
+/** Build the probe, then read every pair off it.
+ *
+ *  **The probe is markup, and the containers under it are the real ones.** The
+ *  three surfaces every one of these things is actually drawn on in this build
+ *  are the body's --bg, a .glass-card's --surface over that, and --bg-alt,
+ *  which is what .field-help and the modals sit on. Nothing in .admin-content,
+ *  .admin-list or .admin-table paints a background of its own — checked, not
+ *  assumed — so a switch inside a .glass-card on any page has the same chain
+ *  behind it as one on /admin/maintenance, and a section that needed a staff
+ *  session to measure a colour would be a section that mostly skips.
+ *
+ *  What the probe supplies is the *states*: a checked switch, a filled star, a
+ *  pill in each of its three states. Those are the pairs part 3 is about and
+ *  none of them is on screen by default. */
+function measureContrast() {
+  /* --- reading a colour ------------------------------------------------ */
+
+  // Chromium returns "rgb(r, g, b)" or "rgba(r, g, b, a)" for an ordinary
+  // colour and "color(srgb r g b / a)" for anything that came out of a
+  // color-mix, with the channels as 0..1 floats rather than 0..255. **Both
+  // forms are in this palette** — --callout-*-bg and --text-muted-strong are
+  // color-mix and the rest are not — so a parser that handled one of them would
+  // read half of what it measured as very nearly black and pass everything.
+  const parse = (css) => {
+    if (!css || css === 'transparent' || css === 'none') return null;
+    const nums = css.match(/-?[\d.]+(?:e-?\d+)?/g);
+    if (!nums || nums.length < 3) return null;
+    const scale = css.startsWith('color(') ? 255 : 1;
+    const value = nums.map(Number);
+    return {
+      r: value[0] * scale,
+      g: value[1] * scale,
+      b: value[2] * scale,
+      a: nums.length > 3 ? value[3] : 1,
+    };
+  };
+
+  const over = (src, dst) => ({
+    r: src.r * src.a + dst.r * (1 - src.a),
+    g: src.g * src.a + dst.g * (1 - src.a),
+    b: src.b * src.a + dst.b * (1 - src.a),
+    a: 1,
+  });
+
+  // What is really behind a pixel. Up the ancestor chain collecting every
+  // background until one of them is opaque, then composited back down. This is
+  // the step that cannot be skipped: --surface is an alpha in all four
+  // combinations, so an element on a card is never sitting on the colour its
+  // own token names, and the yellow theme's --surface is an alpha of the brand
+  // over a different --bg again.
+  const backdropOf = (start) => {
+    const layers = [];
+    for (let node = start; node; node = node.parentElement) {
+      const bg = parse(getComputedStyle(node).backgroundColor);
+      if (!bg || bg.a === 0) continue;
+      layers.push(bg);
+      if (bg.a >= 1) break;
+    }
+    let out = { r: 255, g: 255, b: 255, a: 1 };
+    for (let i = layers.length - 1; i >= 0; i -= 1) out = over(layers[i], out);
+    return out;
+  };
+
+  const channel = (v) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  const lum = (c) => 0.2126 * channel(c.r) + 0.7152 * channel(c.g) + 0.0722 * channel(c.b);
+  const ratio = (a, b) => {
+    const one = lum(a);
+    const two = lum(b);
+    return (Math.max(one, two) + 0.05) / (Math.min(one, two) + 0.05);
+  };
+
+  // 1.4.3's own definition of large, read off the element rather than guessed:
+  // 24px, or 18.66px at weight 700 or heavier. The callouts are 15px regular
+  // and the pills are 11px bold, and only one of those is a size anybody would
+  // have got right from memory.
+  const isLarge = (cs) => {
+    const size = parseFloat(cs.fontSize);
+    const weight = Number(cs.fontWeight) || 400;
+    return size >= 24 || (size >= 18.66 && weight >= 700);
+  };
+
+  /* --- the probe -------------------------------------------------------- */
+
+  const STAR =
+    '<svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true">' +
+    '<path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.15 1 5.85L12 16.95 6.75 19.7l1-5.85L3.5 9.7l5.9-.9z"/></svg>';
+
+  const TARGETS =
+    '<div class="callout note" data-probe="note"><p>Note</p></div>' +
+    '<div class="callout ok" data-probe="ok"><p>Ok</p></div>' +
+    '<div class="callout warn" data-probe="warn"><p>Warn</p></div>' +
+    '<div class="callout danger" data-probe="danger"><p>Danger</p></div>' +
+    '<span class="admin-langs">' +
+    '<span class="admin-lang admin-lang-complete" data-probe="complete">EN</span>' +
+    '<span class="admin-lang admin-lang-in_progress" data-probe="in progress">ZH</span>' +
+    '<span class="admin-lang admin-lang-absent" data-probe="absent">ZH</span>' +
+    '</span>' +
+    '<span class="lang-state lang-state-complete" data-probe="complete"></span>' +
+    '<span class="lang-state lang-state-in_progress" data-probe="in progress"></span>' +
+    '<span class="lang-state lang-state-absent" data-probe="absent"></span>' +
+    '<label class="switch" data-probe="off"><input type="checkbox">' +
+    '<span class="switch-track"></span><span class="switch-label">Off</span></label>' +
+    '<label class="switch" data-probe="on"><input type="checkbox" checked>' +
+    '<span class="switch-track"></span><span class="switch-label">On</span></label>' +
+    '<div class="star-row">' +
+    `<label class="star-label" data-probe="empty" data-on="false">${STAR}</label>` +
+    `<label class="star-label" data-probe="filled" data-on="true">${STAR}</label>` +
+    '</div>' +
+    '<p class="star-readout">Three stars out of five</p>' +
+    // The base layer everything above inherits from. Inline styles on purpose:
+    // what is being measured is the token itself, not a component that happens
+    // to use it, and section 8 item 9 asks about the tokens.
+    [
+      'text',
+      'text-muted',
+      'text-light',
+      'text-muted-strong',
+      'brand-text',
+      'link',
+      'link-visited',
+      'ok',
+      'warn',
+      'danger',
+    ]
+      .map((token) => `<p data-token="${token}" style="color: var(--${token})">Sample</p>`)
+      .join('');
+
+  const host = document.createElement('div');
+  host.id = 'contrastProbe';
+  host.innerHTML =
+    `<div data-ctx="bg">${TARGETS}</div>` +
+    `<div class="glass-card" data-ctx="surface">${TARGETS}</div>` +
+    `<div data-ctx="bg-alt" style="background: var(--bg-alt)">${TARGETS}</div>`;
+  document.body.append(host);
+
+  /* --- the pairs -------------------------------------------------------- */
+
+  const found = [];
+
+  // **A translucent foreground is composited before it is compared, and this
+  // was the second thing the section found about itself.** Half the colours
+  // here carry an alpha of their own: --border is rgba(…, 0.18) in classic
+  // dark and rgba(…, 0.4) in classic light, and --text-muted-strong is a
+  // color-mix against transparent. Comparing rgb(160, 180, 200) with a near
+  // black page gives a comfortable pass for a border a reader can barely see,
+  // and the tell was that dark mode came back clean while light mode failed on
+  // the same token — the same colour cannot be right in one and wrong in the
+  // other if what is measured is the colour.
+  const pair = (fg, bg) => ratio(fg.a < 1 ? over(fg, bg) : fg, bg);
+
+  const add = (group, label, fg, bg, need) => {
+    if (!fg || !bg) {
+      found.push({ group, label, ratio: 0, need, unreadable: true });
+      return;
+    }
+    found.push({ group, label, ratio: Math.round(pair(fg, bg) * 100) / 100, need });
+  };
+
+  // Text against whatever it is really sitting on, at the threshold its own
+  // size and weight earn it.
+  const text = (group, label, el) => {
+    const cs = getComputedStyle(el);
+    add(group, label, parse(cs.color), backdropOf(el), isLarge(cs) ? 3 : 4.5);
+  };
+
+  // A boundary is measured against what is *outside* it, which is the parent's
+  // backdrop and not the component's own fill. Measuring a border against the
+  // tint it encloses is the mistake that makes every callout pass.
+  const boundary = (group, label, el, property) => {
+    const value = getComputedStyle(el)[property];
+    add(group, label, parse(value), backdropOf(el.parentElement), 3);
+  };
+
+  for (const ctx of host.querySelectorAll('[data-ctx]')) {
+    const where = ctx.dataset.ctx;
+
+    for (const callout of ctx.querySelectorAll('.callout')) {
+      const tone = callout.dataset.probe;
+      text('panel tones', `${tone} text on ${where}`, callout.querySelector('p'));
+      boundary('panel tones', `${tone} border on ${where}`, callout, 'borderTopColor');
+      // **The note tone's border is measured and not asserted**, settled
+      // 30 August 2026 and argued at length in theme.css beside the rule. It is
+      // the only one of the four whose border is not its own text colour, and a
+      // callout is static prose: not operable, no states, nothing about it that
+      // has to be found before it can be used, and a --surface-active fill that
+      // already sets it apart. 1.4.11 asks 3:1 of what identifies a component or
+      // its state and reaches none of that. **Printed rather than skipped**, so
+      // the number stays on screen and the exemption stays a decision somebody
+      // made rather than a hole nobody can see.
+      if (tone === 'note') found[found.length - 1].advisory = true;
+    }
+
+    for (const pill of ctx.querySelectorAll('.admin-lang')) {
+      const state = pill.dataset.probe;
+      text('language pills', `${state} pill text on ${where}`, pill);
+      boundary('language pills', `${state} pill border on ${where}`, pill, 'borderTopColor');
+    }
+
+    for (const dot of ctx.querySelectorAll('.lang-state')) {
+      const state = dot.dataset.probe;
+      const cs = getComputedStyle(dot);
+      const fill = parse(cs.backgroundColor);
+      // The absent dot is a dashed outline with nothing in it, so its border is
+      // the whole of what a reader has to see. The other two are a filled disc
+      // with no border at all.
+      if (fill && fill.a > 0) add('language pills', `${state} dot on ${where}`, fill, backdropOf(dot.parentElement), 3);
+      else boundary('language pills', `${state} dot outline on ${where}`, dot, 'borderTopColor');
+    }
+
+    for (const sw of ctx.querySelectorAll('.switch')) {
+      const state = sw.dataset.probe;
+      const track = sw.querySelector('.switch-track');
+      // The track's border is the component's boundary; the knob is the state
+      // indicator, and it is measured against the track it sits on rather than
+      // against the page, because the track is what is adjacent to it.
+      boundary('switch states', `${state} track border on ${where}`, track, 'borderTopColor');
+      const knob = parse(getComputedStyle(track, '::after').backgroundColor);
+      add('switch states', `${state} knob on ${where}`, knob, backdropOf(track), 3);
+      text('switch states', `${state} label on ${where}`, sw.querySelector('.switch-label'));
+    }
+
+    for (const label of ctx.querySelectorAll('.star-label')) {
+      const svg = label.querySelector('svg');
+      const cs = getComputedStyle(svg);
+      // **The outline is the load bearing half and the fill is not**, which is
+      // 1.4.11 read properly rather than a way round it: what a reader needs to
+      // make out is the star's shape, the stroke draws that shape, and
+      // app.css's own comment says the fill alone does not clear 3:1 and that
+      // this is why every star keeps its stroke. So the stroke is asserted
+      // against the page and the fill is reported beside it.
+      add('star', `${label.dataset.probe} star outline on ${where}`, parse(cs.stroke), backdropOf(label), 3);
+      const fill = parse(cs.fill);
+      if (fill && fill.a > 0) {
+        found.push({
+          group: 'star',
+          label: `${label.dataset.probe} star fill on ${where}`,
+          ratio: Math.round(pair(fill, backdropOf(label)) * 100) / 100,
+          need: 3,
+          advisory: true,
+        });
+      }
+    }
+
+    text('star', `readout on ${where}`, ctx.querySelector('.star-readout'));
+
+    for (const sample of ctx.querySelectorAll('[data-token]')) {
+      text('text tokens', `--${sample.dataset.token} on ${where}`, sample);
+    }
+  }
+
+  host.remove();
+
+  return {
+    bodyBackground: getComputedStyle(document.body).backgroundColor,
+    found,
+    // The arithmetic, proved against two pairs whose answers are not in
+    // dispute: black on white is 21:1 exactly, and #767676 on white is the
+    // canonical 4.54:1 that sits a hair over the AA line. A clean first run of
+    // a measurement nobody has checked is what deviation 90 is about.
+    selfCheck: {
+      extremes: Math.round(ratio({ r: 0, g: 0, b: 0, a: 1 }, { r: 255, g: 255, b: 255, a: 1 }) * 100) / 100,
+      boundary: Math.round(ratio({ r: 118, g: 118, b: 118, a: 1 }, { r: 255, g: 255, b: 255, a: 1 }) * 100) / 100,
+      // Black at 20% over white is a 204 grey and 1.61:1, not black's 21:1.
+      // The one number that proves a translucent foreground is composited
+      // before it is compared rather than after.
+      translucent: Math.round(pair({ r: 0, g: 0, b: 0, a: 0.2 }, { r: 255, g: 255, b: 255, a: 1 }) * 100) / 100,
+      // A color-mix parsed as an rgb() would come back near black and pass
+      // everything, so the two notations are proved to read the same colour.
+      mixed: parse('color(srgb 0.5 0.25 0.75 / 0.5)'),
+      plain: parse('rgba(127.5, 63.75, 191.25, 0.5)'),
+    },
+  };
+}
+
+/** One check per group per combination. Six near identical failures inside a
+ *  group say the same thing once, and the detail carries every pair. */
+function reportContrast(label, group, found) {
+  const mine = found.filter((f) => f.group === group && !f.advisory);
+  const bad = mine.filter((f) => f.unreadable || f.ratio < f.need);
+  check(
+    `${label}: ${group} clear AA`,
+    bad.length === 0,
+    bad
+      .map((f) => (f.unreadable ? `${f.label}: unreadable` : `${f.label}: ${f.ratio}:1, needs ${f.need}:1`))
+      .join('; ')
+  );
+}
+
+define('contrast', 'The measured colours, in all four theme combinations', async () => {
+  console.log(`      ${THEMES.map(([t, m]) => `${t} ${m}`).join(', ')}`);
+
+  const browser = await chromium.launch();
+  const server = await serveSite('en');
+
+  try {
+    const ctx = await contextFor(browser, server.base, 'en');
+    const page = await ctx.newPage();
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`${server.base}/`, { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('networkidle').catch(() => {});
+
+    // **A theme change is animated, and this section measures resting
+    // colours.** The first run of it reported --text at 1.15:1 against --bg in
+    // classic dark, which is dark text on a light page and is not a finding but
+    // an impossibility — the same tell as part 1's 436px of a 375px viewport
+    // and part 2's every link in the sidebar. What it had caught is the seam
+    // between the two halves of a theme switch: a custom property is not
+    // animatable and flips on the instant, while body's background-color eases
+    // over --transition, so for 220ms after the flip the page really is dark
+    // mode's text on light mode's background and getComputedStyle says so.
+    //
+    // Suppressed rather than waited out, and not with a fixed delay: "a fixed
+    // wait after a click is a race, not a delay" is section 3's rule, and a
+    // wait tuned to 220ms is a check that breaks the day somebody edits one
+    // token. WCAG asks what a reader sees when the page has settled, and with
+    // no transition the page has settled by the next frame.
+    await page.addStyleTag({
+      content: '*, *::before, *::after { transition: none !important; animation: none !important; }',
+    });
+
+    const backgrounds = new Map();
+
+    for (const [theme, mode] of THEMES) {
+      const label = `${theme} ${mode}`;
+
+      // Setting the two attributes is exactly what the theme switch does, and
+      // every colour block in theme.css selects on both, so nothing has to be
+      // reloaded for a combination to take. Two frames, because the first is
+      // where the style recalculation lands and the second is where it has been
+      // painted from.
+      await page.evaluate(
+        ([t, m]) => {
+          document.documentElement.dataset.colorTheme = t;
+          document.documentElement.dataset.mode = m;
+          return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        },
+        [theme, mode]
+      );
+
+      const result = await page.evaluate(measureContrast);
+
+      if (theme === 'classic' && mode === 'light') {
+        const { extremes, boundary, translucent, mixed, plain } = result.selfCheck;
+        check('the ratio is 21:1 for black on white', extremes === 21, `${extremes}:1`);
+        check('the ratio is 4.54:1 for #767676 on white', boundary === 4.54, `${boundary}:1`);
+        check(
+          'a translucent foreground is composited before it is compared',
+          translucent === 1.61,
+          `${translucent}:1, expected 1.61:1`
+        );
+        check(
+          'a color-mix and an rgba() of the same colour read the same',
+          mixed &&
+            plain &&
+            Math.abs(mixed.r - plain.r) < 0.5 &&
+            Math.abs(mixed.g - plain.g) < 0.5 &&
+            Math.abs(mixed.b - plain.b) < 0.5 &&
+            Math.abs(mixed.a - plain.a) < 0.01,
+          `${JSON.stringify(mixed)} against ${JSON.stringify(plain)}`
+        );
+      }
+
+      // **Prove the combination actually applied before trusting what it
+      // measured.** Nothing else in this section would notice four passes over
+      // the same theme: they would report the same clean numbers four times.
+      // Part 1's rule about asserting the thing rather than something beside it.
+      backgrounds.set(label, result.bodyBackground);
+
+      for (const group of ['panel tones', 'language pills', 'switch states', 'star', 'text tokens']) {
+        reportContrast(label, group, result.found);
+      }
+
+      // The two measured exemptions, printed rather than skipped, each with the
+      // reason on the line. Neither is a gap: both are arguments written down
+      // in the stylesheet beside the rule they excuse.
+      const advisory = (match) => [
+        ...new Set(result.found.filter((f) => f.advisory && f.label.includes(match)).map((f) => `${f.ratio}:1`)),
+      ];
+      const fills = advisory('star fill');
+      if (fills.length > 0) {
+        console.log(`      ${label}: star fill ${fills.join(', ')} (advisory — the stroke carries the shape)`);
+      }
+      const notes = advisory('note border');
+      if (notes.length > 0) {
+        console.log(`      ${label}: note callout border ${notes.join(', ')} (advisory — static prose, not a component)`);
+      }
+    }
+
+    check(
+      'the four combinations paint four different backgrounds',
+      new Set(backgrounds.values()).size === 4,
+      [...backgrounds].map(([k, v]) => `${k} ${v}`).join('; ')
+    );
+
+    // The plumbing, not the arithmetic: a colour that genuinely fails has to
+    // come back named. Injected into a real callout on the real page, so what
+    // is proved is the whole path from getComputedStyle to the reported line.
+    await page.evaluate(() => {
+      document.documentElement.dataset.colorTheme = 'classic';
+      document.documentElement.dataset.mode = 'light';
+      const style = document.createElement('style');
+      style.id = 'contrastProbeBreak';
+      style.textContent = '.callout.note p { color: #f4f4f4 }';
+      document.head.append(style);
+      return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    });
+    const broken = await page.evaluate(measureContrast);
+    await page.evaluate(() => document.querySelector('#contrastProbeBreak')?.remove());
+    check(
+      'a failing pair is reported rather than passed over',
+      broken.found.some((f) => f.label.startsWith('note text') && f.ratio < f.need),
+      broken.found
+        .filter((f) => f.label.startsWith('note text'))
+        .map((f) => `${f.label}: ${f.ratio}:1`)
+        .join('; ') || 'nothing reported'
+    );
+
+    await ctx.close();
+  } finally {
+    server.close();
+    await browser.close();
+  }
+});
+
+/* =========================================================================
+ * 6. The same eight rules over the admin pages
  * ====================================================================== */
 
 // **Read only, deliberately.** This section runs against the live deployment
@@ -1465,7 +1941,7 @@ define('a11y-admin', 'The admin pages against the same accessibility rules', asy
 });
 
 /* =========================================================================
- * 6. The same eight rules over the applicant's own pages
+ * 7. The same eight rules over the applicant's own pages
  * ====================================================================== */
 
 define('a11y-account', "The applicant's pages against the same accessibility rules", async () => {
@@ -1562,7 +2038,7 @@ define('a11y-account', "The applicant's pages against the same accessibility rul
 });
 
 /* =========================================================================
- * 7. The admin pages, which need a deployment and a staff credential
+ * 8. The admin pages, which need a deployment and a staff credential
  * ====================================================================== */
 
 define('responsive-admin', 'The admin pages at six widths, against a deployment', async () => {
@@ -1672,7 +2148,7 @@ define('responsive-admin', 'The admin pages at six widths, against a deployment'
 });
 
 /* =========================================================================
- * 8. The applicant's own pages at six widths, which need the same credential
+ * 9. The applicant's own pages at six widths, which need the same credential
  * ====================================================================== */
 
 define('responsive-account', 'The account pages at six widths, against a deployment', async () => {

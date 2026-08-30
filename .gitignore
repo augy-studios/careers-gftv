@@ -26,6 +26,10 @@ gen-*.js
 # Generated review sheet for the Chinese copy. Regenerate instead of committing.
 zh-review.html
 
+# Theme captures from tests/capture-themes.mjs. Twenty screenshots that go stale
+# the next time a colour token moves, so they are regenerated rather than kept.
+theme-shots/
+
 # Throwaway postings so the job board has something to render during
 # development. Not a migration: unnumbered, never recorded in
 # gftvjobs_migrations, and it carries its own delete block. The real seed

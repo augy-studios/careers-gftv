@@ -205,15 +205,15 @@
   --border-strong: rgba(140, 155, 170, 0.6);
   --text: #1a1a2e;
   --text-muted: #4a5568;
-  --text-light: #6b7280;
+  --text-light: #656d7a;
   --shadow: rgba(100, 120, 140, 0.12);
   --glass-highlight: rgba(255, 255, 255, 0.6);
-  --link: #ef3340;
+  --link: #c9202f;
   --link-visited: #4b4bd6;
-  --danger: #b03325;
+  --danger: #9e2c20;
   --danger-hover: #8a2a2a;
   --danger-on: #ffffff;
-  --ok: #177038;
+  --ok: #146030;
   --warn: #8a5200;
 }
 
@@ -238,12 +238,12 @@
   --text-light: #7a6c00;
   --shadow: rgba(160, 130, 0, 0.15);
   --glass-highlight: rgba(255, 255, 255, 0.5);
-  --link: #ef3340;
+  --link: #c9202f;
   --link-visited: #4b4bd6;
-  --danger: #b03325;
+  --danger: #9e2c20;
   --danger-hover: #8a2a2a;
   --danger-on: #ffffff;
-  --ok: #177038;
+  --ok: #146030;
   --warn: #8a5200;
 }
 
@@ -265,7 +265,7 @@
   --border-strong: rgba(160, 180, 200, 0.32);
   --text: #eceff3;
   --text-muted: #a7b2be;
-  --text-light: #7d8794;
+  --text-light: #8a95a3;
   --shadow: rgba(0, 0, 0, 0.5);
   --glass-highlight: rgba(255, 255, 255, 0.08);
   --link: #ff6b74;
@@ -321,8 +321,50 @@
   --callout-danger-bg: color-mix(in srgb, var(--danger) 14%, transparent);
   --callout-ok-bg: color-mix(in srgb, var(--ok) 14%, transparent);
   --callout-warn-bg: color-mix(in srgb, var(--warn) 14%, transparent);
-  /* Focus indicator. Every border token is under 3:1, --brand-dark is not. */
+  /* Focus indicator. --border is under 3:1 by design, --brand-dark is not. */
   --focus-ring: var(--brand-dark);
+}
+
+/* --border-control: the boundary of a control, which is the one thing 1.4.11
+ * requires 3:1 of and the one thing this build had no token for. Phase 12
+ * part 3.
+ *
+ * **There are now three border tokens and the difference between them is what
+ * they are drawn around**, not how heavy they look:
+ *
+ *   --border         a separator between things that are not controls. Faint on
+ *                    purpose, 1.21:1 to 1.72:1, and 1.4.11 does not reach it.
+ *   --border-strong  emphasis. A hover, a selected state, a table header rule,
+ *                    a badge, a chart crosshair. Measured at 1.70:1 to 2.76:1
+ *                    and left exactly where it was — see below.
+ *   --border-control the edge of a control, where a reader has to be able to
+ *                    find the control at all. 3:1 in all four combinations.
+ *
+ * **The first shape of this raised --border-strong instead, and that was the
+ * wrong instrument.** Twenty two rules reference it and only one of them, the
+ * switch track, is a control's boundary; the rest are .job-card:hover,
+ * .chip.active, .bucket-tab[aria-selected], five badges, the annotation quote
+ * bar and the chart crosshair. Raising the shared token would have re-weighted
+ * the main browsing surface's hover state to fix a switch. **A hover is not a
+ * component boundary** — the card is already bounded when nothing is hovering
+ * it — so none of those twenty one had failed anything.
+ *
+ * **Derived rather than four literals.** A per-theme value is one somebody has
+ * to re-measure every time a --bg moves; a mix of --text against transparent
+ * composites over whatever is behind it and stays correct in all four by
+ * construction. It keeps each theme's character without being told to, because
+ * --text is blue-black in classic and brown-black in hello.
+ *
+ * **Two percentages, because one cannot serve both modes.** The mix that clears
+ * 3:1 against a white page is a near-white line against a near-black one, which
+ * is over the line and looks it. 55 and 42 land between 3.3:1 and 3.6:1
+ * everywhere, which is the band this was aiming at. */
+:root[data-mode='light'] {
+  --border-control: color-mix(in srgb, var(--text) 55%, transparent);
+}
+
+:root[data-mode='dark'] {
+  --border-control: color-mix(in srgb, var(--text) 42%, transparent);
 }
 
 /* ---------------------------------------------------------------------------
@@ -405,14 +447,25 @@ body {
  * exception, which was "keep the underline on in-content links, since the
  * underline is the affordance rather than the colour". Without it, a link
  * inside a paragraph is told apart from body text by colour alone. Measured
- * against --text, that is 4.24:1 in classic light and 3.68:1 in hello light,
- * both of which clear the 3:1 that WCAG 1.4.1 asks for, but only 2.39:1 in
- * classic dark and 2.42:1 in hello dark, which do not. Visited links are worse
- * again, between 1.86:1 and 2.66:1.
+ * against --text, that is 3.03:1 in classic light, 2.63:1 in hello light,
+ * 2.39:1 in classic dark and 2.42:1 in hello dark; visited links are worse
+ * again, between 1.86:1 and 2.66:1. Only one of the eight clears the 3:1 WCAG
+ * 1.4.1 asks of a colour that is the sole distinction.
  *
- * The fix for that is the weight step below, not the underline. The states are
- * listed out so that no component rule and no user agent default can
- * reintroduce an underline.
+ * **The light two used to be the comfortable pair and phase 12 part 3 changed
+ * that, deliberately.** --link was #ef3340 and measured 4.24:1 and 3.68:1
+ * against --text — but only 4.02:1 and 3.50:1 against the page it is *read*
+ * on, and 1.4.3 wants 4.5:1 there for text at this size. Darkening it to
+ * #c9202f fixed the pair that decides whether the words can be made out at all
+ * and cost the pair that decides whether they look like a link, because moving
+ * a link colour towards the text is the only direction that improves the first.
+ *
+ * That trade is only available because the distinction was never resting on
+ * colour: the weight step below is what carries it, it was already carrying the
+ * two dark combinations at 2.39:1 and 2.42:1, and all four now lean on the same
+ * thing rather than two of them leaning on it and two getting away with colour.
+ * The states are listed out so that no component rule and no user agent default
+ * can reintroduce an underline.
  */
 a,
 a:link,
@@ -811,6 +864,24 @@ a.chip:visited {
   font-size: 0.9375rem;
 }
 
+/* The note tone is the only one of the four whose border is not its own text
+   colour, so it is the only one measuring under 3:1 — 1.21:1 to 1.72:1 across
+   the four combinations.
+
+   **Measured, and deliberately left.** Settled 30 August 2026, phase 12 part 3.
+   1.4.11 asks 3:1 of what identifies a user interface component or its state,
+   and a callout is a block of static prose: it is not operable, it has no
+   states, and nothing about it has to be found before it can be used. The
+   --surface-active fill already sets it apart from the page, and the words
+   inside carry the whole of the meaning — the border is trim. Raising it would
+   have put a visibly bolder box on nineteen files including the home page,
+   /search, the job page, /login, /register and /status, to fix something that
+   had not failed.
+
+   `tests/phase12-test.mjs --only=contrast` measures this border and prints it
+   as advisory rather than skipping it, so the number stays visible and the
+   exemption stays a decision somebody made rather than a gap. ok, warn and
+   danger are asserted, and pass. */
 .callout.note {
   background: var(--surface-active);
   border-color: var(--border);

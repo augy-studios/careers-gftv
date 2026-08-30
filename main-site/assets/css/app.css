@@ -3672,10 +3672,19 @@ input[type='search']::-webkit-search-cancel-button {
   color: var(--warn);
 }
 
+/* The one pill of the three that carries no fill, so the dashed edge and the
+   letters are the whole of it. Both were measuring under: the border inherited
+   --border from .admin-lang at 1.21:1 to 1.72:1, and --text-light sat at 4.43:1
+   on --bg-alt. **This one is a state indicator and 1.4.11 reaches it** — it is
+   the marker that says a language has no translation, in a table cell with no
+   room for a word — so unlike the note callout beside it in theme.css, it does
+   not get to be trim. --border-control, the token that exists for exactly this.
+   Phase 12 part 3. */
 .admin-lang-absent {
   background: transparent;
   border-style: dashed;
-  color: var(--text-light);
+  border-color: var(--border-control);
+  color: var(--text-muted);
 }
 
 .lang-tabs {
@@ -4201,12 +4210,17 @@ input[type='search']::-webkit-search-cancel-button {
   cursor: pointer;
 }
 
+/* --border-control and not --border-strong, which is what the track used to
+   carry and which measured 1.70:1 to 2.76:1 against the card behind it: an off
+   switch was a shape a reader had to already know was there. This is the
+   clearest 1.4.11 case in the build — the boundary *is* the control — and it is
+   the rule the new token was added for. Phase 12 part 3. */
 .switch-track {
   width: 2.5rem;
   height: 1.375rem;
   border-radius: 999px;
   background: var(--surface-active);
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--border-control);
   position: relative;
   transition: background 0.15s ease;
 }
