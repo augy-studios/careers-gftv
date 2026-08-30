@@ -295,7 +295,7 @@ ones to run before pushing.
 | `check-precache.js` | Every entry in `sw.js`'s precache list resolved the way `cleanUrls` does, and non-zero on one that is not on disk. The precache list is the most dangerous object in the site: a bad entry costs one file at runtime and this is what stops it reaching production at all. |
 | `gen-icons.js` | Every icon under `main-site/`, from `HLC-source.png` at this level. The source is deliberately not one of the outputs. See [`main-site/README.md`](main-site/README.md). |
 | `gen-screenshots.js` | The two install screenshots in the manifest, captured from `/search` on the deployment. Rerun after deleting the dev seed. |
-| `gen-review.js` | `zh-review.html`, every Chinese string side by side with its English, for a fluent reader to go through. |
+| `gen-review.js` | `zh-review.html`, every Chinese string in the build side by side with its English, for a fluent reader to go through: the dictionary, the seeded departments and tags, the hero, the phase list and its shipped notes, and the Telegram bot's messages, command menu and profile text. It also reports any file that ships 华文 and is neither one of its sources nor exempt with a reason, and exits non-zero on one, so the next file that puts Chinese in front of a reader cannot quietly miss the round trip. Reads the bot's strings by importing `strings.py` and `commands.py` rather than parsing them, so it needs Python on the path. |
 
 ## Regression testing
 

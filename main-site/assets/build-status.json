@@ -83,9 +83,9 @@
       "name_zh": "管理后台进阶",
       "status": "shipped",
       "description": "The rest of the dashboard: analytics, invitations and shortlists, managing staff and applicant accounts, portal settings, and the translation review queue. Volunteers who speak a language can be given access to improve its wording, and can suggest a correction by selecting the text that reads wrongly.",
-      "description_zh": "后台的其余部分：数据分析、邀请与候选名单、管理员工和申请人账户、门户设置，以及翻译审核队列。会说某种语言的志愿者可以获得权限改进该语言的用词，并可以直接选中读起来不对的文字提出修改建议。",
+      "description_zh": "后台的其余部分：数据分析、邀请与候选名单、管理员工和申请人账户、门户设置，以及翻译审核队列。会说某种语言的义工可以获得权限改进该语言的用词，并可以直接选中读起来不对的文字提出修改建议。",
       "shipped_note": "The rest of the staff side went live with this, and one part of it is open to volunteers rather than to staff. If you speak a language this site is offered in, you can be given access to improve its wording: you work through the roles and the site's own words in that language, save drafts as often as you like, and an admin makes them live. Anyone signed in can also select a phrase that reads wrongly on a posting and suggest a better one where it stands, without leaving the page. If the team invites you to apply for a role, that invitation now arrives in your outstanding tasks like anything else they need from you. The rest is staff facing, and none of it is visible to applicants: how the board is doing, managing accounts, and the portal's own settings. Nothing about how you apply has changed.",
-      "shipped_note_zh": "员工端的其余部分随此阶段上线，其中一部分开放给志愿者，而不只是员工。如果您会说本网站提供的某种语言，您可以获得权限改进该语言的用词：您可以逐一处理该语言的职位信息和网站用语，随时保存草稿，再由管理员正式发布。已登录的用户也可以直接选中职位信息中读起来不对的文字，就地提出修改建议，无需离开页面。如果团队邀请您申请某个职位，该邀请现在会像其他需要您处理的事情一样，送到您的待办事项。其余功能都是员工使用的，申请人都看不到：包括招聘情况数据、账户管理，以及网站本身的设置。申请方式也完全没有改变。"
+      "shipped_note_zh": "员工端的其余部分随此阶段上线，其中一部分开放给义工，而不只是员工。如果您会说本网站提供的某种语言，您可以获得权限改进该语言的用词：您可以逐一处理该语言的职位信息和网站用语，随时保存草稿，再由管理员正式发布。已登录的用户也可以直接选中职位信息中读起来不对的文字，就地提出修改建议，无需离开页面。如果团队邀请您申请某个职位，该邀请现在会像其他需要您处理的事情一样，送到您的待办事项。其余功能都是员工使用的，申请人都看不到：包括招聘情况数据、账户管理，以及网站本身的设置。申请方式也完全没有改变。"
     },
     {
       "number": 9,
@@ -105,7 +105,7 @@
       "description": "Installing the portal to a home screen, and browsing, reading, and rating postings with no connection.",
       "description_zh": "将本网站添加到主屏幕，并在没有网络时浏览、阅读和评分职位信息。",
       "shipped_note": "You can now add Careers@GFTV to your home screen and open it like an app, and it keeps working when your connection does not. With no signal you can still browse the board as you last loaded it, read any posting you have already opened, in either language, and see your saved roles, your applications, and anything we have asked you for, from a copy kept on your own device and cleared when you sign out. Rating a role and answering the did you apply question both work offline: they are shown as waiting to be sent and they go through the moment you are back. An answer only counts once it reaches us, so the three month waiting period for a role starts then rather than when you tapped it. Anything that genuinely needs a connection, meaning signing in, creating an account, the second step of signing in, and opening an application form, says so on the button itself instead of failing when you press it. Linking a Telegram account for notifications and invitations arrives in the next phase.",
-      "shipped_note_zh": "现在您可以将 国际兽视 Careers 添加到主屏幕，像应用一样打开，而且在没有网络时依然可以使用。没有网络时，您仍然可以浏览上次加载的职位板，阅读您已经打开过的职位信息（两种语言都可以），并查看您收藏的职位、您的申请，以及我们需要您处理的事项——这些都来自保存在您自己设备上的副本，退出登录时会被清除。为职位评分和回答“您是否已申请”也可以在离线时进行：它们会显示为等待发送，等您恢复网络后立即送出。答复只有送达我们这里才算数，因此该职位三个月的等待期从送达时开始计算，而不是从您点击时开始。确实需要网络的操作，也就是登录、注册、登录的第二步验证，以及打开申请表单，会直接在按钮上说明，而不是等您点击后才失败。关联 Telegram 账户以接收通知和邀请，将在下一阶段上线。"
+      "shipped_note_zh": "现在您可以将国际兽视 Careers 添加到主屏幕，像应用一样打开，而且在没有网络时依然可以使用。没有网络时，您仍然可以浏览上次加载的职位板，阅读您已经打开过的职位信息（两种语言都可以），并查看您收藏的职位、您的申请，以及我们需要您处理的事项——这些都来自保存在您自己设备上的副本，退出登录时会被清除。为职位评分和回答“您是否已申请”也可以在离线时进行：它们会显示为等待发送，等您恢复网络后立即送出。答复只有送达我们这里才算数，因此该职位三个月的等待期从送达时开始计算，而不是从您点击时开始。确实需要网络的操作，也就是登录、注册、登录的第二步验证，以及打开申请表单，会直接在按钮上说明，而不是等您点击后才失败。关联 Telegram 账户以接收通知和邀请，将在下一阶段上线。"
     },
     {
       "number": 11,

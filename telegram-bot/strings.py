@@ -266,7 +266,7 @@ STRINGS: dict[str, dict[str, str]] = {
     "zh": {
         "start.intro": (
             "<b>国际兽视 Careers</b>\n\n"
-            "这里是 国际兽视 Careers 求职网站的 Telegram 服务。关联您的求职账户后，"
+            "这里是国际兽视 Careers 求职网站的 Telegram 服务。关联您的求职账户后，"
             "您可以一键登录、收到职位邀请，并在您的申请有进展时收到通知。\n\n"
             "这里发送的所有内容，在网站上同样可以查看，不会只出现在这个聊天里。"
         ),
@@ -410,7 +410,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "jobs.department": "部门：{department}",
         "jobs.none": "目前没有正在招聘的职位。新职位开放后会发布在职位板上。",
         "jobs.notice": (
-            "<i>除非职位说明另有注明，国际兽视的职位均为志愿性质，不提供薪酬。</i>"
+            "<i>除非职位说明另有注明，国际兽视的职位均为义务性质，不提供薪酬。</i>"
         ),
         "callback.unknown": "这个按钮太旧了，无法继续操作。请重新发送该指令。",
         "callback.notYours": "这个按钮属于其他人的对话。",

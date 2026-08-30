@@ -111,9 +111,12 @@ nowhere to live. The header comment in `012` names the section behind each
 one.
 
 **All Chinese in this directory is Singapore Mandarin**, 华文, not Mainland
-Putonghua: 义工 rather than 志愿者, 营运 rather than 运营, 摄影棚 rather than
-录影棚, 文件 rather than 文档. That applies to the seeded department and tag
-names in `014` and the hero copy in `018`, and to anything added later.
+Putonghua: 义工 not 志愿者, 华文 not 中文, 电邮 not 电子邮件, 营运 not 运营,
+合约 not 合同, 摄影棚 not 录影棚, and 文件 not 文档. That applies to the seeded
+department and tag names in `014` and the hero copy in `018`, and to anything
+added later. The list is `USAGE` in `gen-review.js` and this paragraph is
+checked against it by `tests/phase12-test.mjs --only=zh`, so the two cannot
+drift.
 
 **The site is multilingual, and the database enforces the rules.** English lives on the base rows as the
 source language; every other language is a row in the matching translation

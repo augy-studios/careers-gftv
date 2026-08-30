@@ -33,8 +33,10 @@
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
+import { existsSync, readFileSync } from 'node:fs';
 import { join, extname, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 
 // The floor itself, from the file that applies it, so the check and the build
 // cannot disagree about what "too small" is. `icons.js` touches `document` only
@@ -1885,7 +1887,265 @@ define('contrast', 'The measured colours, in all four theme combinations', async
 });
 
 /* =========================================================================
- * 6. The same eight rules over the admin pages
+ * 6. The Chinese, and the half of it a check can see
+ * ====================================================================== */
+
+// **Part 4 is a round trip to a person, and this section is about what should
+// not reach them.** A fluent reader's afternoon is the scarcest thing in this
+// phase, so anything a machine can decide — a placeholder dropped in
+// translation, a bold tag that opens in one language and not the other, a term
+// the project has already ruled on in two READMEs — is decided here, and what
+// goes out is the part that genuinely needs a reader.
+//
+// **The first thing it checks is not a string at all.** `zh-review.html` was
+// written in phase 3 against a dictionary of about two hundred keys in fifteen
+// named groups. Nine phases added 1,505 keys in twenty six groups nobody added
+// to that list, so the page rendered 223 interface strings, counted 1,728 of
+// them in its own header, and told the reviewer it was showing every word of
+// Chinese on the portal. That is part 3's lesson exactly — a probe measures what
+// is in it, and a list of things to include is a list somebody wrote — so the
+// question this section asks first is whether the page shows everything there
+// is, and it asks it of the generator rather than of the file, since the file
+// is gitignored and regenerated.
+//
+// Needs no deployment, no credential and no network, like `contrast`. It reads
+// files, and one Python module: the bot's strings are asked of `strings.py` and
+// `commands.py` rather than parsed out of them, so the guards those two run at
+// import come with them.
+
+const review = createRequire(import.meta.url)('../gen-review.js');
+
+// The placeholders a string carries, sorted, so {a} {b} and {b} {a} are the
+// same set: a translation may move one within the sentence and may not lose it.
+const braces = (text) => (String(text ?? '').match(/\{[a-zA-Z_][a-zA-Z0-9_]*\}/g) ?? []).sort();
+
+// The markup a string carries. Telegram draws bold and italic from these and
+// the site writes some of them into innerHTML, so an unclosed tag is a broken
+// message in one language and a fine one in the other.
+const tags = (text) => (String(text ?? '').match(/<\/?[a-z]+[^>]*>/g) ?? []).map((t) => t.toLowerCase()).sort();
+
+// **A space sits between Latin and Han, and never between Han and Han.** The
+// review page's own footer has said so since phase 3 and nothing measured it.
+const HAN = '一-鿿';
+const noSpaceAtBoundary = new RegExp(`[${HAN}][A-Za-z0-9]|[A-Za-z0-9][${HAN}]`, 'g');
+const spaceBetweenHan = new RegExp(`[${HAN}] [${HAN}]`, 'g');
+
+/** The rules, each answering "what is wrong with this pair", and nothing else.
+ *
+ *  Written as one function per rule so the negative test below can hand each of
+ *  them a pair that is deliberately wrong and watch it complain. A rule that has
+ *  only ever returned nothing is a rule nobody has seen work, which is how a
+ *  1.10:1 badge sat behind 26 green ticks in part 3.
+ */
+const RULES = {
+  'a placeholder is neither dropped nor invented': (pair) =>
+    braces(pair.en).join() === braces(pair.zh).join()
+      ? null
+      : `{${braces(pair.en).join(' ')}} against {${braces(pair.zh).join(' ')}}`,
+
+  'markup opens and closes the same way in both languages': (pair) =>
+    tags(pair.en).join() === tags(pair.zh).join()
+      ? null
+      : `${tags(pair.en).join(' ') || 'none'} against ${tags(pair.zh).join(' ') || 'none'}`,
+
+  'a string with English in it has 华文 in it': (pair) =>
+    String(pair.en ?? '').trim() === '' || String(pair.zh ?? '').trim() !== ''
+      ? null
+      : 'the Chinese is empty',
+
+  'the wording is Singapore Mandarin': (pair) => {
+    const hits = review.USAGE.filter(
+      (entry) => entry.strict !== false && review.usageHits(pair.zh, entry).length > 0
+    );
+    return hits.length === 0 ? null : hits.map((h) => `${h.mainland} should be ${h.singapore}`).join(', ');
+  },
+
+  'a space sits between Latin and Han and nowhere else': (pair) => {
+    const value = String(pair.zh ?? '');
+    const missing = [...value.matchAll(noSpaceAtBoundary)].map((m) => m[0]);
+    const extra = [...value.matchAll(spaceBetweenHan)].map((m) => m[0]);
+    if (missing.length === 0 && extra.length === 0) return null;
+    return [
+      missing.length > 0 ? `no space at ${missing.slice(0, 3).join(', ')}` : '',
+      extra.length > 0 ? `a space inside ${extra.slice(0, 3).join(', ')}` : '',
+    ]
+      .filter(Boolean)
+      .join('; ');
+  },
+};
+
+/** The one deliberate empty in the build, and the reason it is one.
+ *
+ *  `join.sentence` is what goes between two sentences on one line. English wants
+ *  a space after a full stop and 华文 wants nothing at all after 。, so the
+ *  Chinese value is an empty string on purpose and `strings.py` reads it with a
+ *  membership test rather than `or` for exactly that reason. Recorded here so
+ *  the exemption is a decision somebody made rather than a hole in the rule.
+ */
+const DELIBERATELY_EMPTY = new Set(['join.sentence']);
+
+define('zh', 'The Chinese, and what a check can decide before a reader is asked', async () => {
+  const data = review.collect();
+  const html = review.buildHtml(data);
+
+  // ---- Prove the rules fire, before trusting a clean run --------------------
+  const broken = {
+    'a placeholder is neither dropped nor invented': { en: 'Hello {name}, you have {count}', zh: '你好 {name}' },
+    'markup opens and closes the same way in both languages': { en: '<b>Careers</b>', zh: '<b>求职' },
+    'a string with English in it has 华文 in it': { en: 'Something', zh: '   ' },
+    'the wording is Singapore Mandarin': { en: 'Volunteer', zh: '志愿者' },
+    'a space sits between Latin and Han and nowhere else': { en: 'x', zh: '打开 求职Careers' },
+  };
+  for (const [name, rule] of Object.entries(RULES)) {
+    check(`the rule reports a pair that breaks it: ${name}`, rule(broken[name]) !== null, 'it said nothing');
+  }
+  // And the case that says the rule is not simply matching substrings. 选中文字
+  // is "select text" and contains 中文, which means nothing of the sort. 华文
+  // puts no spaces between words, so a term is not a word — the same fact that
+  // made a sixteen character tag name read as a cramped button in part 1.
+  check(
+    '选中文字 is not read as 中文',
+    RULES['the wording is Singapore Mandarin']({ en: 'Select wording', zh: '在页面上选中文字' }) === null,
+    'a substring was read as a word'
+  );
+
+  // ---- What the reviewer is actually sent ----------------------------------
+  const missingSources = Object.keys(review.SOURCES).filter(
+    (file) => !existsSync(join(HERE, '..', file))
+  );
+  check('every file this page claims to read exists', missingSources.length === 0, missingSources.join(', '));
+
+  const unreviewed = review.scanForUnreviewed();
+  check(
+    'no shipped file carries 华文 the reviewer is not shown',
+    unreviewed.length === 0,
+    unreviewed.map((u) => `${u.file} (${u.lines.length} line(s))`).join('; ')
+  );
+
+  // **Every dictionary key, not every group somebody remembered.** This is the
+  // check that would have caught 1,505 strings going out of the round trip, and
+  // it is written against the keys rather than against the groups on purpose:
+  // a group list can be complete and still be the wrong list.
+  //
+  // **The dictionary is read here rather than taken from `collect()`.** Asking
+  // the generator for the keys and then asking it whether it rendered them is
+  // circular: a generator reading the wrong file would satisfy both halves at
+  // once and report a clean run. The file this reads is the one `i18n.js`
+  // fetches at runtime, so the count is the site's rather than the page's.
+  const dictionary = JSON.parse(readFileSync(join(SITE, 'assets/i18n/en.json'), 'utf8'));
+  const wanted = Object.keys(dictionary).filter((key) => key !== '_comment');
+  const shown = new Set(data.pairs.filter((p) => p.source === 'interface').map((p) => p.label));
+  const absent = wanted.filter((key) => !shown.has(key));
+  check(
+    `all ${wanted.length} interface keys in en.json are on the page`,
+    absent.length === 0,
+    `${absent.length} missing, first: ${absent.slice(0, 6).join(', ')}`
+  );
+
+  // A source that parses to nothing is the quiet failure here: the hero and the
+  // seeded rows are read out of migrations with regular expressions, and a
+  // migration reformatted one day would hand back an empty list and a page that
+  // looks finished.
+  for (const source of ['departments', 'tags', 'hero', 'interface', 'phases', 'bot', 'commands', 'profile']) {
+    const rows = data.pairs.filter((p) => p.source === source);
+    check(`${source} contributed rows`, rows.length > 0, 'nothing parsed');
+  }
+
+  // Every row that was collected is on the page. The other half of the same
+  // worry: a section wired into the data and never into the HTML.
+  const notRendered = data.pairs.filter((p) => !html.includes(`id="${p.ref}"`));
+  check(
+    `all ${data.pairs.length} rows are rendered`,
+    notRendered.length === 0,
+    notRendered.slice(0, 6).map((p) => `${p.ref} ${p.label}`).join(', ')
+  );
+
+  // The bot's profile text is paired by position rather than by a key, since it
+  // is four fenced blocks in a document. If somebody reorders them, English
+  // would be compared against English and every rule below would pass.
+  const profile = data.pairs.filter((p) => p.source === 'profile');
+  const han = new RegExp(`[${HAN}]`);
+  check(
+    "the bot's About and Description are paired English to 华文",
+    profile.length === 2 && profile.every((p) => !han.test(p.en) && han.test(p.zh)),
+    profile.map((p) => `${p.ref} ${p.en.slice(0, 24)}… / ${p.zh.slice(0, 12)}…`).join(' | ')
+  );
+
+  // ---- The rules, over everything -----------------------------------------
+  for (const [name, rule] of Object.entries(RULES)) {
+    const problems = [];
+    for (const pair of data.pairs) {
+      if (name.includes('has 华文 in it') && DELIBERATELY_EMPTY.has(pair.label)) continue;
+      const problem = rule(pair);
+      if (problem) problems.push(`${pair.ref} ${pair.label}: ${problem}`);
+    }
+    check(`${name}, across all ${data.pairs.length} entries`, problems.length === 0,
+      `${problems.length} problem(s) — ${problems.slice(0, 8).join(' | ')}`);
+  }
+
+  // **The bot and the site say the same sentence to a reader turned away.**
+  // `strings.py` says in as many words that it reproduces `feature.unavailable`
+  // and `feature.maintenance` exactly as the dictionaries have them, because
+  // somebody refused by a button and then by a command must be told the same
+  // thing twice rather than two different things. `check-i18n.js` covers the
+  // site and cannot see a Python file, so until now nothing checked the claim.
+  const bot = review.botStrings();
+  for (const key of ['feature.unavailable', 'feature.maintenance']) {
+    for (const locale of ['en', 'zh']) {
+      const site = locale === 'en' ? data.en[key] : data.zh[key];
+      check(
+        `the bot and the site word ${key} identically in ${locale}`,
+        bot.messages[locale][key] === site,
+        `bot ${JSON.stringify(bot.messages[locale][key])} against site ${JSON.stringify(site)}`
+      );
+    }
+  }
+
+  // **The rule is written down in two documents, so both are read.** This is
+  // `commands.py --check` applied to a different list: a list copied into
+  // documents needs a check, not a docstring. Before part 4 the two READMEs and
+  // the review page's brief carried three different subsets of the same seven
+  // pairs, and nothing would have said so.
+  for (const file of ['main-site/README.md', 'migrations/README.md']) {
+    // Whitespace collapsed first: both documents are hard wrapped at 79
+    // columns and 电邮 not 电子邮件 falls across a line break in one of them.
+    // A wrapped line is not drift.
+    const document = readFileSync(join(HERE, '..', file), 'utf8').replace(/\s+/g, ' ');
+    const absent = review.USAGE.filter((u) => !document.includes(`${u.singapore} not ${u.mainland}`));
+    check(
+      `${file} states the usage rule as gen-review.js holds it`,
+      absent.length === 0,
+      absent.map((u) => `${u.singapore} not ${u.mainland}`).join(', ')
+    );
+  }
+
+  // ---- Measured, printed, and left to the reviewer -------------------------
+  // The one term whose rule does not settle the question. Both READMEs say 文件
+  // rather than 文档, and every occurrence in the build is "the documentation
+  // site" rather than a file — which is a different sense of the word and a
+  // wording judgement rather than a rule. Printed with its count and its refs,
+  // on part 3's precedent: an exemption is a decision somebody made, and it
+  // stays visible rather than being skipped.
+  for (const entry of review.USAGE.filter((u) => u.strict === false)) {
+    const hits = data.pairs.filter((p) => review.usageHits(p.zh, entry).length > 0);
+    if (hits.length > 0) {
+      console.log(
+        `      ${entry.mainland} appears in ${hits.length} entries (${hits.map((h) => h.ref).join(', ')}) ` +
+          `— advisory, ${entry.why}`
+      );
+    }
+  }
+
+  console.log(
+    `      ${data.pairs.length} entries: ${data.keys.length} interface, ` +
+      `${data.pairs.filter((p) => p.source === 'phases').length} phase, ` +
+      `${data.pairs.filter((p) => ['bot', 'commands', 'profile'].includes(p.source)).length} bot, ` +
+      `${data.pairs.filter((p) => ['departments', 'tags', 'hero'].includes(p.source)).length} seeded`
+  );
+});
+
+/* =========================================================================
+ * 7. The same eight rules over the admin pages
  * ====================================================================== */
 
 // **Read only, deliberately.** This section runs against the live deployment
@@ -1975,7 +2235,7 @@ define('a11y-admin', 'The admin pages against the same accessibility rules', asy
 });
 
 /* =========================================================================
- * 7. The same eight rules over the applicant's own pages
+ * 8. The same eight rules over the applicant's own pages
  * ====================================================================== */
 
 define('a11y-account', "The applicant's pages against the same accessibility rules", async () => {
@@ -2072,7 +2332,7 @@ define('a11y-account', "The applicant's pages against the same accessibility rul
 });
 
 /* =========================================================================
- * 8. The admin pages, which need a deployment and a staff credential
+ * 9. The admin pages, which need a deployment and a staff credential
  * ====================================================================== */
 
 define('responsive-admin', 'The admin pages at six widths, against a deployment', async () => {
@@ -2182,7 +2442,7 @@ define('responsive-admin', 'The admin pages at six widths, against a deployment'
 });
 
 /* =========================================================================
- * 9. The applicant's own pages at six widths, which need the same credential
+ * 10. The applicant's own pages at six widths, which need the same credential
  * ====================================================================== */
 
 define('responsive-account', 'The account pages at six widths, against a deployment', async () => {

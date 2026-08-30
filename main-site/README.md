@@ -904,8 +904,17 @@ wrong glyph forms and nothing else will look broken.
 
 **The Chinese is Singapore Mandarin, 华文, not Mainland Putonghua.** GFTV is a
 Singapore organisation, so use 义工 not 志愿者, 华文 not 中文, 电邮 not
-电子邮件, 营运 not 运营, 摄影棚 not 录影棚, and 文件 not 文档. The document is
-tagged `zh-Hans-SG`. Check any new copy against that list.
+电子邮件, 营运 not 运营, 合约 not 合同, 摄影棚 not 录影棚, and 文件 not 文档.
+The document is tagged `zh-Hans-SG`.
+
+**Do not check new copy against that list by hand.** The list itself is `USAGE`
+in `gen-review.js`, which is the only copy: the review page's brief is written
+from it, `tests/phase12-test.mjs --only=zh` measures every string in the build
+against it, and this paragraph is checked against it too. The one entry it does
+not enforce is 文档, because both READMEs' rule is about a file and every
+occurrence in the build is "the documentation site" — a different sense of the
+word, and a wording judgement that belongs to the reviewer. It is printed with
+its references rather than asserted.
 
 | Piece | Where it lives |
 |---|---|
