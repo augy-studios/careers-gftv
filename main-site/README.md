@@ -72,6 +72,9 @@ main-site/
   offline.html        the service worker's answer for an uncached route, at
                       /offline. The address bar keeps the route that was asked
                       for, so its retry control is a reload
+  llms.txt            the llmstxt.org file from section 4. Public, applicant
+                      facing material only. robots.txt and sitemap.xml are not
+                      here: both are generated, see "Discovery files" below
   manifest.json       PWA manifest: icons, screenshots, and the two shortcuts
   HLC-*.png           the app icons, every one of them generated. See below
   favicon.ico         one 256 square entry. See below
@@ -180,6 +183,9 @@ main-site/
     ratings/          upsert a rating for a posting, from the handoff modal
     job-page.js       the server rendered posting page. The one route in this
                       portal that returns HTML instead of JSON.
+    robots.js         /robots.txt, generated. Not JSON either, and there is no
+                      static robots.txt: see "Discovery files" below
+    sitemap.js        /sitemap.xml, generated from the published postings
 ```
 
 ## Local development
@@ -321,6 +327,9 @@ markup as delivered and does not run JavaScript.
 | `api/public/jobs.json` | the openings feed, rewritten to `api/public/jobs-feed.js` | 4 |
 | | The one endpoint with no `{ ok, data }` envelope. Its callers are strangers, not this site, and somebody pointing a script at a URL ending in `.json` expects the openings at the top level. Errors still use the envelope. | |
 | `/jobs/:id` | the posting page, rewritten to `api/job-page.js`. HTML, not JSON | 4 |
+| `/robots.txt` | rewritten to `api/robots.js`. Plain text, not JSON | 12 |
+| `/sitemap.xml` | rewritten to `api/sitemap.js`. XML, not JSON. **404 while `INDEXING` is false**, because there is no sitemap for a site nobody may crawl, and 503 as plain text while the `sitemap` switch is off, because that one is an outage. Two different claims, two status codes | 12 |
+| | Both are functions rather than files so that whether the site may be indexed is one constant. See "Discovery files" below, and do not put a static `robots.txt` back. | |
 | `api/translations/report` | report a translation problem | 4 |
 | `api/translations/mine` | the reader's own reports, with what an admin decided about each. 7h's other half: a reporter who never hears anything again learns that reporting is shouting into a hole | 6 |
 | `api/translations/helper` | 7i's helper area: the roster, the language audit, one thing to translate, a search, and `save`. One route, four views, one action | 8 |
@@ -1075,6 +1084,80 @@ fails the build and is not ignored. Two entries are worth explaining:
   empty screen. It is also the rule phase 3 learned the hard way, so **check it
   on a deployment and not locally**: a route returning 200 is not evidence
   its rewrite works.
+
+## Discovery files
+
+Section 4's three, built in phase 12 part 5 for the portal. The docs site gets
+its own set in phase 13, generated from its page list.
+
+| Address | Where it comes from |
+|---|---|
+| `/robots.txt` | `api/robots.js`, rewritten in `vercel.json` |
+| `/sitemap.xml` | `api/sitemap.js`, rewritten in `vercel.json` |
+| `/llms.txt` | `llms.txt`, a static file |
+
+**There is no `main-site/robots.txt`, and putting one back would break the
+first two.** Vercel matches the filesystem before it consults rewrites, so a
+file of that name wins and the function never runs — the phase 3 rule, and the
+one this pair fails silently on. `tests/phase12-test.mjs --only=discovery`
+checks that neither file has come back.
+
+**Whether the portal may be indexed is one constant**, `INDEXING` in
+`api/_lib/discovery.js`, and it is `false`. It has a second half: the global
+`X-Robots-Tag: noindex, nofollow` in `vercel.json`. A robots.txt asks a crawler
+not to fetch; the header tells it not to list, and only the header reaches a URL
+somebody linked to from elsewhere. **Both go together.** Turning indexing on
+means all of:
+
+1. `INDEXING = true` in `api/_lib/discovery.js`. **This also opens
+   `/sitemap.xml`**, which answers 404 until it is flipped: there is no sitemap
+   for a site nobody may crawl, and a list of seeded sample postings at a
+   guessable address is what serving one early would mean.
+2. The global `X-Robots-Tag` out of `vercel.json`. **The one on `/api/(.*)` is
+   separate and stays.**
+3. `node tests/phase12-test.mjs --only=discovery`, which fails when one of those
+   two has moved and the other has not.
+4. After the deploy, `--only=discovery-live`, **which is not optional in that
+   commit**: it is the only thing that can say Vercel is serving those addresses
+   from the functions rather than from a file, and **the first time the
+   sitemap's query runs against the database at all**. Check the headers with
+   `curl -I`, not by pasting a URL into a chat window: an unfurler reports what
+   it fetched, not what a crawler is told.
+5. The seeded sample postings have to be gone first. The sitemap lists every
+   published posting, so they would be the first thing a crawler read.
+
+**The sitemap lists the pages in `STATIC_PAGES` and every `published`
+posting**, at `/jobs/{uuid}` with a `lastmod` from `updated_at`. Closed, draft
+and archived postings are excluded, and so is anything under `/admin`,
+`/account`, `/api`, `/login`, `/register` and `/forgot-password` — `NEVER_LISTED`
+in the same module, and a path under one of those throws rather than being
+quietly dropped. `/privacy` and `/terms` are not on it either: both are 302s to
+`policy.globalfurry.tv`, and a sitemap entry for a URL that redirects off the
+site advertises somebody else's page as one of ours. It is cached an hour at the
+edge.
+
+**The `sitemap` maintenance switch takes the sitemap out of service and removes
+the `Sitemap:` line from robots.txt, and does not ask crawlers to stay away.**
+A crawler keeps robots.txt for about a day, so an off switch that wrote
+`Disallow: /` would take a day to undo and would delist nothing that is already
+listed. That is a one way door rather than a switch.
+
+**`robots.txt` is the one route in the portal that guesses rather than
+failing.** Every other function throws when `SITE_URL` is unreadable; this one
+falls back to `CANONICAL_ORIGIN` and answers, because **every major crawler
+reads a 5xx robots.txt as "do not crawl this site for now"** and a missing
+environment variable would otherwise pause the whole portal's crawling over a
+configuration fault. Nothing in the file depends on the environment except the
+absolute `Sitemap:` line. That constant and the addresses in `llms.txt` are the
+only two places the domain is written out rather than read, so
+`--only=discovery` measures the second against the first.
+
+**`llms.txt` is public, applicant facing material and nothing else**, per
+section 4: no admin documentation, no endpoint paths beyond the openings feed it
+names, no form URLs, nothing behind a session. It is English, because a machine
+arrives with no stored language preference and every address on it serves
+English. **It does not link the docs site**, which phase 13 builds: the link
+must not ship before the page does.
 
 ## Icons and the install manifest
 

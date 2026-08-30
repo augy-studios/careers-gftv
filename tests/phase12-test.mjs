@@ -33,7 +33,7 @@
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, extname, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
@@ -42,6 +42,23 @@ import { createRequire } from 'node:module';
 // cannot disagree about what "too small" is. `icons.js` touches `document` only
 // inside its functions, so importing it here costs nothing.
 import { MIN_SIZE } from '../main-site/assets/js/icons.js';
+
+// Part 5's discovery files. Everything that decides what a crawler is told is
+// in that module and is pure, so this file measures the decisions rather than a
+// deployment's copy of them. The one thing it cannot answer from here is
+// whether Vercel actually serves them at those two addresses, which is what
+// `discovery-live` is for.
+import {
+  INDEXING,
+  CANONICAL_ORIGIN,
+  NOINDEX_HEADER,
+  SITEMAP_PATH,
+  DISALLOW,
+  NEVER_LISTED,
+  STATIC_PAGES,
+  robotsBody,
+  sitemapXml,
+} from '../main-site/api/_lib/discovery.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SITE = join(HERE, '..', 'main-site');
@@ -2145,7 +2162,393 @@ define('zh', 'The Chinese, and what a check can decide before a reader is asked'
 });
 
 /* =========================================================================
- * 7. The same eight rules over the admin pages
+ * 7. The discovery files, and the switch that decides what they say
+ * ====================================================================== */
+
+// **Part 5 writes three files and turns nothing on.** Settled decision 3 keeps
+// the global noindex standing until part 8, so what this section measures is
+// what each file *will* say, plus the one thing that has to stay true in the
+// meantime: that the constant in api/_lib/discovery.js and the header in
+// vercel.json are making the same claim. Two places saying one thing is the
+// shape this build has been bitten by more than any other, and part 8 has to
+// move both in one commit.
+//
+// Needs no deployment, no credential and no network. `discovery-live` is the
+// half that cannot be answered from here — whether Vercel actually serves the
+// two addresses from the functions — because a route returning 200 locally is
+// not evidence its rewrite works, which is phase 3's rule and the reason a
+// static robots.txt had to be deleted rather than left beside them.
+
+/** Feature keys with no `featureWhere` sentence yet, and why not.
+ *
+ *  A key that appears on /admin/maintenance without one shows an admin a switch
+ *  and no statement of what it does, which is what phases 9 and 10 both had to
+ *  fix before their flip. `sitemap` got its sentence in part 5. `seed` is the
+ *  other phase 12 key and part 8 builds the thing it names, so it writes the
+ *  sentence with it. The exemption is checked in both directions below, so it
+ *  cannot outlive the reason for it.
+ */
+const NO_WHERE_YET = {
+  seed: 'part 8 builds the seed script and writes the sentence with it',
+};
+
+/** The one /api path llms.txt is allowed to link, named by section 4 itself. */
+const FEED_PATH = '/api/public/jobs.json';
+
+/** Every .html file under main-site/, as the route it is served at. */
+function servedPages() {
+  const pages = [];
+  (function walk(directory) {
+    for (const item of readdirSync(directory)) {
+      if (item === 'node_modules' || item === 'api') continue;
+      const full = join(directory, item);
+      if (statSync(full).isDirectory()) {
+        walk(full);
+        continue;
+      }
+      if (!item.endsWith('.html')) continue;
+      const relative = full.slice(SITE.length + 1).split('\\').join('/');
+      const route =
+        relative === 'index.html'
+          ? '/'
+          : `/${relative.replace(/\/index\.html$/, '').replace(/\.html$/, '')}`;
+      pages.push({ route, file: full, html: readFileSync(full, 'utf8') });
+    }
+  })(SITE);
+  return pages;
+}
+
+define('discovery', 'robots.txt, sitemap.xml and llms.txt, and the one switch behind them', async () => {
+  const vercel = JSON.parse(readFileSync(join(SITE, 'vercel.json'), 'utf8'));
+  // The build's own fallback origin, used here rather than a string of this
+  // file's own. llms.txt is the only other place the domain is written out
+  // rather than read from SITE_URL, so measuring it against this one is what
+  // keeps the two from drifting apart in silence.
+  const site = CANONICAL_ORIGIN;
+
+  // ---- The constant and the header are one decision in two places ----------
+  const globalHeaders = (vercel.headers ?? []).find((entry) => entry.source === '/(.*)');
+  const globalRobots = (globalHeaders?.headers ?? []).find((h) => h.key === 'X-Robots-Tag');
+  check(
+    INDEXING
+      ? 'indexing is on, so vercel.json carries no global X-Robots-Tag'
+      : `indexing is off, so vercel.json carries the global X-Robots-Tag: ${NOINDEX_HEADER}`,
+    INDEXING ? globalRobots === undefined : globalRobots?.value === NOINDEX_HEADER,
+    `INDEXING is ${INDEXING} and the header is ${globalRobots ? JSON.stringify(globalRobots.value) : 'absent'}. ` +
+      `Part 8 flips both in one commit.`
+  );
+
+  const apiHeaders = (vercel.headers ?? []).find((entry) => entry.source === '/api/(.*)');
+  check(
+    'the X-Robots-Tag on /api/(.*) is there whatever the switch says',
+    (apiHeaders?.headers ?? []).some((h) => h.key === 'X-Robots-Tag' && h.value === 'noindex'),
+    'that one is separate and permanent, and part 8 does not touch it'
+  );
+
+  // ---- Served from functions, and nothing on disk shadowing them -----------
+  for (const [source, destination] of [
+    ['/robots.txt', '/api/robots'],
+    [SITEMAP_PATH, '/api/sitemap'],
+  ]) {
+    const rewrite = (vercel.rewrites ?? []).find((entry) => entry.source === source);
+    check(
+      `${source} is rewritten to ${destination}`,
+      rewrite?.destination === destination,
+      rewrite ? `it points at ${rewrite.destination}` : 'no rewrite for it'
+    );
+    // Vercel matches the filesystem before it consults rewrites, so a file of
+    // that name would win and the function would never run. Phase 3's rule,
+    // and the one this pair fails silently on.
+    const shadow = source.replace(/^\//, '');
+    check(
+      `no ${shadow} sits in main-site/ to win over the rewrite`,
+      !existsSync(join(SITE, shadow)),
+      'the filesystem is matched before the rewrites'
+    );
+  }
+
+  // ---- What robots.txt says in each of its three states --------------------
+  const blocked = robotsBody({ indexing: false, site });
+  check('blocked: it disallows everything', /^Disallow: \/$/m.test(blocked), blocked.slice(0, 120));
+  check('blocked: it points at no sitemap', !blocked.includes('Sitemap:'), 'a blocked site advertises nothing');
+  check(
+    'blocked: it names the switch, so curl finds the file that decides this',
+    blocked.includes('INDEXING') && blocked.includes('discovery.js'),
+    'somebody reading this with curl has to be able to find what set it'
+  );
+
+  const open = robotsBody({ indexing: true, site });
+  for (const path of DISALLOW) {
+    check(`open: it disallows ${path}`, new RegExp(`^Disallow: ${path}$`, 'm').test(open), open);
+  }
+  check('open: it does not disallow the site', !/^Disallow: \/$/m.test(open), 'that is the blocked body');
+  check(
+    `open: it points at ${site}${SITEMAP_PATH}`,
+    open.includes(`Sitemap: ${site}${SITEMAP_PATH}`),
+    'section 4 asks robots.txt to point at the sitemap, absolute'
+  );
+  check(
+    'open: it allows the pages the sitemap lists',
+    STATIC_PAGES.every((path) => !DISALLOW.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))),
+    'a page cannot be in the sitemap and disallowed at once'
+  );
+
+  const noSitemap = robotsBody({ indexing: true, site, sitemap: false });
+  check(
+    'switched off: the Sitemap line goes and the crawl rules do not',
+    !noSitemap.includes('Sitemap:') &&
+      DISALLOW.every((path) => new RegExp(`^Disallow: ${path}$`, 'm').test(noSitemap)) &&
+      !/^Disallow: \/$/m.test(noSitemap),
+    'an off switch that blocked crawling would take a day to undo and would not delist anything'
+  );
+  check(
+    'switched off: it says so rather than leaving an absence',
+    noSitemap.includes('temporarily switched off'),
+    'somebody reading it during an outage should not have to wonder'
+  );
+
+  // ---- The sitemap, built from fixtures ------------------------------------
+  const buildStatus = JSON.parse(readFileSync(join(SITE, 'assets/build-status.json'), 'utf8'));
+  const FIXTURE_JOBS = [
+    { id: '3f9a1c2e-8b47-4d10-9a3e-5c61d2f0ab88', updated_at: '2026-08-20T02:00:00.000Z' },
+    // A row with no updated_at. It must appear with no lastmod rather than with
+    // today's date: "changed today" is a claim, and an unmeasured one.
+    { id: '11111111-2222-3333-4444-555555555555', updated_at: null },
+  ];
+  const xml = sitemapXml({
+    site,
+    paths: STATIC_PAGES,
+    lastmod: { '/status': buildStatus.updated },
+    jobs: FIXTURE_JOBS,
+  });
+
+  check('it is one urlset with a declaration', xml.startsWith('<?xml version="1.0" encoding="UTF-8"?>') &&
+    (xml.match(/<urlset /g) ?? []).length === 1 && xml.trimEnd().endsWith('</urlset>'), xml.slice(0, 80));
+
+  const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+  check(
+    `it lists ${STATIC_PAGES.length} pages and ${FIXTURE_JOBS.length} postings`,
+    locs.length === STATIC_PAGES.length + FIXTURE_JOBS.length,
+    `${locs.length} entries`
+  );
+  check(
+    'every address is absolute and on this origin',
+    locs.every((loc) => loc.startsWith(`${site}/`)),
+    locs.filter((loc) => !loc.startsWith(`${site}/`)).join(', ')
+  );
+  const missingPages = STATIC_PAGES.filter((path) => !locs.includes(`${site}${path}`));
+  check('every static page section 4 names is in it', missingPages.length === 0, missingPages.join(', '));
+  check(
+    'a posting is listed at its uuid, not its slug',
+    locs.includes(`${site}/jobs/${FIXTURE_JOBS[0].id}`),
+    'the canonical address of a posting is /jobs/{uuid}'
+  );
+  check(
+    'nothing under a prefix section 4 excludes is in it',
+    !locs.some((loc) => NEVER_LISTED.some((prefix) => new URL(loc).pathname.startsWith(prefix))),
+    locs.join(', ')
+  );
+
+  const entries = [...xml.matchAll(/<url>\s*<loc>([^<]+)<\/loc>\s*(?:<lastmod>([^<]+)<\/lastmod>)?/g)].map((m) => ({
+    loc: m[1],
+    lastmod: m[2] ?? null,
+  }));
+  const dated = entries.find((entry) => entry.loc === `${site}/jobs/${FIXTURE_JOBS[0].id}`);
+  check(
+    'a posting carries its updated_at as a W3C lastmod',
+    dated?.lastmod === new Date(FIXTURE_JOBS[0].updated_at).toISOString(),
+    String(dated?.lastmod)
+  );
+  const undated = entries.find((entry) => entry.loc === `${site}/jobs/${FIXTURE_JOBS[1].id}`);
+  check(
+    'a posting with no updated_at carries no lastmod rather than today',
+    undated !== undefined && undated.lastmod === null,
+    String(undated?.lastmod)
+  );
+  const status = entries.find((entry) => entry.loc === `${site}/status`);
+  check(
+    "/status carries build-status.json's own updated date",
+    status?.lastmod === new Date(buildStatus.updated).toISOString(),
+    `${status?.lastmod} against ${buildStatus.updated}. That page renders that file and nothing else.`
+  );
+
+  // ---- The rules fire, before a clean run is believed ----------------------
+  // Deviation 90, and part 3 and part 4 both had to learn it again: a rule that
+  // has only ever returned nothing is a rule nobody has seen work.
+  let threw = null;
+  try {
+    sitemapXml({ site, paths: ['/', '/admin/jobs'] });
+  } catch (cause) {
+    threw = String(cause?.message ?? cause);
+  }
+  check(
+    'a path under an excluded prefix throws rather than being dropped quietly',
+    threw !== null && threw.includes('/admin/jobs'),
+    threw ?? 'it produced a sitemap'
+  );
+
+  const withRubbish = sitemapXml({ site, jobs: [{ id: 'not-a-uuid', updated_at: null }, ...FIXTURE_JOBS] });
+  check(
+    'a row whose id is not a posting id is dropped',
+    !withRubbish.includes('not-a-uuid') &&
+      (withRubbish.match(/<loc>/g) ?? []).length === STATIC_PAGES.length + FIXTURE_JOBS.length,
+    'a bad row must not become a URL, and must not take the sitemap down either'
+  );
+
+  const escaped = sitemapXml({ site, paths: ['/search?tags=a&match=all'], jobs: [] });
+  check(
+    'an ampersand in an address is escaped',
+    escaped.includes('&amp;match=all') && !/[^&]&[^a]/.test(escaped),
+    escaped
+  );
+
+  const twice = sitemapXml({ site, paths: ['/', '/'], jobs: [FIXTURE_JOBS[0], FIXTURE_JOBS[0]] });
+  check(
+    'the same address is listed once',
+    (twice.match(/<loc>/g) ?? []).length === 2,
+    `${(twice.match(/<loc>/g) ?? []).length} entries for two pairs`
+  );
+
+  // ---- The list is derived from the pages, not only written down ----------
+  // Part 3's badge and part 4's review page are the same lesson twice: a list
+  // somebody wrote is a list with something missing from it, and what is
+  // missing is invisible by construction. So the public pages are read out of
+  // the markup — a page with no `noindex` meta is a page meant to be found —
+  // and compared with STATIC_PAGES in both directions.
+  const pages = servedPages();
+  check('there are pages to read', pages.length > 10, `${pages.length} html files`);
+
+  // `content="noindex, follow"` on the three pages that are served rather than
+  // visited, and a bare `noindex` on the rest. Both are a noindex, and a rule
+  // matching only the shorter spelling reported /404, /offline and /placeholder
+  // as pages meant to be found.
+  const indexable = pages
+    .filter((page) => !/<meta\s+name="robots"\s+content="noindex[^"]*"/i.test(page.html))
+    .map((page) => page.route)
+    .sort();
+  const listed = [...STATIC_PAGES].sort();
+  check(
+    `the ${indexable.length} pages that carry no noindex are exactly the pages in the sitemap`,
+    indexable.join(',') === listed.join(','),
+    `markup says ${indexable.join(', ')}; the sitemap lists ${listed.join(', ')}`
+  );
+
+  for (const path of STATIC_PAGES) {
+    check(`${path} is a page that exists in this tree`, (await resolveRoute(path)) !== null, 'no file for it');
+  }
+
+  // ---- llms.txt ------------------------------------------------------------
+  const llmsPath = join(SITE, 'llms.txt');
+  check('llms.txt exists', existsSync(llmsPath), 'section 4 asks for it on both sites');
+  const llms = existsSync(llmsPath) ? readFileSync(llmsPath, 'utf8') : '';
+
+  check('it opens with the site name as an h1', llms.startsWith('# Careers@GFTV'), llms.slice(0, 40));
+  check('it carries the one paragraph summary the convention asks for', /^> .+/m.test(llms), 'no blockquote');
+
+  const links = [...llms.matchAll(/\]\((https?:\/\/[^)\s]+)\)/g)].map((m) => m[1]);
+  check(`it links ${links.length} pages, grouped under headings`, links.length >= 4 && /^## /m.test(llms), llms);
+  check(
+    'every link is absolute and on the origin the build falls back to',
+    links.every((url) => url.startsWith(`${site}/`)),
+    `${links.filter((url) => !url.startsWith(`${site}/`)).join(', ')} — CANONICAL_ORIGIN is ${site}`
+  );
+
+  const forbidden = links
+    .map((url) => new URL(url).pathname)
+    .filter((path) => path !== FEED_PATH)
+    .filter((path) => NEVER_LISTED.some((prefix) => path === prefix || path.startsWith(`${prefix}/`)));
+  check(
+    'nothing behind a session, and no endpoint but the openings feed',
+    forbidden.length === 0,
+    `${forbidden.join(', ')} — section 4: public, applicant facing material and nothing else`
+  );
+
+  for (const url of links) {
+    const path = new URL(url).pathname;
+    if (path === FEED_PATH) {
+      check(
+        'the openings feed link is the address vercel.json rewrites',
+        (vercel.rewrites ?? []).some((entry) => entry.source === FEED_PATH),
+        'section 4 names this feed in llms.txt by name, so it is the one /api link allowed'
+      );
+      continue;
+    }
+    check(`${path} is a page that exists`, (await resolveRoute(path)) !== null, 'llms.txt links a page that is not there');
+  }
+
+  check(
+    'it does not link the docs site, which phase 13 builds',
+    !llms.includes('docs.careers.globalfurry.tv'),
+    'the link must not ship before the page does — the same rule as the trusted sites page'
+  );
+  check(
+    'no application form URL is in it',
+    !/docs\.google\.com|forms\.gle/.test(llms),
+    'the form URL is never in a public payload, and this is a public page'
+  );
+  check(
+    'it is English, so nothing in it goes unreviewed',
+    !new RegExp(`[${HAN}]`).test(llms),
+    'gen-review.js fails a shipped file carrying 华文 that is on neither of its lists'
+  );
+
+  // ---- A switch an admin can see has a sentence saying what it does --------
+  // The DENYLIST is read out of maintenance.js as text rather than imported:
+  // that module pulls in the Supabase client, which requires environment
+  // variables this file deliberately does not have.
+  const maintenance = readFileSync(join(SITE, 'api/_lib/maintenance.js'), 'utf8');
+  const denylistBlock = maintenance.slice(
+    maintenance.indexOf('export const DENYLIST'),
+    maintenance.indexOf('});', maintenance.indexOf('export const DENYLIST'))
+  );
+  const denied = [...denylistBlock.matchAll(/^\s{2}([a-z_]+):/gm)].map((m) => m[1]);
+  // A parse that found nothing answers "clean" for every key, which is part 7's
+  // rule about a check with nothing to look at.
+  check(`the denylist parsed, ${denied.length} keys`, denied.length >= 9, denylistBlock.slice(0, 80));
+
+  const dictionaries = {
+    en: JSON.parse(readFileSync(join(SITE, 'assets/i18n/en.json'), 'utf8')),
+    zh: JSON.parse(readFileSync(join(SITE, 'assets/i18n/zh.json'), 'utf8')),
+  };
+  const featureKeys = Object.keys(buildStatus.features ?? {});
+  // **A sentence is owed by a feature an admin can see, and that is the ones
+  // whose phase has shipped or is shipping.** `flippableFeatures()` filters on
+  // `hasShipped`, so nothing from 13 to 15 is on /admin/maintenance to need
+  // one; phase 12's own two are in scope because phases 9 and 10 both had to
+  // write theirs in a hurry after the flip rather than before it.
+  const statuses = new Map((buildStatus.phases ?? []).map((phase) => [phase.number, phase.status]));
+  const visible = featureKeys.filter((key) =>
+    ['shipped', 'building'].includes(statuses.get(buildStatus.features[key]) ?? 'planned')
+  );
+
+  for (const locale of ['en', 'zh']) {
+    const noName = featureKeys.filter((key) => !dictionaries[locale][`featureName.${key}`]);
+    check(`every one of the ${featureKeys.length} feature keys has a name in ${locale}`, noName.length === 0, noName.join(', '));
+
+    const noWhere = visible
+      .filter((key) => !denied.includes(key))
+      .filter((key) => !dictionaries[locale][`featureWhere.${key}`]);
+    check(
+      `every one of the ${visible.length} flippable shipped features says where it is, in ${locale}`,
+      noWhere.every((key) => key in NO_WHERE_YET),
+      noWhere.filter((key) => !(key in NO_WHERE_YET)).join(', ')
+    );
+    const stale = Object.keys(NO_WHERE_YET).filter((key) => dictionaries[locale][`featureWhere.${key}`]);
+    check(
+      `the exemption list carries nothing that already has a sentence, in ${locale}`,
+      stale.length === 0,
+      `${stale.join(', ')} — remove it from NO_WHERE_YET in this file`
+    );
+  }
+  check(
+    'the sitemap switch has its sentence before phase 12 can flip to shipped',
+    Boolean(dictionaries.en['featureWhere.sitemap'] && dictionaries.zh['featureWhere.sitemap']),
+    'phases 9 and 10 both had to write theirs before the flip'
+  );
+});
+
+/* =========================================================================
+ * 8. The same eight rules over the admin pages
  * ====================================================================== */
 
 // **Read only, deliberately.** This section runs against the live deployment
@@ -2235,7 +2638,7 @@ define('a11y-admin', 'The admin pages against the same accessibility rules', asy
 });
 
 /* =========================================================================
- * 8. The same eight rules over the applicant's own pages
+ * 9. The same eight rules over the applicant's own pages
  * ====================================================================== */
 
 define('a11y-account', "The applicant's pages against the same accessibility rules", async () => {
@@ -2332,7 +2735,7 @@ define('a11y-account', "The applicant's pages against the same accessibility rul
 });
 
 /* =========================================================================
- * 9. The admin pages, which need a deployment and a staff credential
+ * 10. The admin pages, which need a deployment and a staff credential
  * ====================================================================== */
 
 define('responsive-admin', 'The admin pages at six widths, against a deployment', async () => {
@@ -2442,7 +2845,7 @@ define('responsive-admin', 'The admin pages at six widths, against a deployment'
 });
 
 /* =========================================================================
- * 10. The applicant's own pages at six widths, which need the same credential
+ * 11. The applicant's own pages at six widths, which need the same credential
  * ====================================================================== */
 
 define('responsive-account', 'The account pages at six widths, against a deployment', async () => {
@@ -2545,6 +2948,145 @@ define('responsive-account', 'The account pages at six widths, against a deploym
   } finally {
     await browser.close();
   }
+});
+
+/* =========================================================================
+ * 12. The two addresses, on a deployment, which is the only place they exist
+ * ====================================================================== */
+
+// **A route returning 200 is not evidence its rewrite works**, and this is the
+// pair that rule was written for: Vercel matches the filesystem before it
+// consults rewrites, so /robots.txt served the static file for eleven phases
+// and would go on doing so if one came back. Nothing local can tell the
+// difference, so this section asks the deployment.
+//
+// It needs the network and no credential. It **skips by name** while the
+// deployment is still serving the old static file, which is the state between
+// writing part 5 and pushing it.
+
+define('discovery-live', 'robots.txt and sitemap.xml as Vercel actually serves them', async () => {
+  const base = (process.env.BASE ?? 'https://careers.globalfurry.tv').replace(/\/+$/, '');
+  // Both are cached at the edge on purpose — an hour for the sitemap — and a
+  // stale copy would compare a new sitemap against an old feed. A query nothing
+  // reads is enough to get a fresh render of each.
+  const fresh = `?t=${Date.now()}`;
+
+  let robots;
+  try {
+    robots = await fetch(`${base}/robots.txt${fresh}`);
+  } catch (cause) {
+    skip('the deployment could be reached', String(cause));
+    return;
+  }
+
+  const robotsText = robots.ok ? await robots.text() : '';
+  if (!robotsText.includes('api/robots.js')) {
+    skip(
+      'robots.txt is served by the function',
+      `${base}/robots.txt is still the static file part 5 deletes. Push part 5 and re-run.`
+    );
+    return;
+  }
+
+  check('robots.txt answers 200 as text', robots.status === 200 &&
+    (robots.headers.get('content-type') ?? '').includes('text/plain'), `${robots.status} ${robots.headers.get('content-type')}`);
+
+  const expected = [
+    robotsBody({ indexing: INDEXING, site: base }),
+    robotsBody({ indexing: INDEXING, site: base, sitemap: false }),
+  ];
+  check(
+    'the deployment serves the body this tree builds',
+    expected.includes(robotsText),
+    'the deployment and this working tree disagree, or the sitemap switch is off there'
+  );
+
+  // The header half of the pair, read from a real response rather than from
+  // vercel.json. This is what a crawler is actually told.
+  const home = await fetch(`${base}/${fresh}`);
+  const tag = home.headers.get('x-robots-tag');
+  check(
+    INDEXING ? 'a page carries no X-Robots-Tag' : `a page carries X-Robots-Tag: ${NOINDEX_HEADER}`,
+    INDEXING ? tag === null : tag === NOINDEX_HEADER,
+    `INDEXING is ${INDEXING} and the deployment sends ${JSON.stringify(tag)}`
+  );
+
+  const sitemap = await fetch(`${base}${SITEMAP_PATH}${fresh}`);
+
+  // **Closed until part 8, and the gate is what is checked in the meantime.**
+  // A sitemap of a site nobody may crawl is a list of seeded sample postings at
+  // a guessable address, so the route is a 404 while INDEXING is false. What
+  // that costs is that the query and the XML are not exercised against the
+  // database until the flip, which is why `--only=discovery-live` belongs in
+  // part 8's commit rather than being optional.
+  if (!INDEXING) {
+    check(
+      'the sitemap is closed while indexing is off, and says so as a 404',
+      sitemap.status === 404,
+      `${sitemap.status}. A 503 would say outage; this is a phase that has not finished.`
+    );
+    skip(
+      'the sitemap contents, and their agreement with the openings feed',
+      'the route is a 404 until part 8 flips INDEXING. Re-run with that commit — it is the first time the query runs against the database.'
+    );
+    return;
+  }
+
+  if (sitemap.status === 503) {
+    skip('the sitemap is served', 'the sitemap feature is switched off on this deployment');
+    return;
+  }
+  const xml = await sitemap.text();
+  check(
+    'sitemap.xml answers 200 as xml',
+    sitemap.status === 200 && (sitemap.headers.get('content-type') ?? '').includes('xml'),
+    `${sitemap.status} ${sitemap.headers.get('content-type')}`
+  );
+  check(
+    'it is cached at the edge rather than rebuilt per request',
+    /s-maxage=\d+/.test(sitemap.headers.get('cache-control') ?? ''),
+    String(sitemap.headers.get('cache-control'))
+  );
+
+  const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+  const paths = locs.map((loc) => new URL(loc).pathname);
+  check(
+    'every static page is on it',
+    STATIC_PAGES.every((path) => paths.includes(path)),
+    STATIC_PAGES.filter((path) => !paths.includes(path)).join(', ')
+  );
+  check(
+    'nothing excluded is on it',
+    !paths.some((path) => NEVER_LISTED.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))),
+    paths.filter((path) => NEVER_LISTED.some((prefix) => path.startsWith(prefix))).join(', ')
+  );
+
+  // **The check that keeps one rule from being written twice.** The sitemap
+  // asks the table for status = published; the feed asks gftvjobs_search_jobs,
+  // whose default statuses are the same word. Both are correct today and
+  // nothing but this would notice the day one of them changes.
+  const listed = new Set(paths.filter((path) => path.startsWith('/jobs/')).map((path) => path.slice('/jobs/'.length)));
+
+  const fed = new Set();
+  let page = 1;
+  let pages = 1;
+  do {
+    const answer = await fetch(`${base}${FEED_PATH}?page=${page}&t=${Date.now()}`);
+    if (!answer.ok) break;
+    const body = await answer.json();
+    pages = Number(body.pages ?? 1);
+    for (const job of body.jobs ?? []) fed.add(job.id);
+    page += 1;
+  } while (page <= pages && page <= 5);
+
+  const onlySitemap = [...listed].filter((id) => !fed.has(id));
+  const onlyFeed = [...fed].filter((id) => !listed.has(id));
+  check(
+    `the sitemap and the openings feed name the same ${fed.size} postings`,
+    onlySitemap.length === 0 && onlyFeed.length === 0,
+    `sitemap only: ${onlySitemap.join(', ') || 'none'}; feed only: ${onlyFeed.join(', ') || 'none'}`
+  );
+  check('there were postings to compare', fed.size > 0, 'both were empty, which proves nothing');
 });
 
 /* -------------------------------------------------------------------------

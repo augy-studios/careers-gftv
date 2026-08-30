@@ -54,7 +54,10 @@ const EXPECTED_ABSENT = {
   'images/install-narrow.png': 'an install dialog screenshot, not part of the site.',
   'images/install-wide.png': 'an install dialog screenshot, not part of the site.',
   'sw.js': 'this file. A worker does not precache itself.',
-  'robots.txt': 'read by crawlers, which are never offline.',
+  'llms.txt':
+    'read by crawlers and agents, which are never offline. robots.txt was here ' +
+    'too until phase 12 part 5 and is a function now, because the switch that ' +
+    'decides its contents has to be one constant rather than a hand edited file.',
   'vercel.json': 'not served.',
   'package.json': 'not served.',
   'package-lock.json': 'not served.',

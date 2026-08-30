@@ -1,0 +1,32 @@
+# Careers@GFTV
+
+> Careers@GFTV is the recruitment portal for Global Furry Television, a
+> volunteer run furry television project. It lists the roles that are open and
+> it is where somebody applies for one. Roles are voluntary and unpaid unless
+> the posting itself says otherwise, and every posting states which it is.
+
+The portal is published in English and in Singapore Mandarin. The language is a
+preference stored in the reader's own browser rather than part of the address,
+so every URL below serves English to anything arriving without one.
+
+Applying needs a free applicant account, which takes a moment and needs no
+approval. The application form itself is linked from a posting once somebody is
+signed in, so its address is not public and is not in this file. Reading the
+board and every posting on it needs no account at all.
+
+## Roles
+
+- [Open roles](https://careers.globalfurry.tv/search): every published posting, filterable by team, tag, commitment type, location and closing date.
+- [Openings feed](https://careers.globalfurry.tv/api/public/jobs.json): the same postings as JSON, for anyone aggregating openings. One entry per posting, carrying its title, summary, team, commitment type, whether it is paid, and its canonical link.
+
+## About the portal
+
+- [About Careers@GFTV](https://careers.globalfurry.tv/about): what GFTV is, what volunteering here involves, and how an application is handled from start to finish.
+- [Frequently asked questions](https://careers.globalfurry.tv/faq): accounts, applying, languages, and what happens after an application goes in.
+- [Build status](https://careers.globalfurry.tv/status): the portal is being released in phases, and this page says which parts are live and which are not built yet.
+
+## Worth knowing
+
+- A posting's canonical address is `/jobs/` followed by the posting's uuid. A link carrying a slug redirects to it.
+- A closed posting stays readable and cannot be applied to. A posting with no closing date is open until it is filled.
+- Nothing on this site is a paid job advertisement unless the posting says it is paid.
