@@ -220,15 +220,30 @@ each, at the six widths section 3 names — 320, 375, 414, 768, 1024 and 1440.
 | `responsive` | The seven public pages at all six widths in both languages, served from the working tree over `127.0.0.1`. Sideways scroll, table cells under the floor, and short button labels wrapping — each reported once per page with the offending element's ancestor chain rather than once per width. **The board is drawn from fixtures carrying the limits rather than the averages**: a 60 character tag name in both languages, a department longer than its column, a uuid, `closes_at` null so the "open until filled" sentence is drawn, and a posting with no translation so the badge is there. Every other endpoint answers 503, loudly, because a page measured in its error state is the narrower page. It asserts that the 华文 run is rendering 华文 and that the cards actually arrived, since both failures report the same clean six as a correct run. **Needs no deployment, no credentials, and no network.** |
 | `landscape` | One 736 by 375 viewport. Turned sideways a phone is a wide screen with no height, so what is measured is not width but how much of it the pinned furniture takes: **the union of what is on screen**, half the viewport being the line. Summing heights instead reported 436px of a 375px viewport, because a closed off canvas drawer is full height, fixed, and entirely off the left edge. Same, needs nothing. |
 | `responsive-admin` | Six admin pages, both languages, at the same six widths, **against a deployment with a staff credential**, because an admin page is a session and a database rather than a document. Skipped by name without `STAFF_USER` and `STAFF_PASS`. It also checks that the label phase 12 hides between 1024 and 1279 is hidden from the layout and not from the accessibility tree, which is one `display: none` away from being lost. |
+| `a11y` | The same seven pages at 375 and 1024 in both languages, against eight rules: everything reachable by Tab has an accessible name, nothing focusable sits inside `aria-hidden`, every ARIA reference resolves, no id is used twice, exactly one `h1`, no heading level skipped, every image has an `alt` or is marked decorative, no positive `tabindex`, and the skip link is the first thing Tab reaches and lands on something. Two widths rather than six, because 375 is where the drawer and the filter panel are sheets and 1024 is where neither is, and those are the two documents. **It injects a nameless button and a focusable link under `aria-hidden` first and requires the audit to report both**, since a clean first run is what a broken measurement looks like from outside. Needs nothing. |
+| `a11y-keyboard` | The four public surfaces that are a behaviour rather than a description, driven with the keyboard: the suggestion combobox (`aria-expanded`, `aria-activedescendant` naming a real option, exactly one selected, the focus staying in the input, the highlight wrapping out of the last group, Escape clearing it), the filter panel as a bottom sheet and the navigation drawer (each opens, says so, takes the focus, and gives it back on Escape, with nothing left tabbable behind), `dialog.js` through the sign in prompt (modal, named, focus trapped, focus returned), and phase 10's connection bar — **watched as it arrives**, because the defect part 2 found was that its live region was inserted with its sentence already inside it. Also the sentence beside a control the connection has disabled, which is now attached to that control rather than merely next to it. Needs nothing. |
+| `a11y-admin` | The eight rules above over the six admin pages in both languages, **against a deployment with a staff credential**, skipped by name without one. **Read only on purpose**: it loads pages and asks questions, and never flips a maintenance switch, sends a task or edits a posting. The interactive admin surfaces on section 12's list — the bulk bar, the question composer's reorder controls, the annotation sheet, the handoff modal, the account picker — are all writes against the real database and belong in the same sitting as phase 11's by-hand walk. |
+| `a11y-account` | The eight rules over the applicant's own five pages, with `APPLICANT_USER` and `APPLICANT_PASS`. It prints the row count of each page rather than asserting one, because whether the credential has content is a fact about the credential — but **a freshly registered account passed all five clean and three of them failed the moment it had rows**, so the numbers are what say which of the two a run was. See `create-applicant.mjs` below. |
 | `responsive-account` | The applicant's own five pages, the same way, with `APPLICANT_USER` and `APPLICANT_PASS`. **Signed out all five redirect to `/login`**, so a run without a credential would measure the login page five times and report it as coverage — which is why this skips by name rather than running. It also checks `.nav-account-name` at 1024: a display name is arbitrary text of arbitrary length in a fixed width bar, capped with an ellipsis rather than wrapped, because a name that wraps takes the row with it. |
 
-Every section also checks that **no icon is drawn under `MIN_SIZE`**, which the
-file imports from `main-site/assets/js/icons.js` so the check and the build
-cannot disagree about what too small means.
+Every responsive section also checks that **no icon is drawn under `MIN_SIZE`**,
+which the file imports from `main-site/assets/js/icons.js` so the check and the
+build cannot disagree about what too small means.
 
-**`PATCH_ASSETS=1` serves the working tree's stylesheets and scripts in place of
-the deployment's**, borrowed from `layout-check.mjs`, which calls it `PATCH_CSS`
-and patches only stylesheets. Both spellings work here:
+**`inert` counts as gone, and so does `visibility: hidden`.** The build closes
+its three off canvas panels two different ways — `admin-shell.js` makes the
+sidebar `inert`, while `.site-nav` and `.filter-panel` are hidden in CSS — and
+`Element.checkVisibility()` sees only the second. The audit asks about both,
+which it did not on its first run: it reported every link in the admin sidebar
+as focusable inside `aria-hidden`, on all six pages in both languages, and that
+was a finding about the check.
+
+**`PATCH_ASSETS=1` serves the working tree's stylesheets, scripts and pages in
+place of the deployment's**, borrowed from `layout-check.mjs`, which calls it
+`PATCH_CSS` and patches only stylesheets. Both spellings work here, and **pages
+are patched too since part 2**, because an accessibility fix is as often a line
+of markup as a line of CSS. Only GET navigations are served from the tree; a
+form posting to a page still reaches the deployment.
 
 ```sh
 PATCH_ASSETS=1 STAFF_USER=... STAFF_PASS='...' node tests/phase12-test.mjs --only=responsive-admin
@@ -240,9 +255,29 @@ and one constant. **Leaving it off is also the cleanest negative test there is**
 the deployment still carries whatever has not shipped yet, so a check that
 passes patched and fails unpatched has just proved both halves of itself.
 
-**This section writes nothing.** It signs in and navigates; it creates no
-posting, no application and no tag, so it is the one credentialed run that needs
-no cleanup and does not touch the deletion budget below.
+**This whole file writes nothing.** It signs in and navigates; it creates no
+posting, no application, no tag and no task, so it is the one credentialed run
+that needs no cleanup and does not touch the deletion budget below.
+
+### Making the applicant the account sections need
+
+`node tests/create-applicant.mjs`, which is separate from the phase file for
+exactly the reason above. It registers `APPLICANT_USER` **through the register
+page** — phase 6's rule, since the page generates the recovery codes and
+`api/auth/applicant/register` alone does not — then saves three postings,
+applies to one, and with `STAFF_USER` set raises two tasks, one a plain reply
+box and one a set of all four question types.
+
+**The content is not decoration.** A freshly registered account passed the
+whole accessibility sweep clean; the moment it had an application, three saved
+roles and two tasks on it, `/account/applications`, `/account/saved` and
+`/account/tasks` all failed the heading outline. An empty list measures the
+chrome.
+
+The password has to be **ten characters or more**, which is the whole of the
+policy in `api/_lib/password.js`. Everything the script creates cascades away
+when the account is deleted, per 7g, so the danger zone undoes all of it in one
+action.
 
 ## What a run writes
 

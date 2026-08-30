@@ -24,6 +24,7 @@ import {
 } from './theme.js';
 import { initI18n, applyLocale, getLocale, t, LOCALES } from './i18n.js';
 import { hydrateIcons } from './icons.js';
+import { insertTopBar } from './top-bars.js';
 import {
   loadBuildStatus,
   loadFeatureOverrides,
@@ -203,7 +204,10 @@ function renderHeader() {
   backdrop.setAttribute('data-close-nav', '');
   header.append(backdrop);
 
-  document.body.prepend(header);
+  // Below the skip link and below the two notice bars, per top-bars.js. It
+  // used to be a plain prepend, which put the whole header ahead of the skip
+  // link on every page in the build.
+  insertTopBar(header, 'site-header');
   return { header, backdrop };
 }
 
@@ -364,6 +368,14 @@ function wireNav(header, backdrop) {
     toggle.setAttribute('aria-label', t('common.closeMenu'));
     backdrop.hidden = false;
     lockScroll(true);
+    // **This works because of one line of CSS, and it is worth knowing which.**
+    // The closed drawer is `visibility: hidden`, so that a keyboard reader
+    // cannot tab into an off-screen panel the page has told a screen reader is
+    // not there. An element that is not visible cannot take focus, so the open
+    // rule in app.css shows it with `visibility 0s` and no delay, and this call
+    // lands on something focusable in the same style recalculation. A
+    // `visibility` transition with a duration on it would put the focus back on
+    // the button behind the drawer, silently.
     nav.querySelector(FOCUSABLE)?.focus();
   }
 

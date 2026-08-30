@@ -99,10 +99,25 @@
                         <span class="avatar avatar-large" id="avatarPreview"></span>
                         <div class="avatar-editor-actions">
                             <!-- A real file input, kept out of the layout and
-                                 driven by the button beside it, so the control
-                                 stays keyboard reachable and native. -->
+                                 driven by the button beside it, which is what
+                                 keeps the native picker.
+
+                                 **Out of the tab order, and that is the whole
+                                 correction.** It used to be tabbable, so a
+                                 keyboard reader met two stops for one action
+                                 and the first of them had no name at all — an
+                                 unlabelled file control sitting in front of the
+                                 button that says what it does. Worse, the
+                                 button carries data-needs-network and this does
+                                 not, so with no connection the disabled button
+                                 could be tabbed straight past into the input it
+                                 was disabled to protect. Named as well as
+                                 hidden, because tabindex="-1" is not
+                                 unreachable, only unreached by Tab. Found by
+                                 phase 12 part 2. -->
                             <input type="file" id="avatarInput" accept="image/*"
-                                   class="visually-hidden">
+                                   class="visually-hidden" tabindex="-1"
+                                   data-i18n-attr="aria-label:settings.pictureChoose">
                             <button type="button" class="btn btn-secondary" id="avatarChoose"
                                     data-needs-network="upload" data-needs-network-hint
                                     data-i18n="settings.pictureChoose">

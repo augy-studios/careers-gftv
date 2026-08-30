@@ -89,6 +89,12 @@
             <div class="account-body">
                 <p class="callout danger" id="tasksError" role="alert" hidden></p>
 
+                <!-- One h2 for both lists, and that is enough: the completed
+                     ones sit under a <summary> at the same depth, so h1, h2,
+                     then h3 rows in either list skips nothing. See the note on
+                     /account/applications. -->
+                <h2 class="visually-hidden" data-i18n="tasks.listHeading">Tasks waiting on you</h2>
+
                 <div class="account-list" id="taskList" aria-busy="true"
                      aria-live="polite"></div>
 

@@ -38,6 +38,7 @@
 
 import { t } from './i18n.js';
 import { hydrateIcons } from './icons.js';
+import { insertTopBar } from './top-bars.js';
 
 const SW_URL = '/sw.js';
 
@@ -140,43 +141,76 @@ function state() {
   return null;
 }
 
+/**
+ * Draw, move or remove the bar.
+ *
+ * **The live region is the paragraph, and it is put on the page before its
+ * text is.** Phase 10 built the whole bar — role, label, icon, sentence and
+ * buttons — and then prepended it, which is a live region arriving with its
+ * content already inside it. A screen reader announces a live region when its
+ * contents *change*; a node that was never on the page without its text has
+ * nothing to compare against, so the bar that says the connection has gone was
+ * announced by nothing at all. Phase 12 part 2 inserts the paragraph empty and
+ * writes into it a frame later.
+ *
+ * **And the bar itself is a region rather than a live one.** In the update
+ * state it holds two buttons, and controls inside a live region are read out
+ * again every time the region is touched. The paragraph is the thing that
+ * changes and the paragraph is the thing that is announced; the buttons sit
+ * beside it, inside a landmark a reader can find on purpose.
+ */
 function render() {
   const current = state();
-  const existing = document.querySelector('.connection-notice');
+  let bar = document.querySelector('.connection-notice');
+  const fresh = !bar;
 
   if (current === null) {
-    existing?.remove();
+    bar?.remove();
     return;
   }
 
-  const bar = existing ?? document.createElement('div');
-  bar.className = 'connection-notice';
+  if (fresh) {
+    bar = document.createElement('div');
+    bar.className = 'connection-notice';
+    bar.setAttribute('role', 'region');
+    bar.innerHTML = '<div class="connection-notice-inner"><p data-message role="status"></p></div>';
+    // Above the phase notice and the header, below the skip link. The ordering
+    // lives in top-bars.js rather than in a comment here about a file this one
+    // does not import, which is what it was until phase 12 part 2.
+    insertTopBar(bar, 'connection-notice');
+  }
+
   bar.dataset.state = current;
-  bar.setAttribute('role', 'status');
   bar.setAttribute('aria-label', t('offline.bannerLabel'));
 
-  bar.innerHTML = `
-    <div class="connection-notice-inner">
-      <span data-icon="${current === 'update' ? 'download' : 'offline'}" data-icon-size="16"></span>
-      <p>${bodyFor(current)}</p>
-      ${actionFor(current)}
-    </div>
-  `;
+  const inner = bar.querySelector('.connection-notice-inner');
+  const message = inner.querySelector('[data-message]');
+
+  // Everything but the message is rebuilt on every state change. The message
+  // element is kept, because a live region replaced is a live region
+  // registered again with its content already in it — the failure above, one
+  // state change later.
+  for (const node of [...inner.children]) if (node !== message) node.remove();
+
+  const icon = document.createElement('span');
+  icon.setAttribute('data-icon', current === 'update' ? 'download' : 'offline');
+  icon.setAttribute('data-icon-size', '16');
+  inner.prepend(icon);
 
   if (current === 'update') {
-    bar.querySelector('[data-sw-update]')?.addEventListener('click', acceptUpdate);
-    bar.querySelector('[data-sw-later]')?.addEventListener('click', () => {
+    inner.insertAdjacentHTML('beforeend', actionFor(current));
+    inner.querySelector('[data-sw-update]')?.addEventListener('click', acceptUpdate);
+    inner.querySelector('[data-sw-later]')?.addEventListener('click', () => {
       updateDismissed = true;
       render();
     });
   }
 
-  if (!existing) {
-    // Above the phase notice, which renderPhaseNotice knows to insert after
-    // this one when both are present. The connection state is the more urgent
-    // of the two and neither should be able to reorder the other.
-    document.body.prepend(bar);
-  }
+  const write = () => {
+    message.innerHTML = bodyFor(current);
+  };
+  if (fresh) requestAnimationFrame(write);
+  else write();
 
   hydrateIcons(bar);
 }
@@ -312,6 +346,26 @@ function gatedElsewhere(el) {
   return el.getAttribute('data-shipped') === 'false' || el.hasAttribute('data-maintenance');
 }
 
+// One counter for the whole page. A hint is identified by its own id rather
+// than by the control's, because not every control that carries one has an id
+// of its own and inventing one for it would change something the rest of the
+// build may be selecting on.
+let hintCount = 0;
+
+/**
+ * Add or remove one id in an element's aria-describedby, leaving anything else
+ * in there alone. A control may be described by more than one thing, and
+ * writing the attribute whole is how the other description gets lost.
+ */
+function describedBy(el, id, present) {
+  if (!id) return;
+  const tokens = (el.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(Boolean);
+  const without = tokens.filter((token) => token !== id);
+  const next = present ? [...without, id] : without;
+  if (next.length > 0) el.setAttribute('aria-describedby', next.join(' '));
+  else el.removeAttribute('aria-describedby');
+}
+
 function reasonFor(token) {
   if (token === 'apply') return t('offline.needsApply');
   if (token === 'signin') return t('offline.needsSignIn');
@@ -351,16 +405,31 @@ export function applyNetworkGating(root = document) {
 
       if (el.hasAttribute('data-needs-network-hint')) {
         const existing = el.nextElementSibling;
+        let hint;
         if (existing?.classList.contains('offline-hint')) {
           // Replaced, not appended, so a language change rewrites the sentence
           // rather than stacking a second one under it.
-          existing.textContent = reason;
+          hint = existing;
+          hint.textContent = reason;
         } else {
-          const hint = document.createElement('p');
+          hint = document.createElement('p');
           hint.className = 'offline-hint';
           hint.textContent = reason;
           el.after(hint);
         }
+
+        // **Beside is not attached.** Phase 10 put the sentence next to the
+        // control because a disabled control loses its title in some browsers,
+        // and then left it as a loose paragraph with nothing pointing at it: a
+        // reader who moved to the control heard a greyed out button and no
+        // reason, and a reader who moved through the text heard a reason with
+        // nothing to attach it to. Phase 12 part 2 gives it an id and points
+        // the control at it.
+        if (!hint.id) {
+          hintCount += 1;
+          hint.id = `offlineHint${hintCount}`;
+        }
+        describedBy(el, hint.id, true);
       }
       return;
     }
@@ -380,7 +449,13 @@ export function applyNetworkGating(root = document) {
     // still holding the control down.
     disabledByUs.delete(el);
     el.removeAttribute('data-offline-disabled');
-    el.nextElementSibling?.classList.contains('offline-hint') && el.nextElementSibling.remove();
+    const hint = el.nextElementSibling;
+    if (hint?.classList.contains('offline-hint')) {
+      // The reference goes before the paragraph does, or the control is left
+      // pointing at an id that is no longer in the document.
+      describedBy(el, hint.id, false);
+      hint.remove();
+    }
 
     if (stillHeld) return;
 

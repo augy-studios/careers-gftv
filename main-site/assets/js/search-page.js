@@ -921,6 +921,14 @@ function wireFilterSheet() {
     el.filterToggle.setAttribute('aria-expanded', 'true');
     if (el.filterBackdrop) el.filterBackdrop.hidden = false;
     document.body.setAttribute('data-scroll-locked', 'true');
+    // **This did nothing at all until phase 12 part 2**, and the reason is in
+    // app.css rather than here. The closed sheet is `visibility: hidden`, an
+    // element that is not visible cannot take focus, and `visibility` was
+    // transitioned over the length of the slide — so at the moment of this call
+    // it was still hidden and the sheet opened with the focus left on the
+    // toggle behind it. Escape then put the focus back where it already was,
+    // which is exactly why the restoration looked correct and the taking was
+    // never noticed. The open rule now shows the panel with `visibility 0s`.
     el.filterPanel.querySelector('button, input, select, a[href]')?.focus();
   };
 

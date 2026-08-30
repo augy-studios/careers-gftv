@@ -95,6 +95,15 @@
 
                 <p class="callout danger" id="applicationsError" role="alert" hidden></p>
 
+                <!-- Structural rather than visual. Every row below is an h3, so
+                     without this the outline went from the page's h1 straight
+                     to h3. It is invisible because the h1 and the bucket tabs
+                     already say what the list is on screen. **This page passed
+                     the sweep while the account was empty and failed the moment
+                     it had a row in it**, which is the whole argument for
+                     measuring a populated dashboard. Phase 12 part 2. -->
+                <h2 class="visually-hidden" data-i18n="applications.listHeading">Your applications</h2>
+
                 <div class="account-list" id="applicationList" aria-busy="true"
                      aria-live="polite"></div>
 

@@ -314,12 +314,42 @@ body {
   background: var(--bg-alt);
   border-left: 1px solid var(--border);
   transform: translateX(100%);
-  transition: transform var(--transition) var(--ease);
+  /* **A closed drawer is hidden, not merely moved.** shell.js puts
+     aria-hidden="true" on this while it is closed, which tells a screen reader
+     the subtree is not there; without visibility:hidden every link and button
+     inside it stayed in the tab order, so a keyboard reader tabbed off the
+     header into a panel sitting entirely off the right edge, one that the page
+     had already said did not exist. The filter panel got this right from the
+     start and this did not — part 1's lesson about a sibling not being covered
+     by the rules written for the ones beside it, from the other direction.
+     Found by tests/phase12-test.mjs on 30 August 2026.
+
+     visibility is in the transition so the slide out still animates: it is a
+     discrete property, so the drawer stays visible for the whole of the
+     transform and disappears at the end of it. */
+  visibility: hidden;
+  /* **Hidden late, shown at once.** Two different transitions, and the
+     asymmetry is the point. Closing delays the hide by the length of the slide,
+     so the drawer is still on screen while it moves out. Opening changes it
+     with no delay and no duration, so the panel is focusable in the same style
+     recalculation that opens it — `visibility` interpolated over a duration is
+     still `hidden` at progress zero, and shell.js focuses the first thing in
+     the drawer immediately, so a plain `visibility var(--transition)` opens the
+     drawer with the focus left on the button behind it. That is the trap this
+     rule exists to avoid, and phase 12 part 2 walked into it on the way to
+     fixing the tab order. */
+  transition:
+    transform var(--transition) var(--ease),
+    visibility 0s linear var(--transition);
   overflow-y: auto;
 }
 
 .site-nav[data-open='true'] {
   transform: translateX(0);
+  visibility: visible;
+  transition:
+    transform var(--transition) var(--ease),
+    visibility 0s;
 }
 
 .site-nav-head {
@@ -412,6 +442,9 @@ body {
     background: none;
     border-left: 0;
     transform: none;
+    /* Not a drawer up here, so the closed state's hiding has to come off with
+       the rest of it. shell.js drops aria-hidden at the same breakpoint. */
+    visibility: visible;
     overflow: visible;
   }
 
@@ -1635,15 +1668,21 @@ select:disabled {
      up under the home indicator. */
   padding-bottom: env(safe-area-inset-bottom);
   transform: translateY(100%);
+  /* Hidden late, shown at once, for the reason written out on `.site-nav`: a
+     `visibility` transition with a duration is still `hidden` at progress zero,
+     and the sheet is focused the instant it opens. */
   visibility: hidden;
   transition:
     transform var(--transition) var(--ease),
-    visibility var(--transition);
+    visibility 0s linear var(--transition);
 }
 
 .filter-panel[data-open='true'] {
   transform: translateY(0);
   visibility: visible;
+  transition:
+    transform var(--transition) var(--ease),
+    visibility 0s;
 }
 
 .filter-head {
@@ -4314,6 +4353,12 @@ input[type='search']::-webkit-search-cancel-button {
     background: var(--bg-alt);
     border-right: 1px solid var(--border);
     transform: translateX(-100%);
+    /* No `visibility: hidden` here, and that is deliberate rather than an
+       omission: `syncNavReach` in admin-shell.js sets `inert` on this panel
+       while it is closed, which takes it out of the tab order and out of the
+       accessibility tree at once. `.site-nav` and `.filter-panel` reach the
+       same state through CSS instead. Two mechanisms, one rule, and
+       tests/phase12-test.mjs is what keeps them agreeing. */
     transition: transform var(--transition) var(--ease);
     overflow-y: auto;
   }

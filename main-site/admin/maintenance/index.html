@@ -105,6 +105,14 @@
                 </div>
 
                 <section class="admin-section">
+                    <!-- Structural rather than visual. Every switch in the list
+                         below is an h3, so without this the outline went from
+                         the page's h1 straight to h3 and a screen reader was
+                         told a level had been left out. Visually hidden because
+                         the h1 and the lede above already say what this list is,
+                         and the section below it has its own visible h2 for the
+                         switches that cannot be turned off. Phase 12 part 2. -->
+                    <h2 class="visually-hidden" data-i18n="admin.switchListHeading">Switches</h2>
                     <div class="admin-list" id="featureList" aria-live="polite"></div>
                 </section>
 

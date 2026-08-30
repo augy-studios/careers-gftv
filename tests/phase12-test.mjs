@@ -121,10 +121,36 @@ const LOCALES = ['en', 'zh'];
 // borrowing is worth not breaking.
 const PATCH = process.env.PATCH_ASSETS === '1' || process.env.PATCH_CSS === '1';
 
-/** Stylesheets and scripts from this working tree, for a context on a
- *  deployment. Anything not in the tree falls through to the network. */
+/** Stylesheets, scripts and pages from this working tree, for a context on a
+ *  deployment. Anything not in the tree falls through to the network.
+ *
+ *  **Pages as well as assets, since part 2.** The accessibility fixes are as
+ *  often a line of markup as a line of CSS — a heading that closes a gap in an
+ *  outline, an attribute that names a control — and a fix that cannot be proved
+ *  until it has shipped is the thing this flag exists to prevent. The admin
+ *  pages are static documents like every other page here; only their data comes
+ *  from the deployment, and that still does. */
 async function patchAssets(ctx) {
   if (!PATCH) return false;
+
+  // Registered first so it is consulted last: a stylesheet is not a document
+  // and falls straight through to the handler below.
+  await ctx.route('**/*', async (route) => {
+    const request = route.request();
+    // GET only. A form posting to a page must reach the deployment, or the
+    // response would be this file's idea of the page instead of the answer.
+    if (request.resourceType() !== 'document' || request.method() !== 'GET') return route.fallback();
+
+    const file = await resolveRoute(new URL(request.url()).pathname);
+    if (!file) return route.fallback();
+
+    return route.fulfill({
+      status: 200,
+      contentType: 'text/html; charset=utf-8',
+      body: await readFile(file, 'utf8'),
+    });
+  });
+
   await ctx.route('**/assets/{css,js}/**', async (route) => {
     const { pathname } = new URL(route.request().url());
     try {
@@ -273,6 +299,32 @@ function facetsFixture(locale) {
   };
 }
 
+// **The combobox needs a list before it is a combobox.** Part 2 asks whether
+// aria-expanded flips, whether the highlight moves with the arrow keys and
+// whether aria-activedescendant names a real option, and none of those
+// questions exist against an empty list. Three groups rather than one, because
+// the list is a listbox containing groups and the arrow keys have to walk from
+// the last option of one into the first of the next.
+function suggestFixture(locale) {
+  const zh = locale === 'zh';
+  return {
+    suggestions: {
+      titles: [
+        { label: LONG_TITLE[locale], value: 'aaaaaaaa-bbbb-cccc-dddd-000000000000', count: 0 },
+        { label: zh ? '字幕审校员' : 'Subtitle reviewer', value: 'aaaaaaaa-bbbb-cccc-dddd-000000000001', count: 0 },
+      ],
+      tags: [{ label: LONG_TAG[locale], value: 'subtitling', count: 12 }],
+      departments: [
+        {
+          label: zh ? '内容本地化与字幕制作部' : 'Content Localisation and Subtitling',
+          value: 'content-localisation',
+          count: 17,
+        },
+      ],
+    },
+  };
+}
+
 /* -------------------------------------------------------------------------
  * The site, served from the working tree
  * ---------------------------------------------------------------------- */
@@ -316,7 +368,9 @@ async function serveSite(locale = 'en') {
           ? searchFixture(locale)
           : url.pathname === '/api/public/facets'
             ? facetsFixture(locale)
-            : null;
+            : url.pathname === '/api/public/suggest'
+              ? suggestFixture(locale)
+              : null;
 
       if (fixture) {
         res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
@@ -679,7 +733,836 @@ define('landscape', 'A landscape phone, where a sticky header costs the most', a
 });
 
 /* =========================================================================
- * 3. The admin pages, which need a deployment and a staff credential
+ * 3. The accessibility sweep, which is part 2
+ * ====================================================================== */
+
+/** Everything one page is asked about, in the page's own context.
+ *
+ *  **Seven rules, and none of them is a preference.** Each one is a thing a
+ *  keyboard or a screen reader either can or cannot do, so each one fails with
+ *  the element that broke it rather than with a count: "this page has an
+ *  unnamed button" is not a finding anybody can act on.
+ *
+ *  The accessible name here is an approximation of the real algorithm and is
+ *  deliberately generous — aria-label, aria-labelledby, a label element, the
+ *  text inside, an image's alt, and finally title. Generous is the right
+ *  direction for a check that fails a build: everything it reports is genuinely
+ *  nameless, and the cost of the approximation is a name it credits that a
+ *  browser might compute differently, which is a missed finding rather than a
+ *  false one. */
+function auditA11y({ focusable }) {
+  // **`inert` is the other way of not being there, and it is invisible to
+  // checkVisibility.** The admin sidebar closes by being made inert rather than
+  // by being hidden — it is out of the tab order and out of the accessibility
+  // tree, and still perfectly visible as far as CSS is concerned. The first
+  // shape of this audit reported every link in it as focusable inside
+  // aria-hidden, on all six admin pages in both languages, which is a finding
+  // about the check and not about the page. Both mechanisms count as gone.
+  const seen = (el) => el.checkVisibility({ checkVisibilityCSS: true }) && el.closest('[inert]') === null;
+
+  const describe = (el) => {
+    const cls = String(el.className || '').split(' ').filter(Boolean)[0];
+    return `${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''}${cls ? '.' + cls : ''}`;
+  };
+
+  const textOf = (el) => (el?.textContent ?? '').trim();
+
+  function accessibleName(el) {
+    const label = el.getAttribute('aria-label');
+    if (label && label.trim()) return label.trim();
+
+    const labelledby = el.getAttribute('aria-labelledby');
+    if (labelledby) {
+      const joined = labelledby
+        .split(/\s+/)
+        .map((id) => textOf(document.getElementById(id)))
+        .filter(Boolean)
+        .join(' ');
+      if (joined) return joined;
+    }
+
+    if (/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) {
+      if (el.id) {
+        const forLabel = document.querySelector(`label[for="${CSS.escape(el.id)}"]`);
+        if (textOf(forLabel)) return textOf(forLabel);
+      }
+      const wrapping = el.closest('label');
+      if (textOf(wrapping)) return textOf(wrapping);
+      if (el.tagName === 'INPUT' && /^(submit|button|reset)$/.test(el.type) && el.value.trim()) {
+        return el.value.trim();
+      }
+      // **A placeholder is not a name**, and this is the one place the check is
+      // deliberately strict rather than generous: some browsers fall back to it,
+      // which is exactly what makes an unlabelled field survive a hand test.
+      return '';
+    }
+
+    if (textOf(el)) return textOf(el);
+
+    const alt = el.querySelector('img[alt]')?.getAttribute('alt');
+    if (alt && alt.trim()) return alt.trim();
+
+    const title = el.getAttribute('title');
+    if (title && title.trim()) return title.trim();
+
+    return '';
+  }
+
+  // 1. Everything a reader can reach with Tab can be named out loud.
+  //
+  // **`tabindex="-1"` is excluded whatever the tag is**, and the build's own
+  // FOCUSABLE list does not do that: it says `[tabindex]:not([tabindex="-1"])`
+  // for a bare element and then `input:not([disabled])` for an input, so an
+  // input taken out of the tab order still matches. That is a question about a
+  // tab order, so the answer has to be the tab order's.
+  const unnamed = [];
+  const reachable = [...document.querySelectorAll(focusable)].filter(
+    (el) => seen(el) && el.getAttribute('tabindex') !== '-1'
+  );
+  for (const el of reachable) {
+    if (accessibleName(el) === '') unnamed.push(describe(el));
+  }
+
+  // 2. **Nothing focusable inside aria-hidden.** The one rule in this list that
+  //    is a contradiction rather than an omission: the page has told a screen
+  //    reader the subtree does not exist and has left the keyboard able to walk
+  //    into it. A closed off-canvas panel that is only moved off the edge is how
+  //    this happens, every time.
+  const hiddenFocusable = [];
+  for (const hidden of document.querySelectorAll('[aria-hidden="true"]')) {
+    for (const el of hidden.querySelectorAll(focusable)) {
+      if (!seen(el) || el.getAttribute('tabindex') === '-1') continue;
+      hiddenFocusable.push(`${describe(el)} inside ${describe(hidden)}`);
+    }
+  }
+
+  // 3. Every ARIA reference points at something that is on the page.
+  const IDREF = ['aria-controls', 'aria-labelledby', 'aria-describedby', 'aria-activedescendant', 'aria-owns'];
+  const dangling = [];
+  for (const attr of IDREF) {
+    for (const el of document.querySelectorAll(`[${attr}]`)) {
+      for (const id of el.getAttribute(attr).split(/\s+/).filter(Boolean)) {
+        if (!document.getElementById(id)) dangling.push(`${describe(el)} ${attr}="${id}"`);
+      }
+    }
+  }
+  for (const el of document.querySelectorAll('label[for]')) {
+    const id = el.getAttribute('for');
+    if (id && !document.getElementById(id)) dangling.push(`${describe(el)} for="${id}"`);
+  }
+
+  // 4. One id, one element. A duplicate makes every reference above a coin toss.
+  const counts = new Map();
+  for (const el of document.querySelectorAll('[id]')) {
+    counts.set(el.id, (counts.get(el.id) ?? 0) + 1);
+  }
+  const duplicates = [...counts].filter(([, n]) => n > 1).map(([id, n]) => `#${id} x${n}`);
+
+  // 5. One h1, and no level skipped on the way down. A heading outline is how a
+  //    screen reader reads a page it has not been to before.
+  const headings = [...document.querySelectorAll('h1, h2, h3, h4, h5, h6')].filter(seen);
+  const levels = headings.map((el) => Number(el.tagName[1]));
+  const h1 = headings.filter((el) => el.tagName === 'H1');
+  const skips = [];
+  for (let i = 1; i < levels.length; i += 1) {
+    if (levels[i] > levels[i - 1] + 1) {
+      skips.push(`h${levels[i - 1]} "${textOf(headings[i - 1]).slice(0, 20)}" to h${levels[i]} "${textOf(headings[i]).slice(0, 20)}"`);
+    }
+  }
+
+  // 6. Every image says what it is, or says it is decoration. A missing alt is
+  //    the only one of the three that is silence.
+  const images = [];
+  for (const img of document.querySelectorAll('img')) {
+    if (!seen(img)) continue;
+    if (img.hasAttribute('alt')) continue;
+    if (img.getAttribute('role') === 'presentation' || img.getAttribute('aria-hidden') === 'true') continue;
+    images.push(`${describe(img)} ${img.getAttribute('src')?.slice(-30) ?? ''}`);
+  }
+
+  // 7. No positive tabindex anywhere. It reorders the whole document against
+  //    the order it is written in, and one is enough to do it.
+  const positive = [...document.querySelectorAll('[tabindex]')]
+    .filter((el) => Number(el.getAttribute('tabindex')) > 0)
+    .map((el) => `${describe(el)} tabindex="${el.getAttribute('tabindex')}"`);
+
+  // 8. The skip link is the first thing Tab reaches, and it lands somewhere.
+  const first = reachable[0] ?? null;
+  const skip = document.querySelector('.skip-link');
+  const skipTarget = skip ? document.getElementById((skip.getAttribute('href') ?? '').replace(/^#/, '')) : null;
+
+  return {
+    unnamed: [...new Set(unnamed)].slice(0, 8),
+    hiddenFocusable: [...new Set(hiddenFocusable)].slice(0, 8),
+    dangling: [...new Set(dangling)].slice(0, 8),
+    duplicates: duplicates.slice(0, 8),
+    h1Count: h1.length,
+    skips: skips.slice(0, 4),
+    images: images.slice(0, 6),
+    positive: positive.slice(0, 6),
+    skipLinkFirst: Boolean(skip) && first === skip,
+    skipLinkLands: Boolean(skipTarget),
+  };
+}
+
+/** The eight rules, reported once per page rather than once per width. */
+function reportA11y(label, results) {
+  const gather = (key) => results.filter((r) => r[key].length > 0);
+  const lines = (key) => gather(key).map((r) => `${r.width}px: ${r[key].join(', ')}`).join('; ');
+
+  check(`${label}: everything reachable by Tab has a name`, gather('unnamed').length === 0, lines('unnamed'));
+  check(
+    `${label}: nothing focusable sits inside aria-hidden`,
+    gather('hiddenFocusable').length === 0,
+    lines('hiddenFocusable')
+  );
+  check(`${label}: every ARIA reference resolves`, gather('dangling').length === 0, lines('dangling'));
+  check(`${label}: no id is used twice`, gather('duplicates').length === 0, lines('duplicates'));
+  check(
+    `${label}: exactly one h1 at every width`,
+    results.every((r) => r.h1Count === 1),
+    results.map((r) => `${r.width}px: ${r.h1Count}`).join(', ')
+  );
+  check(`${label}: no heading level is skipped`, gather('skips').length === 0, lines('skips'));
+  check(`${label}: every image has an alt or is marked decorative`, gather('images').length === 0, lines('images'));
+  check(`${label}: no positive tabindex`, gather('positive').length === 0, lines('positive'));
+  check(
+    `${label}: the skip link is first and lands on something`,
+    results.every((r) => r.skipLinkFirst && r.skipLinkLands),
+    results.map((r) => `${r.width}px: first ${r.skipLinkFirst}, lands ${r.skipLinkLands}`).join('; ')
+  );
+}
+
+// The drawer and the filter sheet are the two off-canvas panels on a public
+// page, and 375 is where both of them are a sheet. 1024 is where neither is,
+// and the two states are different documents as far as this sweep is concerned.
+const A11Y_WIDTHS = [375, 1024];
+
+// The same list dialog.js and shell.js use to decide what a focus trap contains.
+// Imported by value rather than by reference because it is a string in a module
+// this file has no reason to import for one constant.
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+define('a11y', 'The public pages against the accessibility rules, in both languages', async () => {
+  console.log(`      ${A11Y_WIDTHS.join(', ')} across ${PUBLIC_PAGES.length} pages, en and 华文`);
+
+  const browser = await chromium.launch();
+
+  try {
+    for (const locale of LOCALES) {
+      const server = await serveSite(locale);
+      const ctx = await contextFor(browser, server.base, locale);
+      const page = await ctx.newPage();
+
+      // **Prove the audit can fail before trusting that it passed.** Part 1
+      // learned this the expensive way: a clean first run is what a broken
+      // measurement looks like from the outside. Two defects are injected into
+      // a real page — a button with nothing to say, and a link left focusable
+      // inside an aria-hidden container — and both have to be named.
+      if (locale === 'en') {
+        await page.goto(`${server.base}/`, { waitUntil: 'domcontentloaded' });
+        await page.waitForLoadState('networkidle').catch(() => {});
+        await page.evaluate(() => {
+          const probe = document.createElement('div');
+          probe.id = 'a11yProbe';
+          probe.innerHTML =
+            '<button type="button" id="probeNameless"></button>' +
+            '<div aria-hidden="true"><a href="/faq" id="probeLink">Reachable</a></div>';
+          document.body.append(probe);
+        });
+        const caught = await page.evaluate(auditA11y, { focusable: FOCUSABLE });
+        await page.evaluate(() => document.querySelector('#a11yProbe')?.remove());
+        check(
+          'the audit reports a control with no accessible name',
+          caught.unnamed.some((entry) => entry.includes('probeNameless')),
+          caught.unnamed.join(', ') || 'nothing reported'
+        );
+        check(
+          'the audit reports a focusable element inside aria-hidden',
+          caught.hiddenFocusable.some((entry) => entry.includes('probeLink')),
+          caught.hiddenFocusable.join(', ') || 'nothing reported'
+        );
+      }
+
+      for (const path of PUBLIC_PAGES) {
+        const results = [];
+        for (const width of A11Y_WIDTHS) {
+          await page.setViewportSize({ width, height: 800 });
+          await page.goto(`${server.base}${path}`, { waitUntil: 'domcontentloaded' });
+          await page.waitForLoadState('networkidle').catch(() => {});
+          await page.evaluate(() => document.querySelector('#applyDialog')?.close());
+          results.push({
+            width,
+            ...(await page.evaluate(auditA11y, { focusable: FOCUSABLE })),
+          });
+        }
+        reportA11y(`${path} in ${locale}`, results);
+      }
+
+      await ctx.close();
+      server.close();
+    }
+  } finally {
+    await browser.close();
+  }
+});
+
+/* =========================================================================
+ * 4. The public surfaces a keyboard has to be able to drive
+ * ====================================================================== */
+
+// The sweep above asks whether a page is *described* correctly. It cannot ask
+// whether anything *works*, and every surface on section 12's accessibility
+// list is a behaviour: a combobox that never moves aria-activedescendant is a
+// combobox that passes every static rule in the file and cannot be used with
+// the arrow keys.
+//
+// Four of them are reachable from the working tree, which is why they are here
+// rather than in the section below: the suggestion combobox, the filter panel
+// as a bottom sheet, the dialog shell that phase 4's two modals are built on,
+// and phase 10's connection bar with the sentence it puts beside a control it
+// has disabled. The rest of the list is an admin session and a database, and
+// goes with the pages it lives on.
+
+define('a11y-keyboard', 'The combobox, the filter sheet, the dialog and the connection bar', async () => {
+  const browser = await chromium.launch();
+
+  try {
+    for (const locale of LOCALES) {
+      const server = await serveSite(locale);
+      const ctx = await contextFor(browser, server.base, locale);
+      const page = await ctx.newPage();
+
+      /* --- The suggestion combobox ------------------------------------- */
+
+      await page.setViewportSize({ width: 1024, height: 800 });
+      await page.goto(`${server.base}/search`, { waitUntil: 'domcontentloaded' });
+      await page.waitForLoadState('networkidle').catch(() => {});
+
+      await page.click('#searchInput');
+      // 华文 opens on one character and English on two, which minimumQueryLength
+      // decides. Typing one letter in English would close the list and the
+      // whole surface would report as broken for the wrong reason.
+      await page.type('#searchInput', locale === 'zh' ? '字' : 'sub', { delay: 20 });
+      const opened = await page
+        .waitForSelector('#suggestions:not([hidden]) [role="option"]', { timeout: 5000 })
+        .then(() => true)
+        .catch(() => false);
+
+      check(`the combobox opens on a real query, in ${locale}`, opened, 'no option appeared');
+
+      if (opened) {
+        const readCombobox = () =>
+          page.evaluate(() => {
+            const input = document.querySelector('#searchInput');
+            const active = input.getAttribute('aria-activedescendant');
+            const options = [...document.querySelectorAll('#suggestions [role="option"]')];
+            return {
+              expanded: input.getAttribute('aria-expanded'),
+              hidden: document.querySelector('#suggestions').hidden,
+              count: options.length,
+              active,
+              activeExists: Boolean(active) && Boolean(document.getElementById(active)),
+              selected: options.filter((el) => el.getAttribute('aria-selected') === 'true').length,
+              selectedIsActive:
+                Boolean(active) && document.getElementById(active)?.getAttribute('aria-selected') === 'true',
+              focused: document.activeElement?.id ?? null,
+              ids: options.map((el) => el.id),
+            };
+          });
+
+        const listed = await readCombobox();
+        check(
+          `the combobox says it is expanded while the list is open, in ${locale}`,
+          listed.expanded === 'true' && listed.hidden === false && listed.count === 4,
+          `aria-expanded ${listed.expanded}, hidden ${listed.hidden}, ${listed.count} options`
+        );
+
+        await page.press('#searchInput', 'ArrowDown');
+        const first = await readCombobox();
+        check(
+          `the arrow keys move a highlight the input names, in ${locale}`,
+          first.activeExists && first.selected === 1 && first.selectedIsActive,
+          `aria-activedescendant "${first.active}", exists ${first.activeExists}, ${first.selected} selected`
+        );
+
+        // **The focus never leaves the input.** That is the whole contract of a
+        // combobox: the reader is typing, and the highlight moving is a change
+        // of state rather than a change of place. A version that focused the
+        // option would still highlight it, and the next keystroke would go
+        // somewhere the reader is not looking.
+        check(
+          `the focus stays in the input while the list is walked, in ${locale}`,
+          first.focused === 'searchInput',
+          `focus on ${first.focused}`
+        );
+
+        // Down past the last option comes back to the first, and it walks out
+        // of one group and into the next on the way: the list is three groups
+        // and a reader arrowing through it should never feel them.
+        for (let i = 0; i < 4; i += 1) await page.press('#searchInput', 'ArrowDown');
+        const wrapped = await readCombobox();
+        check(
+          `the highlight wraps at the end of the last group, in ${locale}`,
+          wrapped.active === wrapped.ids[0],
+          `after five presses the highlight is "${wrapped.active}", first option is "${wrapped.ids[0]}"`
+        );
+
+        await page.press('#searchInput', 'Escape');
+        const closed = await readCombobox();
+        check(
+          `Escape closes the list and takes the highlight with it, in ${locale}`,
+          closed.hidden === true && closed.expanded === 'false' && closed.active === null,
+          `hidden ${closed.hidden}, aria-expanded ${closed.expanded}, activedescendant ${closed.active}`
+        );
+      }
+
+      /* --- The filter panel, which is a sheet below 1024 ---------------- */
+
+      await page.setViewportSize({ width: 375, height: 800 });
+      await page.goto(`${server.base}/search`, { waitUntil: 'domcontentloaded' });
+      await page.waitForLoadState('networkidle').catch(() => {});
+
+      await page.click('#filterToggle');
+      await page.waitForTimeout(400); // the sheet's own transition, not a race
+
+      const sheetOpen = await page.evaluate(() => {
+        const panel = document.querySelector('#filterPanel');
+        return {
+          expanded: document.querySelector('#filterToggle').getAttribute('aria-expanded'),
+          hidden: panel.getAttribute('aria-hidden'),
+          holdsFocus: panel.contains(document.activeElement),
+          focused: document.activeElement?.className ?? null,
+        };
+      });
+      check(
+        `the filter sheet opens, says so, and takes the focus with it, in ${locale}`,
+        sheetOpen.expanded === 'true' && sheetOpen.hidden === 'false' && sheetOpen.holdsFocus,
+        `aria-expanded ${sheetOpen.expanded}, aria-hidden ${sheetOpen.hidden}, focus on ${sheetOpen.focused}`
+      );
+
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(400);
+
+      const sheetClosed = await page.evaluate(() => ({
+        expanded: document.querySelector('#filterToggle').getAttribute('aria-expanded'),
+        open: document.querySelector('#filterPanel').getAttribute('data-open'),
+        focused: document.activeElement?.id ?? null,
+      }));
+      check(
+        `Escape closes the sheet and puts the focus back on the toggle, in ${locale}`,
+        sheetClosed.expanded === 'false' && sheetClosed.open === null && sheetClosed.focused === 'filterToggle',
+        `aria-expanded ${sheetClosed.expanded}, data-open ${sheetClosed.open}, focus on ${sheetClosed.focused}`
+      );
+
+      /* --- The navigation drawer, which is a sheet at the same width ----- */
+
+      // **Here because part 2 changed it.** The closed drawer used to be moved
+      // off the right edge and left in the tab order, under an aria-hidden that
+      // said it was not there; hiding it properly is what fixes that, and
+      // hiding it properly is also what stops the panel taking the focus when
+      // it opens. Both halves are checked, so the fix cannot be half applied.
+      await page.click('#navToggle');
+      await page.waitForTimeout(400);
+
+      const drawerOpen = await page.evaluate(() => {
+        const nav = document.querySelector('#siteNav');
+        return {
+          expanded: document.querySelector('#navToggle').getAttribute('aria-expanded'),
+          hidden: nav.getAttribute('aria-hidden'),
+          holdsFocus: nav.contains(document.activeElement),
+        };
+      });
+      check(
+        `the navigation drawer opens and takes the focus with it, in ${locale}`,
+        drawerOpen.expanded === 'true' && drawerOpen.hidden === 'false' && drawerOpen.holdsFocus,
+        `aria-expanded ${drawerOpen.expanded}, aria-hidden ${drawerOpen.hidden}, holds focus ${drawerOpen.holdsFocus}`
+      );
+
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(400);
+      const drawerClosed = await page.evaluate(() => ({
+        expanded: document.querySelector('#navToggle').getAttribute('aria-expanded'),
+        focused: document.activeElement?.id ?? null,
+        // Closed, the drawer is out of the tab order rather than merely off
+        // the edge of the screen. This is the finding the static sweep made.
+        reachable: [...document.querySelectorAll('#siteNav a, #siteNav button')].filter((el) =>
+          el.checkVisibility({ checkVisibilityCSS: true })
+        ).length,
+      }));
+      check(
+        `Escape closes the drawer, restores the focus, and leaves nothing tabbable, in ${locale}`,
+        drawerClosed.expanded === 'false' && drawerClosed.focused === 'navToggle' && drawerClosed.reachable === 0,
+        `aria-expanded ${drawerClosed.expanded}, focus on ${drawerClosed.focused}, ` +
+          `${drawerClosed.reachable} still reachable`
+      );
+
+      /* --- The dialog shell, through the sign in prompt ------------------ */
+
+      // **One shell, three modals.** dialog.js is what phase 4's sign in prompt
+      // and translation report are both built from, so driving one of them
+      // drives the trap, the restoration and the labelling for all of them. The
+      // save button on a card is the cheapest way in: signed out, it opens the
+      // prompt rather than saving anything.
+      await page.setViewportSize({ width: 1024, height: 800 });
+      await page.goto(`${server.base}/search`, { waitUntil: 'domcontentloaded' });
+      await page.waitForLoadState('networkidle').catch(() => {});
+
+      // Clicked through the browser rather than with element.click(), because
+      // dialog.js remembers document.activeElement to give the focus back to
+      // and a scripted click moves no focus at all. That is a fact about the
+      // test and not about the page, and it fails as if it were the page.
+      await page.evaluate(() => {
+        document.querySelector('[data-save-job]').id = 'a11ySaveProbe';
+      });
+      await page.click('#a11ySaveProbe');
+
+      const dialogUp = await page
+        .waitForSelector('#signInPrompt:not(.hidden)', { timeout: 5000 })
+        .then(() => true)
+        .catch(() => false);
+      check(`the sign in prompt opens from a card, in ${locale}`, dialogUp, 'no dialog appeared');
+
+      if (dialogUp) {
+        const named = await page.evaluate(() => {
+          const panel = document.querySelector('#signInPrompt .modal');
+          const labelledby = panel.getAttribute('aria-labelledby');
+          return {
+            role: panel.getAttribute('role'),
+            modal: panel.getAttribute('aria-modal'),
+            label: (document.getElementById(labelledby ?? '')?.textContent ?? '').trim(),
+            holdsFocus: panel.contains(document.activeElement),
+          };
+        });
+        check(
+          `the dialog is a modal with a name, and holds the focus, in ${locale}`,
+          named.role === 'dialog' && named.modal === 'true' && named.label !== '' && named.holdsFocus,
+          `role ${named.role}, aria-modal ${named.modal}, name "${named.label}", holds focus ${named.holdsFocus}`
+        );
+
+        // Tab from the last focusable thing comes back to the first rather than
+        // stepping out onto the page the dialog is covering.
+        const trapped = await page.evaluate((focusable) => {
+          const panel = document.querySelector('#signInPrompt .modal');
+          const items = [...panel.querySelectorAll(focusable)].filter((el) => el.checkVisibility());
+          items[items.length - 1].focus();
+          return { last: items.length - 1, count: items.length };
+        }, FOCUSABLE);
+        await page.keyboard.press('Tab');
+        const afterTab = await page.evaluate((focusable) => {
+          const panel = document.querySelector('#signInPrompt .modal');
+          const items = [...panel.querySelectorAll(focusable)].filter((el) => el.checkVisibility());
+          return { inside: panel.contains(document.activeElement), index: items.indexOf(document.activeElement) };
+        }, FOCUSABLE);
+        check(
+          `Tab off the end of the dialog wraps rather than escaping it, in ${locale}`,
+          afterTab.inside && afterTab.index === 0,
+          `${trapped.count} focusable, landed at index ${afterTab.index}, inside ${afterTab.inside}`
+        );
+
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(100);
+        const returned = await page.evaluate(() => ({
+          hidden: document.querySelector('#signInPrompt').classList.contains('hidden'),
+          focused: document.activeElement?.id ?? null,
+        }));
+        check(
+          `Escape closes the dialog and gives the focus back to what opened it, in ${locale}`,
+          returned.hidden && returned.focused === 'a11ySaveProbe',
+          `hidden ${returned.hidden}, focus on ${returned.focused}`
+        );
+      }
+
+      /* --- The connection bar, and the sentence beside a dead control ---- */
+
+      await page.goto(`${server.base}/login`, { waitUntil: 'domcontentloaded' });
+      await page.waitForLoadState('networkidle').catch(() => {});
+
+      // **Watch the bar arrive, because the defect is in the arriving.** A live
+      // region prepended with its sentence already inside it is a region a
+      // screen reader has nothing to compare against, and after the fact the
+      // page looks identical either way. The observer records what the message
+      // element held at the moment it was inserted.
+      await page.evaluate(() => {
+        window.__barProbe = { inserted: false, emptyOnInsert: null };
+        new MutationObserver((records) => {
+          for (const record of records) {
+            for (const node of record.addedNodes) {
+              if (!(node instanceof HTMLElement) || !node.classList.contains('connection-notice')) continue;
+              window.__barProbe.inserted = true;
+              window.__barProbe.emptyOnInsert =
+                (node.querySelector('[data-message]')?.textContent ?? '').trim() === '';
+            }
+          }
+        }).observe(document.body, { childList: true });
+      });
+
+      await ctx.setOffline(true);
+      const barUp = await page
+        .waitForSelector('.connection-notice [data-message]:not(:empty)', { timeout: 5000 })
+        .then(() => true)
+        .catch(() => false);
+      check(`the connection bar appears when the network goes, in ${locale}`, barUp, 'no bar');
+
+      if (barUp) {
+        const bar = await page.evaluate(() => ({
+          probe: window.__barProbe,
+          role: document.querySelector('.connection-notice')?.getAttribute('role'),
+          label: document.querySelector('.connection-notice')?.getAttribute('aria-label') ?? '',
+          messageRole: document.querySelector('.connection-notice [data-message]')?.getAttribute('role'),
+          text: (document.querySelector('.connection-notice [data-message]')?.textContent ?? '').trim(),
+          state: document.querySelector('.connection-notice')?.dataset.state,
+        }));
+        check(
+          `the bar's live region is on the page before its sentence is, in ${locale}`,
+          bar.probe.inserted && bar.probe.emptyOnInsert === true,
+          `inserted ${bar.probe.inserted}, empty on insert ${bar.probe.emptyOnInsert}`
+        );
+        check(
+          `the bar is a named region with a polite message inside it, in ${locale}`,
+          bar.role === 'region' && bar.label !== '' && bar.messageRole === 'status' && bar.text !== '',
+          `role ${bar.role}, label "${bar.label}", message role ${bar.messageRole}, text "${bar.text.slice(0, 30)}"`
+        );
+
+        const gated = await page.evaluate(() => {
+          const button = document.querySelector('#loginForm [data-needs-network-hint]');
+          const described = (button?.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(Boolean);
+          const hint = button?.nextElementSibling;
+          return {
+            disabled: button?.disabled === true,
+            ariaDisabled: button?.getAttribute('aria-disabled'),
+            hintText: hint?.classList.contains('offline-hint') ? (hint.textContent ?? '').trim() : '',
+            hintId: hint?.classList.contains('offline-hint') ? hint.id : '',
+            described,
+          };
+        });
+        check(
+          `the reason beside a dead control is attached to it, in ${locale}`,
+          gated.disabled &&
+            gated.ariaDisabled === 'true' &&
+            gated.hintText !== '' &&
+            gated.hintId !== '' &&
+            gated.described.includes(gated.hintId),
+          `disabled ${gated.disabled}, hint "${gated.hintText.slice(0, 30)}" id "${gated.hintId}", ` +
+            `described by [${gated.described.join(' ')}]`
+        );
+      }
+
+      await ctx.setOffline(false);
+      await page.waitForTimeout(300);
+      const back = await page.evaluate(() => {
+        const button = document.querySelector('#loginForm [data-needs-network-hint]');
+        return {
+          bar: Boolean(document.querySelector('.connection-notice')),
+          disabled: button?.disabled === true,
+          hint: Boolean(button?.nextElementSibling?.classList.contains('offline-hint')),
+          described: button?.getAttribute('aria-describedby') ?? null,
+        };
+      });
+      check(
+        `coming back takes the bar, the reason and the reference with it, in ${locale}`,
+        !back.bar && !back.disabled && !back.hint && back.described === null,
+        `bar ${back.bar}, disabled ${back.disabled}, hint ${back.hint}, described ${back.described}`
+      );
+
+      await ctx.close();
+      server.close();
+    }
+  } finally {
+    await browser.close();
+  }
+});
+
+/* =========================================================================
+ * 5. The same eight rules over the admin pages
+ * ====================================================================== */
+
+// **Read only, deliberately.** This section runs against the live deployment
+// with a real staff session, so it looks and does not touch: it loads six pages
+// and asks the eight questions the public sweep asks. Nothing here clicks a
+// maintenance switch, sends a task or edits a posting. The interactive admin
+// surfaces on section 12's list — the bulk bar, the question composer's
+// reorder controls, the annotation sheet, the handoff modal, the account picker
+// — are all writes against the real database, so they belong in the same
+// sitting as phase 11's by-hand walk rather than in a file anybody can run.
+
+define('a11y-admin', 'The admin pages against the same accessibility rules', async () => {
+  const user = process.env.STAFF_USER;
+  const pass = process.env.STAFF_PASS;
+  const base = process.env.BASE ?? 'https://careers.globalfurry.tv';
+
+  if (!user || !pass) {
+    skip(
+      'the admin pages against the accessibility rules',
+      'set STAFF_USER and STAFF_PASS. Same reason as the responsive pass: an admin page is a ' +
+        'session and a database rather than a document.'
+    );
+    return;
+  }
+
+  console.log(`      ${base}, ${A11Y_WIDTHS.join(', ')} across ${ADMIN_PAGES.length} pages`);
+
+  const browser = await chromium.launch();
+
+  try {
+    for (const locale of LOCALES) {
+      const ctx = await browser.newContext({
+        baseURL: base,
+        serviceWorkers: 'block',
+        locale: locale === 'zh' ? 'zh-SG' : 'en-GB',
+      });
+
+      await ctx.addInitScript(
+        ([key, value]) => {
+          try {
+            localStorage.setItem(`${key}.locale`, value);
+            localStorage.setItem(`${key}.mode`, 'light');
+            localStorage.setItem(`${key}.colorTheme`, 'classic');
+          } catch {
+            /* a context with storage blocked is a context this run cannot use */
+          }
+        },
+        ['gftv-careers', locale]
+      );
+
+      if (await patchAssets(ctx)) {
+        console.log("      PATCH_ASSETS: stylesheets and scripts are the working tree's");
+      }
+
+      const page = await ctx.newPage();
+
+      await page.goto(`${base}/admin/login`, { waitUntil: 'domcontentloaded' });
+      await page.waitForSelector('#staffLoginForm', { timeout: 20000 });
+      await page.fill('#username', user);
+      await page.fill('#password', pass);
+      await page.click('#staffLoginForm button[type="submit"]');
+      await page.waitForURL('**/admin', { timeout: 20000 }).catch(() => {});
+
+      const signedIn = page.url().includes('/admin') && !page.url().includes('/admin/login');
+      check(`a staff session was established for the sweep, in ${locale}`, signedIn, page.url());
+      if (!signedIn) {
+        await ctx.close();
+        continue;
+      }
+
+      for (const path of ADMIN_PAGES) {
+        const results = [];
+        for (const width of A11Y_WIDTHS) {
+          await page.setViewportSize({ width, height: 800 });
+          await page.goto(`${base}${path}`, { waitUntil: 'domcontentloaded' });
+          await page.waitForLoadState('networkidle').catch(() => {});
+          results.push({ width, ...(await page.evaluate(auditA11y, { focusable: FOCUSABLE })) });
+        }
+        reportA11y(`${path} in ${locale}`, results);
+      }
+
+      await ctx.close();
+    }
+  } finally {
+    await browser.close();
+  }
+});
+
+/* =========================================================================
+ * 6. The same eight rules over the applicant's own pages
+ * ====================================================================== */
+
+define('a11y-account', "The applicant's pages against the same accessibility rules", async () => {
+  const user = process.env.APPLICANT_USER;
+  const pass = process.env.APPLICANT_PASS;
+  const base = process.env.BASE ?? 'https://careers.globalfurry.tv';
+
+  if (!user || !pass) {
+    skip(
+      "the applicant's pages against the accessibility rules",
+      'set APPLICANT_USER and APPLICANT_PASS. Signed out all five redirect to /login, so a run ' +
+        'without them audits the login page five times and reports it as coverage.'
+    );
+    return;
+  }
+
+  console.log(`      ${base}, ${A11Y_WIDTHS.join(', ')} across ${ACCOUNT_PAGES.length} pages`);
+
+  const browser = await chromium.launch();
+
+  try {
+    for (const locale of LOCALES) {
+      const ctx = await browser.newContext({
+        baseURL: base,
+        serviceWorkers: 'block',
+        locale: locale === 'zh' ? 'zh-SG' : 'en-GB',
+      });
+
+      await ctx.addInitScript(
+        ([key, value]) => {
+          try {
+            localStorage.setItem(`${key}.locale`, value);
+            localStorage.setItem(`${key}.mode`, 'light');
+            localStorage.setItem(`${key}.colorTheme`, 'classic');
+          } catch {
+            /* a context with storage blocked is a context this run cannot use */
+          }
+        },
+        ['gftv-careers', locale]
+      );
+
+      await patchAssets(ctx);
+
+      const page = await ctx.newPage();
+
+      await page.goto(`${base}/login`, { waitUntil: 'domcontentloaded' });
+      await page.waitForSelector('#loginForm', { timeout: 20000 });
+      await page.fill('#identifier', user);
+      await page.fill('#password', pass);
+      await page.click('#loginForm button[type="submit"]');
+      await page.waitForURL('**/account**', { timeout: 20000 }).catch(() => {});
+
+      const signedIn = page.url().includes('/account');
+      check(`an applicant session was established for the sweep, in ${locale}`, signedIn, page.url());
+      if (!signedIn) {
+        await ctx.close();
+        continue;
+      }
+
+      // **An empty dashboard is the chrome, not the page**, and this section
+      // proved it the expensive way on 30 August 2026: a freshly registered
+      // account passed all five pages clean, and the moment it had an
+      // application, three saved roles and two tasks on it, three of them
+      // failed the heading outline. The counts are printed rather than
+      // asserted, because whether the credential has content is a fact about
+      // the credential and not about the build — but a clean run over five
+      // empty lists is a clean run over five empty lists, and the numbers are
+      // what say which of the two this was.
+      const counted = [];
+
+      for (const path of ACCOUNT_PAGES) {
+        const results = [];
+        for (const width of A11Y_WIDTHS) {
+          await page.setViewportSize({ width, height: 800 });
+          await page.goto(`${base}${path}`, { waitUntil: 'domcontentloaded' });
+          await page.waitForLoadState('networkidle').catch(() => {});
+          if (width === A11Y_WIDTHS[0]) {
+            counted.push(
+              `${path} ${await page.evaluate(() => document.querySelectorAll('.account-list > *, .job-card').length)}`
+            );
+          }
+          results.push({ width, ...(await page.evaluate(auditA11y, { focusable: FOCUSABLE })) });
+        }
+        reportA11y(`${path} in ${locale}`, results);
+      }
+
+      console.log(`      ${locale} rows: ${counted.join(', ')}`);
+
+      await ctx.close();
+    }
+  } finally {
+    await browser.close();
+  }
+});
+
+/* =========================================================================
+ * 7. The admin pages, which need a deployment and a staff credential
  * ====================================================================== */
 
 define('responsive-admin', 'The admin pages at six widths, against a deployment', async () => {
@@ -789,7 +1672,7 @@ define('responsive-admin', 'The admin pages at six widths, against a deployment'
 });
 
 /* =========================================================================
- * 4. The applicant's own pages, which need an applicant credential
+ * 8. The applicant's own pages at six widths, which need the same credential
  * ====================================================================== */
 
 define('responsive-account', 'The account pages at six widths, against a deployment', async () => {

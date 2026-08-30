@@ -17,6 +17,7 @@
 // instead of stacking on top of it.
 
 import { hydrateIcons } from './icons.js';
+import { insertTopBar } from './top-bars.js';
 import { t, getLocale } from './i18n.js';
 
 const SOURCE = '/assets/build-status.json';
@@ -238,13 +239,11 @@ export function renderPhaseNotice(status) {
     bar.remove();
   });
 
-  // Under the connection banner when there is one, and at the top otherwise.
-  // Both bars are prepended by whoever draws last, and a language change
-  // redraws this one, so without this they would swap places whenever somebody
-  // switched language while offline.
-  const connection = document.querySelector('.connection-notice');
-  if (connection) connection.after(bar);
-  else document.body.prepend(bar);
+  // Under the connection banner, above the header, below the skip link.
+  // top-bars.js owns that ordering for all three, which is what stops the two
+  // bars swapping places when a language change redraws one of them and not
+  // the other.
+  insertTopBar(bar, 'phase-notice');
 
   hydrateIcons(bar);
 }

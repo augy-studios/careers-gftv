@@ -87,6 +87,9 @@ main-site/
     js/icons.js       inline SVG icons
     js/shell.js       header, nav, footer, theme modal, the single entry point
     js/build-status.js the notice bar, the disabled control pattern, placeholders
+    js/top-bars.js    the order of the three things that insert themselves at
+                      the top of the body, and the rule that all of them go
+                      below the skip link
     js/status-page.js the /status page
     js/offline.js     registers the worker, owns the update prompt and the
                       connection banner. The one place register() is called

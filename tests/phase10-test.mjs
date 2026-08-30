@@ -546,9 +546,18 @@ define('client', 'The update prompt and the connection banner', async () => {
     /* Offline -------------------------------------------------------------- */
 
     await ctx.setOffline(true);
-    const shown = await until(page, () => Boolean(document.querySelector('.connection-notice')), {
-      timeout: 8000,
-    });
+    // **Wait for the sentence, not for the bar.** Phase 12 part 2 made the
+    // bar's live region arrive on the page empty and fill a frame later, which
+    // is what makes a screen reader announce it at all — a live region that was
+    // never on the page without its content has nothing to announce a change
+    // against. So the container is there before the words are, and waiting on
+    // the container is waiting for nothing: phase 9's rule, arriving from the
+    // other direction a phase later.
+    const shown = await until(
+      page,
+      () => (document.querySelector('.connection-notice [data-message]')?.textContent ?? '').trim() !== '',
+      { timeout: 8000 }
+    );
     check('28. the banner appears when the connection drops', shown, await barText());
     check(
       '29. and says you are offline',

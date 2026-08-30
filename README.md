@@ -312,11 +312,17 @@ STAFF_USER=yourname STAFF_PASS='...' node tests/phase7-test.mjs --only=editor
 # Phase 10 is the exception: no deployment, no credentials, no network.
 node tests/phase10-test.mjs
 
-# Phase 12's public sections need nothing either. Its admin section needs a
-# staff credential, and PATCH_ASSETS=1 serves the working tree's stylesheets
-# and scripts so a fix can be proved before it is pushed.
-node tests/phase12-test.mjs --only=responsive,landscape
+# Phase 12's public sections need nothing either, and it is read only even
+# with a credential: it navigates and measures, and writes no rows at all.
+# PATCH_ASSETS=1 serves the working tree's stylesheets, scripts and pages so a
+# fix can be proved before it is pushed.
+node tests/phase12-test.mjs --only=responsive,landscape,a11y,a11y-keyboard
 PATCH_ASSETS=1 STAFF_USER=... STAFF_PASS='...' node tests/phase12-test.mjs
+
+# Its two account sections skip until an applicant exists. This makes one and
+# gives it something to be a list of, which is the point: an empty dashboard
+# passes every accessibility rule there is.
+APPLICANT_USER=... APPLICANT_PASS='...' APPLICANT_EMAIL=... node tests/create-applicant.mjs
 ```
 
 Three things to know before the first run, all of which

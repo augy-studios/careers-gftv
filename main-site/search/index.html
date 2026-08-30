@@ -197,6 +197,15 @@
             </aside>
 
             <div class="board-results">
+                <!-- The board's own heading, and it is here for the outline
+                     rather than for the look. Every card title is an h3, so
+                     without an h2 between them and the page's h1 the outline
+                     skipped a level and a screen reader reading the structure
+                     was told a level had been left out. Visually hidden because
+                     the heading above the toolbar and the live count beside it
+                     already say this on screen. Found by phase 12 part 2. -->
+                <h2 class="visually-hidden" data-i18n="search.resultsHeading">Roles</h2>
+
                 <!-- Section 14: "mark it with the time it was cached". Its own
                      element rather than the notice below, which renderResults
                      owns and uses for the did-you-mean state: a saved board and
