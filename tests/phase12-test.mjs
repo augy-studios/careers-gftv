@@ -1535,6 +1535,22 @@ function measureContrast() {
     `<label class="star-label" data-probe="filled" data-on="true">${STAR}</label>` +
     '</div>' +
     '<p class="star-readout">Three stars out of five</p>' +
+    // **Every rule that paints a fill and puts text on it**, which is the gap
+    // this section shipped with. The first shape of it measured the four things
+    // part 3 names plus the bare text tokens, and never once measured a colour
+    // sitting on a colour — so a sidebar badge at 1.10:1, reported from a
+    // screenshot rather than by any check, and a primary button at 3.51:1 in
+    // hello light both walked past 26 passing checks. A fill with a label on it
+    // is the commonest contrast failure there is and it was the one shape not
+    // being asked about.
+    '<span class="admin-badge" data-probe="admin badge">6</span>' +
+    '<button class="btn btn-primary" data-probe="primary button">Save</button>' +
+    '<button class="btn btn-secondary" data-probe="secondary button">Cancel</button>' +
+    '<button class="btn btn-danger" data-probe="danger button">Delete</button>' +
+    '<span class="chip" data-probe="chip">Remote</span>' +
+    '<span class="status-pill" data-status="shipped" data-probe="shipped pill">Shipped</span>' +
+    '<span class="status-pill" data-status="building" data-probe="building pill">Building</span>' +
+    '<span class="status-pill" data-status="planned" data-probe="planned pill">Planned</span>' +
     // The base layer everything above inherits from. Inline styles on purpose:
     // what is being measured is the token itself, not a component that happens
     // to use it, and section 8 item 9 asks about the tokens.
@@ -1671,6 +1687,14 @@ function measureContrast() {
 
     text('star', `readout on ${where}`, ctx.querySelector('.star-readout'));
 
+    // A fill and its label. `text()` already composites the element's own
+    // background down the chain, so a translucent fill like .chip's
+    // --surface-active is measured against what actually shows through it
+    // rather than against the token it names.
+    for (const fill of ctx.querySelectorAll('[data-probe][class*="btn"], .admin-badge, .chip, .status-pill')) {
+      text('fills', `${fill.dataset.probe} on ${where}`, fill);
+    }
+
     for (const sample of ctx.querySelectorAll('[data-token]')) {
       text('text tokens', `--${sample.dataset.token} on ${where}`, sample);
     }
@@ -1794,7 +1818,7 @@ define('contrast', 'The measured colours, in all four theme combinations', async
       // Part 1's rule about asserting the thing rather than something beside it.
       backgrounds.set(label, result.bodyBackground);
 
-      for (const group of ['panel tones', 'language pills', 'switch states', 'star', 'text tokens']) {
+      for (const group of ['panel tones', 'language pills', 'switch states', 'star', 'fills', 'text tokens']) {
         reportContrast(label, group, result.found);
       }
 
@@ -1828,19 +1852,29 @@ define('contrast', 'The measured colours, in all four theme combinations', async
       document.documentElement.dataset.mode = 'light';
       const style = document.createElement('style');
       style.id = 'contrastProbeBreak';
-      style.textContent = '.callout.note p { color: #f4f4f4 }';
+      // One of each shape: a colour on a page background, and a colour on a
+      // fill. **The second is here because the fills group passed on its first
+      // run**, and a group that has only ever passed is a group nobody has seen
+      // work — which is the whole of deviation 90 and is how a 1.10:1 badge sat
+      // behind 26 green ticks until somebody looked at a screenshot.
+      // #5a7a9a is a step off classic light's --brand-dark, so the label is
+      // very nearly the disc it sits on.
+      style.textContent = '.callout.note p { color: #f4f4f4 } .admin-badge { color: #5a7a9a }';
       document.head.append(style);
       return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     });
     const broken = await page.evaluate(measureContrast);
     await page.evaluate(() => document.querySelector('#contrastProbeBreak')?.remove());
+    const caught = (prefix) => broken.found.filter((f) => f.label.startsWith(prefix));
     check(
-      'a failing pair is reported rather than passed over',
-      broken.found.some((f) => f.label.startsWith('note text') && f.ratio < f.need),
-      broken.found
-        .filter((f) => f.label.startsWith('note text'))
-        .map((f) => `${f.label}: ${f.ratio}:1`)
-        .join('; ') || 'nothing reported'
+      'a failing pair on a page background is reported rather than passed over',
+      caught('note text').some((f) => f.ratio < f.need),
+      caught('note text').map((f) => `${f.label}: ${f.ratio}:1`).join('; ') || 'nothing reported'
+    );
+    check(
+      'a failing label on a fill is reported rather than passed over',
+      caught('admin badge').some((f) => f.ratio < f.need),
+      caught('admin badge').map((f) => `${f.label}: ${f.ratio}:1`).join('; ') || 'nothing reported'
     );
 
     await ctx.close();

@@ -157,6 +157,26 @@ const SWATCH = `<!doctype html>
     .join('')}
 </div>
 
+<h2>Fills with a label on them &mdash; the shape nothing was measuring</h2>
+<div class="bank">
+  ${['on-bg', 'glass-card', 'on-alt']
+    .map(
+      (cls) => `<div class="${cls}"><div class="row">
+      <span class="admin-badge">6</span>
+      <button class="btn btn-primary">Save</button>
+      <button class="btn btn-secondary">Cancel</button>
+      <button class="btn btn-danger">Delete</button>
+    </div>
+    <div class="row" style="margin-top:.75rem">
+      <span class="chip">Remote</span>
+      <span class="status-pill" data-status="shipped">Shipped</span>
+      <span class="status-pill" data-status="building">Building</span>
+      <span class="status-pill" data-status="planned">Planned</span>
+    </div></div>`
+    )
+    .join('')}
+</div>
+
 <h2>The text tokens, and the link that changed</h2>
 <div class="bank tokens">
   ${['on-bg', 'glass-card', 'on-alt']
