@@ -442,6 +442,24 @@ body {
     background: none;
     border-left: 0;
     transform: none;
+    /* **A row that does not fit wraps rather than crushing a pill.** Measured
+       31 August 2026 after the padding below went to 16px: a full staff row is
+       Dashboard, Find a role, My applications, Build status, Sign out and Show
+       suggestions, about 907px with the gaps, and the widest the nav can ever
+       be is the 72rem container less the brand and the three icon buttons —
+       about 897px. So the row stopped fitting at *every* width, and what the
+       reader saw was flex-shrink taking "Show suggestions" from 188px to 50px
+       while `white-space: nowrap` held the label at full width: the text ran
+       straight out of its own background, to the right, because the pill's
+       content is start aligned. That is the report this rule answers.
+
+       Section 3's rule for the bottom end is that content wraps or truncates
+       rather than pushing the layout, and the same answer is right here. A
+       second row in the header on a signed in staff session at 1024 is honest;
+       a label sitting outside the shape that is supposed to contain it is
+       not. */
+    flex-wrap: wrap;
+    justify-content: flex-end;
     /* Not a drawer up here, so the closed state's hiding has to come off with
        the rest of it. shell.js drops aria-hidden at the same breakpoint. */
     visibility: visible;
@@ -468,8 +486,24 @@ body {
        16px in the row only. The drawer keeps 12px because its items are full
        width, so the padding there moves the ink rather than the box. The row
        can afford it: part 1 measured a staff session at 817px of a 992px
-       content box at 1024px, and six items at 8px more each is about 865px. */
-    padding-inline: 1rem;
+       content box at 1024px, and six items at 8px more each is about 865px.
+
+       **And 18px on the end, because the two sides are not symmetrical to the
+       eye.** Measured again on 31 August 2026, this time from the ink rather
+       than from the box: pill edge to the icon's own `getBBox()` is 17.6px on
+       the briefcase, 18.3px on the search and hammer glyphs and 22.1px on the
+       chevron, against 16px from the label to the other edge. Every icon in
+       this build is drawn inside a 24 unit viewBox with air around it, so
+       equal padding puts the text nearer its edge than the icon is to its own
+       and the pair reads as pushed right. 18px on the end is what makes the
+       three ordinary cases land within half a pixel of each other. */
+    padding-inline: 1rem 1.125rem;
+
+    /* **A pill is never shrunk below the thing inside it.** Without this the
+       row absorbs its overflow by squeezing the last items, and a nowrap label
+       in a box too small for it is drawn outside the box. With the wrap above,
+       an item that does not fit moves to the next line whole. */
+    flex: none;
   }
 
   /* The drawer gives these width: 100% so they fill a column. On a row that
