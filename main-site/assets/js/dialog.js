@@ -1,28 +1,44 @@
 // A modal, built by JavaScript instead of written into a page.
 //
-// The theme modal and the language modal in shell.js are written into the DOM
-// by that file and wired there, because there is exactly one of each and they
-// exist on every page. The modals this phase adds are different: a sign in
-// prompt and a translation report form appear only when somebody asks for
-// them, on whichever page they were standing on.
+// **One shell for every modal in the build.** The theme modal and the language
+// modal in shell.js were written into the DOM by that file and wired there,
+// with their own copy of the trap, the Escape handler and the scroll lock;
+// phase 12 part 6 moved both onto this, so there is one implementation rather
+// than two that agreed today. The modals phase 4 added — a sign in prompt, a
+// translation report form — appear only when somebody asks for them, on
+// whichever page they were standing on, and were always built here.
 //
-// So this is the same modal, in a function. Same markup, same .modal-backdrop
-// and .modal classes, same CSS, and the same behaviour a reader has already
-// learned from the theme picker: Escape closes it, the backdrop closes it,
-// there is a close control in the corner, focus is trapped while it is open and
-// goes back where it came from afterwards, and the page behind it does not
-// scroll.
+// **It is a native `<dialog>` since part 6, and that is the whole point of the
+// change.** `showModal()` gives four things a hand-rolled modal cannot, and
+// three of them were being hand-rolled here badly enough to matter:
 //
-// Phase 12's polish pass should move shell.js's two modals onto this, so there
-// is one implementation, not two that agree today. That is a refactor of
-// working code and did not belong in the same change as the page it was written
-// for.
+//   - **The page behind it becomes inert.** Not hidden, not covered: inert, so
+//     nothing behind the modal is focusable *or in the accessibility tree*.
+//     Part 2's lesson arriving from the other direction — `inert` is the other
+//     way of not being there — and the old shell did neither. A screen reader
+//     could read the whole page under an open dialog.
+//   - **Escape is the browser's.** So is the focus trap, so `trapFocus` and the
+//     document level keydown listener are both gone. The old trap filtered on
+//     `offsetParent !== null`, which is not the same question as "can this take
+//     focus", and it only fired for Tab from the first or last item.
+//   - **The top layer**, so `z-index: 100` no longer has to out-rank whatever a
+//     page put above it.
+//   - **One source of truth for open.** `[open]` is the element's own state,
+//     written by the browser. The `.hidden` class it replaces was a second
+//     copy of that fact maintained by hand.
+//
+// **And the fade this file's CSS has always described now actually runs.**
+// `.hidden` is `display: none !important` in theme.css, which beat
+// `.modal-backdrop.hidden`'s opacity and transform transitions from the day
+// both were written: every modal in the build has appeared and disappeared
+// instantly for eleven phases while the stylesheet said 220ms. The closed state
+// is `:not([open])` now, and theme.css carries the `@starting-style` and
+// `allow-discrete` that make a discrete display change animate.
+//
+// The caller's API is unchanged: `{ element, panel, open, close, isOpen }`.
 
 import { t } from './i18n.js';
 import { hydrateIcons } from './icons.js';
-
-const FOCUSABLE =
-  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /**
  * Build a modal and put it on the page, closed.
@@ -31,18 +47,32 @@ const FOCUSABLE =
  * behaviour, and nothing else.
  *
  * @param {{ id: string, titleKey: string, bodyHtml: string, className?: string }} options
- * @returns {{ element: HTMLElement, panel: HTMLElement, open: () => void, close: () => void, isOpen: () => boolean }}
+ * @returns {{ element: HTMLDialogElement, panel: HTMLElement, open: () => void, close: () => void, isOpen: () => boolean }}
  */
 export function createDialog(options) {
+  // Several pages rebuild their dialog on every open — the applicant detail,
+  // the tag editor — so this replaces one that may still be showing. Closed
+  // before it is removed: a modal dialog taken out of the document without it
+  // leaves the top layer's bookkeeping behind, and the page stays inert with
+  // nothing on screen to say why.
   const existing = document.querySelector(`#${options.id}`);
-  if (existing) existing.remove();
+  if (existing) {
+    if (existing.tagName === 'DIALOG' && existing.open) existing.close();
+    existing.remove();
+  }
 
-  const wrap = document.createElement('div');
-  wrap.className = `modal-backdrop hidden${options.className ? ` ${options.className}` : ''}`;
+  const wrap = document.createElement('dialog');
+  wrap.className = `modal-backdrop${options.className ? ` ${options.className}` : ''}`;
   wrap.id = options.id;
+
+  // The name and the modal semantics belong to the dialog element, which is
+  // where a browser already puts role="dialog" and aria-modal="true" of its
+  // own accord. Writing either onto the panel inside it would nest a second
+  // dialog in the first, which is why the panel is now plain markup.
+  wrap.setAttribute('aria-labelledby', `${options.id}Title`);
+
   wrap.innerHTML = `
-    <div class="modal glass-card" role="dialog" aria-modal="true"
-         aria-labelledby="${options.id}Title">
+    <div class="modal glass-card">
       <div class="modal-head">
         <h2 id="${options.id}Title" data-i18n="${options.titleKey}"></h2>
         <button class="icon-btn small" type="button" data-close-dialog
@@ -68,42 +98,41 @@ export function createDialog(options) {
   let lastFocus = null;
 
   function isOpen() {
-    return !wrap.classList.contains('hidden');
+    return wrap.open;
   }
 
   function open() {
     if (isOpen()) return;
+    // Remembered rather than left to the browser's own restoration, which is
+    // the same behaviour but is not something every engine has always done.
     lastFocus = document.activeElement;
-    wrap.classList.remove('hidden');
+    wrap.showModal();
     document.body.setAttribute('data-scroll-locked', 'true');
-    // The first thing inside the panel, which is the close control, unless the
-    // caller has marked something better. A form wants its first field.
-    const target = panel.querySelector('[data-autofocus]') ?? panel.querySelector(FOCUSABLE);
-    target?.focus();
+    // showModal() focuses the first focusable thing itself, which is the close
+    // control. A form wants its first field instead, and says so.
+    panel.querySelector('[data-autofocus]')?.focus();
   }
 
   function close() {
     if (!isOpen()) return;
-    wrap.classList.add('hidden');
+    wrap.close();
+  }
+
+  // Both ways out land here: close(), the close control, the backdrop, and
+  // Escape, which the browser handles without asking this file.
+  wrap.addEventListener('close', () => {
     document.body.setAttribute('data-scroll-locked', 'false');
     if (lastFocus instanceof HTMLElement) lastFocus.focus();
     lastFocus = null;
-  }
-
-  wrap.addEventListener('click', (event) => {
-    // Backdrop click closes, same as every other modal on the site.
-    if (event.target === wrap) close();
-    if (event.target.closest('[data-close-dialog]')) close();
   });
 
-  document.addEventListener('keydown', (event) => {
-    if (!isOpen()) return;
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      close();
-    } else if (event.key === 'Tab') {
-      trapFocus(panel, event);
-    }
+  wrap.addEventListener('click', (event) => {
+    // Backdrop click closes, same as every other modal on the site. The dialog
+    // element *is* the backdrop here — it fills the viewport and paints the
+    // dim itself — so a click landing on it rather than on the panel is a
+    // click outside.
+    if (event.target === wrap) close();
+    if (event.target.closest('[data-close-dialog]')) close();
   });
 
   return { element: wrap, panel, open, close, isOpen };
@@ -130,22 +159,4 @@ export function translateWithin(root) {
         if (attr && key) el.setAttribute(attr, t(key));
       });
   });
-}
-
-function trapFocus(panel, event) {
-  const items = [...panel.querySelectorAll(FOCUSABLE)].filter(
-    (el) => el.offsetParent !== null || el === document.activeElement
-  );
-  if (items.length === 0) return;
-
-  const first = items[0];
-  const last = items[items.length - 1];
-
-  if (event.shiftKey && document.activeElement === first) {
-    event.preventDefault();
-    last.focus();
-  } else if (!event.shiftKey && document.activeElement === last) {
-    event.preventDefault();
-    first.focus();
-  }
 }

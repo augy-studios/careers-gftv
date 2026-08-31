@@ -3735,15 +3735,26 @@ define('modals', 'Modals, and no native popups', async (state) => {
   };
   page.on('dialog', spy);
 
+  // **The role and the name moved off the panel in phase 12 part 6.** Every
+  // modal in the build is a native <dialog> now, which carries role="dialog"
+  // and aria-modal="true" of its own accord, so writing either onto the panel
+  // inside it would have nested a second dialog in the first.
+  //
+  // Asked of whichever element actually carries them rather than of a fixed
+  // one, so this section answers the same three questions against a deployment
+  // from either side of that change. What is being checked has not moved: the
+  // panel is a modal dialog with a name and it holds the focus.
   const ours = () =>
     page.evaluate(() => {
       const modal = document.querySelector('.modal-backdrop:not(.hidden) .modal');
       if (!modal) return null;
+      const shell = modal.closest('.modal-backdrop');
+      const native = shell.tagName === 'DIALOG';
       return {
         design: modal.classList.contains('glass-card'),
-        role: modal.getAttribute('role'),
-        modalAttr: modal.getAttribute('aria-modal'),
-        titled: Boolean(modal.getAttribute('aria-labelledby')),
+        role: native ? 'dialog' : modal.getAttribute('role'),
+        modalAttr: native ? String(shell.matches(':modal')) : modal.getAttribute('aria-modal'),
+        titled: Boolean((native ? shell : modal).getAttribute('aria-labelledby')),
         title: modal.querySelector('.modal-head h2')?.textContent?.trim() ?? null,
         consequences: [...modal.querySelectorAll('.danger-consequences li')].map((li) =>
           li.textContent.trim()

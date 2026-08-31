@@ -127,16 +127,16 @@
                     <label class="visually-hidden" for="bulkStatus"
                            data-i18n="admin.bulkChoose">Move to</label>
                     <select id="bulkStatus"></select>
-                    <button type="button" class="btn btn-secondary" id="bulkApply"
+                    <button type="button" class="btn btn-secondary" id="bulkApply" data-feature-write
                             data-i18n="admin.bulkApply">Apply</button>
-                    <button type="button" class="btn btn-quiet" id="bulkTask"
+                    <button type="button" class="btn btn-quiet" id="bulkTask" data-feature-write
                             data-i18n="admin.raiseTask">Raise a task</button>
                     <!-- Admins only, per the decision of 23 August 2026, and
                          absent instead of disabled for a job poster, per
                          deviation 34. The page removes it on load when the
                          signed in staff member is not an admin, and the route
                          refuses the action either way. -->
-                    <button type="button" class="btn btn-danger" id="bulkDelete"
+                    <button type="button" class="btn btn-danger" id="bulkDelete" data-feature-write
                             data-i18n="admin.bulkDelete">Delete permanently</button>
                 </div>
 

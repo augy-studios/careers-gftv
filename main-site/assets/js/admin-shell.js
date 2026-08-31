@@ -31,6 +31,7 @@ import { t } from './i18n.js';
 import { hydrateIcons } from './icons.js';
 import { escapeHtml } from './markdown.js';
 import { applyNetworkGating } from './offline.js';
+import { makeRunAction } from './run-action.js';
 import {
   loadBuildStatus,
   loadFeatureOverrides,
@@ -183,6 +184,7 @@ export async function mountAdminPage(options) {
   renderTopbar();
   renderMaintenanceBanner();
   wireSidebarDrawer();
+  guardWrites(options.current);
 
   document.querySelector('#adminLoading')?.remove();
   const page = document.querySelector('#adminPage');
@@ -607,6 +609,64 @@ export function offSentence(featureKey) {
 }
 
 /* -------------------------------------------------------------------------
+ * A page whose own feature is switched off
+ * ---------------------------------------------------------------------- */
+
+/**
+ * Disable this page's write controls while the page's own feature is off.
+ *
+ * **Settled 31 August 2026, and it is here rather than on a page because of how
+ * it was found.** `/admin/invites` kept an enabled "Add people" while `invites`
+ * was off; the route refused it and the amber banner said why, so nothing was
+ * broken — an admin simply found out by being refused rather than by looking.
+ * Fixing that on the page somebody happened to be looking at would have left
+ * the other eight to be noticed one at a time, which is phase 8's rule about a
+ * flag nothing enforces in its mildest form.
+ *
+ * **A control declares that it writes; the page decides which feature that is.**
+ * `data-feature-write` is the declaration and carries no key, because the key
+ * is a property of the page and repeating it in the markup is one more pair of
+ * things to keep in step. This stamps `data-feature` on, and the disabling, the
+ * wording and the explainer are all build-status.js's existing machinery: the
+ * second of its two reasons a control can be disabled, which was written for
+ * exactly this and had no admin side caller until now.
+ *
+ * **The marked set is smaller than it looks, and that is a fact about the API
+ * rather than a shortcut.** `unavailable()` runs before the GET as well as the
+ * POST, so a page whose feature is off reads nothing at all: there are no rows,
+ * so there are no per-row controls, and what is left on screen is the toolbar
+ * that the static HTML carries. A row control drawn from a successful read is
+ * a row that cannot exist while this applies.
+ *
+ * @param {string} current the path of the page being drawn
+ */
+function guardWrites(current) {
+  const item = ADMIN_NAV.find((entry) => entry.href === current);
+  if (!item) return;
+  if (!isFeatureShipped(buildStatus, item.feature) || !isFeatureOff(item.feature)) return;
+
+  const page = document.querySelector('#adminPage') ?? document.body;
+
+  const gate = () => {
+    // Only the ones not already stamped, which is what stops applyFeatureGating's
+    // own attribute writes from re-entering this through the observer.
+    const pending = page.querySelectorAll('[data-feature-write]:not([data-feature])');
+    if (pending.length === 0) return;
+    pending.forEach((el) => el.setAttribute('data-feature', item.feature));
+    applyFeatureGating(buildStatus, page);
+  };
+
+  gate();
+
+  // A page draws its own controls after this returns, and some of them only
+  // when something is selected. An observer rather than a second call the page
+  // has to remember to make: "every page needs to call this" is the rule that
+  // gets followed four times and forgotten on the fifth, which is the argument
+  // runAction is already here for.
+  new MutationObserver(gate).observe(page, { childList: true, subtree: true });
+}
+
+/* -------------------------------------------------------------------------
  * Small shared pieces
  * ---------------------------------------------------------------------- */
 
@@ -698,8 +758,14 @@ export function emptyRow(text) {
  *
  * It lives here instead of in each page because "every page phase 8 adds needs
  * one" is exactly the kind of rule that gets followed four times and forgotten
- * on the fifth. `admin-job-editor.js` keeps its own copy for now; the two are
- * the same function and merging them is a phase 12 tidy up, not a phase 8 one.
+ * on the fifth.
+ *
+ * **The body of it is in run-action.js since phase 12 part 6.** There were
+ * three copies by then, not the two phase 8 predicted — this one,
+ * account-shell.js's, and admin-job-editor.js's, which differed only in
+ * prefixing its console line with the word "editor". What is left here is the
+ * one thing that was ever particular to the admin area: which message bar it
+ * writes to.
  *
  * The message is deliberately generic: whatever went wrong is a fault in the
  * page, not something the admin can act on, and the console still has
@@ -708,17 +774,4 @@ export function emptyRow(text) {
  * @param {() => unknown} action
  * @param {string} label what it was, for the console line
  */
-export function runAction(action, label) {
-  try {
-    const result = action();
-    if (result && typeof result.catch === 'function') {
-      result.catch((cause) => {
-        console.error(`[careers-gftv] ${label}:`, cause);
-        adminMessage('error', t('error.unexpected'));
-      });
-    }
-  } catch (cause) {
-    console.error(`[careers-gftv] ${label}:`, cause);
-    adminMessage('error', t('error.unexpected'));
-  }
-}
+export const runAction = makeRunAction(adminMessage);

@@ -56,6 +56,7 @@ import { hydrateIcons, iconMarkup } from './icons.js';
 import { confirmAction } from './danger-confirm.js';
 import { loadFeatureOverrides, isFeatureOff, featureNote } from './build-status.js';
 import { mountAccountPage, helperRoster, accountMessage, runAction } from './account-shell.js';
+import { drawTabStrip } from './tabs.js';
 
 const PATH = '/account/translations';
 
@@ -230,9 +231,11 @@ function writeStateToUrl() {
 /**
  * One tab per granted language.
  *
- * The keyboard handling is part 7's, which is the one strip in this build that
- * has it: a roving tabindex, arrows, Home and End, and manual activation, so a
+ * The keyboard handling was part 7's, and was the one strip in this build that
+ * had it: a roving tabindex, arrows, Home and End, and manual activation, so a
  * keyboard user moving along the strip does not fire a request per keypress.
+ * **Phase 12 part 6 moved it into tabs.js**, where the four strips that never
+ * got it now share it.
  */
 function drawLanguages() {
   const holder = document.querySelector('#helperLangs');
@@ -242,42 +245,20 @@ function drawLanguages() {
   holder.hidden = roster.length < 2;
   if (holder.hidden) return;
 
-  const hadFocus = holder.contains(document.activeElement);
-
-  holder.innerHTML = roster
-    .map(
-      (entry) =>
-        `<button type="button" class="bucket-tab" role="tab"` +
-        ` data-locale="${escapeHtml(entry.code)}"` +
-        ` aria-selected="${entry.code === locale}"` +
-        ` tabindex="${entry.code === locale ? '0' : '-1'}">` +
-        `<span>${escapeHtml(entry.native_name)}</span></button>`
-    )
-    .join('');
-
-  const buttons = [...holder.querySelectorAll('[data-locale]')];
-
-  buttons.forEach((button, index) => {
-    button.addEventListener('click', () => selectLanguage(button.getAttribute('data-locale')));
-
-    button.addEventListener('keydown', (event) => {
-      let next = null;
-      if (event.key === 'ArrowRight') next = buttons[(index + 1) % buttons.length];
-      else if (event.key === 'ArrowLeft') {
-        next = buttons[(index - 1 + buttons.length) % buttons.length];
-      } else if (event.key === 'Home') next = buttons[0];
-      else if (event.key === 'End') next = buttons[buttons.length - 1];
-      if (!next) return;
-
-      event.preventDefault();
-      buttons.forEach((other) => {
-        other.tabIndex = other === next ? 0 : -1;
-      });
-      next.focus();
-    });
+  drawTabStrip(holder, {
+    key: 'locale',
+    html: roster
+      .map(
+        (entry) =>
+          `<button type="button" class="bucket-tab" role="tab"` +
+          ` data-locale="${escapeHtml(entry.code)}"` +
+          ` aria-selected="${entry.code === locale}"` +
+          ` tabindex="${entry.code === locale ? '0' : '-1'}">` +
+          `<span>${escapeHtml(entry.native_name)}</span></button>`
+      )
+      .join(''),
+    onSelect: (code) => selectLanguage(code),
   });
-
-  if (hadFocus) holder.querySelector('[aria-selected="true"]')?.focus();
 }
 
 async function selectLanguage(code) {

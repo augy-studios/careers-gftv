@@ -29,6 +29,7 @@ import { t } from './i18n.js';
 import { hydrateIcons, iconMarkup } from './icons.js';
 import { escapeHtml } from './markdown.js';
 import { adminLocales } from './admin-shell.js';
+import { wireTabStrip } from './tabs.js';
 
 export const MAX_QUESTIONS = 20;
 export const MAX_OPTIONS = 40;
@@ -211,15 +212,23 @@ export function mountQuestionComposer(root, options = {}) {
    * ------------------------------------------------------------------ */
 
   function wire() {
-    root.querySelectorAll('[data-locale]').forEach((tab) => {
-      tab.addEventListener('click', () => {
+    // wireTabStrip and not drawTabStrip, because this strip is redrawn as part
+    // of the whole composer rather than on its own: the element holding the
+    // tabs does not survive the redraw, so there is nothing for the focus to be
+    // restored into. What it gets from tabs.js is the keyboard.
+    const strip = root.querySelector('.lang-tabs');
+    if (strip) {
+      wireTabStrip(strip, {
+        key: 'locale',
         // The working set already holds every language, so switching tabs is a
         // redraw and never a save. That is what makes it safe to move between
         // them mid edit.
-        activeLocale = tab.getAttribute('data-locale');
-        draw();
+        onSelect: (code) => {
+          activeLocale = code;
+          draw();
+        },
       });
-    });
+    }
 
     root.querySelectorAll('[data-add]').forEach((button) => {
       button.addEventListener('click', () => {

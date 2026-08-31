@@ -18,6 +18,7 @@ import { formatDate } from './format.js';
 import { mountAccountPage, pageData } from './account-shell.js';
 import { jobRowHead, escapeHtml } from './account-row.js';
 import { saveButtonMarkup, mountSaveButtons } from './save-button.js';
+import { drawTabStrip } from './tabs.js';
 
 const PATH = '/account/saved';
 
@@ -108,23 +109,23 @@ function drawFilters() {
 
   const counts = payload?.counts ?? {};
 
-  holder.innerHTML = FILTERS.map((name) => {
-    const current = name === filter;
-    return (
-      `<button type="button" class="bucket-tab" role="tab" data-filter="${name}"` +
-      ` aria-selected="${current}"${current ? '' : ' tabindex="-1"'}>` +
-      `<span>${escapeHtml(t(`saved.filter_${name}`))}</span>` +
-      `<span class="bucket-count">${counts[name] ?? 0}</span>` +
-      `</button>`
-    );
-  }).join('');
-
-  holder.querySelectorAll('[data-filter]').forEach((tab) => {
-    tab.addEventListener('click', () => {
-      filter = tab.getAttribute('data-filter');
+  drawTabStrip(holder, {
+    key: 'filter',
+    html: FILTERS.map((name) => {
+      const current = name === filter;
+      return (
+        `<button type="button" class="bucket-tab" role="tab" data-filter="${name}"` +
+        ` aria-selected="${current}"${current ? '' : ' tabindex="-1"'}>` +
+        `<span>${escapeHtml(t(`saved.filter_${name}`))}</span>` +
+        `<span class="bucket-count">${counts[name] ?? 0}</span>` +
+        `</button>`
+      );
+    }).join(''),
+    onSelect: (name) => {
+      filter = name;
       writeFilterToUrl();
       load();
-    });
+    },
   });
 }
 

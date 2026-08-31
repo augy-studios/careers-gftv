@@ -28,6 +28,7 @@ import { formatDateTime } from './format.js';
 import { putMine, readMine, storedUserId } from './idb.js';
 import { hydrateIcons } from './icons.js';
 import { escapeHtml } from './markdown.js';
+import { makeRunAction } from './run-action.js';
 import {
   loadBuildStatus,
   loadFeatureOverrides,
@@ -526,23 +527,14 @@ export function accountMessage(kind, text) {
  * here was a form submission with its own error line, and stops being fine the
  * moment a page has buttons that fetch.
  *
+ * **The body of it is in run-action.js since phase 12 part 6**, shared with the
+ * admin area's. The two were the same function with a different message bar,
+ * and that is the argument this line now makes in one place.
+ *
  * @param {() => unknown} action
  * @param {string} label for the console, naming what was being done
  */
-export function runAction(action, label) {
-  try {
-    const result = action();
-    if (result && typeof result.catch === 'function') {
-      result.catch((cause) => {
-        console.error(`[careers-gftv] ${label}:`, cause);
-        accountMessage('error', t('error.unexpected'));
-      });
-    }
-  } catch (cause) {
-    console.error(`[careers-gftv] ${label}:`, cause);
-    accountMessage('error', t('error.unexpected'));
-  }
-}
+export const runAction = makeRunAction(accountMessage);
 
 /* -------------------------------------------------------------------------
  * The badge

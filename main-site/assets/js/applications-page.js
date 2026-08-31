@@ -34,6 +34,7 @@ import { mountAccountPage, refreshTaskBadge, pageData } from './account-shell.js
 import { jobRowHead, escapeHtml } from './account-row.js';
 import { openApplyDialog, applyDialogOpen } from './apply-dialog.js';
 import { confirmDangerousAction } from './danger-confirm.js';
+import { drawTabStrip } from './tabs.js';
 
 const PATH = '/account/applications';
 
@@ -149,23 +150,23 @@ function drawTabs() {
 
   const counts = payload?.counts ?? {};
 
-  holder.innerHTML = TABS.map((name) => {
-    const current = name === bucket;
-    return (
-      `<button type="button" class="bucket-tab" role="tab" data-bucket="${name}"` +
-      ` aria-selected="${current}"${current ? '' : ' tabindex="-1"'}>` +
-      `<span>${escapeHtml(t(`applications.bucket_${name}`))}</span>` +
-      `<span class="bucket-count">${counts[name] ?? 0}</span>` +
-      `</button>`
-    );
-  }).join('');
-
-  holder.querySelectorAll('[data-bucket]').forEach((tab) => {
-    tab.addEventListener('click', () => {
-      bucket = tab.getAttribute('data-bucket');
+  drawTabStrip(holder, {
+    key: 'bucket',
+    html: TABS.map((name) => {
+      const current = name === bucket;
+      return (
+        `<button type="button" class="bucket-tab" role="tab" data-bucket="${name}"` +
+        ` aria-selected="${current}"${current ? '' : ' tabindex="-1"'}>` +
+        `<span>${escapeHtml(t(`applications.bucket_${name}`))}</span>` +
+        `<span class="bucket-count">${counts[name] ?? 0}</span>` +
+        `</button>`
+      );
+    }).join(''),
+    onSelect: (name) => {
+      bucket = name;
       writeBucketToUrl();
       load();
-    });
+    },
   });
 }
 

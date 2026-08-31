@@ -367,6 +367,30 @@
   --border-control: color-mix(in srgb, var(--text) 42%, transparent);
 }
 
+/* --control-off-bg: the unchecked half of a two state control. **Phase 12
+ * part 6, and it is a hierarchy fix rather than a contrast one.** The switch
+ * track used --surface-active, which in hello light is the brand yellow at 70%
+ * and read louder than the 14% green tint a *checked* switch gets: the state
+ * hierarchy backwards, in the theme most people see it in. Both states clear
+ * 1.4.11 comfortably, so no measurement reported it — part 3's visual pass is
+ * what found it, which is what that pass exists for.
+ *
+ * **Achromatic on purpose, and this is the one place a literal beats a
+ * derivation.** --border-control mixes --text because it wants each theme's
+ * character; this wants the opposite. Off is the absence of a state and has no
+ * colour to be, and letting colour alone mean "on" is what makes the pair
+ * readable at a glance rather than by comparing two tints. A mix of --text
+ * would carry hello's brown and classic's blue into it, which is a hue on the
+ * state that means "no". So: neutral by construction, two values because a
+ * dark surface needs light on it and a light one needs dark. */
+:root[data-mode='light'] {
+  --control-off-bg: rgba(0, 0, 0, 0.1);
+}
+
+:root[data-mode='dark'] {
+  --control-off-bg: rgba(255, 255, 255, 0.14);
+}
+
 /* ---------------------------------------------------------------------------
  * Chart series, 8.4
  *
@@ -916,14 +940,56 @@ a.chip:visited {
   justify-content: center;
   padding: 1rem;
   background: color-mix(in srgb, #000 55%, transparent);
-  opacity: 1;
-  transition: opacity var(--transition) var(--ease);
 }
 
-.modal-backdrop.hidden {
+/* **The same class on two shapes, deliberately.** Everything dialog.js builds
+   is a native <dialog> since phase 12 part 6; the two modals that are created
+   and destroyed per use — danger-confirm.js and recovery-codes.js — are still
+   plain divs with this class, and both want the same full bleed dim. What the
+   dialog element needs on top of it is the UA's own dialog styling taken back
+   off: a <dialog> is fit-content in both axes with a solid border and a margin
+   of auto, none of which a backdrop wants. */
+dialog.modal-backdrop {
+  width: auto;
+  height: auto;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  color: inherit;
+  opacity: 1;
+  transition:
+    opacity var(--transition) var(--ease),
+    display var(--transition) var(--ease) allow-discrete,
+    overlay var(--transition) var(--ease) allow-discrete;
+}
+
+/* **An author's `display: flex` beats the UA's `dialog:not([open])
+   { display: none }`**, so without this a closed dialog sits over the page.
+   It is also the closed half of the transition: `allow-discrete` above is what
+   lets a display change animate rather than cut, and `@starting-style` below
+   is the opening half. **Between them they are the first time a modal on this
+   site has actually faded.** `.hidden`, which this replaces, is
+   `display: none !important` in the utilities at the bottom of this file, and
+   it has beaten the opacity and transform transitions written here since phase
+   1: the stylesheet said 220ms and every modal in the build appeared and
+   vanished instantly. */
+dialog.modal-backdrop:not([open]) {
+  display: none;
   opacity: 0;
-  pointer-events: none;
-  visibility: hidden;
+}
+
+/* The dim is painted by the element itself, the way it is for the two modals
+   that are still divs, so the native pseudo-element must not paint a second
+   one over it. */
+dialog.modal-backdrop::backdrop {
+  background: transparent;
+}
+
+@starting-style {
+  dialog.modal-backdrop[open] {
+    opacity: 0;
+  }
 }
 
 .modal {
@@ -936,8 +1002,21 @@ a.chip:visited {
   transition: transform var(--transition) var(--ease);
 }
 
-.modal-backdrop.hidden .modal {
+dialog.modal-backdrop:not([open]) .modal {
   transform: translateY(0.75rem);
+}
+
+@starting-style {
+  dialog.modal-backdrop[open] .modal {
+    transform: translateY(0.75rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  dialog.modal-backdrop,
+  dialog.modal-backdrop .modal {
+    transition: none;
+  }
 }
 
 .modal-head {

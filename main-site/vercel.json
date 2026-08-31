@@ -56,10 +56,6 @@
       "destination": "/api/sitemap"
     },
     {
-      "source": "/search",
-      "destination": "/search/index.html"
-    },
-    {
       "source": "/jobs/:id",
       "destination": "/api/job-page?id=:id"
     },
@@ -68,48 +64,8 @@
       "destination": "/api/public/jobs-feed"
     },
     {
-      "source": "/account",
-      "destination": "/account/index.html"
-    },
-    {
-      "source": "/account/applications",
-      "destination": "/account/applications/index.html"
-    },
-    {
-      "source": "/account/saved",
-      "destination": "/account/saved/index.html"
-    },
-    {
-      "source": "/account/tasks",
-      "destination": "/account/tasks/index.html"
-    },
-    {
-      "source": "/account/settings",
-      "destination": "/account/settings/index.html"
-    },
-    {
-      "source": "/account/security",
-      "destination": "/account/security/index.html"
-    },
-    {
-      "source": "/admin/login",
-      "destination": "/admin/login/index.html"
-    },
-    {
-      "source": "/admin/security",
-      "destination": "/admin/security/index.html"
-    },
-    {
       "source": "/admin/:path*",
       "destination": "/placeholder"
-    },
-    {
-      "source": "/about",
-      "destination": "/about/index.html"
-    },
-    {
-      "source": "/faq",
-      "destination": "/faq/index.html"
     }
   ],
 

@@ -4231,11 +4231,16 @@ input[type='search']::-webkit-search-cancel-button {
    switch was a shape a reader had to already know was there. This is the
    clearest 1.4.11 case in the build — the boundary *is* the control — and it is
    the rule the new token was added for. Phase 12 part 3. */
+/* --control-off-bg and not --surface-active, which is the brand yellow at 70%
+   in hello light and read louder than the 14% green tint a *checked* switch
+   gets: the state hierarchy backwards. Both states clear 1.4.11, so no check
+   reported it — it is hierarchy rather than contrast, and part 3's visual pass
+   is what found it. Phase 12 part 6. */
 .switch-track {
   width: 2.5rem;
   height: 1.375rem;
   border-radius: 999px;
-  background: var(--surface-active);
+  background: var(--control-off-bg);
   border: 1px solid var(--border-control);
   position: relative;
   transition: background 0.15s ease;

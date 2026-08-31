@@ -37,6 +37,7 @@ import {
   isAdminUser,
 } from './admin-shell.js';
 import { mountQuestionComposer } from './admin-questions.js';
+import { drawTabStrip } from './tabs.js';
 
 const PATH = '/admin/applications';
 
@@ -226,18 +227,18 @@ function drawBuckets() {
     `${(state.status ?? '') === (value ?? '') ? '' : ' tabindex="-1"'}>` +
     `<span>${escapeHtml(label)}</span><span class="bucket-count">${count ?? 0}</span></button>`;
 
-  holder.innerHTML = [
-    tab(null, t('admin.bucket_all'), counts.all),
-    ...STATUSES.map((status) => tab(status, t(`status.${status}`), counts[status])),
-  ].join('');
-
-  holder.querySelectorAll('[data-bucket]').forEach((button) => {
-    button.addEventListener('click', () => {
-      state.status = button.getAttribute('data-bucket') || null;
+  drawTabStrip(holder, {
+    key: 'bucket',
+    html: [
+      tab(null, t('admin.bucket_all'), counts.all),
+      ...STATUSES.map((status) => tab(status, t(`status.${status}`), counts[status])),
+    ].join(''),
+    onSelect: (value) => {
+      state.status = value || null;
       state.page = 1;
       writeStateToUrl();
       load();
-    });
+    },
   });
 }
 

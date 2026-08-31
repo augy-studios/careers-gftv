@@ -11,7 +11,8 @@
 // from the left, traps focus while open, closes on Escape, on backdrop tap, and
 // on navigating away, has an obvious close control, is reachable by keyboard,
 // sets aria-expanded on the trigger and aria-hidden on the panel, and locks
-// body scroll while open. The theme modal follows the same rules.
+// body scroll while open. The theme modal follows the same rules, and gets
+// them from dialog.js rather than from a second copy here since part 6.
 
 import {
   initTheme,
@@ -25,6 +26,7 @@ import {
 import { initI18n, applyLocale, getLocale, t, LOCALES } from './i18n.js';
 import { hydrateIcons } from './icons.js';
 import { insertTopBar } from './top-bars.js';
+import { createDialog } from './dialog.js';
 import {
   loadBuildStatus,
   loadFeatureOverrides,
@@ -239,19 +241,16 @@ function renderFooter() {
   return footer;
 }
 
+// **Both modals are built by dialog.js since phase 12 part 6.** They were the
+// two hand-rolled ones — each with its own copy of the focus trap, the Escape
+// handler, the backdrop click and the scroll lock, all of which now come from a
+// native <dialog> and from one shell. What is left here is what is actually
+// particular to them: the markup inside and the wiring for it.
 function renderThemeModal() {
-  const wrap = document.createElement('div');
-  wrap.className = 'modal-backdrop hidden';
-  wrap.id = 'themeModal';
-  wrap.innerHTML = `
-    <div class="modal glass-card" role="dialog" aria-modal="true" aria-labelledby="themeModalTitle">
-      <div class="modal-head">
-        <h2 id="themeModalTitle" data-i18n="theme.title"></h2>
-        <button class="icon-btn small" type="button" data-close-modal="themeModal"
-                data-i18n-attr="aria-label:common.close">
-          <span data-icon="close" data-icon-size="18"></span>
-        </button>
-      </div>
+  return createDialog({
+    id: 'themeModal',
+    titleKey: 'theme.title',
+    bodyHtml: `
       <p class="modal-section-label" data-i18n="theme.mode"></p>
       <!-- Three options, not two. The third is a preference and not a
            mode: it resolves to light or dark from the device clock, and
@@ -272,10 +271,8 @@ function renderThemeModal() {
       <p class="mode-note" id="modeNote" hidden></p>
       <p class="modal-section-label" data-i18n="theme.colourTheme"></p>
       <div class="swatch-grid" id="swatchGrid"></div>
-    </div>
-  `;
-  document.body.append(wrap);
-  return wrap;
+    `,
+  });
 }
 
 // Same structure and same behaviour as the theme modal, deliberately.
@@ -285,18 +282,10 @@ function renderThemeModal() {
 // so both options read the same whichever language the interface is currently
 // in. That is why these two labels are hardcoded instead of dictionary keys.
 function renderLanguageModal() {
-  const wrap = document.createElement('div');
-  wrap.className = 'modal-backdrop hidden';
-  wrap.id = 'languageModal';
-  wrap.innerHTML = `
-    <div class="modal glass-card" role="dialog" aria-modal="true" aria-labelledby="languageModalTitle">
-      <div class="modal-head">
-        <h2 id="languageModalTitle" data-i18n="language.title"></h2>
-        <button class="icon-btn small" type="button" data-close-modal="languageModal"
-                data-i18n-attr="aria-label:common.close">
-          <span data-icon="close" data-icon-size="18"></span>
-        </button>
-      </div>
+  return createDialog({
+    id: 'languageModal',
+    titleKey: 'language.title',
+    bodyHtml: `
       <div class="locale-list" id="localeList">
         ${LOCALES.map(
           (locale) => `
@@ -308,14 +297,17 @@ function renderLanguageModal() {
         ).join('')}
       </div>
       <p class="locale-note" data-i18n="language.description"></p>
-    </div>
-  `;
-  document.body.append(wrap);
-  return wrap;
+    `,
+  });
 }
 
 /* -------------------------------------------------------------------------
- * Focus trapping, shared by the nav panel and the theme modal
+ * Focus trapping, for the navigation panel
+ *
+ * The two modals had a copy of this each until phase 12 part 6 moved them onto
+ * dialog.js and a native <dialog>, which traps focus itself. The drawer is not
+ * a dialog — it is a panel that becomes an ordinary inline nav above 1024 — so
+ * it keeps the hand-rolled trap, and this is now its only caller.
  * ---------------------------------------------------------------------- */
 
 const FOCUSABLE =
@@ -430,12 +422,11 @@ function wireNav(header, backdrop) {
   syncBreakpoint();
 }
 
-function wireThemeModal(modal) {
+function wireThemeModal(dialog) {
+  const modal = dialog.element;
   const button = document.querySelector('#themeButton');
   const grid = modal.querySelector('#swatchGrid');
   const modeButtons = [...modal.querySelectorAll('.mode-btn')];
-  const panel = modal.querySelector('.modal');
-  let lastFocus = null;
 
   // The label is a dictionary key and not theme.label, so the swatch names
   // follow the language. translateDom refills them on every change, which is
@@ -489,37 +480,7 @@ function wireThemeModal(modal) {
     }
   }
 
-  function open() {
-    lastFocus = document.activeElement;
-    modal.classList.remove('hidden');
-    lockScroll(true);
-    panel.querySelector(FOCUSABLE)?.focus();
-  }
-
-  function close() {
-    modal.classList.add('hidden');
-    lockScroll(false);
-    if (lastFocus instanceof HTMLElement) lastFocus.focus();
-    lastFocus = null;
-  }
-
-  button?.addEventListener('click', open);
-
-  modal.addEventListener('click', (event) => {
-    // Backdrop click closes, same as every other modal on the site.
-    if (event.target === modal) close();
-    if (event.target.closest('[data-close-modal]')) close();
-  });
-
-  document.addEventListener('keydown', (event) => {
-    if (modal.classList.contains('hidden')) return;
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      close();
-    } else if (event.key === 'Tab') {
-      trapFocus(panel, event);
-    }
-  });
+  button?.addEventListener('click', dialog.open);
 
   // Selecting a swatch or a mode updates the modal in place and never closes
   // it. Closing is a separate explicit action.
@@ -558,11 +519,10 @@ function wireThemeModal(modal) {
   document.addEventListener('gftv:localechange', sync);
 }
 
-function wireLanguageModal(modal) {
+function wireLanguageModal(dialog) {
+  const modal = dialog.element;
   const button = document.querySelector('#languageButton');
-  const panel = modal.querySelector('.modal');
   const list = modal.querySelector('#localeList');
-  let lastFocus = null;
 
   function sync() {
     const current = getLocale();
@@ -573,36 +533,7 @@ function wireLanguageModal(modal) {
     });
   }
 
-  function open() {
-    lastFocus = document.activeElement;
-    modal.classList.remove('hidden');
-    lockScroll(true);
-    panel.querySelector(FOCUSABLE)?.focus();
-  }
-
-  function close() {
-    modal.classList.add('hidden');
-    lockScroll(false);
-    if (lastFocus instanceof HTMLElement) lastFocus.focus();
-    lastFocus = null;
-  }
-
-  button?.addEventListener('click', open);
-
-  modal.addEventListener('click', (event) => {
-    if (event.target === modal) close();
-    if (event.target.closest('[data-close-modal]')) close();
-  });
-
-  document.addEventListener('keydown', (event) => {
-    if (modal.classList.contains('hidden')) return;
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      close();
-    } else if (event.key === 'Tab') {
-      trapFocus(panel, event);
-    }
-  });
+  button?.addEventListener('click', dialog.open);
 
   // Choosing a language updates the modal in place and leaves it open, exactly
   // as the theme modal does. Closing stays a separate, explicit action, so

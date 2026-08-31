@@ -78,6 +78,7 @@ import {
   adminLocales,
   isAdminUser,
 } from './admin-shell.js';
+import { drawTabStrip } from './tabs.js';
 
 const PATH = '/admin/translations';
 
@@ -284,8 +285,6 @@ function drawTabs() {
   const holder = document.querySelector('#translationTabs');
   if (!holder) return;
 
-  const hadFocus = holder.contains(document.activeElement);
-
   const counts = [
     // Open reports, which is what the sidebar badge counts too.
     { name: 'queue', id: 'tabQueue', key: 'admin.tabReports', count: payload?.counts?.open },
@@ -293,47 +292,31 @@ function drawTabs() {
     { name: 'helpers', id: 'tabHelpers', key: 'admin.tabHelpers', count: helperPayload?.total },
   ].filter((entry) => availableTabs().includes(entry.name));
 
-  holder.innerHTML = counts
-    .map(
-      (entry) =>
-        `<button type="button" class="bucket-tab" role="tab" id="${entry.id}"` +
-        ` data-tab="${entry.name}" aria-controls="${entry.name}Panel"` +
-        ` aria-selected="${tab === entry.name}"` +
-        ` tabindex="${tab === entry.name ? '0' : '-1'}">` +
-        `<span>${escapeHtml(t(entry.key))}</span>` +
-        // A count that has not been read yet is absent, not zero. A zero
-        // on the audit tab would say the translation is finished.
-        (entry.count === null || entry.count === undefined
-          ? ''
-          : `<span class="bucket-count">${escapeHtml(String(entry.count))}</span>`) +
-        '</button>'
-    )
-    .join('');
-
-  const buttons = [...holder.querySelectorAll('[data-tab]')];
-
-  buttons.forEach((button, index) => {
-    button.addEventListener('click', () => selectTab(button.getAttribute('data-tab')));
-
-    button.addEventListener('keydown', (event) => {
-      let next = null;
-      if (event.key === 'ArrowRight') next = buttons[(index + 1) % buttons.length];
-      else if (event.key === 'ArrowLeft') next = buttons[(index - 1 + buttons.length) % buttons.length];
-      else if (event.key === 'Home') next = buttons[0];
-      else if (event.key === 'End') next = buttons[buttons.length - 1];
-      if (!next) return;
-
-      event.preventDefault();
-      buttons.forEach((other) => {
-        other.tabIndex = other === next ? 0 : -1;
-      });
-      next.focus();
-    });
+  // The keyboard, the roving tabindex and the focus that survives this redraw
+  // are all tabs.js's since phase 12 part 6. This strip and the applicant
+  // helper's were the two that had them, in a copy each, and both put the focus
+  // back on the *selected* tab rather than on the one the keyboard was
+  // actually standing on.
+  drawTabStrip(holder, {
+    key: 'tab',
+    html: counts
+      .map(
+        (entry) =>
+          `<button type="button" class="bucket-tab" role="tab" id="${entry.id}"` +
+          ` data-tab="${entry.name}" aria-controls="${entry.name}Panel"` +
+          ` aria-selected="${tab === entry.name}"` +
+          ` tabindex="${tab === entry.name ? '0' : '-1'}">` +
+          `<span>${escapeHtml(t(entry.key))}</span>` +
+          // A count that has not been read yet is absent, not zero. A zero
+          // on the audit tab would say the translation is finished.
+          (entry.count === null || entry.count === undefined
+            ? ''
+            : `<span class="bucket-count">${escapeHtml(String(entry.count))}</span>`) +
+          '</button>'
+      )
+      .join(''),
+    onSelect: (name) => selectTab(name),
   });
-
-  // Redrawing the strip destroys the button the keyboard was on, which would
-  // drop focus to the document and lose somebody's place mid-page.
-  if (hadFocus) holder.querySelector('[aria-selected="true"]')?.focus();
 }
 
 function applyTabVisibility() {

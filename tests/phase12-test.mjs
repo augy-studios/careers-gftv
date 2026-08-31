@@ -34,7 +34,7 @@ import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, extname, dirname } from 'node:path';
+import { join, extname, dirname, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 
@@ -1237,27 +1237,56 @@ define('a11y-keyboard', 'The combobox, the filter sheet, the dialog and the conn
       });
       await page.click('#a11ySaveProbe');
 
+      // `[open]` and not `:not(.hidden)` since part 6: the shell is a native
+      // <dialog>, so whether it is open is the element's own state rather than
+      // a class this build maintains beside it.
       const dialogUp = await page
-        .waitForSelector('#signInPrompt:not(.hidden)', { timeout: 5000 })
+        .waitForSelector('#signInPrompt[open]', { timeout: 5000 })
         .then(() => true)
         .catch(() => false);
       check(`the sign in prompt opens from a card, in ${locale}`, dialogUp, 'no dialog appeared');
 
       if (dialogUp) {
         const named = await page.evaluate(() => {
-          const panel = document.querySelector('#signInPrompt .modal');
-          const labelledby = panel.getAttribute('aria-labelledby');
+          const shell = document.querySelector('#signInPrompt');
+          const labelledby = shell.getAttribute('aria-labelledby');
           return {
-            role: panel.getAttribute('role'),
-            modal: panel.getAttribute('aria-modal'),
+            tag: shell.tagName,
+            // Both come from the element rather than from an attribute this
+            // build writes, which is the point of the change: a native modal
+            // dialog *is* role="dialog" with aria-modal="true", and writing
+            // either onto the panel inside it would nest a second dialog in
+            // the first.
+            role: shell.tagName === 'DIALOG' ? 'dialog' : shell.getAttribute('role'),
             label: (document.getElementById(labelledby ?? '')?.textContent ?? '').trim(),
-            holdsFocus: panel.contains(document.activeElement),
+            holdsFocus: shell.contains(document.activeElement),
           };
         });
         check(
           `the dialog is a modal with a name, and holds the focus, in ${locale}`,
-          named.role === 'dialog' && named.modal === 'true' && named.label !== '' && named.holdsFocus,
-          `role ${named.role}, aria-modal ${named.modal}, name "${named.label}", holds focus ${named.holdsFocus}`
+          named.tag === 'DIALOG' && named.role === 'dialog' && named.label !== '' && named.holdsFocus,
+          `<${named.tag}>, role ${named.role}, name "${named.label}", holds focus ${named.holdsFocus}`
+        );
+
+        // **What the hand-rolled shell could not do at all.** showModal() makes
+        // everything outside the dialog inert, so the page behind it is not
+        // merely covered: it cannot take focus and is not in the accessibility
+        // tree. The old trap only fired on Tab from the first or last item, and
+        // a click or a screen reader's own navigation walked straight past it.
+        const inert = await page.evaluate(() => {
+          const outside = document.querySelector('#a11ySaveProbe');
+          outside?.focus();
+          return {
+            landed: document.activeElement?.id ?? null,
+            stillInside: document
+              .querySelector('#signInPrompt')
+              .contains(document.activeElement),
+          };
+        });
+        check(
+          `the page behind the dialog is inert, in ${locale}`,
+          inert.stillInside && inert.landed !== 'a11ySaveProbe',
+          `focus() on the card behind it landed on ${inert.landed}`
         );
 
         // Tab from the last focusable thing comes back to the first rather than
@@ -1268,28 +1297,46 @@ define('a11y-keyboard', 'The combobox, the filter sheet, the dialog and the conn
           items[items.length - 1].focus();
           return { last: items.length - 1, count: items.length };
         }, FOCUSABLE);
+        // **What a native modal's cycle actually does, which is not what the
+        // hand-rolled trap did.** Part 2 wrote this expecting one Tab from the
+        // last item to land back on the first, because that is what
+        // `trapFocus` did. Chromium's own cycle passes through `<body>` on the
+        // way round and reaches the first control on the Tab after — the same
+        // behaviour every native dialog on the web has. **The property worth
+        // asserting is the one that does not change**: focus never reaches a
+        // control on the page behind, and it comes back inside.
         await page.keyboard.press('Tab');
-        const afterTab = await page.evaluate((focusable) => {
+        const off = await page.evaluate(() => {
+          const shell = document.querySelector('#signInPrompt');
+          const active = document.activeElement;
+          return {
+            inside: shell.contains(active),
+            onBody: active === document.body,
+            landed: active?.id || active?.tagName || null,
+          };
+        });
+        await page.keyboard.press('Tab');
+        const back = await page.evaluate((focusable) => {
           const panel = document.querySelector('#signInPrompt .modal');
           const items = [...panel.querySelectorAll(focusable)].filter((el) => el.checkVisibility());
           return { inside: panel.contains(document.activeElement), index: items.indexOf(document.activeElement) };
         }, FOCUSABLE);
         check(
-          `Tab off the end of the dialog wraps rather than escaping it, in ${locale}`,
-          afterTab.inside && afterTab.index === 0,
-          `${trapped.count} focusable, landed at index ${afterTab.index}, inside ${afterTab.inside}`
+          `Tab off the end of the dialog comes back into it rather than escaping, in ${locale}`,
+          (off.inside || off.onBody) && back.inside && back.index === 0,
+          `${trapped.count} focusable; one Tab landed on ${off.landed}, the next at index ${back.index}`
         );
 
         await page.keyboard.press('Escape');
         await page.waitForTimeout(100);
         const returned = await page.evaluate(() => ({
-          hidden: document.querySelector('#signInPrompt').classList.contains('hidden'),
+          closed: !document.querySelector('#signInPrompt').open,
           focused: document.activeElement?.id ?? null,
         }));
         check(
           `Escape closes the dialog and gives the focus back to what opened it, in ${locale}`,
-          returned.hidden && returned.focused === 'a11ySaveProbe',
-          `hidden ${returned.hidden}, focus on ${returned.focused}`
+          returned.closed && returned.focused === 'a11ySaveProbe',
+          `closed ${returned.closed}, focus on ${returned.focused}`
         );
       }
 
@@ -1680,6 +1727,37 @@ function measureContrast() {
       const knob = parse(getComputedStyle(track, '::after').backgroundColor);
       add('switch states', `${state} knob on ${where}`, knob, backdropOf(track), 3);
       text('switch states', `${state} label on ${where}`, sw.querySelector('.switch-label'));
+
+      // **How much colour the track itself adds, which is neither a contrast
+      // ratio nor a property of the composite.** Two wrong instruments were
+      // tried before this one, and both are worth keeping in view:
+      //
+      //   *Contrast against the card* reads a neutral and a green tint of the
+      //   same lightness as 1.28:1 and 1.25:1 — three hundredths apart, while
+      //   looking nothing like each other. What separates the two states is
+      //   hue, and luminance is the one thing a contrast ratio throws away.
+      //
+      //   *Chroma of the composite* measures the card behind it. Hello light's
+      //   surface is itself strongly yellow, so a 10% black over it composites
+      //   to something with a chroma of 98 — all of it the backdrop's.
+      //
+      // So: the chroma of the declared fill, weighted by its alpha. That is the
+      // colour this control puts on the page and nothing else's, which is
+      // exactly the claim being kept — **colour means on** — and an unchecked
+      // switch painted in the brand yellow is that claim broken. It reads 0 for
+      // an achromatic fill at any strength, 10.6 for the 14% green a checked
+      // switch gets, and 178 for the gold this replaced. Part 6; part 3's
+      // visual pass found it.
+      const fill = parse(getComputedStyle(track).backgroundColor);
+      found.push({
+        group: 'switch hierarchy',
+        label: `${state} track fill on ${where}`,
+        ratio: fill
+          ? Math.round((Math.max(fill.r, fill.g, fill.b) - Math.min(fill.r, fill.g, fill.b)) * fill.a * 10) / 10
+          : 0,
+        need: 0,
+        advisory: true,
+      });
     }
 
     for (const label of ctx.querySelectorAll('.star-label')) {
@@ -1855,6 +1933,33 @@ define('contrast', 'The measured colours, in all four theme combinations', async
       if (notes.length > 0) {
         console.log(`      ${label}: note callout border ${notes.join(', ')} (advisory — static prose, not a component)`);
       }
+
+      // **Colour means on, and the unchecked state carries none.** Both states
+      // clear 1.4.11, so nothing above reports this. Off was the brand yellow
+      // at 70% in hello light against a 14% green tint for on, which put the
+      // colour on the state that means "no" — in the theme it is hardest to
+      // argue is an accident. Part 6 gave the off state an achromatic token of
+      // its own; this is the check that keeps it that way, in all four
+      // combinations rather than in the one somebody looked at.
+      const chroma = (state) =>
+        result.found
+          .filter((f) => f.group === 'switch hierarchy' && f.label.startsWith(`${state} track fill`))
+          .map((f) => f.ratio);
+      const off = chroma('off');
+      const on = chroma('on');
+      const backwards = off
+        .map((value, index) => ({ off: value, on: on[index] }))
+        .filter((row) => row.on === undefined || row.off >= row.on);
+      check(
+        `${label}: the unchecked switch carries less colour than the checked one`,
+        off.length > 0 && backwards.length === 0,
+        off.length === 0
+          ? 'no switch track fill was measured at all'
+          : backwards.map((row) => `off chroma ${row.off} against on ${row.on}`).join('; ')
+      );
+      // The number itself on screen, because "less than" says nothing about how
+      // neutral the off state actually is and the old one was 195.
+      console.log(`      ${label}: switch track chroma, off ${off.join('/')} against on ${on.join('/')}`);
     }
 
     check(
@@ -2548,7 +2653,485 @@ define('discovery', 'robots.txt, sitemap.xml and llms.txt, and the one switch be
 });
 
 /* =========================================================================
- * 8. The same eight rules over the admin pages
+ * 8. The polish pass, and the four duplicates it removed
+ *
+ * **This is the one section in the file that measures a subtraction.** Every
+ * other part of phase 12 asks whether something on screen is right; part 6
+ * took four copies out — two modal shells, three runAction bodies, six tab
+ * strip keyboards and eleven rewrites that never ran — and a duplicate that has
+ * been removed comes back by somebody adding the seventh strip and writing the
+ * arrow keys again. So half of this is a source check and says so: what it is
+ * guarding is that there is still one of each.
+ *
+ * The other half is a browser, because three of the four are behaviours. A
+ * `<dialog>` that says role="dialog" in the markup proves nothing about whether
+ * the page behind it is inert, and a tab strip is entirely a keyboard.
+ * ====================================================================== */
+
+/** Every file under main-site/assets/js, as text, read once. */
+function clientModules() {
+  const dir = join(SITE, 'assets/js');
+  return new Map(
+    readdirSync(dir)
+      .filter((name) => name.endsWith('.js'))
+      .map((name) => [name, readFileSync(join(dir, name), 'utf8')])
+  );
+}
+
+define('polish', 'One modal shell, one runAction, one tab keyboard, and no dead rewrites', async () => {
+  const modules = clientModules();
+  const vercel = JSON.parse(readFileSync(join(SITE, 'vercel.json'), 'utf8'));
+
+  /* --- The rewrites that were never running ---------------------------- */
+
+  // **`cleanUrls` is the whole reason those eleven were inert**, so it is
+  // asserted rather than assumed: with it off, `/about` would stop resolving to
+  // `/about/index.html` and every route part 6 unrewrote would 404 at once.
+  check(
+    'cleanUrls is on, which is what serves /about from /about/index.html',
+    vercel.cleanUrls === true,
+    'without it the removed rewrites were not inert and the removal is wrong'
+  );
+
+  const rewrites = vercel.rewrites ?? [];
+
+  // Phase 3's rule from the other end, and part 5's: the filesystem is matched
+  // before the rewrites are consulted, so a rewrite whose source is answered by
+  // a file has never run. A directory rewrite is the pure case — it points a
+  // path at the very file that already answers it.
+  const directory = rewrites.filter(
+    (entry) => entry.destination === `${entry.source}/index.html` || entry.destination === `${entry.source}.html`
+  );
+  check(
+    'no rewrite points a path at the file that already answers it',
+    directory.length === 0,
+    directory.map((entry) => `${entry.source} → ${entry.destination}`).join('; ')
+  );
+
+  /** Whether the working tree answers a path without any rewrite at all. */
+  const answersOnDisk = (pathname) => {
+    const relative = pathname.replace(/^\//, '');
+    return (
+      existsSync(join(SITE, relative)) ||
+      existsSync(join(SITE, `${relative}.html`)) ||
+      existsSync(join(SITE, relative, 'index.html'))
+    );
+  };
+
+  const shadowed = rewrites.filter((entry) => !entry.source.includes(':') && answersOnDisk(entry.source));
+  check(
+    `all ${rewrites.length} rewrites are reachable, with nothing on disk winning first`,
+    shadowed.length === 0,
+    shadowed.map((entry) => entry.source).join('; ')
+  );
+
+  // **And the other direction, which is the one that would break the site.**
+  // Every page whose rewrite came out has to be answerable from the filesystem,
+  // or the removal turned a working route into a 404 — or, under /admin, into
+  // the placeholder that the catch-all serves.
+  const UNREWRITTEN = [
+    '/search',
+    '/about',
+    '/faq',
+    '/account',
+    '/account/applications',
+    '/account/saved',
+    '/account/tasks',
+    '/account/settings',
+    '/account/security',
+    '/admin/login',
+    '/admin/security',
+  ];
+  const missing = UNREWRITTEN.filter((path) => !existsSync(join(SITE, path.replace(/^\//, ''), 'index.html')));
+  check(
+    `all ${UNREWRITTEN.length} routes whose rewrite came out are still files on disk`,
+    missing.length === 0,
+    missing.join(', ')
+  );
+
+  // The two under /admin are the sharp ones: the catch-all rewrite is still
+  // there and would answer them with the placeholder if the filesystem did not
+  // win first. `polish-live` is what proves it actually does.
+  check(
+    'the /admin catch-all is still there for the routes that have no page',
+    rewrites.some((entry) => entry.source === '/admin/:path*' && entry.destination === '/placeholder'),
+    '0c: a staff member opening an unbuilt section gets the phase sentence'
+  );
+
+  /* --- One modal shell -------------------------------------------------- */
+
+  // Three files build a modal, and they stay three: dialog.js's is persistent
+  // and reused, and the other two are created and destroyed per use, which is
+  // a different lifecycle rather than a duplicate. What must not come back is a
+  // fourth, or a div.
+  const OWN_SHELL = ['dialog.js', 'danger-confirm.js', 'recovery-codes.js'];
+  const builders = [...modules]
+    .filter(([, source]) => /className = ['`]modal-backdrop|class="modal-backdrop/.test(source))
+    .map(([name]) => name);
+  check(
+    `only ${OWN_SHELL.length} files build a modal shell, and they are the expected ones`,
+    builders.length === OWN_SHELL.length && builders.every((name) => OWN_SHELL.includes(name)),
+    builders.join(', ')
+  );
+
+  // **All three, and this is not tidiness.** A modal <dialog> makes the whole
+  // document outside it inert and paints above every z-index, so a modal built
+  // as a div while one is open is unclickable and hidden behind the dim. Both
+  // of the other two are opened from inside a dialog.js panel.
+  for (const name of OWN_SHELL) {
+    check(
+      `${name} builds a native <dialog> and opens it with showModal`,
+      /createElement\('dialog'\)/.test(modules.get(name)) && modules.get(name).includes('showModal()'),
+      'a div here is inert the moment another modal is open'
+    );
+  }
+
+  check(
+    'no modal carries role="dialog" on the panel inside the dialog element',
+    !OWN_SHELL.some((name) => /class="modal[^"]*"[^>]*role="dialog"/.test(modules.get(name))),
+    'that nests a second dialog in the first; the element already has the role'
+  );
+
+  check(
+    'nothing tracks a modal as open with a class beside the element',
+    ![...modules].some(([, source]) => source.includes('modal-backdrop hidden')),
+    'the open state is the dialog element\'s own [open] since part 6'
+  );
+
+  check(
+    'no modal hand-rolls a focus trap any more',
+    !OWN_SHELL.some((name) => modules.get(name).includes('function trapFocus')),
+    'the browser traps focus in the topmost modal dialog'
+  );
+
+  /* --- One runAction ---------------------------------------------------- */
+
+  const definitions = [...modules].filter(([, source]) => /function runAction\(action, label\)/.test(source));
+  check(
+    'exactly one file carries the runAction body',
+    definitions.length === 1 && definitions[0][0] === 'run-action.js',
+    definitions.map(([name]) => name).join(', ') || 'none at all'
+  );
+  for (const name of ['admin-shell.js', 'account-shell.js']) {
+    check(
+      `${name} builds its runAction from the shared one`,
+      modules.get(name).includes("from './run-action.js'") && modules.get(name).includes('makeRunAction('),
+      'it had a copy of the body until part 6'
+    );
+  }
+  check(
+    'the posting editor has no third copy',
+    !modules.get('admin-job-editor.js').includes('function runAction('),
+    'it differed only by writing "editor" into the console line'
+  );
+
+  /* --- A switched off admin page's write controls ------------------------ */
+
+  // Decision 17. **A control declares that it writes and never which feature
+  // that is**, because the feature is a property of the page: writing the key
+  // into the markup would put one decision in two places with nothing
+  // comparing them, which is the failure this build has hit more often than
+  // any other. These three checks are that design, not the behaviour — the
+  // behaviour needs a feature actually switched off, which is a write against
+  // the real database and belongs in the by-hand sitting.
+  const marked = [];
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.name.endsWith('.html')) {
+        const html = readFileSync(full, 'utf8');
+        if (html.includes('data-feature-write')) marked.push({ path: full, html });
+      }
+    }
+  };
+  walk(SITE);
+
+  const declared = marked.reduce((total, file) => total + file.html.split('data-feature-write').length - 1, 0);
+  check(
+    `${declared} controls across ${marked.length} pages declare that they write, and all of them are admin pages`,
+    declared >= 10 && marked.every((file) => file.path.includes(`admin${sep}`)),
+    marked
+      .filter((file) => !file.path.includes(`admin${sep}`))
+      .map((file) => file.path)
+      .join(', ') || 'none outside /admin'
+  );
+
+  const keyed = marked.filter((file) =>
+    /data-feature-write[^>]*data-feature=|data-feature=[^>]*data-feature-write/.test(file.html)
+  );
+  check(
+    'no control names its own feature beside the declaration',
+    keyed.length === 0,
+    keyed.map((file) => file.path).join(', ')
+  );
+
+  const readers = [...modules].filter(([, source]) => source.includes('data-feature-write'));
+  check(
+    'admin-shell.js is the only thing that reads the declaration',
+    readers.length === 1 && readers[0][0] === 'admin-shell.js',
+    readers.map(([name]) => name).join(', ')
+  );
+
+  /* --- One tab strip keyboard ------------------------------------------- */
+
+  const strips = [...modules].filter(([name, source]) => name !== 'tabs.js' && source.includes('role="tab"'));
+  const untabbed = strips.filter(([, source]) => !source.includes("from './tabs.js'"));
+  check(
+    `all ${strips.length} modules drawing a tab strip go through tabs.js`,
+    strips.length >= 6 && untabbed.length === 0,
+    untabbed.map(([name]) => name).join(', ')
+  );
+
+  const ownArrows = [...modules].filter(
+    ([name, source]) => name !== 'tabs.js' && source.includes("'ArrowRight'") && source.includes('role="tab"')
+  );
+  check(
+    'no strip carries its own arrow key handling any more',
+    ownArrows.length === 0,
+    ownArrows.map(([name]) => name).join(', ')
+  );
+
+  /* --- And the three behaviours, in a browser --------------------------- */
+
+  const browser = await chromium.launch();
+
+  try {
+    const server = await serveSite('en');
+    const ctx = await contextFor(browser, server.base, 'en');
+    const page = await ctx.newPage();
+
+    await page.setViewportSize({ width: 1024, height: 800 });
+    await page.goto(`${server.base}/`, { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await page.waitForSelector('#themeButton', { timeout: 10000 });
+
+    /* The two modals shell.js used to wire itself. */
+    for (const [button, id] of [
+      ['#themeButton', '#themeModal'],
+      ['#languageButton', '#languageModal'],
+    ]) {
+      const shape = await page.evaluate((selector) => {
+        const el = document.querySelector(selector);
+        return { tag: el?.tagName ?? null, openBefore: el?.open ?? null };
+      }, id);
+      check(
+        `${id} is a native <dialog>, closed until it is opened`,
+        shape.tag === 'DIALOG' && shape.openBefore === false,
+        `<${shape.tag}>, open ${shape.openBefore}`
+      );
+
+      // Through the browser rather than element.click(), because the shell
+      // remembers document.activeElement to give the focus back to and a
+      // scripted click moves no focus at all. Part 2's note, and it fails as if
+      // it were the page.
+      await page.click(button);
+      await page.waitForTimeout(150);
+
+      const opened = await page.evaluate(
+        ([selector, opener]) => {
+          const el = document.querySelector(selector);
+          const outside = document.querySelector(opener);
+          outside?.focus();
+          return {
+            open: el.open,
+            named: (document.getElementById(el.getAttribute('aria-labelledby') ?? '')?.textContent ?? '').trim(),
+            holdsFocus: el.contains(document.activeElement),
+            // One dialog element, not a second role="dialog" nested inside it.
+            nested: el.querySelectorAll('[role="dialog"]').length,
+          };
+        },
+        [id, button]
+      );
+      check(
+        `${id} opens, is named, holds the focus and leaves the page behind it inert`,
+        opened.open && opened.named !== '' && opened.holdsFocus && opened.nested === 0,
+        `open ${opened.open}, name "${opened.named}", focus inside ${opened.holdsFocus}, ` +
+          `${opened.nested} nested dialog roles`
+      );
+
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(150);
+      const closed = await page.evaluate(
+        ([selector, opener]) => ({
+          open: document.querySelector(selector).open,
+          backOnOpener: document.activeElement === document.querySelector(opener),
+        }),
+        [id, button]
+      );
+      check(
+        `${id} closes on Escape and gives the focus back to its button`,
+        closed.open === false && closed.backOnOpener,
+        `open ${closed.open}, focus back on the button ${closed.backOnOpener}`
+      );
+    }
+
+    /* One modal opened from inside another, which is where the migration
+     * nearly went wrong.
+     *
+     * **The regression this catches was found by probing, not by reading.**
+     * Making dialog.js modal makes the rest of the document inert, and
+     * danger-confirm.js is opened from *inside* a dialog.js panel on five admin
+     * pages — the applicant detail, the tag editor, the invite list. While it
+     * was still a div, `elementFromPoint` over its Confirm button returned the
+     * control underneath it and `focus()` on it landed elsewhere: a
+     * confirmation nobody could see or press, in front of every destructive
+     * action in the dashboard. Both are native dialogs now and stack in the top
+     * layer, and this is the check that says so. */
+    const nested = await page.evaluate(async () => {
+      const { createDialog } = await import('/assets/js/dialog.js');
+      const { confirmAction } = await import('/assets/js/danger-confirm.js');
+
+      const outer = createDialog({
+        id: 'nestingProbe',
+        titleKey: 'common.close',
+        bodyHtml: '<p>outer</p>',
+      });
+      outer.open();
+
+      // Not awaited: it resolves when somebody answers, and what is being
+      // measured is the panel while it is up.
+      const answer = confirmAction({ title: 'probe', confirmLabel: 'go' });
+
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+
+      const confirm = document.querySelector('[data-confirm]');
+      confirm.focus();
+      const box = confirm.getBoundingClientRect();
+      const onTop = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+
+      const result = {
+        focused: document.activeElement === confirm,
+        clickable: confirm.contains(onTop) || onTop === confirm,
+        // Both are modal, and the confirmation is the one on top.
+        bothModal: document.querySelectorAll('dialog:modal').length === 2,
+      };
+
+      // Cancelled rather than left up, and **not awaited**: if the panel is
+      // inert — which is the failure being measured — the click does nothing
+      // and waiting on it would hang the run instead of failing it. A check
+      // that hangs on the defect is not a check.
+      document.querySelector('[data-cancel]')?.click();
+      answer.catch(() => {});
+      document.querySelector('.modal-backdrop:not(#nestingProbe)')?.remove();
+      outer.close();
+      outer.element.remove();
+      return result;
+    });
+
+    check(
+      'a confirmation opened from inside a dialog is on top of it and can be used',
+      nested.focused && nested.clickable && nested.bothModal,
+      `focus took ${nested.focused}, the point over its button hits it ${nested.clickable}, ` +
+        `two modal dialogs ${nested.bothModal}`
+    );
+
+    /* The tab strip keyboard, driven against tabs.js itself.
+     *
+     * Every strip in the build is behind a session, so the alternative to this
+     * was to leave the one piece of shared behaviour part 6 wrote with no
+     * coverage at all until somebody signs in. Importing the module the six
+     * strips import is the same trade `responsive` makes with MIN_SIZE: the
+     * check and the build cannot disagree about what the behaviour is. */
+    const strip = await page.evaluate(async () => {
+      const { drawTabStrip } = await import('/assets/js/tabs.js');
+
+      const holder = document.createElement('div');
+      holder.id = 'stripProbe';
+      holder.setAttribute('role', 'tablist');
+      document.body.append(holder);
+
+      let selected = 'a';
+      const html = (names) =>
+        names
+          .map(
+            (name) =>
+              `<button type="button" role="tab" data-bucket="${name}"` +
+              ` aria-selected="${name === selected}"` +
+              ` tabindex="${name === selected ? '0' : '-1'}">${name}</button>`
+          )
+          .join('');
+
+      const draw = (names = ['a', 'b', 'c']) =>
+        drawTabStrip(holder, { key: 'bucket', html: html(names), onSelect: (value) => (selected = value) });
+
+      draw();
+
+      const at = () => document.activeElement?.getAttribute('data-bucket') ?? null;
+      const stops = () =>
+        [...holder.querySelectorAll('[data-bucket]')].filter((tab) => tab.tabIndex === 0).length;
+
+      const press = (key) =>
+        document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+
+      holder.querySelector('[data-bucket="a"]').focus();
+
+      press('ArrowRight');
+      const right = at();
+      press('ArrowLeft');
+      press('ArrowLeft');
+      const wrapped = at();
+      press('Home');
+      const home = at();
+      press('End');
+      const end = at();
+
+      // One tab stop for the whole strip, and it follows the keyboard.
+      const single = stops();
+      const stopIsHere = holder.querySelector('[data-bucket="c"]').tabIndex === 0;
+
+      // The redraw, which is the defect this replaced. The keyboard is on `c`,
+      // the selected tab is `a`, and a count arriving must not throw it back.
+      press('ArrowLeft');
+      const before = at();
+      draw();
+      const after = at();
+
+      // And a tab that is no longer there falls back rather than dropping the
+      // focus onto the document.
+      holder.querySelector('[data-bucket="c"]').focus();
+      draw(['a', 'b']);
+      const gone = at();
+
+      holder.remove();
+      return { right, wrapped, home, end, single, stopIsHere, before, after, gone };
+    });
+
+    check(
+      'arrows move along the strip and wrap at both ends',
+      strip.right === 'b' && strip.wrapped === 'c',
+      `right went to ${strip.right}, two lefts to ${strip.wrapped}`
+    );
+    check(
+      'Home and End go to the first and last tab',
+      strip.home === 'a' && strip.end === 'c',
+      `Home ${strip.home}, End ${strip.end}`
+    );
+    check(
+      'the strip is one tab stop, and the stop follows the keyboard',
+      strip.single === 1 && strip.stopIsHere,
+      `${strip.single} tabs carry tabindex 0`
+    );
+    check(
+      'a redraw leaves the focus on the tab the keyboard was on, not the selected one',
+      strip.before === 'b' && strip.after === 'b',
+      `was on ${strip.before}, came back on ${strip.after} while "a" was selected`
+    );
+    check(
+      'a redraw that drops the focused tab falls back to the selected one',
+      strip.gone === 'a',
+      `landed on ${strip.gone}`
+    );
+
+    await ctx.close();
+    await server.close();
+  } finally {
+    await browser.close();
+  }
+});
+
+/* =========================================================================
+ * 9. The same eight rules over the admin pages
  * ====================================================================== */
 
 // **Read only, deliberately.** This section runs against the live deployment
@@ -2638,7 +3221,7 @@ define('a11y-admin', 'The admin pages against the same accessibility rules', asy
 });
 
 /* =========================================================================
- * 9. The same eight rules over the applicant's own pages
+ * 10. The same eight rules over the applicant's own pages
  * ====================================================================== */
 
 define('a11y-account', "The applicant's pages against the same accessibility rules", async () => {
@@ -2735,7 +3318,7 @@ define('a11y-account', "The applicant's pages against the same accessibility rul
 });
 
 /* =========================================================================
- * 10. The admin pages, which need a deployment and a staff credential
+ * 11. The admin pages, which need a deployment and a staff credential
  * ====================================================================== */
 
 define('responsive-admin', 'The admin pages at six widths, against a deployment', async () => {
@@ -2845,7 +3428,7 @@ define('responsive-admin', 'The admin pages at six widths, against a deployment'
 });
 
 /* =========================================================================
- * 11. The applicant's own pages at six widths, which need the same credential
+ * 12. The applicant's own pages at six widths, which need the same credential
  * ====================================================================== */
 
 define('responsive-account', 'The account pages at six widths, against a deployment', async () => {
@@ -2951,7 +3534,7 @@ define('responsive-account', 'The account pages at six widths, against a deploym
 });
 
 /* =========================================================================
- * 12. The two addresses, on a deployment, which is the only place they exist
+ * 13. The two addresses, on a deployment, which is the only place they exist
  * ====================================================================== */
 
 // **A route returning 200 is not evidence its rewrite works**, and this is the
@@ -3087,6 +3670,89 @@ define('discovery-live', 'robots.txt and sitemap.xml as Vercel actually serves t
     `sitemap only: ${onlySitemap.join(', ') || 'none'}; feed only: ${onlyFeed.join(', ') || 'none'}`
   );
   check('there were postings to compare', fed.size > 0, 'both were empty, which proves nothing');
+});
+
+/* =========================================================================
+ * 14. The eleven rewrites part 6 removed, on a deployment
+ * ====================================================================== */
+
+// **The same rule as `discovery-live`, pointed at a subtraction.** Part 6 took
+// eleven rewrites out of vercel.json on the argument that Vercel matches the
+// filesystem — cleanUrls included — before it consults rewrites, so a rewrite
+// pointing `/about` at `/about/index.html` had never run. Nothing local can
+// prove that: the working tree's own server resolves those routes itself, so
+// the `polish` section can only check that the files are there.
+//
+// **Two of the eleven are the ones with teeth.** `/admin/login` and
+// `/admin/security` sit in front of `/admin/:path*` → `/placeholder`, so if the
+// filesystem did *not* win, removing their rewrites would answer both with the
+// "not built yet" page — a sign in page replaced by a phase notice, on the live
+// site. The evidence this was safe was `/admin/jobs`, which never had a rewrite
+// of its own and has served the real page behind that catch-all since phase 7.
+// This is that evidence turned into a check.
+
+define('polish-live', 'The removed rewrites, and the pages that answer without them', async () => {
+  const base = (process.env.BASE ?? 'https://careers.globalfurry.tv').replace(/\/+$/, '');
+
+  // A page each side of the line: one whose rewrite came out, and one that
+  // never had a page and must still get the placeholder.
+  const ROUTES = [
+    { path: '/about', marker: 'about.heading' },
+    { path: '/faq', marker: 'faq.heading' },
+    { path: '/search', marker: 'searchInput' },
+    { path: '/admin/login', marker: 'staffLoginForm' },
+    { path: '/admin/security', marker: 'staffSecurityPage' },
+    { path: '/account', marker: 'accountPage' },
+  ];
+
+  // **The gate, and it is the whole reason this section is separate.** Every
+  // route below answers correctly whether or not the rewrites are still in
+  // vercel.json — that is the point of calling them inert — so running this
+  // against a deployment that predates part 6 would report a clean pass and
+  // prove nothing at all. `tabs.js` is part 6's own file and is 404 until this
+  // is pushed, so it is what says which deployment is being measured.
+  let carries;
+  try {
+    carries = await fetch(`${base}/assets/js/tabs.js?t=${Date.now()}`);
+  } catch (cause) {
+    skip('the deployment could be reached', String(cause));
+    return;
+  }
+
+  if (!carries.ok) {
+    skip(
+      'the removed rewrites, against a deployment that has them removed',
+      `${base} is still serving the tree from before part 6. Push it and re-run: every route ` +
+        'here answers either way, so a pass on the old deployment would say nothing.'
+    );
+    return;
+  }
+
+  const placeholder = await fetch(`${base}/admin/gftv-no-such-section?t=${Date.now()}`);
+
+  const placeholderBody = placeholder.ok ? await placeholder.text() : '';
+  check(
+    'an unbuilt admin route still gets the placeholder from the catch-all',
+    placeholder.status === 200 && /Not built yet|placeholder/i.test(placeholderBody),
+    `${placeholder.status}, ${placeholderBody.length} bytes`
+  );
+
+  for (const route of ROUTES) {
+    let answer;
+    try {
+      answer = await fetch(`${base}${route.path}?t=${Date.now()}`, { redirect: 'manual' });
+    } catch (cause) {
+      check(`${route.path} answers`, false, String(cause));
+      continue;
+    }
+
+    const body = answer.status === 200 ? await answer.text() : '';
+    check(
+      `${route.path} is served from its own file with no rewrite pointing at it`,
+      answer.status === 200 && body.includes(route.marker),
+      `${answer.status}, ${body.length} bytes, ${route.marker} present: ${body.includes(route.marker)}`
+    );
+  }
 });
 
 /* -------------------------------------------------------------------------

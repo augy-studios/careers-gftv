@@ -25,9 +25,6 @@
 import { t } from './i18n.js';
 import { hydrateIcons } from './icons.js';
 
-const FOCUSABLE =
-  'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
-
 /**
  * Run the steps. Resolves with the typed password, or null if the person
  * cancelled at any point.
@@ -85,11 +82,11 @@ export function confirmDangerousAction(options) {
     const totalSteps = steps.length;
     let step = 1;
 
-    const wrap = document.createElement('div');
+    const wrap = document.createElement('dialog');
     wrap.className = 'modal-backdrop';
+    wrap.setAttribute('aria-labelledby', 'dangerTitle');
     wrap.innerHTML = `
-      <div class="modal glass-card danger-dialog" role="dialog" aria-modal="true"
-           aria-labelledby="dangerTitle">
+      <div class="modal glass-card danger-dialog">
         <div class="modal-head">
           <h2 id="dangerTitle">${escapeHtml(options.title)}</h2>
           <span class="danger-step" data-step-label></span>
@@ -150,10 +147,19 @@ export function confirmDangerousAction(options) {
     `;
 
     document.body.append(wrap);
+    // **showModal() rather than an append and a class, and the reason is
+    // nesting.** Every one of these is opened from somewhere — an applicant
+    // detail panel, a tag editor — and since part 6 that somewhere is a native
+    // <dialog>. A modal dialog makes the whole document outside it inert and
+    // paints above every z-index, so a plain div appended to the body while
+    // one is open is unclickable, unfocusable, and behind the dim. Measured
+    // rather than reasoned about: elementFromPoint over the confirm button
+    // returned the control underneath it. A second modal dialog stacks in the
+    // top layer instead, which is the whole reason the top layer is a stack.
+    wrap.showModal();
     document.body.setAttribute('data-scroll-locked', 'true');
     hydrateIcons(wrap);
 
-    const panel = wrap.querySelector('.modal');
     const advance = wrap.querySelector('[data-advance]');
     const stepLabel = wrap.querySelector('[data-step-label]');
     const usernameInput = wrap.querySelector('#dangerUsername');
@@ -298,8 +304,6 @@ export function confirmDangerousAction(options) {
       if (event.key === 'Escape') {
         event.preventDefault();
         close(null);
-      } else if (event.key === 'Tab') {
-        trapFocus(panel, event);
       } else if (event.key === 'Enter' && event.target.tagName === 'INPUT') {
         event.preventDefault();
         advance.click();
@@ -316,6 +320,9 @@ export function confirmDangerousAction(options) {
       // use and about to be spent, but it is still a credential on screen.
       passwordInput.value = '';
       codeInput.value = '';
+      // close() before remove(): a dialog taken out of the document without
+      // it stays in the top layer's bookkeeping in some engines.
+      wrap.close();
       wrap.remove();
       document.body.setAttribute('data-scroll-locked', 'false');
       if (previousFocus instanceof HTMLElement) previousFocus.focus();
@@ -370,11 +377,11 @@ export function confirmAction(options) {
   return new Promise((resolve) => {
     const previousFocus = document.activeElement;
 
-    const wrap = document.createElement('div');
+    const wrap = document.createElement('dialog');
     wrap.className = 'modal-backdrop';
+    wrap.setAttribute('aria-labelledby', 'confirmTitle');
     wrap.innerHTML = `
-      <div class="modal glass-card danger-dialog" role="dialog" aria-modal="true"
-           aria-labelledby="confirmTitle">
+      <div class="modal glass-card danger-dialog">
         <div class="modal-head">
           <h2 id="confirmTitle">${escapeHtml(options.title)}</h2>
         </div>
@@ -406,10 +413,19 @@ export function confirmAction(options) {
     `;
 
     document.body.append(wrap);
+    // **showModal() rather than an append and a class, and the reason is
+    // nesting.** Every one of these is opened from somewhere — an applicant
+    // detail panel, a tag editor — and since part 6 that somewhere is a native
+    // <dialog>. A modal dialog makes the whole document outside it inert and
+    // paints above every z-index, so a plain div appended to the body while
+    // one is open is unclickable, unfocusable, and behind the dim. Measured
+    // rather than reasoned about: elementFromPoint over the confirm button
+    // returned the control underneath it. A second modal dialog stacks in the
+    // top layer instead, which is the whole reason the top layer is a stack.
+    wrap.showModal();
     document.body.setAttribute('data-scroll-locked', 'true');
     hydrateIcons(wrap);
 
-    const panel = wrap.querySelector('.modal');
     const input = wrap.querySelector('[data-confirm-field]');
     const confirmButton = wrap.querySelector('[data-confirm]');
 
@@ -432,8 +448,6 @@ export function confirmAction(options) {
       if (event.key === 'Escape') {
         event.preventDefault();
         close(null);
-      } else if (event.key === 'Tab') {
-        trapFocus(panel, event);
       } else if (event.key === 'Enter' && event.target.tagName === 'INPUT') {
         // Only a single line input. Enter inside a textarea is a newline, which
         // is the whole reason somebody chose a textarea.
@@ -446,6 +460,9 @@ export function confirmAction(options) {
 
     function close(result) {
       document.removeEventListener('keydown', onKeydown, true);
+      // close() before remove(): a dialog taken out of the document without
+      // it stays in the top layer's bookkeeping in some engines.
+      wrap.close();
       wrap.remove();
       document.body.setAttribute('data-scroll-locked', 'false');
       if (previousFocus instanceof HTMLElement) previousFocus.focus();
@@ -468,24 +485,6 @@ function fieldMarkup(field) {
       ${control}
       ${field.hint ? `<p class="field-hint">${escapeHtml(field.hint)}</p>` : ''}
     </div>`;
-}
-
-function trapFocus(panel, event) {
-  const items = [...panel.querySelectorAll(FOCUSABLE)].filter(
-    (el) => !el.disabled && el.offsetParent !== null
-  );
-  if (items.length === 0) return;
-
-  const first = items[0];
-  const last = items[items.length - 1];
-
-  if (event.shiftKey && document.activeElement === first) {
-    event.preventDefault();
-    last.focus();
-  } else if (!event.shiftKey && document.activeElement === last) {
-    event.preventDefault();
-    first.focus();
-  }
 }
 
 function escapeHtml(value) {

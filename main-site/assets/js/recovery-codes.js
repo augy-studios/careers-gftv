@@ -23,9 +23,6 @@ import { t } from './i18n.js';
 import { hydrateIcons } from './icons.js';
 import { api } from './api.js';
 
-const FOCUSABLE =
-  'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
-
 /**
  * Show a freshly generated set. Resolves when the person has confirmed they
  * have saved them and closed the dialog.
@@ -37,11 +34,12 @@ export function showRecoveryCodes({ codes, set = 'recovery' }) {
   return new Promise((resolve) => {
     const previousFocus = document.activeElement;
 
-    const wrap = document.createElement('div');
+    const wrap = document.createElement('dialog');
     wrap.className = 'modal-backdrop';
+    wrap.setAttribute('aria-labelledby', 'codeDialogTitle');
+    wrap.setAttribute('aria-describedby', 'codeDialogIntro');
     wrap.innerHTML = `
-      <div class="modal glass-card code-dialog" role="dialog" aria-modal="true"
-           aria-labelledby="codeDialogTitle" aria-describedby="codeDialogIntro">
+      <div class="modal glass-card code-dialog">
         <div class="modal-head">
           <h2 id="codeDialogTitle">${escapeHtml(
             t(set === 'backup' ? 'codes.backupTitle' : 'codes.recoveryTitle')
@@ -86,10 +84,14 @@ export function showRecoveryCodes({ codes, set = 'recovery' }) {
     `;
 
     document.body.append(wrap);
+    // A native modal since part 6, for the reason danger-confirm.js gives at
+    // length: this is opened from /account/security and /admin/security, and a
+    // plain div appended while another modal dialog is open is inert and
+    // painted underneath it.
+    wrap.showModal();
     document.body.setAttribute('data-scroll-locked', 'true');
     hydrateIcons(wrap);
 
-    const panel = wrap.querySelector('.modal');
     const confirm = wrap.querySelector('[data-confirm]');
     const done = wrap.querySelector('[data-done]');
     const note = wrap.querySelector('[data-action-note]');
@@ -119,27 +121,35 @@ export function showRecoveryCodes({ codes, set = 'recovery' }) {
 
     done.addEventListener('click', () => close());
 
-    // No Escape, no backdrop click. The checkbox is the only way out, per 5c.
-    // Tab still cycles inside the dialog.
+    // **No Escape, no backdrop click. The checkbox is the only way out, per
+    // 5c** — this is the one dialog in the build that is deliberately hard to
+    // leave, because leaving it loses the codes for good.
+    //
+    // A native <dialog> closes itself on Escape, so refusing has to be said in
+    // the browser's own terms: `cancel` is the event that precedes that close,
+    // and preventing its default is what keeps the dialog up. The keydown
+    // listener is still here for the *other* half — putting the focus on the
+    // checkbox, so pressing Escape teaches what the way out is instead of
+    // doing nothing at all. Tab is the browser's now.
+    wrap.addEventListener('cancel', (event) => {
+      event.preventDefault();
+      confirm.focus();
+    });
+
     function onKeydown(event) {
-      if (event.key === 'Tab') trapFocus(panel, event);
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        confirm.focus();
-      }
+      if (event.key === 'Escape') confirm.focus();
     }
 
     document.addEventListener('keydown', onKeydown, true);
 
     function close() {
       document.removeEventListener('keydown', onKeydown, true);
+      wrap.close();
       wrap.remove();
       document.body.setAttribute('data-scroll-locked', 'false');
       if (previousFocus instanceof HTMLElement) previousFocus.focus();
       resolve();
     }
-
-    panel.querySelector(FOCUSABLE)?.focus();
   });
 }
 
@@ -200,24 +210,6 @@ function selectText(element) {
   const selection = window.getSelection();
   selection.removeAllRanges();
   selection.addRange(range);
-}
-
-function trapFocus(panel, event) {
-  const items = [...panel.querySelectorAll(FOCUSABLE)].filter(
-    (el) => !el.disabled && (el.offsetParent !== null || el === document.activeElement)
-  );
-  if (items.length === 0) return;
-
-  const first = items[0];
-  const last = items[items.length - 1];
-
-  if (event.shiftKey && document.activeElement === first) {
-    event.preventDefault();
-    last.focus();
-  } else if (!event.shiftKey && document.activeElement === last) {
-    event.preventDefault();
-    first.focus();
-  }
 }
 
 function escapeHtml(value) {

@@ -39,8 +39,15 @@ import { hydrateIcons, iconMarkup } from './icons.js';
 import { escapeHtml } from './markdown.js';
 import { COMMITMENTS } from './format.js';
 import { confirmAction } from './danger-confirm.js';
-import { mountAdminPage, adminApiError, adminMessage, adminLocales } from './admin-shell.js';
+import {
+  mountAdminPage,
+  adminApiError,
+  adminMessage,
+  adminLocales,
+  runAction,
+} from './admin-shell.js';
 import { mountQuestionComposer } from './admin-questions.js';
+import { drawTabStrip } from './tabs.js';
 
 const PATH = '/admin/jobs';
 
@@ -184,33 +191,33 @@ function drawTabs() {
 
   const locales = adminLocales();
 
-  holder.innerHTML = locales
-    .map((locale) => {
-      const state = localeState(locale);
-      return (
-        `<button type="button" class="lang-tab" role="tab" data-locale="${escapeHtml(locale.code)}"` +
-        ` aria-selected="${locale.code === activeLocale}"` +
-        `${locale.code === activeLocale ? '' : ' tabindex="-1"'}>` +
-        `<span>${escapeHtml(locale.native_name)}</span>` +
-        `<span class="lang-state lang-state-${state}" title="${escapeHtml(
-          t(`admin.translation_${state}`)
-        )}"></span>` +
-        `</button>`
-      );
-    })
-    .join('');
-
-  holder.querySelectorAll('[data-locale]').forEach((tab) => {
-    tab.addEventListener('click', () => {
+  drawTabStrip(holder, {
+    key: 'locale',
+    html: locales
+      .map((locale) => {
+        const state = localeState(locale);
+        return (
+          `<button type="button" class="lang-tab" role="tab" data-locale="${escapeHtml(locale.code)}"` +
+          ` aria-selected="${locale.code === activeLocale}"` +
+          `${locale.code === activeLocale ? '' : ' tabindex="-1"'}>` +
+          `<span>${escapeHtml(locale.native_name)}</span>` +
+          `<span class="lang-state lang-state-${state}" title="${escapeHtml(
+            t(`admin.translation_${state}`)
+          )}"></span>` +
+          `</button>`
+        );
+      })
+      .join(''),
+    onSelect: (code) => {
       // Both halves of the page are read back before the switch, because draw()
       // redraws both. Without the second call, changing tab would quietly
       // discard whatever had been typed into the panel on the right, which is
       // where the form URL and the questions live.
       readTabBody();
       readShared();
-      activeLocale = tab.getAttribute('data-locale');
+      activeLocale = code;
       draw();
-    });
+    },
   });
 }
 
@@ -760,7 +767,7 @@ function wireShared(holder) {
   // one character wrong and every delivery from that form answers
   // no_such_posting.
   holder.querySelector('[data-copy-job-id]')?.addEventListener('click', () => {
-    runAction(async () => {
+    editorAction(async () => {
       const code = holder.querySelector('#jobIdForScript');
       if (!code) return;
 
@@ -1135,29 +1142,22 @@ function clone(value) {
  * somebody has spent ten minutes in is the worst place on the site for a silent
  * failure, because the obvious next move is to try again and then leave.
  *
+ * **This was the third copy of that function**, and phase 12 part 6 removed it.
+ * The only thing it did differently was write "editor" into the console line,
+ * which is a label rather than a behaviour, so it is passed as one.
+ *
  * The message is deliberately the generic one. Whatever went wrong here is a
  * fault in this page, not something the admin can act on, and the
  * console still carries the real cause for whoever reads it.
  */
-function runAction(action, label) {
-  try {
-    const result = action();
-    if (result && typeof result.catch === 'function') {
-      result.catch((cause) => {
-        console.error(`[careers-gftv] editor ${label}:`, cause);
-        adminMessage('error', t('error.unexpected'));
-      });
-    }
-  } catch (cause) {
-    console.error(`[careers-gftv] editor ${label}:`, cause);
-    adminMessage('error', t('error.unexpected'));
-  }
+function editorAction(action, label) {
+  runAction(action, `editor ${label}`);
 }
 
 document.addEventListener('click', (event) => {
-  if (event.target.closest('#saveButton')) runAction(save, 'save');
-  if (event.target.closest('#publishButton')) runAction(publish, 'publish');
-  if (event.target.closest('#previewButton')) runAction(openPreview, 'preview');
+  if (event.target.closest('#saveButton')) editorAction(save, 'save');
+  if (event.target.closest('#publishButton')) editorAction(publish, 'publish');
+  if (event.target.closest('#previewButton')) editorAction(openPreview, 'preview');
 });
 
 /**
