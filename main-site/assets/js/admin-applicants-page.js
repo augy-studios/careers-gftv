@@ -236,9 +236,7 @@ async function openAccount(id) {
     bodyHtml: `
       <div class="modal-body">
         <p class="admin-row-title">${escapeHtml(account.display_name)}</p>
-        <p class="muted">${escapeHtml(account.username)} &middot; ${escapeHtml(
-          account.email
-        )}${account.phone ? ` &middot; ${escapeHtml(account.phone)}` : ''}</p>
+        <p class="muted">${escapeHtml(account.username)} &middot; ${escapeHtml(account.email)}</p>
         <p class="muted">${escapeHtml(
           t('admin.joinedOn', { date: formatDate(account.created_at) })
         )}</p>
@@ -470,15 +468,21 @@ async function setActive(account, active) {
 }
 
 /**
- * Edit the five fields on somebody's account.
+ * Edit the four fields on somebody's account.
  *
  * **Not in 8.9, and added on 31 August 2026 because it was asked for.** What
- * the dialog has to make obvious is which of the five costs something: the
+ * the dialog has to make obvious is which of the four costs something: the
  * username and the email are what somebody signs in with, so changing either
- * ends every session and trusted device on the account, and the other three do
+ * ends every session and trusted device on the account, and the other two do
  * not. That is said once above the fields and again on the identifiers
  * themselves, because an admin fixing a typo in a display name should not have
  * to wonder.
+ *
+ * **The phone number was the fifth and is gone**, dropped 1 September 2026:
+ * `gftvjobs_users` has no column for it, so the field was asking an admin to
+ * type something that had nowhere to land. The endpoint still accepts `phone`
+ * and nothing sends it now, which is the harmless direction for that pair to
+ * disagree in.
  *
  * Every field is prefilled with what is there now and only what actually moved
  * is sent, so a form posted untouched changes nothing and revokes nothing.
@@ -517,13 +521,6 @@ async function editDetails(account) {
           <input id="editDisplayName" type="text" maxlength="80" autocomplete="off"
                  value="${escapeHtml(account.display_name)}">
           <p class="field-error" data-error-for="display_name" hidden></p>
-        </div>
-
-        <div class="field">
-          <label for="editPhone">${escapeHtml(t('admin.fieldPhone'))}</label>
-          <input id="editPhone" type="text" maxlength="40" autocomplete="off"
-                 value="${escapeHtml(account.phone ?? '')}">
-          <p class="field-error" data-error-for="phone" hidden></p>
         </div>
 
         <div class="field">
@@ -582,7 +579,6 @@ async function editDetails(account) {
           username: root.querySelector('#editUsername').value.trim(),
           email: root.querySelector('#editEmail').value.trim(),
           display_name: root.querySelector('#editDisplayName').value.trim(),
-          phone: root.querySelector('#editPhone').value.trim(),
           locale: root.querySelector('#editLocale').value,
           reason,
         },
