@@ -134,36 +134,68 @@ function pageStrings() {
  *  Read as text and not by importing Python, which `gen-review.js` does need to
  *  do and this does not: what matters here is whether the phrase appears inside
  *  a quoted string, and a docstring explaining a decision is not copy.
+ *
+ *  **Every file in the directory, and not only `strings.py`.** That file is
+ *  where the bot's messages are supposed to live and mostly do, but a sentence
+ *  can be built anywhere, and on the day this was written the one hit outside it
+ *  was in `db.py` — the message a maintainer sees when an older bot meets a
+ *  newer database. That is not chat copy, and it is still a sentence a person
+ *  reads, so the scan takes the whole directory and the rule applies to all of
+ *  it. **Log lines are in scope by the same choice**, deliberately: an
+ *  exclusion list is a second rule to remember and this one is short enough
+ *  without it.
  */
 function botStrings() {
-  const source = read('telegram-bot/strings.py');
+  const dir = path.join(repo, 'telegram-bot');
   const out = [];
 
-  // Every single or double quoted string on a line that is not a comment. Crude
-  // on purpose: a false positive here is a sentence somebody reads, and the
-  // cost of checking one by hand is a few seconds.
-  const lines = source.split('\n');
-  let inDocstring = false;
+  for (const file of fs.readdirSync(dir).filter((name) => name.endsWith('.py'))) {
+    // Every single or double quoted string on a line that is not a comment.
+    // Crude on purpose: a false positive here is a sentence somebody reads, and
+    // the cost of checking one by hand is a few seconds.
+    const lines = fs.readFileSync(path.join(dir, file), 'utf8').split('\n');
+    let inDocstring = false;
 
-  lines.forEach((line, index) => {
-    const fences = (line.match(/"""/g) ?? []).length;
-    if (inDocstring) {
-      if (fences > 0) inDocstring = false;
-      return;
-    }
-    if (fences === 1) {
-      inDocstring = true;
-      return;
-    }
-    if (fences >= 2) return;
+    lines.forEach((line, index) => {
+      const fences = (line.match(/"""/g) ?? []).length;
+      if (inDocstring) {
+        if (fences > 0) inDocstring = false;
+        return;
+      }
+      if (fences === 1) {
+        inDocstring = true;
+        return;
+      }
+      if (fences >= 2) return;
 
-    const withoutComment = line.replace(/#.*$/, '');
-    for (const match of withoutComment.matchAll(/(['"])((?:\\.|(?!\1).)*)\1/g)) {
-      out.push({ where: `strings.py:${index + 1}`, text: match[2] });
-    }
-  });
+      const withoutComment = line.replace(/#.*$/, '');
+      for (const match of withoutComment.matchAll(/(['"])((?:\\.|(?!\1).)*)\1/g)) {
+        out.push({ where: `${file}:${index + 1}`, text: match[2] });
+      }
+    });
+  }
 
   return out;
+}
+
+/** The bot's About and Description, which live in a document.
+ *
+ *  BotFather's menus set one of each for everybody, so the text sits in fenced
+ *  blocks in section 3 of `setup.md` waiting for whatever sets it. It is the
+ *  first thing a new person reads above the Start button, which makes it copy
+ *  wherever it happens to be stored — the same argument `gen-review.js` makes
+ *  for putting it in front of the Chinese reviewer. The anchors here are that
+ *  file's, so the two find the same four blocks.
+ */
+function botProfileStrings() {
+  const doc = read('telegram-bot/setup.md');
+  const section = (doc.split('\n## 3.')[1] ?? '').split('\n## ')[0];
+  const fields = ['About', 'Description', 'About, 华文', 'Description, 华文'];
+
+  return [...section.matchAll(/```text\n([\s\S]*?)\n```/g)].map((match, index) => ({
+    where: `setup.md ${fields[index] ?? `block ${index + 1}`}`,
+    text: match[1].trim(),
+  }));
 }
 
 const SOURCES = [
@@ -171,7 +203,8 @@ const SOURCES = [
   ['the phase list on /status', buildStatusStrings],
   ['llms.txt', llmsStrings],
   ['the pages themselves', pageStrings],
-  ["the Telegram bot's messages", botStrings],
+  ["the Telegram bot's own strings", botStrings],
+  ["the bot's profile text", botProfileStrings],
 ];
 
 /* -------------------------------------------------------------------------

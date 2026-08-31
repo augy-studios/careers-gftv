@@ -304,7 +304,8 @@ submitted.
 
 One rule so far, and it applies to **every English string a reader can see** —
 the interface dictionary, the pages, the phase list on `/status`, `llms.txt`,
-and what the Telegram bot says. Source comments, the READMEs and the migrations
+and the Telegram bot, which means every string in its Python and the About and
+Description on its profile. Source comments, the READMEs and the migrations
 are not copy and are left alone.
 
 **Do not write "rather than".** Use `instead of`, `in place of`, `as opposed
@@ -321,7 +322,7 @@ the ones to run before pushing.
 | Script | What it does |
 |---|---|
 | `check-i18n.js` | Every `t()` key in the source against both dictionaries. Reports missing keys, unused ones, and the sixty built at runtime that it cannot resolve. **Run it before shipping**: a missing key renders as the raw key. |
-| `check-copy.js` | Every English string a reader can see, against the house style above. Reads the dictionary, the pages with their comments stripped out, the phase list, `llms.txt` and the bot's messages — 2,360 strings today — and exits non-zero on a banned phrase, naming the key and the sentence around it. `--list` prints what it reads and what is banned. |
+| `check-copy.js` | Every English string a reader can see, against the house style above. Reads the dictionary, the pages with their comments stripped out, the phase list, `llms.txt`, every quoted string in the bot's Python and its About and Description text — 3,470 strings today — and exits non-zero on a banned phrase, naming the key and the sentence around it. `--list` prints what it reads and what is banned. |
 | `check-precache.js` | Every entry in `sw.js`'s precache list resolved the way `cleanUrls` does, and non-zero on one that is not on disk. The precache list is the most dangerous object in the site: a bad entry costs one file at runtime and this is what stops it reaching production at all. |
 | `gen-icons.js` | Every icon under `main-site/`, from `HLC-source.png` at this level. The source is deliberately not one of the outputs. See [`main-site/README.md`](main-site/README.md). |
 | `gen-screenshots.js` | The two install screenshots in the manifest, captured from `/search` on the deployment. Rerun after clearing the seed. |

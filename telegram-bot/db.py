@@ -157,7 +157,7 @@ def migrate(conn: sqlite3.Connection, path: Path | None = None) -> int:
         raise RuntimeError(
             f"{path or 'the database'} is at schema version {version} and this "
             f"build only knows {len(MIGRATIONS)}. It was written by a newer "
-            f"bot. Check out the matching revision rather than running this one."
+            f"bot. Check out the matching revision instead of running this one."
         )
 
     for index in range(version, len(MIGRATIONS)):
