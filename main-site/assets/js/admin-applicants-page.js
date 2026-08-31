@@ -478,11 +478,12 @@ async function setActive(account, active) {
  * themselves, because an admin fixing a typo in a display name should not have
  * to wonder.
  *
- * **The phone number was the fifth and is gone**, dropped 1 September 2026:
- * `gftvjobs_users` has no column for it, so the field was asking an admin to
- * type something that had nowhere to land. The endpoint still accepts `phone`
- * and nothing sends it now, which is the harmless direction for that pair to
- * disagree in.
+ * **The phone number was the fifth and is gone**, taken out 1 September 2026
+ * because it was not wanted here. The column and the endpoint both still have
+ * it — `gftvjobs_users.phone` is real, and `update_details` still validates a
+ * `phone` it is sent — so restoring the field is adding the markup back and
+ * nothing else. Nothing sends it now, which is the harmless direction for a
+ * form and an endpoint to disagree in.
  *
  * Every field is prefilled with what is there now and only what actually moved
  * is sent, so a form posted untouched changes nothing and revokes nothing.

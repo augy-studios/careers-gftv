@@ -274,8 +274,15 @@ async function updateDetails(res, session, account, body, reason, done) {
     });
   }
 
-  const { ok: valid, values, details } = collect(checks);
-  if (!valid) {
+  // **`collect` returns `{ values, details }` and no `ok`.** This destructured
+  // an `ok` that was never there, so `valid` was always undefined and every
+  // save failed on a validation error with `details: null` — nothing wrong with
+  // the fields, and nothing for the page to draw beside one either. The action
+  // had never once worked. `details` being null *is* the pass, which is the
+  // contract the doc comment on collect states and the shape the other two
+  // callers use.
+  const { values, details } = collect(checks);
+  if (details) {
     return fail(res, ERR.BAD_REQUEST, 'Those details could not be saved.', { details });
   }
 
