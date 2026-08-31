@@ -152,6 +152,27 @@ export const STALE_MS = 15 * 60 * 1000;
 export const MIN_FAILS = 3;
 
 /**
+ * How long a declared outage has to have lasted to be worth listing. Five
+ * minutes.
+ *
+ * **This is what the real audit log looks like.** Read on the deployment on
+ * 31 August 2026, the declared list was about forty entries and nearly all of
+ * them were verification runs — a switch flipped off and on again two or three
+ * minutes later, with "Off for the verification run" written in the note — and
+ * every phase file that touches a maintenance switch adds more. A page nobody
+ * can read is a page that reports nothing.
+ *
+ * It is the same judgement `MIN_FAILS` makes about the observed half, and it is
+ * held to the same standard: **the rule is printed on the page**, so what is
+ * left out is stated rather than quietly dropped. An outage still open is never
+ * hidden by it, whatever its length so far.
+ */
+export const MIN_DECLARED_MS = 5 * 60 * 1000;
+
+/** How many incidents of each kind are listed. The rest are counted, not drawn. */
+export const INCIDENT_LIMIT = 10;
+
+/**
  * How recently an outage must have ended for the headline to still call the
  * site degraded. An hour.
  *
@@ -484,6 +505,32 @@ export function observedIncidents(rows = [], { now = new Date(), minFails = MIN_
     .sort((a, b) => new Date(b.start) - new Date(a.start));
 }
 
+/**
+ * What of a list of incidents is actually drawn, and what is only counted.
+ *
+ * **Both halves of the panel go through this**, so the declared and the
+ * observed lists behave the same way and the page can say so in one sentence
+ * each. Nothing is dropped silently: what comes back carries the totals, and
+ * the renderer prints them.
+ *
+ * @param {Array<{ durationMs: number|null }>} incidents newest first
+ * @param {{ minMs?: number, limit?: number }} [options] `minMs` 0 leaves every
+ *   length in, which is what the observed list passes: `MIN_FAILS` has already
+ *   made that judgement in checks rather than in minutes.
+ */
+export function listable(incidents = [], { minMs = 0, limit = INCIDENT_LIMIT } = {}) {
+  // An outage with no end has no length yet, and "still off" is never too short
+  // to mention.
+  const long = incidents.filter((one) => one.durationMs === null || one.durationMs >= minMs);
+
+  return {
+    shown: long.slice(0, limit),
+    total: incidents.length,
+    short: incidents.length - long.length,
+    over: Math.max(0, long.length - limit),
+  };
+}
+
 /* -------------------------------------------------------------------------
  * Formatting
  * ---------------------------------------------------------------------- */
@@ -636,10 +683,14 @@ function renderUptime(row) {
   // One label a screen reader can act on, rather than ninety focusable squares
   // that say nothing individually. The sentence under the bar carries the same
   // numbers in text, so nothing is only available as colour.
+  // "100.00% of 1 checks" is what the page said on the probe's first minute,
+  // seen on the deployment on 31 August 2026. The dictionaries have no plural
+  // machinery and do not need any for one case: Chinese has no plural at all,
+  // so the second key is an English nicety that reads the same either way.
   const summary =
     row.percent === null
       ? en('serviceStatus.uptimeNone')
-      : en('serviceStatus.uptimeSummary', {
+      : en(row.checks === 1 ? 'serviceStatus.uptimeSummaryOne' : 'serviceStatus.uptimeSummary', {
           percent: row.percent.toFixed(2),
           checks: row.checks.toLocaleString('en'),
           days: DAYS,
@@ -679,12 +730,35 @@ function renderUptime(row) {
 }
 
 function renderIncidents(model) {
-  const declared = model.declared ?? [];
-  const observed = model.observed ?? [];
+  // **The floor and the cap, and both are printed.** Read on the deployment the
+  // declared list is mostly verification runs two minutes long, and a page
+  // nobody can read reports nothing; but a page quietly showing nine of forty
+  // is the same page lying by omission. So: shorten it, and say by how much.
+  const declaredList = listable(model.declared ?? [], { minMs: MIN_DECLARED_MS });
+  const observedList = listable(model.observed ?? []);
+
+  const declared = declaredList.shown;
+  const observed = observedList.shown;
 
   if (declared.length === 0 && observed.length === 0) {
     return line('p', 'serviceStatus.incidentsNone');
   }
+
+  const rules = (list, { floor }) => {
+    const said = [];
+    if (floor && list.short > 0) {
+      said.push(
+        en('serviceStatus.shortNotListed', {
+          minutes: Math.round(MIN_DECLARED_MS / 60000),
+          count: list.short,
+        })
+      );
+    }
+    if (list.over > 0) {
+      said.push(en('serviceStatus.showingRecent', { shown: list.shown.length, total: list.total }));
+    }
+    return said.length === 0 ? '' : `<p class="muted small">${escapeHtml(said.join(' '))}</p>`;
+  };
 
   const parts = [];
 
@@ -692,6 +766,7 @@ function renderIncidents(model) {
     parts.push(`<h3 data-i18n="serviceStatus.declaredHeading">${escapeHtml(
       en('serviceStatus.declaredHeading')
     )}</h3>
+            ${rules(declaredList, { floor: true })}
             <ul class="status-incidents">
                 ${declared
                   .map((incident) => {
@@ -719,6 +794,7 @@ function renderIncidents(model) {
       en('serviceStatus.observedHeading')
     )}</h3>
             ${line('p', 'serviceStatus.observedLede', { className: 'muted small' })}
+            ${rules(observedList, { floor: false })}
             <ul class="status-incidents">
                 ${observed
                   .map((incident) => {

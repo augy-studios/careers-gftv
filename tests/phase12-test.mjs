@@ -69,6 +69,9 @@ import {
   EXPECTED_PER_DAY,
   TARGET_KEYS,
   HEADLINE_TONE,
+  MIN_DECLARED_MS,
+  INCIDENT_LIMIT,
+  listable,
   everyPhaseShipped,
   viewFor,
   dayState,
@@ -3636,6 +3639,75 @@ define('status', 'The service status page, and what it refuses to claim', async 
     'a percentage is never printed without the coverage beside it',
     body.includes(`${DAYS} days`) && body.includes(en('serviceStatus.uptimeGaps', { days: 45 })),
     'the gaps sentence is missing from a bar with 45 unmeasured days'
+  );
+
+  /* -- what the panel leaves out, and says it left out ---------------------- */
+
+  // **Read off the deployment on 31 August 2026**: the declared list was about
+  // forty entries, nearly all of them verification runs two or three minutes
+  // long with "Off for the verification run" in the note, and every phase file
+  // that touches a maintenance switch adds more. A page nobody can read reports
+  // nothing.
+  const flips = Array.from({ length: 40 }, (unused, index) => ({
+    feature: 'saved_jobs',
+    note: 'Off for the verification run',
+    start: `2026-08-${String((index % 27) + 1).padStart(2, '0')}T03:00:00Z`,
+    end: `2026-08-${String((index % 27) + 1).padStart(2, '0')}T03:02:00Z`,
+    durationMs: 2 * 60 * 1000,
+  }));
+  const realOutage = {
+    feature: 'apply',
+    note: 'The form provider is down.',
+    start: '2026-08-20T10:00:00Z',
+    end: '2026-08-20T12:30:00Z',
+    durationMs: 150 * 60 * 1000,
+  };
+  const stillOff = { feature: 'saved_jobs', note: null, start: '2026-08-29T08:00:00Z', end: null, durationMs: null };
+
+  const shortened = listable([stillOff, realOutage, ...flips], { minMs: MIN_DECLARED_MS });
+  check(
+    'a two minute flip is not listed as an outage',
+    shortened.shown.every((one) => one.durationMs === null || one.durationMs >= MIN_DECLARED_MS) &&
+      shortened.short === flips.length,
+    JSON.stringify({ shown: shortened.shown.length, short: shortened.short })
+  );
+  check(
+    'one still switched off is listed however short it has been so far',
+    shortened.shown.some((one) => one.end === null),
+    'an open outage was hidden by a length it does not have yet'
+  );
+  check(
+    `at most ${INCIDENT_LIMIT} are drawn, and the rest are counted`,
+    listable(Array.from({ length: 25 }, () => realOutage), { minMs: MIN_DECLARED_MS }).shown.length === INCIDENT_LIMIT &&
+      listable(Array.from({ length: 25 }, () => realOutage), { minMs: MIN_DECLARED_MS }).over === 15,
+    'the cap does not hold, or does not report what it held back'
+  );
+
+  const noisy = renderServiceBody({ ...model(), declared: [stillOff, realOutage, ...flips] });
+  check(
+    'and the page says both rules out loud rather than quietly showing fewer',
+    noisy.includes(en('serviceStatus.shortNotListed', { minutes: 5, count: flips.length })),
+    'the floor is applied and not stated, which is the same page lying by omission'
+  );
+  check(
+    'a list short enough to draw whole says nothing about rules it did not apply',
+    !renderServiceBody({ ...model(), declared: [realOutage] }).includes(
+      en('serviceStatus.shortNotListed', { minutes: 5, count: 1 })
+    ),
+    'the page is explaining an omission it did not make'
+  );
+
+  // The sentence the probe's own first minute produced on the deployment.
+  check(
+    'one check does not read as "1 checks"',
+    renderServiceBody({
+      ...model(),
+      uptime: TARGET_KEYS.map((target) => ({
+        target,
+        ...uptimeFor([{ day: '2026-08-31', checks: 1, failures: 0, duration_total_ms: 106, slowest_ms: 106 }], { now }),
+      })),
+    }).includes(en('serviceStatus.uptimeSummaryOne', { percent: '100.00', days: DAYS })),
+    'the singular sentence is not being used'
   );
 
   /* -- no JavaScript, no session ------------------------------------------- */
