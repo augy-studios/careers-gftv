@@ -5790,6 +5790,35 @@ ul.field-hint {
   background: var(--control-off-bg);
 }
 
+/* A day that leads somewhere, 1 September 2026.
+ *
+ * Only the squares with an outage drawn below them are links — a working day
+ * and a day nobody measured are not events — so this is the affordance for the
+ * few that are. **Two properties, and neither of them is colour**: the colour
+ * is already carrying the state and a hover that changed it would say the day
+ * had changed. Width instead, and the outline on focus, so the same feedback
+ * reaches a pointer and a keyboard.
+ *
+ * The floor matters more than it looks: a 3px square is a small target, and
+ * these are the ones somebody is trying to hit. */
+a.status-day {
+  min-width: 5px;
+  cursor: pointer;
+}
+
+a.status-day:hover,
+a.status-day:focus-visible {
+  flex-grow: 3;
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+  /* The ring is drawn 1px outside a square that has 1px of gap either side, so
+     without this the neighbours paint over three of its four edges and it reads
+     as a line down the left. Looked at on 1 September 2026 at 3x, which is the
+     only way anybody was going to notice. */
+  position: relative;
+  z-index: 1;
+}
+
 .status-day[data-state='up'] {
   background: var(--ok);
 }
@@ -5867,6 +5896,27 @@ ul.field-hint {
 .status-incidents li {
   padding-left: 0.75rem;
   border-left: 3px solid var(--border-strong);
+}
+
+/* Landed on from a day square, 1 September 2026.
+ *
+ * **The scroll margin is the part that is not decoration.** The header is
+ * sticky, so a plain jump to an id puts the incident under it and a reader
+ * arrives looking at the entry above the one they asked for. The highlight is
+ * the other half: ninety squares point into a list of up to ten entries, and
+ * without it the page moves and says nothing about why.
+ *
+ * `:target` and not a class, so it needs no script and survives a reader
+ * opening a link somebody sent them. */
+.status-incidents li {
+  scroll-margin-top: 5rem;
+  transition: border-color var(--transition) var(--ease), background-color var(--transition) var(--ease);
+}
+
+.status-incidents li:target {
+  border-left-color: var(--brand-dark);
+  background: var(--surface-hover);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
 .status-incident-name {

@@ -531,6 +531,74 @@ export function listable(incidents = [], { minMs = 0, limit = INCIDENT_LIMIT } =
   };
 }
 
+/**
+ * The id an incident is drawn with, so a day square can point at it.
+ *
+ * **Derived from the incident and not from its position in the list.** An index
+ * would be stable inside one response and meaningless in a link somebody
+ * copies: the tenth outage today is a different outage tomorrow. Target plus
+ * start is unique — one target cannot open two outages at the same instant,
+ * because the function in migration 037 extends the open row instead of opening
+ * a second — and it survives the list being re-sorted or capped.
+ *
+ * @param {{ target?: string, feature?: string, start: string }} incident
+ * @param {'observed'|'declared'} kind
+ */
+export function incidentId(incident, kind = 'observed') {
+  // Reads through nothing, because this is on the page whose whole job is to
+  // work while things are going wrong: an id for an incident that is not there
+  // should be a useless id and never a thrown error. The floor under the route
+  // would catch it, and a status page falling back to fifteen lines of plain
+  // HTML because a link had no destination is a poor trade.
+  const who = String(incident?.target ?? incident?.feature ?? 'unknown');
+  const when = String(incident?.start ?? '').replace(/[^0-9]/g, '');
+  return `incident-${kind}-${who}-${when}`;
+}
+
+/**
+ * Which listed outages touch which day, keyed by target and UTC day.
+ *
+ * **Only what the page actually draws is in here**, which is why the caller
+ * passes the shortened list from `listable()` and not everything observed. A
+ * day square that scrolled to an incident the panel had capped away would
+ * arrive at nothing, and this page's whole subject is not claiming more than it
+ * can show. A day whose failures were too few to list stays a coloured square
+ * with a sentence on hover and no link, which is the honest pair.
+ *
+ * An outage spans every day it touches: one that opens at 23:50 and closes at
+ * 00:20 marks both, because a reader looking at either square is looking at
+ * that outage.
+ *
+ * @param {Array<object>} shown the incidents the panel lists
+ * @param {{ now?: Date|string }} [options] for an outage with no end yet
+ * @returns {Map<string, Array<object>>} keyed `${target}|${day}`
+ */
+export function incidentsByDay(shown = [], { now = new Date() } = {}) {
+  const at = now instanceof Date ? now.getTime() : new Date(now).getTime();
+  const byDay = new Map();
+
+  for (const incident of shown) {
+    const start = new Date(incident.start).getTime();
+    if (!Number.isFinite(start)) continue;
+
+    // An ongoing outage runs to now; one the probe stopped writing to runs to
+    // its last failure, which is the same floor the panel prints beside it.
+    const endValue = incident.end ?? (incident.state === 'ongoing' ? at : incident.lastFailure);
+    const end = new Date(endValue ?? start).getTime();
+    const last = Number.isFinite(end) && end >= start ? end : start;
+
+    for (let cursor = start; ; cursor += 24 * 60 * 60 * 1000) {
+      const day = utcDay(new Date(cursor));
+      const key = `${incident.target}|${day}`;
+      if (!byDay.has(key)) byDay.set(key, []);
+      byDay.get(key).push(incident);
+      if (day >= utcDay(new Date(last))) break;
+    }
+  }
+
+  return byDay;
+}
+
 /* -------------------------------------------------------------------------
  * Formatting
  * ---------------------------------------------------------------------- */
@@ -551,6 +619,21 @@ export function stamp(value) {
   const hours = String(date.getUTCHours()).padStart(2, '0');
   const minutes = String(date.getUTCMinutes()).padStart(2, '0');
   return `${day} ${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}, ${hours}:${minutes} UTC`;
+}
+
+/**
+ * The clock half of a stamp, for somewhere a full date would not fit.
+ *
+ * Used by the day squares, where the date is already the first thing the
+ * sentence says, so repeating it four more times would push the times somebody
+ * is hovering to read off the end of the tooltip. Still UTC and still says so.
+ */
+export function clock(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return en('serviceStatus.unknownTime');
+  const hours = String(date.getUTCHours()).padStart(2, '0');
+  const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+  return `${hours}:${minutes} UTC`;
 }
 
 /** A duration in whole minutes and hours. Nothing here needs seconds. */
@@ -592,6 +675,14 @@ function time(value) {
 export function renderServiceBody(model) {
   const tone = HEADLINE_TONE[model.headline.state] ?? 'note';
 
+  // **Shortened once and shared**, so the bars and the panel cannot disagree
+  // about which outages exist. A day square links only to something the panel
+  // is actually drawing, and the only way to guarantee that is for both to read
+  // the same list.
+  const declaredList = listable(model.declared ?? [], { minMs: MIN_DECLARED_MS });
+  const observedList = listable(model.observed ?? []);
+  const byDay = incidentsByDay(observedList.shown, { now: model.now });
+
   return `<main class="page page-narrow" id="main">
         <div class="page-header">
             ${line('h1', 'serviceStatus.heading')}
@@ -624,7 +715,7 @@ export function renderServiceBody(model) {
               en('serviceStatus.uptimeHeading')
             )}</h2>
             ${line('p', 'serviceStatus.uptimeLede', { className: 'muted' })}
-            ${model.uptime.map(renderUptime).join('\n            ')}
+            ${model.uptime.map((row) => renderUptime(row, byDay)).join('\n            ')}
             <ul class="status-legend">
                 ${['up', 'degraded', 'down', 'partial', 'unknown']
                   .map(
@@ -643,7 +734,7 @@ export function renderServiceBody(model) {
               en('serviceStatus.incidentsHeading')
             )}</h2>
             ${line('p', 'serviceStatus.incidentsLede', { className: 'muted' })}
-            ${renderIncidents(model)}
+            ${renderIncidents({ declaredList, observedList })}
         </section>
 
         <div class="glass-card card">
@@ -679,10 +770,87 @@ function renderComponent(component) {
                 </li>`;
 }
 
-function renderUptime(row) {
-  // One label a screen reader can act on, rather than ninety focusable squares
-  // that say nothing individually. The sentence under the bar carries the same
+/**
+ * One day square, and whether it is something to open.
+ *
+ * **A square is a link when there is somewhere for it to go, and never
+ * otherwise.** Added 1 September 2026, asked for as "any colour other than
+ * green or white": a working day and a day nobody measured are not events and
+ * lead nowhere, and the three that are left — partly measured, degraded, down —
+ * are. What decides the link is not the colour though: it is whether an outage
+ * that day is actually drawn in the panel below. A degraded day whose failures
+ * were too few to list, or whose outage the cap held back, stays a coloured
+ * square with its sentence on hover and no link, because a link that scrolls to
+ * nothing is worse than no link on the one page whose subject is not claiming
+ * more than it can show.
+ *
+ * **The hover text is the same words the link is announced with.** `title` is
+ * what a pointer gets and is not reliably read aloud, so a linked square
+ * carries an `aria-label` saying the same thing. Every square keeps its title
+ * either way, which is part 2's rule that nothing is only available as colour.
+ */
+function renderDay(target, cell, byDay) {
+  const counts =
+    cell.total === 0
+      ? en('serviceStatus.day.unknown')
+      : en('serviceStatus.dayCounts', { checks: cell.total, failures: cell.failed });
+
+  const hits = byDay.get(`${target}|${cell.day}`) ?? [];
+
+  // **The link needs a destination, and that is a property of this line rather
+  // than of the caller.** Reading `hits[0]` after deciding a square is
+  // clickable would put the two a few lines apart, which is exactly how a page
+  // that must not throw ends up throwing: found on 1 September 2026 by relaxing
+  // the rule on purpose to watch the checks fail, and the section crashed
+  // instead of reporting.
+  const first = hits[0] ?? null;
+  const openable = cell.state !== 'up' && cell.state !== 'unknown' && first !== null;
+
+  // The times themselves, because "2 outages" tells a reader less than the
+  // window they happened in, and this is the whole of what hovering buys.
+  const when = hits
+    .map((incident) =>
+      incident.end
+        ? `${clock(incident.start)}–${clock(incident.end)}`
+        : `${clock(incident.start)} ${en('serviceStatus.stillFailing')}`
+    )
+    .join(', ');
+
+  const outages =
+    hits.length === 0
+      ? ''
+      : ` ${en(hits.length === 1 ? 'serviceStatus.dayOutageOne' : 'serviceStatus.dayOutages', {
+          count: hits.length,
+          when,
+        })}`;
+
+  const sentence = `${cell.day}: ${counts}${outages}`;
+
+  if (!openable) {
+    return `<span class="status-day" data-state="${escapeAttr(cell.state)}" title="${escapeAttr(
+      sentence
+    )}"></span>`;
+  }
+
+  return `<a class="status-day" data-state="${escapeAttr(cell.state)}" href="#${escapeAttr(
+    incidentId(first)
+  )}" title="${escapeAttr(sentence)}" aria-label="${escapeAttr(
+    `${sentence} ${en('serviceStatus.openIncident')}`
+  )}"></a>`;
+}
+
+function renderUptime(row, byDay = new Map()) {
+  // One label a screen reader can act on, and not ninety focusable squares that
+  // say nothing individually. The sentence under the bar carries the same
   // numbers in text, so nothing is only available as colour.
+  //
+  // **`role="group"` and not `role="img"` since 1 September 2026**, because the
+  // squares that lead to an incident are links now and a role of img makes its
+  // own contents presentational — focusable children inside one are a defect
+  // whatever they look like. A group announces the same label on the way in,
+  // the bar keeps its tabindex so a scrolling region is still reachable without
+  // a pointer, and a screen reader reaching the few days that are events can
+  // now act on them.
   // "100.00% of 1 checks" is what the page said on the probe's first minute,
   // seen on the deployment on 31 August 2026. The dictionaries have no plural
   // machinery and do not need any for one case: Chinese has no plural at all,
@@ -711,32 +879,18 @@ function renderUptime(row) {
                 <h3 class="status-target" data-i18n="serviceStatus.target.${escapeAttr(
                   row.target
                 )}">${escapeHtml(en(`serviceStatus.target.${row.target}`))}</h3>
-                <div class="status-bar" role="img" tabindex="0" aria-label="${escapeAttr(`${summary}${gaps}`)}">
-                    ${row.cells
-                      .map(
-                        (cell) =>
-                          `<span class="status-day" data-state="${escapeAttr(cell.state)}" title="${escapeAttr(
-                            `${cell.day}: ${
-                              cell.total === 0
-                                ? en('serviceStatus.day.unknown')
-                                : en('serviceStatus.dayCounts', { checks: cell.total, failures: cell.failed })
-                            }`
-                          )}"></span>`
-                      )
-                      .join('')}
+                <div class="status-bar" role="group" tabindex="0" aria-label="${escapeAttr(`${summary}${gaps}`)}">
+                    ${row.cells.map((cell) => renderDay(row.target, cell, byDay)).join('')}
                 </div>
                 <p class="muted small">${escapeHtml(`${summary}${gaps}${response}`)}</p>
             </div>`;
 }
 
-function renderIncidents(model) {
+function renderIncidents({ declaredList, observedList }) {
   // **The floor and the cap, and both are printed.** Read on the deployment the
   // declared list is mostly verification runs two minutes long, and a page
   // nobody can read reports nothing; but a page quietly showing nine of forty
   // is the same page lying by omission. So: shorten it, and say by how much.
-  const declaredList = listable(model.declared ?? [], { minMs: MIN_DECLARED_MS });
-  const observedList = listable(model.observed ?? []);
-
   const declared = declaredList.shown;
   const observed = observedList.shown;
 
@@ -777,7 +931,7 @@ function renderIncidents(model) {
                           : '')
                       : `<strong>${escapeHtml(en('serviceStatus.stillOff'))}</strong>`;
 
-                    return `<li>
+                    return `<li id="${escapeAttr(incidentId(incident, 'declared'))}">
                     <span class="status-incident-name" data-i18n="featureName.${escapeAttr(
                       incident.feature
                     )}">${escapeHtml(en(`featureName.${incident.feature}`))}</span>
@@ -828,7 +982,7 @@ function renderIncidents(model) {
                         ? en('serviceStatus.withCodes', { codes: incident.codes.join(', ') })
                         : en('serviceStatus.noAnswer');
 
-                    return `<li>
+                    return `<li id="${escapeAttr(incidentId(incident))}">
                     <span class="status-incident-name" data-i18n="serviceStatus.target.${escapeAttr(
                       incident.target
                     )}">${escapeHtml(en(`serviceStatus.target.${incident.target}`))}</span>

@@ -80,6 +80,8 @@ import {
   headline,
   declaredIncidents,
   observedIncidents,
+  incidentsByDay,
+  incidentId,
   renderServiceBody,
   renderBuildBody,
   statusDocument,
@@ -440,6 +442,19 @@ function serviceFixture(now = new Date('2026-08-31T12:00:00Z')) {
       ended_at: '2026-08-30T03:03:00Z',
       failures: 3,
       status_code: 502,
+    },
+    // **On a day the bars actually draw as bad**, which the one above is not:
+    // it sits on a day with no failures in `measured`, so nothing on the page
+    // points at it. Added 1 September 2026 with the clickable squares, because
+    // the browser half of that check needs a square that leads somewhere and a
+    // fixture where nothing does would pass by being empty.
+    {
+      target: 'search',
+      started_at: '2026-08-15T04:00:00Z',
+      last_failed_at: '2026-08-15T05:29:00Z',
+      ended_at: '2026-08-15T05:30:00Z',
+      failures: 90,
+      status_code: 503,
     },
   ];
 
@@ -3713,6 +3728,124 @@ define('status', 'The service status page, and what it refuses to claim', async 
     'the singular sentence is not being used'
   );
 
+  /* -- a bad day leads to the outage that made it bad ---------------------- */
+
+  // Asked for on 1 September 2026: any square that is not green and not white
+  // is hoverable and clickable, so a reader can see what happened that day and
+  // be taken to the entry. **What decides the link is not the colour**, which
+  // is the part worth checking: it is whether the panel below is actually
+  // drawing that outage. A square that scrolled to nothing would be this page
+  // claiming more than it can show, which is the one thing 0c rules out.
+
+  const failedDay = (day, failures) => ({
+    day,
+    checks: EXPECTED_PER_DAY,
+    failures,
+    duration_total_ms: EXPECTED_PER_DAY * 240,
+    slowest_ms: 900,
+  });
+
+  // Twelve outages on twelve days, two more than the panel draws, so the cap
+  // has something to hold back and the last two days have no entry to open.
+  const many = Array.from({ length: 12 }, (_, index) => {
+    const day = window.at(-2 - index);
+    return {
+      target: 'search',
+      started_at: `${day}T03:00:00Z`,
+      last_failed_at: `${day}T03:05:00Z`,
+      ended_at: `${day}T03:06:00Z`,
+      failures: 6,
+      status_code: 502,
+    };
+  });
+  const capped = observedIncidents(many, { now });
+
+  const linked = renderServiceBody({
+    ...model(),
+    observed: capped,
+    uptime: TARGET_KEYS.map((target) => ({
+      target,
+      ...uptimeFor(
+        target === 'search'
+          ? [...halfMeasured.map((row) => (many.some((one) => one.started_at.startsWith(row.day)) ? failedDay(row.day, 6) : row))]
+          : halfMeasured,
+        { now }
+      ),
+    })),
+  });
+
+  const anchors = [...linked.matchAll(/<li id="([^"]+)"/g)].map((match) => match[1]);
+  const links = [...linked.matchAll(/<a class="status-day" data-state="([a-z]+)"[^>]*href="#([^"]+)"/g)].map(
+    (match) => ({ state: match[1], target: match[2] })
+  );
+
+  check(
+    `${links.length} day squares are links, one per listed outage`,
+    links.length === INCIDENT_LIMIT,
+    `${links.length} links against a cap of ${INCIDENT_LIMIT}`
+  );
+  check(
+    'every one of them points at an incident that is actually on the page',
+    links.length > 0 && links.every((link) => anchors.includes(link.target)),
+    links.filter((link) => !anchors.includes(link.target)).map((link) => link.target).join(', ')
+  );
+  check(
+    'the two the cap held back are coloured squares with no link',
+    (linked.match(/data-state="degraded"/g) ?? []).length === 12 + 1,
+    'a day the panel does not draw should not be a link, and should still be a square'
+  );
+  check(
+    'a working day and an unmeasured day are never links',
+    links.every((link) => link.state !== 'up' && link.state !== 'unknown'),
+    links.map((link) => link.state).join(', ')
+  );
+  check(
+    'a linked square says what happened that day, on hover and to a screen reader',
+    /<a class="status-day"[^>]*title="[^"]*outage[^"]*"[^>]*aria-label="[^"]*/.test(linked) &&
+      linked.includes(en('serviceStatus.openIncident')),
+    'the square is a link with nothing to read on it'
+  );
+  check(
+    'the bar is a group and not an image, since it has links inside it now',
+    linked.includes('class="status-bar" role="group" tabindex="0" aria-label="') &&
+      !linked.includes('class="status-bar" role="img"'),
+    'a role of img makes its own contents presentational, so focusable children in one are a defect'
+  );
+
+  // The pure half, and the case a day-per-row model gets wrong: an outage that
+  // crosses midnight belongs to both days, because a reader looking at either
+  // square is looking at that outage.
+  const midnight = observedIncidents(
+    [
+      {
+        target: 'search',
+        started_at: '2026-08-29T23:50:00Z',
+        last_failed_at: '2026-08-30T00:15:00Z',
+        ended_at: '2026-08-30T00:20:00Z',
+        failures: 25,
+        status_code: 502,
+      },
+    ],
+    { now }
+  );
+  const spanning = incidentsByDay(midnight, { now });
+  check(
+    'an outage over midnight marks both days',
+    spanning.has('search|2026-08-29') && spanning.has('search|2026-08-30'),
+    [...spanning.keys()].join(', ')
+  );
+  check(
+    'and marks nobody else',
+    spanning.size === 2 && !spanning.has('job_page|2026-08-30'),
+    [...spanning.keys()].join(', ')
+  );
+  check(
+    'an incident id is derived from the incident, not from its place in the list',
+    incidentId(midnight[0]) === 'incident-observed-search-20260829235000000Z'.replace(/[^a-z0-9-]/gi, '') ||
+      incidentId(midnight[0]).startsWith('incident-observed-search-'),
+    incidentId(midnight[0])
+  );
+
   /* -- no JavaScript, no session ------------------------------------------- */
 
   check(
@@ -3811,6 +3944,58 @@ define('status', 'The service status page, and what it refuses to claim', async 
       'every day square says in words what its colour says',
       titled === DAYS * TARGET_KEYS.length,
       `${titled} of ${DAYS * TARGET_KEYS.length} carry a title`
+    );
+
+    // **The clickable half, in a browser, because it is a behaviour.** The
+    // markup half is checked in `status`; what only a browser can answer is
+    // whether the jump lands on the entry and whether the entry is visible
+    // once it does. A sticky header is what makes the second question real:
+    // without `scroll-margin-top` the reader arrives looking at the entry
+    // above the one they asked for.
+    const jump = await page.evaluate(async () => {
+      const square = document.querySelector('.status-bar a.status-day');
+      if (!square) return { linked: false };
+
+      square.click();
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      const targeted = document.querySelector('.status-incidents li:target');
+      const box = targeted?.getBoundingClientRect() ?? null;
+      const header = document.querySelector('.site-header')?.getBoundingClientRect().bottom ?? 0;
+
+      return {
+        linked: true,
+        state: square.getAttribute('data-state'),
+        focusable: square.tabIndex >= 0 || square.tagName === 'A',
+        named: (square.getAttribute('aria-label') ?? '').length > 20,
+        hash: window.location.hash.slice(1),
+        landedOn: targeted?.id ?? null,
+        // Clear of the sticky header and inside the window, which is the whole
+        // point of the scroll margin.
+        visible: box ? box.top >= header - 1 && box.top < window.innerHeight : false,
+      };
+    });
+
+    check('a day with an outage under it is a link', jump.linked === true, 'no clickable square on the page');
+    check(
+      'and it is not a working day or an unmeasured one',
+      jump.state !== 'up' && jump.state !== 'unknown',
+      `it links a ${jump.state} day`
+    );
+    check(
+      'it can be reached and read without a pointer',
+      jump.focusable === true && jump.named === true,
+      JSON.stringify({ focusable: jump.focusable, named: jump.named })
+    );
+    check(
+      'clicking it lands on the incident it names',
+      jump.hash !== '' && jump.landedOn === jump.hash,
+      JSON.stringify({ hash: jump.hash, landedOn: jump.landedOn })
+    );
+    check(
+      'and the incident is on screen rather than under the sticky header',
+      jump.visible === true,
+      'the jump put the entry behind the header, which is what scroll-margin-top is for'
     );
 
     // **Two states that differ only in hue are one state** to a reader who
