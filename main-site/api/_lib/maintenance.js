@@ -101,6 +101,14 @@ export const DENYLIST = Object.freeze({
   trusted_devices: 'Part of signing in, and turning it off would not stop a sign in anyway.',
   admin_dashboard: 'This page lives inside the dashboard.',
   admin_maintenance: 'This is that page. Switching it off would remove the way back.',
+  // Phase 12 part 8, and the only entry here that is on the list for not
+  // existing on the site at all rather than for being load bearing on it. The
+  // key names seed.mjs, a script somebody runs from their own machine to put
+  // sample postings and sample accounts in for testing. There is nothing
+  // running on this site for a switch to reach, and the honest answer to an
+  // admin looking for one is that sentence rather than a switch that does
+  // nothing. What removes seeded data is `node seed.mjs --clear --yes`.
+  seed: 'A script run from a developer machine, not a part of the site. There is nothing here to switch off.',
 });
 
 /** Whether a feature key may be flipped at all. */

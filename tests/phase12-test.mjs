@@ -2418,14 +2418,17 @@ define('zh', 'The Chinese, and what a check can decide before a reader is asked'
  *
  *  A key that appears on /admin/maintenance without one shows an admin a switch
  *  and no statement of what it does, which is what phases 9 and 10 both had to
- *  fix before their flip. `sitemap` got its sentence in part 5. `seed` is the
- *  other phase 12 key and part 8 builds the thing it names, so it writes the
- *  sentence with it. The exemption is checked in both directions below, so it
- *  cannot outlive the reason for it.
+ *  fix before their flip. `sitemap` got its sentence in part 5.
+ *
+ *  **Empty since part 8, and the machinery stays.** Its one entry was `seed`,
+ *  which part 8 answered by putting the key on the denylist instead: it names
+ *  `seed.mjs`, a script somebody runs from their own machine, and there is
+ *  nothing on the site for a switch to reach. A denied key is greyed with its
+ *  reason and owes no sentence, so the filter below skips it for the right
+ *  reason rather than because it is exempt. The check in both directions is
+ *  what makes an empty list here mean something.
  */
-const NO_WHERE_YET = {
-  seed: 'part 8 builds the seed script and writes the sentence with it',
-};
+const NO_WHERE_YET = {};
 
 /** The one /api path llms.txt is allowed to link, named by section 4 itself. */
 const FEED_PATH = '/api/public/jobs.json';
@@ -4461,7 +4464,21 @@ define('discovery-live', 'robots.txt and sitemap.xml as Vercel actually serves t
     onlySitemap.length === 0 && onlyFeed.length === 0,
     `sitemap only: ${onlySitemap.join(', ') || 'none'}; feed only: ${onlyFeed.join(', ') || 'none'}`
   );
-  check('there were postings to compare', fed.size > 0, 'both were empty, which proves nothing');
+
+  // **An empty board is a correct board, and this is the one thing here it
+  // makes unprovable.** Part 8 cleared the dev seed before flipping indexing,
+  // so a sitemap of five static pages is exactly right and the comparison above
+  // is two empty sets agreeing about nothing. It skips and says so rather than
+  // passing: the phase file's own rule is that a check with nothing to look at
+  // reports that, and the day there are real postings this answers on its own.
+  if (fed.size === 0) {
+    skip(
+      'the sitemap and the feed were compared against real postings',
+      'the board is empty, so both lists are empty and they agree vacuously. Seed or publish a posting and re-run.'
+    );
+  } else {
+    check('there were postings to compare', fed.size > 0, 'both were empty, which proves nothing');
+  }
 });
 
 /* =========================================================================
@@ -4734,6 +4751,370 @@ define('status-live', 'The /status rewrite, the cache header, and the preview no
   } finally {
     await browser.close();
   }
+});
+
+/* =========================================================================
+ * 15. The seam, phase 12 part 8
+ *
+ * **The last part of the phase is documents and a script, which is the hardest
+ * thing in this file to check and the easiest to fake.** Section 2's rule is
+ * that a README goes stale the moment it stops matching the code and that a
+ * stale one is worse than none, so what is measurable is exactly that: not
+ * whether a document reads well, but whether the things it names still exist
+ * and whether the things that exist are named.
+ *
+ * It found the answer to its own question on the first run. `migrations/
+ * README.md` listed every file up to `033` and stopped, so four migrations —
+ * including the one phase 12 itself wrote — were in the directory and in
+ * nobody's list. That is the shape this section exists for, and it is the same
+ * failure `gen-review.js` had in part 4: **a list somebody wrote is a list with
+ * something missing from it, and what is missing is invisible by
+ * construction.** So every list here is compared in both directions.
+ *
+ * Needs no deployment, no credential and no network. The seed script is driven
+ * as a subprocess with an environment that points nowhere, which is enough to
+ * exercise every path that refuses to do anything.
+ * ====================================================================== */
+
+const ROOT = join(HERE, '..');
+
+/** The READMEs section 2 allows, and the two this build added with a reason.
+ *
+ *  "Four READMEs, and only these four plus the one in `migrations/`. Do not
+ *  scatter a README into every subdirectory." The root README names six, which
+ *  is that rule plus `tests/README.md` — written when the phase files became
+ *  something somebody else would have to run. It is listed here rather than
+ *  quietly tolerated, so a seventh is still a finding.
+ */
+const READMES = [
+  'README.md',
+  'main-site/README.md',
+  'migrations/README.md',
+  'telegram-bot/README.md',
+  'docs-site/README.md',
+  'tests/README.md',
+];
+
+/** Every phrase section 17's offline checklist asks for, by the word it turns
+ *  on. Section 17: "install the app, load the board, go offline, browse a
+ *  cached posting, rate it, answer the modal, come back online, confirm the
+ *  queue flushed." */
+const OFFLINE_STEPS = [
+  ['install', /install the app|Install the app/],
+  ['load the board', /Load the board/],
+  ['go offline', /Go offline/],
+  ['browse a cached posting', /Browse a cached posting/],
+  ['rate it and answer the modal', /Rate it, and answer/],
+  ['come back online', /Come back online/],
+  ['confirm the queue flushed', /flush/],
+];
+
+/** Run a root script and report what it said. Nothing here has a database to
+ *  reach: the two variables point at a host that does not exist, because what
+ *  is being measured is the refusing rather than the writing. */
+function runSeed(args) {
+  const { spawnSync } = createRequire(import.meta.url)('node:child_process');
+  const result = spawnSync(process.execPath, ['seed.mjs', ...args], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      SUPABASE_URL: 'https://nowhere.supabase.co',
+      SUPABASE_SERVICE_KEY: 'not-a-key',
+    },
+  });
+  return { status: result.status, out: `${result.stdout ?? ''}${result.stderr ?? ''}` };
+}
+
+define('seam', 'The four READMEs, the offline checklist, and the seed script', async () => {
+  const read = (file) => readFileSync(join(ROOT, file), 'utf8');
+
+  /* --- The READMEs are the ones section 2 allows ------------------------ */
+
+  const strays = [];
+  (function walk(dir) {
+    for (const item of readdirSync(join(ROOT, dir === '' ? '.' : dir))) {
+      if (['node_modules', '.git', '.vercel', '__pycache__', 'theme-shots'].includes(item)) continue;
+      const relative = dir === '' ? item : `${dir}/${item}`;
+      if (statSync(join(ROOT, relative)).isDirectory()) {
+        walk(relative);
+        continue;
+      }
+      if (item.toLowerCase() === 'readme.md' && !READMES.includes(relative)) strays.push(relative);
+    }
+  })('');
+
+  check(
+    `the ${READMES.length} READMEs are all there`,
+    READMES.every((file) => existsSync(join(ROOT, file))),
+    READMES.filter((file) => !existsSync(join(ROOT, file))).join(', ')
+  );
+  check(
+    'no README has been scattered into another directory',
+    strays.length === 0,
+    `${strays.join(', ')} — section 2 names the ones this repository has`
+  );
+
+  /* --- Every migration is in the migrations README, and the reverse ----- */
+
+  const migrations = readdirSync(join(ROOT, 'migrations'))
+    .filter((name) => /^\d{3}_.+\.sql$/.test(name))
+    .sort();
+  const migrationsReadme = read('migrations/README.md');
+  const unlisted = migrations.filter((name) => !migrationsReadme.includes(name));
+  check(
+    `all ${migrations.length} numbered migrations are in migrations/README.md`,
+    unlisted.length === 0,
+    `${unlisted.join(', ')} — 6: "lists every file in order with a one line description"`
+  );
+  const invented = [...migrationsReadme.matchAll(/`(\d{3}_[a-z0-9_]+\.sql)`/g)]
+    .map((match) => match[1])
+    .filter((name) => !migrations.includes(name));
+  check(
+    'and it names no file that is not there',
+    invented.length === 0,
+    [...new Set(invented)].join(', ')
+  );
+
+  /* --- Every environment variable is documented where 2 says ------------ */
+
+  const envModule = read('main-site/api/_lib/env.js');
+  const known = [...envModule.matchAll(/^\s{2}'([A-Z0-9_]+)',$/gm)].map((match) => match[1]);
+  check(`env.js names ${known.length} variables`, known.length >= 5, envModule.slice(0, 80));
+
+  const example = read('main-site/.env.example');
+  const rootReadme = read('README.md');
+  for (const name of known) {
+    check(
+      `${name} is in .env.example with a comment above it`,
+      new RegExp(`^#[^\\n]*\\n(?:#[^\\n]*\\n)*${name}=`, 'm').test(example),
+      'section 2: "every variable listed and a comment above each one saying exactly where to get it"'
+    );
+    check(`${name} is in the root README's table`, rootReadme.includes(`\`${name}\``), 'section 17 asks for it there');
+  }
+  const undocumented = [...example.matchAll(/^([A-Z0-9_]+)=/gm)]
+    .map((match) => match[1])
+    .filter((name) => !known.includes(name));
+  check(
+    '.env.example carries nothing env.js has never heard of',
+    undocumented.length === 0,
+    `${undocumented.join(', ')} — env.js refuses a name that is not on its own list, so this would throw`
+  );
+
+  // The bot's variables are a separate file and a separate process, and the
+  // root README is the one place both sets are written down together.
+  const botExample = read('telegram-bot/.env.example');
+  const botVars = [...botExample.matchAll(/^([A-Z0-9_]+)=/gm)].map((match) => match[1]);
+  const missingBot = botVars.filter((name) => !rootReadme.includes(`\`${name}\``));
+  check(
+    `all ${botVars.length} of the bot's variables are in the root README too`,
+    missingBot.length === 0,
+    missingBot.join(', ')
+  );
+
+  /* --- The offline checklist still asks for what 17 asks for ------------ */
+
+  const siteReadme = read('main-site/README.md');
+  const checklist = siteReadme.slice(siteReadme.indexOf('## Offline test checklist'));
+  check('the offline test checklist is in main-site/README.md', checklist.length > 200, 'section 17 asks for it there');
+  for (const [name, pattern] of OFFLINE_STEPS) {
+    check(`it still asks somebody to ${name}`, pattern.test(checklist), checklist.slice(0, 200));
+  }
+
+  /* --- The root README's phase sentence, against the file that decides -- */
+
+  const buildStatus = JSON.parse(readFileSync(join(SITE, 'assets/build-status.json'), 'utf8'));
+  const shipped = (buildStatus.phases ?? []).filter((phase) => phase.status === 'shipped').length;
+  const building = (buildStatus.phases ?? []).find((phase) => phase.status === 'building');
+  check(
+    `the root README says ${shipped} phases have shipped`,
+    new RegExp(`Phases 1 to ${shipped} of ${(buildStatus.phases ?? []).length} have shipped`).test(rootReadme),
+    'section 2: the root README carries the phase the build is at, and it moves when one ships'
+  );
+  check(
+    `and that phase ${building?.number} is being built`,
+    building === undefined || rootReadme.includes(`phase ${building.number} is being built`),
+    `build-status.json says ${building?.number} is building`
+  );
+
+  /* --- The seed script exists, is named, and says what it writes -------- */
+
+  check('seed.mjs is at the repo root', existsSync(join(ROOT, 'seed.mjs')), 'section 17 asks for a seed script');
+  check(
+    'the root README lists it with the other scripts',
+    rootReadme.includes('`seed.mjs`'),
+    'a script nobody can find is a script nobody runs'
+  );
+
+  // **Every script that table names is in the repository**, which is not the
+  // same as being on this machine. Part 8 found `seed.mjs`, `gen-icons.js` and
+  // `gen-screenshots.js` all matched by the root's throwaway-scripts ignore
+  // rules while the README told a reader to run them: a document describing
+  // something a fresh clone does not have, which is the stale README failure
+  // arriving from the other direction. git is asked rather than the filesystem,
+  // because the filesystem here is the one machine where they exist anyway.
+  const scriptsTable = rootReadme.slice(rootReadme.indexOf('## Scripts at the repo root'));
+  const named = [...new Set([...scriptsTable.matchAll(/^\| `([a-z0-9-]+\.m?js)`/gm)].map((m) => m[1]))];
+  check(`the scripts table names ${named.length} scripts`, named.length >= 5, named.join(', '));
+
+  const { spawnSync } = createRequire(import.meta.url)('node:child_process');
+  const git = spawnSync('git', ['check-ignore', '--', ...named], { cwd: ROOT, encoding: 'utf8' });
+  if (git.error) {
+    skip('none of them is gitignored', 'git is not on the path here');
+  } else {
+    const ignored = (git.stdout ?? '').split('\n').map((line) => line.trim()).filter(Boolean);
+    check(
+      'none of them is gitignored',
+      ignored.length === 0,
+      `${ignored.join(', ')} — the README tells somebody to run these, so a clone has to have them`
+    );
+  }
+  const absent = named.filter((name) => !existsSync(join(ROOT, name)));
+  check('and every one of them is there', absent.length === 0, absent.join(', '));
+
+  const seed = read('seed.mjs');
+
+  // The marker rule, which is the whole reason seeded rows may sit on a live
+  // board at all: without it, posting 2 is a paid contract on GFTV's real
+  // careers domain that nobody can apply to.
+  //
+  // **In the language the title is written in**, which is why this allows two
+  // markers rather than one. The translated title carries 样本 and not
+  // `[SAMPLE]`, deliberately: a row marked only in English reads as a genuine
+  // posting to precisely the readers the translation exists for.
+  const titles = [...seed.matchAll(/title: '([^']+)'/g)].map((match) => match[1]);
+  const unmarked = titles.filter((title) => !title.includes('[SAMPLE]') && !title.includes('样本'));
+  check(
+    `every one of the ${titles.length} titles is marked as a sample, in its own language`,
+    unmarked.length === 0,
+    unmarked.join(', ')
+  );
+  check(
+    'the Chinese half is marked in Chinese throughout, not only in the title',
+    (seed.match(/样本/g) ?? []).length >= 3,
+    'the summary and the description are read on their own, so each one carries it'
+  );
+  check(
+    'the accounts cannot receive mail',
+    [...seed.matchAll(/email: '([^']+)'/g)].every((match) => match[1].endsWith('@example.invalid')),
+    'example.invalid is reserved and never resolves'
+  );
+  check(
+    'no password is written into the file',
+    !/password: '[^']+'/.test(seed),
+    'a password with a default in a committed file is a password in the repository'
+  );
+
+  // The dev seed's nine ids, read out of the file that wrote them rather than
+  // copied. This is the check that keeps `--clear` clearing the board rather
+  // than half of it.
+  const devSeed = read('migrations/dev-seed-jobs.sql');
+  const devIds = [...new Set([...devSeed.matchAll(/'(a0000000-0000-4000-8000-[0-9a-f]{12})'/g)].map((m) => m[1]))];
+  check(`the dev seed wrote ${devIds.length} postings`, devIds.length === 9, devIds.join(', '));
+  const seedPrefix = /'a0000000-0000-4000-8000-00000000000\$\{index \+ 1\}'|a0000000-0000-4000-8000/;
+  check(
+    'seed.mjs --clear removes those as well as its own',
+    seedPrefix.test(seed) && seed.includes('DEV_SEED'),
+    'section 5 item 6: the dev seed goes before this is a real site, and one command should be enough'
+  );
+
+  /* --- And it refuses, which is the half worth driving ------------------ */
+
+  const noEnv = (() => {
+    const { spawnSync } = createRequire(import.meta.url)('node:child_process');
+    const env = { ...process.env };
+    delete env.SUPABASE_URL;
+    delete env.SUPABASE_SERVICE_KEY;
+    const result = spawnSync(process.execPath, ['seed.mjs'], { cwd: ROOT, encoding: 'utf8', env });
+    return { status: result.status, out: `${result.stdout ?? ''}${result.stderr ?? ''}` };
+  })();
+  // Only meaningful where there is no .env.local to read, which is every
+  // machine but the maintainer's. Where there is one, the script is correct to
+  // find it and this proves nothing, so it says so instead of failing.
+  if (existsSync(join(SITE, '.env.local'))) {
+    skip(
+      'it names the variable it is missing',
+      'main-site/.env.local exists on this machine, so there is nothing missing to name'
+    );
+  } else {
+    check(
+      'with no credentials it names the variable rather than throwing',
+      noEnv.status === 1 && noEnv.out.includes('SUPABASE_URL') && !noEnv.out.includes('at Object'),
+      noEnv.out.slice(0, 200)
+    );
+  }
+
+  const refused = runSeed([]);
+  check(
+    INDEXING
+      ? 'it refuses to seed while the site is open to search engines'
+      : 'indexing is off, so it seeds without argument',
+    INDEXING
+      ? refused.status === 1 && refused.out.includes('INDEXING') && refused.out.includes('--anyway')
+      : refused.status === 0,
+    refused.out.slice(0, 300)
+  );
+
+  const planned = runSeed(INDEXING ? ['--anyway'] : []);
+  check('it says what it would write and writes nothing', planned.status === 0 && /Nothing written/.test(planned.out), planned.out.slice(0, 300));
+  check(
+    'the plan carries a draft posting, which must never be public',
+    /draft\s+\[SAMPLE\]/.test(planned.out),
+    'a draft in the seed is how "a draft is invisible" stays something somebody checked'
+  );
+  check(
+    'and both accounts, one reading each language',
+    /account\s+\S+ \(en\)/.test(planned.out) && /account\s+\S+ \(zh\)/.test(planned.out),
+    '16g needs the Chinese pages captured signed in, and the language comes from the account'
+  );
+
+  const clearing = runSeed(['--clear']);
+  check(
+    'clearing is never refused, whatever indexing says',
+    clearing.status === 0 && /Would remove/.test(clearing.out),
+    `${clearing.out.slice(0, 200)} — the state this refuses to create is the state it must always be able to undo`
+  );
+  check(
+    'and it says the dev seed goes with it',
+    /dev seed/.test(clearing.out),
+    clearing.out.slice(0, 200)
+  );
+
+  /* --- setup.md and the bot README, against the file that owns the list -- */
+
+  // **The bot's own guard, run from here rather than reimplemented.**
+  // `commands.py --check` compares the block in setup.md and the table in the
+  // bot's README against the nine commands the dispatcher registers, which is
+  // exactly the "final pass over setup.md" section 12 asks for and the one part
+  // of it a person cannot do reliably by eye. It is the same reason gen-review
+  // imports strings.py instead of parsing it: the copy that runs is the copy
+  // that counts.
+  const commands = spawnSync('python', ['commands.py', '--check'], {
+    cwd: join(ROOT, 'telegram-bot'),
+    encoding: 'utf8',
+  });
+  if (commands.error) {
+    skip('setup.md and the bot README carry the current command list', 'python is not on the path here');
+  } else {
+    check(
+      'setup.md and the bot README carry the current command list',
+      commands.status === 0,
+      `${commands.stdout ?? ''}${commands.stderr ?? ''}`.slice(0, 300)
+    );
+  }
+
+  /* --- The feature key that names it ------------------------------------ */
+
+  const maintenance = readFileSync(join(SITE, 'api/_lib/maintenance.js'), 'utf8');
+  const denylist = maintenance.slice(
+    maintenance.indexOf('export const DENYLIST'),
+    maintenance.indexOf('});', maintenance.indexOf('export const DENYLIST'))
+  );
+  check(
+    'the seed key is on the denylist with a reason an admin can read',
+    /^\s{2}seed: '[^']{20,}'/m.test(denylist),
+    'it names a script on somebody\'s machine, so there is nothing here to switch off — and that sentence is the answer, not a switch that does nothing'
+  );
 });
 
 /* -------------------------------------------------------------------------

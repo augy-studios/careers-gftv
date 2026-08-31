@@ -305,8 +305,8 @@ into one checkbox:
 
 ## API route map
 
-Phases 2 to 8 are built. The rest is the shape phases 9 to 11 fill in, from
-section 9 of the specification.
+Phases 2 to 12 are built, which is everything in section 9 except what the docs
+site adds in 13.
 
 One route in this table is not under `api/` as far as a reader is concerned.
 `vercel.json` rewrites `/jobs/:id` to `api/job-page.js`, which renders the
@@ -330,6 +330,7 @@ markup as delivered and does not run JavaScript.
 | `/robots.txt` | rewritten to `api/robots.js`. Plain text, not JSON | 12 |
 | `/sitemap.xml` | rewritten to `api/sitemap.js`. XML, not JSON. **404 while `INDEXING` is false**, because there is no sitemap for a site nobody may crawl, and 503 as plain text while the `sitemap` switch is off, because that one is an outage. Two different claims, two status codes | 12 |
 | | Both are functions rather than files so that whether the site may be indexed is one constant. See "Discovery files" below, and do not put a static `robots.txt` back. | |
+| `/status` | rewritten to `api/status-page.js`. HTML, not JSON, and the third page in this table that is not an API at all. One address serving either the phase list or the service status page, decided by whether every phase reads `shipped`. There is no `main-site/status/index.html` for the same reason there is no `robots.txt` | 12 |
 | `api/translations/report` | report a translation problem | 4 |
 | `api/translations/mine` | the reader's own reports, with what an admin decided about each. 7h's other half: a reporter who never hears anything again learns that reporting is shouting into a hole | 6 |
 | `api/translations/helper` | 7i's helper area: the roster, the language audit, one thing to translate, a search, and `save`. One route, four views, one action | 8 |
@@ -1159,28 +1160,38 @@ one this pair fails silently on. `tests/phase12-test.mjs --only=discovery`
 checks that neither file has come back.
 
 **Whether the portal may be indexed is one constant**, `INDEXING` in
-`api/_lib/discovery.js`, and it is `false`. It has a second half: the global
-`X-Robots-Tag: noindex, nofollow` in `vercel.json`. A robots.txt asks a crawler
-not to fetch; the header tells it not to list, and only the header reaches a URL
-somebody linked to from elsewhere. **Both go together.** Turning indexing on
-means all of:
+`api/_lib/discovery.js`, and **since phase 12 part 8 it is `true`**: the portal
+was closed to search engines from phase 1 until 31 August 2026, and it is open
+now. It has a second half: the global `X-Robots-Tag: noindex, nofollow` that
+stood in `vercel.json` for those eleven phases and came out in the same commit.
+A robots.txt asks a crawler not to fetch; the header tells it not to list, and
+only the header reaches a URL somebody linked to from elsewhere. **Both go
+together, in both directions.** Turning indexing on — or off again, which is the
+same list read backwards — means all of:
 
-1. `INDEXING = true` in `api/_lib/discovery.js`. **This also opens
-   `/sitemap.xml`**, which answers 404 until it is flipped: there is no sitemap
+1. **The seeded sample postings go first.** The sitemap lists every published
+   posting, so they would otherwise be the first thing a crawler read:
+   `node seed.mjs --clear --yes` from the repo root. That script reads this
+   constant and refuses to write while it is `true`, so the order is enforced
+   rather than remembered.
+2. `INDEXING = true` in `api/_lib/discovery.js`. **This also opens
+   `/sitemap.xml`**, which answers 404 while it is false: there is no sitemap
    for a site nobody may crawl, and a list of seeded sample postings at a
    guessable address is what serving one early would mean.
-2. The global `X-Robots-Tag` out of `vercel.json`. **The one on `/api/(.*)` is
+3. The global `X-Robots-Tag` out of `vercel.json`. **The one on `/api/(.*)` is
    separate and stays.**
-3. `node tests/phase12-test.mjs --only=discovery`, which fails when one of those
+4. `node tests/phase12-test.mjs --only=discovery`, which fails when one of those
    two has moved and the other has not.
-4. After the deploy, `--only=discovery-live`, **which is not optional in that
+5. After the deploy, `--only=discovery-live`, **which is not optional in that
    commit**: it is the only thing that can say Vercel is serving those addresses
    from the functions rather than from a file, and **the first time the
    sitemap's query runs against the database at all**. Check the headers with
    `curl -I`, not by pasting a URL into a chat window: an unfurler reports what
    it fetched, not what a crawler is told.
-5. The seeded sample postings have to be gone first. The sitemap lists every
-   published posting, so they would be the first thing a crawler read.
+6. **A board with nothing on it is a sitemap of five static pages, and that is
+   the correct sitemap.** The check that compares the sitemap against the
+   openings feed says so and skips rather than passing on two empty sets, so a
+   run against an empty board proves what it can and states what it could not.
 
 **The sitemap lists the pages in `STATIC_PAGES` and every `published`
 posting**, at `/jobs/{uuid}` with a `lastmod` from `updated_at`. Closed, draft
@@ -1303,6 +1314,7 @@ Section 14 landed in phase 10 and it now does the following.
 | Request | What happens |
 |---|---|
 | a navigation to a precached route | the cached shell, with no network |
+| a navigation to `/status` | network first, and the cached copy only when that fails |
 | a navigation to `/jobs/{id}` | stale while revalidate, capped at 100 postings |
 | any other navigation | network, and `/offline` when that fails |
 | `/assets/**`, the icons, the manifest | cache first |
@@ -1613,6 +1625,13 @@ does:
     The script drives both edges locally; this is the one that proves an admin
     can reach a worker already on somebody's device, which is the only reason
     the switch exists.
+11. Added by phase 12 part 7, because that page's caching is now the exception
+    to item 4 rather than an instance of it. Load `/status` online, go offline,
+    and load it again: what should come back is the last state anybody actually
+    saw, with the time it was measured on it, rather than a page frozen at
+    whenever the worker was installed. Then check the same page online twice in
+    a row and confirm it is not stale — it is network first, so a status page
+    that keeps showing an old answer is the defect this item exists to find.
 
 Two things the checklist deliberately does not ask for. **Nobody has to test
 that an installed app survives `install` being switched off** — it does, no

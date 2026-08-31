@@ -22,8 +22,19 @@ switches — and phase 9 is the machine side: the daily maintenance run and the
 Google Forms submission webhook. Phase 10 is the offline half, which is what
 makes this an installable PWA that stays useful with no connection, and phase 11
 is the Telegram bot: linking, a sign in code and a one tap link, and the three
-kinds of notification an applicant can switch off one at a time. Live status:
+kinds of notification an applicant can switch off one at a time. **Phase 12 is
+the sweep**: the responsive and accessibility passes, measured colours, the
+Chinese round trip, `robots.txt`, `sitemap.xml` and `llms.txt`, a seed script,
+and `/status` rebuilt as a service status page fed by a probe on the bot's VPS.
+Live status:
 [careers.globalfurry.tv/status](https://careers.globalfurry.tv/status).
+
+**The portal is open to search engines from phase 12 part 8**, on 31 August
+2026, having been closed to them since phase 1. It is one constant, `INDEXING`
+in `main-site/api/_lib/discovery.js`, plus the absence of a global
+`X-Robots-Tag` in `main-site/vercel.json`; the two are checked against each
+other and move together. `main-site/README.md` has the whole of it under
+"Discovery files".
 
 `/jobs/{uuid}` is the one server rendered route in the portal, and deliberately
 so: unfurlers read the markup as delivered and none of them run JavaScript, so
@@ -159,6 +170,7 @@ with a comment saying exactly where to get it, and the bot has its own
 | `TELEGRAM_BOT_TOKEN` | bot | BotFather, `/mybots`, select the bot, API Token. |
 | `TELEGRAM_API_ID`, `TELEGRAM_API_HASH` | bot | my.telegram.org, API development tools. |
 | `DONATION_URL` | bot | Shown as a button on the start message. |
+| `LOG_LEVEL` | bot | **Optional.** `DEBUG`, `INFO`, `WARNING` or `ERROR`, defaulting to `INFO`. The bot has no scripted checks at all, so its log is the account of what happened: `DEBUG` is what to reach for while walking the checklist, and not what to leave it on. |
 
 **Rotating `FORM_WEBHOOK_SECRET`** takes a coordinated change, because it lives
 in two places. Generate the new value, set it in the Vercel project settings and
@@ -286,7 +298,7 @@ submitted.
 
 ## Scripts at the repo root
 
-Five, all plain `node`, none of them part of a build. The two checkers are the
+Six, all plain `node`, none of them part of a build. The two checkers are the
 ones to run before pushing.
 
 | Script | What it does |
@@ -294,7 +306,8 @@ ones to run before pushing.
 | `check-i18n.js` | Every `t()` key in the source against both dictionaries. Reports missing keys, unused ones, and the sixty built at runtime that it cannot resolve. **Run it before shipping**: a missing key renders as the raw key. |
 | `check-precache.js` | Every entry in `sw.js`'s precache list resolved the way `cleanUrls` does, and non-zero on one that is not on disk. The precache list is the most dangerous object in the site: a bad entry costs one file at runtime and this is what stops it reaching production at all. |
 | `gen-icons.js` | Every icon under `main-site/`, from `HLC-source.png` at this level. The source is deliberately not one of the outputs. See [`main-site/README.md`](main-site/README.md). |
-| `gen-screenshots.js` | The two install screenshots in the manifest, captured from `/search` on the deployment. Rerun after deleting the dev seed. |
+| `gen-screenshots.js` | The two install screenshots in the manifest, captured from `/search` on the deployment. Rerun after clearing the seed. |
+| `seed.mjs` | Section 17's seed script, phase 12 part 8. Sample postings, one ready Chinese translation, and two sample accounts for the docs screenshots, all marked SAMPLE and all removable again. `node seed.mjs` says what it would do and writes nothing; `--yes` does it; `--clear --yes` removes it **and the phase 3 dev seed with it**. There is one database, so it refuses to write while `INDEXING` is true rather than putting a sample posting where a crawler can find it. |
 | `gen-review.js` | `zh-review.html`, every Chinese string in the build side by side with its English, for a fluent reader to go through: the dictionary, the seeded departments and tags, the hero, the phase list and its shipped notes, and the Telegram bot's messages, command menu and profile text. It also reports any file that ships 华文 and is neither one of its sources nor exempt with a reason, and exits non-zero on one, so the next file that puts Chinese in front of a reader cannot quietly miss the round trip. Reads the bot's strings by importing `strings.py` and `commands.py` rather than parsing them, so it needs Python on the path. |
 
 ## Regression testing

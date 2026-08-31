@@ -155,6 +155,19 @@ Rules that will not change:
   Vercel build and never against production.
 - Every screenshot shows invented people applying to invented roles, from the
   seed script. No real applicant, email, or Telegram handle ever appears.
+  **That script exists as of phase 12 part 8**: `seed.mjs` at the repo root
+  writes the sample postings and two sample accounts, one reading English and
+  one reading 华文 so the Chinese pages can be captured signed in, and prints
+  their passwords once. `node seed.mjs --clear --yes` takes it all out again.
+  **It refuses to write while the portal is open to search engines**, which it
+  has been since part 8, and there is one database rather than a local one — so
+  a capture run is a deliberate `--anyway`, followed by clearing as soon as the
+  shots are taken. What that costs is real and worth knowing: the sitemap is
+  cached an hour at the edge, so a sample posting seeded and cleared inside the
+  hour can still have been handed to a crawler, and capturing against a preview
+  deployment does not help — there is one database behind both, and it is the
+  database the board and the sitemap are built from. The window is the only
+  thing under anybody's control here, so keep it short.
 - Never capture a live recovery code, backup code, login code, linking token,
   or Google Form URL.
 - Runs are deterministic: animations disabled, relative dates frozen or masked.

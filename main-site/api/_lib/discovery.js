@@ -38,12 +38,24 @@
 /**
  * Whether this site may be listed in search engines.
  *
- * **Part 8 flips this to true and removes the global X-Robots-Tag from
- * vercel.json in the same commit.** Neither half works alone: allowing a crawl
- * while the header stands means pages that are fetched and never listed, and
- * removing the header while this is false means pages that are never fetched.
+ * **True since phase 12 part 8, on 31 August 2026**, and the global
+ * X-Robots-Tag came out of vercel.json in the same commit. Neither half works
+ * alone: allowing a crawl while the header stands means pages that are fetched
+ * and never listed, and removing the header while this is false means pages
+ * that are never fetched. `tests/phase12-test.mjs --only=discovery` compares
+ * the two and fails when one moves without the other, in both directions.
+ *
+ * **What went before the flip, in order.** The dev seed was cleared, because a
+ * sitemap lists every published posting and the first thing a crawler would
+ * otherwise have fetched is nine rows marked SAMPLE POSTING. `seed.mjs` reads
+ * this constant and refuses to write while it is true, so the order is enforced
+ * rather than remembered.
+ *
+ * Turning it back off is one edit here and one header restored, and it stops
+ * new crawling rather than removing what is already listed — the same asymmetry
+ * the `sitemap` switch is written around.
  */
-export const INDEXING = false;
+export const INDEXING = true;
 
 /**
  * The portal's own address, and it is a fallback rather than a source.

@@ -81,6 +81,26 @@ foreign key but never created, altered, or dropped from this directory.
 | `031_task_questions.sql` | Adds `questions` and `answers` to `gftvjobs_tasks` and `task_questions` to `gftvjobs_jobs`, with the validators behind them. The question sets in 7g, capped at twenty and frozen once sent. |
 | `032_phase8_operations.sql` | The four things phase 8 turned out to need: the `shortlisted` state and `notified_at` on `gftvjobs_invites`, `must_change_password` on `gftvjobs_users`, the `gftvjobs_needs_translation` view behind 8.11's audit and 7i's helper view, and `gftvjobs_application_search`, which makes 8.3's applicant box a real filter. |
 | `033_analytics_views.sql` | `gftvjobs_job_funnel` and `gftvjobs_job_funnel_daily`, the aggregation behind 8.4. Two read only views, because PostgREST has no group by and the alternative was reading every analytics row into a serverless function. |
+| `034_translation_authorship.sql` | `updated_by` on the three translation tables, which is what lets 8.11 answer "what each helper has drafted". Nothing in the schema could before. |
+| `035_view_permissions.sql` | Revokes the four views from `anon` and `authenticated` and sets `security_invoker = on`. A view runs as its owner, so the row level security under it does not apply — the one gap in "RLS with no policies" and the rule every later view follows in the file that creates it. |
+| `036_function_search_path.sql` | A fixed `search_path` on every `gftvjobs_` function. Hardening rather than a hole, since nothing here is `SECURITY DEFINER`. **Written and not yet applied**, and the path's middle element is load bearing: two search functions call `word_similarity()` unqualified, so check the typo path on `/search` after running it. |
+| `037_status_checks.sql` | Phase 12 part 7. `gftvjobs_status_days`, `gftvjobs_status_incidents`, and `gftvjobs_status_record()`, which is the only way into either. The only tables here written by something outside Vercel: the probe on the VPS writes them with the service key, so the function is revoked from `anon` and `authenticated` and granted back to `service_role` by name. |
+
+Three files in this directory are not migrations and are not in that sequence.
+They sit here because this is where SQL lives.
+
+| File | What it is |
+|---|---|
+| `dev-seed-jobs.sql` | The phase 3 dev seed: nine postings, every one marked SAMPLE POSTING, with a commented out delete block at the bottom. Superseded by `seed.mjs` at the repo root, which removes these nine as well as its own. |
+| `audit-grants.sql` | Read only. Six queries answering what a holder of this project's anon key can actually reach, written after `035`. |
+| `README.md` | This file. |
+
+**The seed script itself is not SQL and is not here.** `seed.mjs` at the repo
+root is section 17's, and it is Node because a sample account needs a bcrypt
+hash this build's own sign in will accept, which Postgres cannot produce. It
+seeds postings, one ready Chinese translation and two sample accounts, and
+`node seed.mjs --clear --yes` takes all of it out again. It never touches
+reference data: the departments and tags stay exactly as `013` left them.
 
 ## Things worth knowing before you run them
 

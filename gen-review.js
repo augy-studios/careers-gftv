@@ -155,6 +155,14 @@ const EXEMPT = {
   'main-site/README.md': 'A document, and one of the three places the Singapore Mandarin rule is written down.',
   'migrations/README.md': 'The same rule again, about the seeded departments and tags.',
   'telegram-bot/README.md': 'The by-hand checklist, which asks somebody to switch Telegram to 华文.',
+  'docs-site/README.md':
+    'A document. It names the language the second sample account reads, in that language, where the screenshot rules are written down.',
+  // Outside SCAN_ROOTS, since the repo root holds this file, the specification
+  // and the memo and is not scanned at all. Written down anyway: the judgement
+  // is the one dev-seed-jobs.sql gets, and if the root is ever scanned it is
+  // already answered rather than arriving as a finding on the day.
+  'seed.mjs':
+    'The seed script. Its one Chinese posting is sample data marked 样本 in the same breath, and the script deletes it again.',
 };
 
 /** Where the scan looks: everything that reaches a reader.

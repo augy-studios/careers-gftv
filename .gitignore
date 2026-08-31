@@ -23,6 +23,20 @@ gftv-official.md
 .claude
 gen-*.js
 
+# The four at the root that are not throwaway, listed one by one rather than by
+# widening either pattern above. Phase 12 part 8 found the first three of them
+# ignored while the root README told a reader to run them, which is the same
+# failure that pass exists to catch from the other direction: a document
+# describing something a fresh clone does not have.
+#   seed.mjs           section 17's seed script, part of the deliverable
+#   gen-icons.js       every icon under main-site/, from HLC-source.png
+#   gen-screenshots.js the two install screenshots in the manifest
+#   gen-review.js      the Chinese round trip page, and a guard since part 4
+!seed.mjs
+!gen-icons.js
+!gen-screenshots.js
+!gen-review.js
+
 # Generated review sheet for the Chinese copy. Regenerate instead of committing.
 zh-review.html
 

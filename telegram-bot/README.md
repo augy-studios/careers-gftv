@@ -21,7 +21,7 @@ deliberately and it is deviation 91, which carries the reasoning and the two
 things built differently because of it. What stands in place of a suite is
 [the by-hand checklist](#the-by-hand-checklist) below, walked by a person.
 
-## What it will do
+## What it does
 
 The bot is a delivery channel and a second factor. It is never the only record
 of anything: an applicant with no Telegram link still sees every invitation and
