@@ -6,7 +6,7 @@
 > the posting itself says otherwise, and every posting states which it is.
 
 The portal is published in English and in Singapore Mandarin. The language is a
-preference stored in the reader's own browser rather than part of the address,
+preference stored in the reader's own browser instead of part of the address,
 so every URL below serves English to anything arriving without one.
 
 Applying needs a free applicant account, which takes a moment and needs no

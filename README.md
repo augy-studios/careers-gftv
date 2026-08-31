@@ -300,14 +300,28 @@ names nobody. The ordinary cause is somebody applying with a different address
 than they registered with, and linking one there records their application as
 submitted.
 
+## House style in the copy
+
+One rule so far, and it applies to **every English string a reader can see** —
+the interface dictionary, the pages, the phase list on `/status`, `llms.txt`,
+and what the Telegram bot says. Source comments, the READMEs and the migrations
+are not copy and are left alone.
+
+**Do not write "rather than".** Use `instead of`, `in place of`, `as opposed
+to`, `over`, `in preference to`, `without`, or `and not`, whichever fits the
+sentence. Settled 1 September 2026, and it is a rule about copy in place of a
+note in a document because `node check-copy.js` is what makes it survive the
+person who remembers it. Run it before pushing; `--list` prints what it reads.
+
 ## Scripts at the repo root
 
-Six, all plain `node`, none of them part of a build. The two checkers are the
-ones to run before pushing.
+Seven, all plain `node`, none of them part of a build. The three checkers are
+the ones to run before pushing.
 
 | Script | What it does |
 |---|---|
 | `check-i18n.js` | Every `t()` key in the source against both dictionaries. Reports missing keys, unused ones, and the sixty built at runtime that it cannot resolve. **Run it before shipping**: a missing key renders as the raw key. |
+| `check-copy.js` | Every English string a reader can see, against the house style above. Reads the dictionary, the pages with their comments stripped out, the phase list, `llms.txt` and the bot's messages — 2,360 strings today — and exits non-zero on a banned phrase, naming the key and the sentence around it. `--list` prints what it reads and what is banned. |
 | `check-precache.js` | Every entry in `sw.js`'s precache list resolved the way `cleanUrls` does, and non-zero on one that is not on disk. The precache list is the most dangerous object in the site: a bad entry costs one file at runtime and this is what stops it reaching production at all. |
 | `gen-icons.js` | Every icon under `main-site/`, from `HLC-source.png` at this level. The source is deliberately not one of the outputs. See [`main-site/README.md`](main-site/README.md). |
 | `gen-screenshots.js` | The two install screenshots in the manifest, captured from `/search` on the deployment. Rerun after clearing the seed. |

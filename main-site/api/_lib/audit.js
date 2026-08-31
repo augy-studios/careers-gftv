@@ -124,6 +124,14 @@ export const AUDIT = Object.freeze({
   APPLICANT_PASSWORD_SET: 'applicant_password_set',
   APPLICANT_RESET_FORCED: 'applicant_reset_forced',
   APPLICANT_TELEGRAM_UNLINKED: 'applicant_telegram_unlinked',
+  // An admin editing somebody's username, display name, email, phone or
+  // language, added 31 August 2026 and not in 8.9. **Its metadata carries both
+  // sides of every field that moved**, which is the whole reason it is worth
+  // logging: "the email was changed" answers nothing six months later, and the
+  // question somebody actually asks is what it was before. The applicant's own
+  // edit of the same fields writes nothing, and that asymmetry is deliberate —
+  // a log exists to record what was done *to* an account by somebody else.
+  APPLICANT_DETAILS_UPDATED: 'applicant_details_updated',
   // Phase 11. The applicant's own two, and they are not the same event as the
   // admin action above them: that one is somebody being unlinked, these are
   // somebody unlinking. What a log has to answer later is who decided.

@@ -31,7 +31,14 @@ import { escapeHtml } from './markdown.js';
 import { createDialog } from './dialog.js';
 import { confirmAction, confirmDangerousAction } from './danger-confirm.js';
 import { formatDate } from './format.js';
-import { mountAdminPage, adminApiError, adminMessage, emptyRow, runAction } from './admin-shell.js';
+import {
+  mountAdminPage,
+  adminApiError,
+  adminMessage,
+  emptyRow,
+  runAction,
+  adminLocales,
+} from './admin-shell.js';
 
 const PATH = '/admin/applicants';
 
@@ -241,10 +248,14 @@ async function openAccount(id) {
         <h3 class="admin-chart-heading">${escapeHtml(t('admin.accountActions'))}</h3>
 
         <div class="editor-actions">
+          <button type="button" class="btn btn-secondary" data-edit>${escapeHtml(
+            t('admin.editDetails')
+          )}</button>
           <button type="button" class="btn btn-secondary" data-active>${escapeHtml(
             t(account.is_active ? 'admin.deactivateAccount' : 'admin.reactivateAccount')
           )}</button>
         </div>
+        <p class="field-hint">${escapeHtml(t('admin.editDetailsHint'))}</p>
         <p class="field-hint">${escapeHtml(t('admin.deactivateHint'))}</p>
 
         <h3 class="admin-chart-heading">${escapeHtml(t('admin.lockedOutHeading'))}</h3>
@@ -262,6 +273,24 @@ async function openAccount(id) {
             ? t('admin.telegramLinked', { date: formatDate(detail.telegram.linked_at) })
             : t('admin.telegramNotLinked')
         )}</p>
+        ${
+          // **The id and the handle, read only.** 8.9's unlink says to verify
+          // identity out of band first, and a @username is not what to verify
+          // against: its owner changes it whenever they like and Telegram lets
+          // somebody else take the old one. The numeric id is the account. It
+          // arrives as a string because ids past 2^53 do not survive JSON as
+          // numbers.
+          detail.telegram
+            ? `<p class="field-hint">${escapeHtml(
+                t('admin.telegramIdentity', {
+                  id: detail.telegram.user_id ?? t('admin.telegramIdUnknown'),
+                  username: detail.telegram.username
+                    ? `@${detail.telegram.username}`
+                    : t('admin.telegramNoUsername'),
+                })
+              )}</p>`
+            : ''
+        }
 
         <div class="danger-zone">
           <h3>${escapeHtml(t('admin.accountDangerZone'))}</h3>
@@ -286,6 +315,9 @@ async function openAccount(id) {
 
   const root = detailDialog.element;
 
+  root.querySelector('[data-edit]')?.addEventListener('click', () => {
+    runAction(() => editDetails(account), 'edit details');
+  });
   root.querySelector('[data-active]')?.addEventListener('click', () => {
     runAction(
       () => setActive(account, !account.is_active),
@@ -435,6 +467,161 @@ async function setActive(account, active) {
     active ? 'admin.accountReactivated' : 'admin.accountDeactivated',
     account
   );
+}
+
+/**
+ * Edit the five fields on somebody's account.
+ *
+ * **Not in 8.9, and added on 31 August 2026 because it was asked for.** What
+ * the dialog has to make obvious is which of the five costs something: the
+ * username and the email are what somebody signs in with, so changing either
+ * ends every session and trusted device on the account, and the other three do
+ * not. That is said once above the fields and again on the identifiers
+ * themselves, because an admin fixing a typo in a display name should not have
+ * to wonder.
+ *
+ * Every field is prefilled with what is there now and only what actually moved
+ * is sent, so a form posted untouched changes nothing and revokes nothing.
+ */
+async function editDetails(account) {
+  const locales = adminLocales();
+
+  const dialog = createDialog({
+    id: 'editApplicantDialog',
+    titleKey: 'admin.editDetails',
+    className: 'admin-composer-dialog',
+    bodyHtml: `
+      <div class="modal-body">
+        <div class="callout warn">
+          <p>${escapeHtml(t('admin.editDetailsCost'))}</p>
+        </div>
+
+        <div class="field">
+          <label for="editUsername">${escapeHtml(t('admin.fieldUsername'))}</label>
+          <input id="editUsername" type="text" maxlength="32" autocomplete="off"
+                 value="${escapeHtml(account.username)}">
+          <p class="field-hint">${escapeHtml(t('admin.identifierHint'))}</p>
+          <p class="field-error" data-error-for="username" hidden></p>
+        </div>
+
+        <div class="field">
+          <label for="editEmail">${escapeHtml(t('admin.fieldEmail'))}</label>
+          <input id="editEmail" type="email" maxlength="254" autocomplete="off"
+                 value="${escapeHtml(account.email)}">
+          <p class="field-hint">${escapeHtml(t('admin.identifierHint'))}</p>
+          <p class="field-error" data-error-for="email" hidden></p>
+        </div>
+
+        <div class="field">
+          <label for="editDisplayName">${escapeHtml(t('admin.fieldDisplayName'))}</label>
+          <input id="editDisplayName" type="text" maxlength="80" autocomplete="off"
+                 value="${escapeHtml(account.display_name)}">
+          <p class="field-error" data-error-for="display_name" hidden></p>
+        </div>
+
+        <div class="field">
+          <label for="editPhone">${escapeHtml(t('admin.fieldPhone'))}</label>
+          <input id="editPhone" type="text" maxlength="40" autocomplete="off"
+                 value="${escapeHtml(account.phone ?? '')}">
+          <p class="field-error" data-error-for="phone" hidden></p>
+        </div>
+
+        <div class="field">
+          <label for="editLocale">${escapeHtml(t('admin.fieldLocale'))}</label>
+          <select id="editLocale">
+            ${locales
+              .map(
+                (locale) =>
+                  `<option value="${escapeHtml(locale.code)}"${
+                    (account.locale ?? 'en') === locale.code ? ' selected' : ''
+                  }>${escapeHtml(locale.native_name ?? locale.code)}</option>`
+              )
+              .join('')}
+          </select>
+          <p class="field-hint">${escapeHtml(t('admin.fieldLocaleHint'))}</p>
+          <p class="field-error" data-error-for="locale" hidden></p>
+        </div>
+
+        <div class="field">
+          <label for="editReason">${escapeHtml(t('admin.reasonRequired'))}</label>
+          <textarea id="editReason" rows="2" maxlength="300"></textarea>
+          <p class="field-hint">${escapeHtml(t('admin.reasonHint'))}</p>
+          <p class="field-error" data-error-for="reason" hidden></p>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-quiet" data-close-dialog>${escapeHtml(
+            t('danger.cancel')
+          )}</button>
+          <button type="button" class="btn btn-primary" data-save>${escapeHtml(
+            t('admin.save')
+          )}</button>
+        </div>
+      </div>`,
+  });
+
+  dialog.element.querySelector('[data-save]')?.addEventListener('click', () => {
+    runAction(async () => {
+      const root = dialog.element;
+      root.querySelectorAll('[data-error-for]').forEach((node) => {
+        node.hidden = true;
+        node.textContent = '';
+      });
+
+      const reason = root.querySelector('#editReason').value.trim();
+      if (!reason) {
+        adminMessage('error', t('admin.reasonMissing'));
+        return;
+      }
+
+      const result = await api('/api/admin/applicants', {
+        method: 'POST',
+        body: {
+          action: 'update_details',
+          applicant_id: account.id,
+          username: root.querySelector('#editUsername').value.trim(),
+          email: root.querySelector('#editEmail').value.trim(),
+          display_name: root.querySelector('#editDisplayName').value.trim(),
+          phone: root.querySelector('#editPhone').value.trim(),
+          locale: root.querySelector('#editLocale').value,
+          reason,
+        },
+      });
+
+      if (!result.ok) {
+        for (const [field, code] of Object.entries(result.error?.details ?? {})) {
+          if (typeof code !== 'string') continue;
+          const node = root.querySelector(`[data-error-for="${CSS.escape(field)}"]`);
+          if (node) {
+            node.textContent = t(`field.${code}`);
+            node.hidden = false;
+          }
+        }
+        adminApiError(result.error);
+        return;
+      }
+
+      dialog.close();
+      detailDialog?.close();
+
+      // **Two different sentences, because two different things happened.**
+      // "Saved" is not the whole answer when the person has just been signed
+      // out of every device, and an admin who is not told will hear it from
+      // them instead.
+      const changed = result.data?.changed ?? [];
+      if (changed.length === 0) {
+        adminMessage('ok', t('admin.detailsUnchanged'));
+      } else if (result.data?.sessions_revoked) {
+        adminMessage('ok', t('admin.detailsSavedSignedOut', { name: account.display_name }));
+      } else {
+        adminMessage('ok', t('admin.detailsSaved', { name: account.display_name }));
+      }
+
+      await load();
+    }, 'edit details');
+  });
+
+  dialog.open();
 }
 
 /**

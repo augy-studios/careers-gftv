@@ -6,12 +6,19 @@
 //
 //   GET                     the list, searched and paged
 //   GET  ?id=<uuid>         one account, its history, and what has been done to it
-//   POST { action: 'deactivate'|'reactivate'|'set_password'|'force_reset'
-//                  |'unlink_telegram'|'delete' }
+//   POST { action: 'deactivate'|'reactivate'|'update_details'|'set_password'
+//                  |'force_reset'|'unlink_telegram'|'delete' }
 //
-// Every action except the first two revokes every session and trusted device,
-// per 8.9 and 5d, and every one of them writes an audit row with a reason. The
-// reason is required on four of the six, and which four is the whole argument:
+// Every action writes an audit row with a reason, and every one except the
+// first two revokes every session and trusted device, per 8.9 and 5d.
+// **`update_details` is the one that revokes conditionally**: it moves up to
+// five fields and two of them are login identifiers, so a username or an email
+// changing signs the account out and a display name, a phone number or a
+// language preference does not. That action is not in 8.9 at all — added
+// 31 August 2026 because it was asked for — and everything else on this page is
+// unchanged by it.
+//
+// The reason is required on five of the seven, and which five is the argument:
 //
 //   **Deactivating and reactivating take an optional note.** They are the
 //   ordinary, reversible pair. 8.9 calls deactivating "the ordinary action".
@@ -23,6 +30,11 @@
 //
 //   **Forcing a reset and unlinking Telegram require one**, per 8.9: "both
 //   logged with the admin's id and a required reason".
+//
+//   **Editing details requires one**, by the same reasoning rather than by the
+//   brief, which does not have the action at all. Changing what somebody signs
+//   in with is the kind of thing a log has to be able to explain, and the row
+//   carries both sides of every field that moved.
 //
 //   **Deleting does not require one.** It is behind the confirmation instead,
 //   where the admin types their own password, which is a stronger guard than a
@@ -36,9 +48,17 @@
 
 import { ok, fail, ERR, methodNotAllowed, failInternal, readJson } from '../_lib/respond.js';
 import { T } from '../_lib/supabase.js';
-import { requireAdmin, isUuid, params, pageRange } from '../_lib/admin.js';
+import { requireAdmin, isUuid, params, pageRange, activeLocales } from '../_lib/admin.js';
 import { AUDIT, auditStaff, recordAudit } from '../_lib/audit.js';
-import { FIELD, validateText } from '../_lib/validate.js';
+import {
+  FIELD,
+  validateText,
+  validateUsername,
+  validateDisplayName,
+  validateEmail,
+  collect,
+  has,
+} from '../_lib/validate.js';
 import { checkPasswordStrength } from '../_lib/password.js';
 import { unavailable } from '../_lib/maintenance.js';
 import {
@@ -49,7 +69,12 @@ import {
   subjectForUser,
   subjectForIp,
 } from '../_lib/rate-limit.js';
-import { verifyRealmPassword } from '../_lib/accounts.js';
+import {
+  verifyRealmPassword,
+  isUsernameTaken,
+  isEmailTaken,
+  uniqueViolationDetails,
+} from '../_lib/accounts.js';
 import {
   PAGE_SIZE,
   listApplicants,
@@ -59,6 +84,9 @@ import {
   forcePasswordReset,
   unlinkTelegram,
   deleteApplicant,
+  updateApplicantDetails,
+  EDITABLE,
+  IDENTIFIERS,
 } from '../_lib/admin-applicants.js';
 
 const REASON_MAX = 300;
@@ -124,6 +152,7 @@ async function read(req, res) {
 const ACTIONS = [
   'deactivate',
   'reactivate',
+  'update_details',
   'set_password',
   'force_reset',
   'unlink_telegram',
@@ -140,7 +169,7 @@ const ACTIONS = [
  * well would be inventing a rule the brief does not have, and one somebody
  * would satisfy with a full stop.
  */
-const NEEDS_REASON = ['set_password', 'force_reset', 'unlink_telegram'];
+const NEEDS_REASON = ['update_details', 'set_password', 'force_reset', 'unlink_telegram'];
 
 async function write(req, res, session) {
   const body = await readJson(req, res);
@@ -181,6 +210,8 @@ async function write(req, res, session) {
     case 'deactivate':
     case 'reactivate':
       return setActive(res, session, account, action === 'reactivate', reason.value, done);
+    case 'update_details':
+      return updateDetails(res, session, account, body, reason.value, done);
     case 'set_password':
       return setPassword(res, session, account, body, reason.value, done);
     case 'force_reset':
@@ -204,6 +235,128 @@ async function setActive(res, session, account, active, reason, done) {
 
   await done();
   return ok(res, { id: account.id, is_active: row?.is_active !== false });
+}
+
+/**
+ * Edit the details on somebody's account.
+ *
+ * **Not in 8.9**, and added on 31 August 2026 because it was asked for. The
+ * brief gives this page search, deactivation, deletion, a password, a forced
+ * reset and an unlink; five editable fields is new surface, and it is written
+ * to the rules the rest of the page already follows rather than to new ones.
+ *
+ * **Validated with the same functions the applicant's own edit uses.** An admin
+ * typing somebody's email is not a reason to accept an address the owner could
+ * not have typed themselves, and two validators for one column is how the two
+ * paths drift. `api/auth/applicant/profile.js` is the other caller.
+ *
+ * **Uniqueness is checked before the write and again by the database.** The
+ * check gives a field level answer the page can draw beside the input; the
+ * constraint is what actually holds, because between the two there is a moment
+ * where somebody else can register the same address. `uniqueViolationDetails`
+ * turns the second into the same shape as the first.
+ *
+ * **A field that has not moved is not a change.** Sending the current username
+ * back is a no-op rather than a revoke: an admin correcting a display name
+ * should not sign somebody out because the form posted every field.
+ */
+async function updateDetails(res, session, account, body, reason, done) {
+  const checks = {};
+  if (has(body, 'username')) checks.username = validateUsername(body.username);
+  if (has(body, 'display_name')) checks.display_name = validateDisplayName(body.display_name);
+  if (has(body, 'email')) checks.email = validateEmail(body.email);
+  if (has(body, 'phone')) checks.phone = validateText(body.phone, 40);
+  if (has(body, 'locale')) checks.locale = validateText(body.locale, 10, { required: true });
+
+  if (Object.keys(checks).length === 0) {
+    return fail(res, ERR.BAD_REQUEST, 'There was nothing to change.', {
+      details: { fields: FIELD.REQUIRED },
+    });
+  }
+
+  const { ok: valid, values, details } = collect(checks);
+  if (!valid) {
+    return fail(res, ERR.BAD_REQUEST, 'Those details could not be saved.', { details });
+  }
+
+  // Only the language codes this portal actually ships. A locale nothing has a
+  // dictionary for renders every page in fallback and reads as a broken site to
+  // the one person it was set for.
+  if (values.locale !== undefined) {
+    const locales = await activeLocales();
+    if (!locales.some((locale) => locale.code === values.locale)) {
+      return fail(res, ERR.BAD_REQUEST, 'That is not a language this site ships.', {
+        details: { locale: FIELD.INVALID },
+      });
+    }
+  }
+
+  const changes = {};
+  for (const field of EDITABLE) {
+    if (values[field] === undefined) continue;
+    const before = field === 'locale' ? account.locale ?? 'en' : account[field] ?? null;
+    if (values[field] === before) continue;
+    changes[field] = values[field];
+  }
+
+  if (Object.keys(changes).length === 0) {
+    return ok(res, { id: account.id, account, changed: [], sessions_revoked: false });
+  }
+
+  const taken = {};
+  if (changes.username && (await isUsernameTaken(changes.username, account.id))) {
+    taken.username = FIELD.TAKEN;
+  }
+  if (changes.email && (await isEmailTaken(changes.email, account.id))) {
+    taken.email = FIELD.TAKEN;
+  }
+  if (Object.keys(taken).length > 0) {
+    return fail(res, ERR.CONFLICT, 'Those details could not be saved.', { details: taken });
+  }
+
+  let updated;
+  try {
+    updated = await updateApplicantDetails(account.id, changes);
+  } catch (cause) {
+    const conflict = uniqueViolationDetails(cause);
+    if (conflict) {
+      return fail(res, ERR.CONFLICT, 'Those details could not be saved.', { details: conflict });
+    }
+    throw cause;
+  }
+
+  // **Both sides of every field that moved.** An audit row saying "the email
+  // was changed" answers nothing six months later; the whole point of logging
+  // an admin editing somebody else's identifiers is being able to say what it
+  // was before. The password is the one thing never recorded either side, and
+  // it is not one of these fields.
+  const moved = Object.keys(changes);
+  await auditStaff(
+    session.user,
+    AUDIT.APPLICANT_DETAILS_UPDATED,
+    {
+      username: account.username,
+      fields: moved,
+      before: Object.fromEntries(moved.map((field) => [field, account[field] ?? null])),
+      after: Object.fromEntries(moved.map((field) => [field, changes[field]])),
+      sessions_revoked: updated.revoked,
+      trusted_devices_revoked: updated.revoked,
+    },
+    { targetTable: T.users, targetId: account.id, reason }
+  );
+
+  await done();
+  return ok(res, {
+    id: account.id,
+    account: updated.account,
+    changed: moved,
+    // Named rather than implied, so the page can say "they have been signed
+    // out" in the same breath as "saved" instead of leaving an admin to find
+    // out from the person they just edited.
+    sessions_revoked: updated.revoked,
+    trusted_devices_revoked: updated.revoked,
+    identifiers_changed: moved.filter((field) => IDENTIFIERS.includes(field)),
+  });
 }
 
 /**

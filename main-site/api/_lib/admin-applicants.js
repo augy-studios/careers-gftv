@@ -200,7 +200,7 @@ async function telegramLink(applicantId) {
   // which is what every other table in this build calls them.
   const { data, error } = await supabase
     .from(T.telegramLinks)
-    .select('id, telegram_username, linked_at')
+    .select('id, telegram_user_id, telegram_username, linked_at')
     .eq('applicant_id', applicantId)
     .maybeSingle();
 
@@ -212,7 +212,18 @@ async function telegramLink(applicantId) {
   }
 
   return data
-    ? { id: data.id, username: data.telegram_username ?? null, linked_at: data.linked_at }
+    ? {
+        id: data.id,
+        // **The numeric id as a string.** Telegram ids are past 2^53 for newer
+        // accounts, so a number would be rounded on the way to the browser and
+        // the page would show an id that is nearly right, which is worse than
+        // showing none. Added 31 August 2026 with the editable details: an admin
+        // verifying somebody out of band needs the id, because a @username is
+        // changed by its owner whenever they like and this is not.
+        user_id: data.telegram_user_id == null ? null : String(data.telegram_user_id),
+        username: data.telegram_username ?? null,
+        linked_at: data.linked_at,
+      }
     : null;
 }
 
@@ -314,6 +325,61 @@ export async function forcePasswordReset(applicantId) {
   if (error) throw error;
 
   await revokeEverything(applicantId);
+}
+
+/** The two fields somebody signs in with. Changing either revokes. */
+export const IDENTIFIERS = Object.freeze(['username', 'email']);
+
+/** Every field an admin may edit here, identifiers first. */
+export const EDITABLE = Object.freeze([...IDENTIFIERS, 'display_name', 'phone', 'locale']);
+
+/**
+ * The fields an admin may edit on somebody's account, and what each costs.
+ *
+ * **Not in 8.9, and added on 31 August 2026 because it was asked for.** The
+ * brief gives this page search, deactivation, deletion, a password, a forced
+ * reset and an unlink, and stops. Nothing here changes what any of those do.
+ *
+ * **Two of these five are login identifiers and the other three are not**,
+ * which is the whole of the rule. A username or an email moving under somebody
+ * is the case where an open session should not simply carry on, so those two
+ * revoke every session and every trusted device exactly as the three actions
+ * above them do. A display name, a phone number and a language preference are
+ * labels: changing one signs nobody out, because a correction to a capital
+ * letter is not a security event and treating it as one teaches an admin to
+ * avoid the page.
+ *
+ * **The applicant is not told, and that is consistent rather than convenient.**
+ * Nothing on this page notifies anybody today — an admin setting a password
+ * tells them nothing — and this build sends no email at all, so the only
+ * channel is Telegram and only for a linked account. Adding one here would
+ * leave the quietest action on the page being the password one. What the
+ * applicant has instead is what everybody has: the value on their own account
+ * page, and an audit row naming the admin, the reason, and what moved.
+ *
+ * @param {string} applicantId
+ * @param {Record<string, string|null>} values already validated, only the
+ *        fields being changed
+ * @returns {Promise<{ account: object, revoked: boolean }>}
+ */
+export async function updateApplicantDetails(applicantId, values) {
+  const revoked = IDENTIFIERS.some((field) => field in values);
+
+  const { data, error } = await supabase
+    .from(T.users)
+    .update(values)
+    .eq('id', applicantId)
+    .select(ACCOUNT_COLUMNS)
+    .maybeSingle();
+
+  if (error) throw error;
+
+  // The revoke comes after the write and not before it. A revoke that happened
+  // in front of a failed update would sign somebody out for nothing, and this
+  // order is the one setApplicantPassword already uses.
+  if (revoked) await revokeEverything(applicantId);
+
+  return { account: data ? accountRow(data) : null, revoked };
 }
 
 /** Unlink Telegram, per 8.9. Phase 11 is what makes there be anything to unlink. */
