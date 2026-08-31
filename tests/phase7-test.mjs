@@ -3744,11 +3744,22 @@ define('modals', 'Modals, and no native popups', async (state) => {
   // one, so this section answers the same three questions against a deployment
   // from either side of that change. What is being checked has not moved: the
   // panel is a modal dialog with a name and it holds the focus.
+  // **And the open state moved too, which the first correction missed.** Part 6
+  // dropped the `.hidden` class that used to mirror the open state by hand and
+  // let the element's own `[open]` be it — so `:not(.hidden)` stopped meaning
+  // "open" and started meaning "every modal in the document", closed ones
+  // included. Every check below then read the first dialog in the markup, which
+  // on an admin page is the theme switcher, and reported it as the panel under
+  // test. Found 31 August 2026 when this section was run against the deployment
+  // carrying part 6, which is what that run was for.
   const ours = () =>
     page.evaluate(() => {
-      const modal = document.querySelector('.modal-backdrop:not(.hidden) .modal');
+      const shells = [...document.querySelectorAll('.modal-backdrop')];
+      const shell = shells.find((el) =>
+        el.tagName === 'DIALOG' ? el.open : !el.classList.contains('hidden')
+      );
+      const modal = shell?.querySelector('.modal');
       if (!modal) return null;
-      const shell = modal.closest('.modal-backdrop');
       const native = shell.tagName === 'DIALOG';
       return {
         design: modal.classList.contains('glass-card'),
@@ -3768,7 +3779,19 @@ define('modals', 'Modals, and no native popups', async (state) => {
       };
     });
 
-  const closed = () => page.locator('.modal-backdrop:not(.hidden) .modal').count();
+  // The cancel button of whichever modal is open, in both shapes. There are
+  // three `.modal-backdrop` elements in an admin page's markup now — the theme
+  // switcher, the language switcher and the confirmation — so an unscoped
+  // selector is a click on whichever happens to be first in the document.
+  const CANCEL = '.modal-backdrop[open] [data-cancel], .modal-backdrop:not(dialog):not(.hidden) [data-cancel]';
+
+  const closed = () =>
+    page.evaluate(() => {
+      const shells = [...document.querySelectorAll('.modal-backdrop')];
+      return shells.filter((el) =>
+        el.tagName === 'DIALOG' ? el.open : !el.classList.contains('hidden')
+      ).length;
+    });
 
   // 1. The maintenance switch, which is what this was asked for.
   await page.goto(`${BASE}/admin/maintenance`, { waitUntil: 'domcontentloaded' });
@@ -3807,7 +3830,7 @@ define('modals', 'Modals, and no native popups', async (state) => {
     );
 
     // Cancelling puts the switch back and changes nothing.
-    await page.click('.modal-backdrop [data-cancel]');
+    await page.click(CANCEL);
     await page.waitForTimeout(600);
     check('cancelling closes it', (await closed()) === 0);
     check(
@@ -3848,7 +3871,7 @@ define('modals', 'Modals, and no native popups', async (state) => {
         onModal !== null && onModal.field === false,
         JSON.stringify(onModal)
       );
-      await page.click('.modal-backdrop [data-cancel]');
+      await page.click(CANCEL);
       await page.waitForTimeout(400);
     } else {
       skip(
@@ -3892,7 +3915,7 @@ define('modals', 'Modals, and no native popups', async (state) => {
         JSON.stringify(deleteModal)
       );
 
-      await page.click('.modal-backdrop [data-cancel]');
+      await page.click(CANCEL);
       await page.waitForTimeout(600);
       check(
         'cancelling leaves the tag alone',

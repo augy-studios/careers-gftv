@@ -4337,10 +4337,18 @@ define('discovery-live', 'robots.txt and sitemap.xml as Vercel actually serves t
     sitemap.status === 200 && (sitemap.headers.get('content-type') ?? '').includes('xml'),
     `${sitemap.status} ${sitemap.headers.get('content-type')}`
   );
+  // Asked as a second request rather than as a header, for the reason
+  // `status-live` writes out at length: Vercel consumes `s-maxage` for its own
+  // edge and the browser never sees it, so reading the response's own
+  // Cache-Control measures nothing about whether the edge is holding it.
+  const warm = await fetch(`${base}${SITEMAP_PATH}`);
+  await warm.text();
+  const again = await fetch(`${base}${SITEMAP_PATH}`);
+  await again.text();
   check(
     'it is cached at the edge rather than rebuilt per request',
-    /s-maxage=\d+/.test(sitemap.headers.get('cache-control') ?? ''),
-    String(sitemap.headers.get('cache-control'))
+    again.headers.get('x-vercel-cache') === 'HIT' || Number(again.headers.get('age') ?? 0) > 0,
+    `x-vercel-cache ${again.headers.get('x-vercel-cache')}, age ${again.headers.get('age')}`
   );
 
   const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
@@ -4512,13 +4520,34 @@ define('status-live', 'The /status rewrite, the cache header, and the preview no
     `${answer.status} ${answer.headers.get('content-type')}`
   );
 
-  // **The discriminator.** A static file gets Vercel's own caching; this header
-  // is written by the function and by nothing else, so its presence is the
-  // proof that the rewrite is what served the page.
+  // **The first shape of this check asked for something Vercel does not
+  // expose.** It read `s-maxage=60` off the response, on the reasoning that the
+  // function writes that header and a static file does not. Vercel consumes
+  // `s-maxage` and `stale-while-revalidate` for its own edge and rewrites what
+  // the browser sees: measured on 31 August 2026, `/status` answers
+  // `public, max-age=0` and `/about` answers `public, max-age=0,
+  // must-revalidate`. The directive was doing its job and was invisible to the
+  // thing asking about it. **A check has to ask for something the system
+  // actually emits**, which for an edge cache is a second request.
+  const first = await fetch(`${base}/status`);
+  await first.text();
+  const second = await fetch(`${base}/status`);
+  await second.text();
   check(
-    'it is the function serving it, not a file, and it is cached at the edge',
-    /s-maxage=60/.test(answer.headers.get('cache-control') ?? ''),
-    String(answer.headers.get('cache-control'))
+    'it is cached at the edge, so a reload during an outage is not a query',
+    second.headers.get('x-vercel-cache') === 'HIT' || Number(second.headers.get('age') ?? 0) > 0,
+    `x-vercel-cache ${second.headers.get('x-vercel-cache')}, age ${second.headers.get('age')}`
+  );
+
+  // **The discriminator that needs no credential.** The document is the one
+  // `renderDocument` builds, and the file part 7 deleted never carried these:
+  // its head had `twitter:card` and `twitter:image:src` and neither of the two
+  // below. A page answering 200 proves nothing on its own — that is what
+  // `polish-live`'s gate is about — and this is what tells the two apart.
+  check(
+    'and the document is the one the function builds, not the file it replaced',
+    html.includes('twitter:title') && html.includes('twitter:description'),
+    'the head is the old static one, so a file is still being served'
   );
 
   check(
@@ -4595,7 +4624,15 @@ define('status-live', 'The /status rewrite, the cache header, and the preview no
     // the database. Before the VPS is running probe.py every day is unknown,
     // and that is a correct page rather than a failure — so this reports what it
     // found instead of asserting a state the deployment cannot yet have.
-    const measured = await page.locator('.status-day:not([data-state="unknown"])').count();
+    //
+    // **Scoped to the bars, and it was not on 31 August 2026.** The unscoped
+    // selector counted the legend, which carries one swatch of every state by
+    // definition, so it reported "4 of 360 days carry probe data" against a
+    // deployment where the probe had never run — and then passed the check
+    // underneath it. A check that miscounts coverage on a page whose whole
+    // subject is not overstating coverage is the one bug this file could least
+    // afford.
+    const measured = await page.locator('.status-bar .status-day:not([data-state="unknown"])').count();
     console.log(`      ${measured} of ${DAYS * TARGET_KEYS.length} days carry probe data`);
     if (measured === 0) {
       skip(
