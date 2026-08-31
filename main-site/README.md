@@ -284,16 +284,34 @@ no shared "current user".
 | | Staff and admin | Applicant |
 |---|---|---|
 | Accounts | `gftvhello_users`, existing, shared with gftv.asia | `gftvjobs_users`, new |
-| Sessions | `gftvhello_sessions` | `gftvjobs_sessions` |
+| Sessions | `gftvjobs_staff_sessions`, this portal's own since migration `038` | `gftvjobs_sessions` |
 | Session cookie | `gftv_staff_session` | `gftv_applicant_session` |
 | Device cookie | `gftv_staff_device` | `gftv_applicant_device` |
 | Second factor | A passkey, or the existing TOTP app, with backup codes | A passkey, or a six digit Telegram code, with backup codes. The two sit side by side and an account with both is offered both |
 | Access rule | `is_approved`, then the `gftvjobs_admin_access` overlay if a row exists, otherwise `is_admin or is_editor` | none, accounts are active immediately |
 
-The `gftvhello_*` tables are read only from this portal, apart from the session,
+The `gftvhello_*` tables are read only from this portal, apart from the
 challenge, trusted device, and backup code rows the login flow legitimately
 owns. Granting or revoking portal access writes to `gftvjobs_admin_access`
 instead, never to `gftvhello_users`.
+
+**A staff session row was a fourth of those writes until migration `038`, and
+is not one any more.** 5a puts the portal's staff sessions in
+`gftvhello_sessions`, and the consequence was one set of rows serving two
+applications: signing in on either site ended the session on the other, and a
+30 day "stay signed in" here did not survive a day. **Nothing in this
+repository was doing it** — the portal issues the expiry it promises, measured
+against the deployment, deletes only the row it is ending, and the daily cron
+excludes that table by name — so what was left was the table itself. The
+accounts stay shared, which is what 5a is actually for; the sessions do not.
+5h had already reached the same answer for the docs site, which gets
+`gftvjobs_docs_sessions` in the same migration.
+
+**Applying `038` signs every staff member out of the portal once.** The rows in
+`gftvhello_sessions` are not copied across — they belong to the other site's
+table — and signing in again is the whole of the migration path. **Apply it
+before deploying the code that reads it**, which is the opposite order from the
+rest of this build.
 
 Two independent controls on both login forms, which must never be collapsed
 into one checkbox:
@@ -416,7 +434,7 @@ Shared helpers live in `api/_lib/`:
 | `apply.js` | The apply flow's server side, shared by the four `api/applications/*` routes. Reads the form URL and the prefill map, which `job-detail.js` deliberately never selects; resolves a per language form; builds the prefilled address from the session; and holds the rules about what a start click may and may not move. |
 | `analytics.js` | 8.4's shaping, and the three judgements the views in `033` deliberately do not make: a rating suppressed below three ratings, the broken-form flag at five clicks with a fifth converting, and a **null** rate for a posting nobody has clicked, which is not the same as zero. |
 | `invites.js` | 8.5. A shortlist and an invite are one row in `gftvjobs_invites` in two states, so promoting one is that row changing status. Withdrawing keeps the row and the task; removing a shortlist entry deletes it, because nobody was ever told. |
-| `admin-staff.js` | 8.8. The list is a union rather than a query: the approved-and-roled set, plus everybody an overlay row names, minus the denied. A denied account stays on the page, because "we took it away in March" is part of the answer to who has access. Last sign in comes from the audit log, not from `gftvhello_sessions`, which deletes a row on sign out. |
+| `admin-staff.js` | 8.8. The list is a union rather than a query: the approved-and-roled set, plus everybody an overlay row names, minus the denied. A denied account stays on the page, because "we took it away in March" is part of the answer to who has access. Last sign in comes from the audit log, not from the staff session table, which deletes a row on sign out. |
 | `admin-applicants.js` | 8.9, including `accountActivity`, which reads the audit log both ways: what the applicant did, and what was done to them. |
 | `translation-queue.js` | 8.11's queue. The field an edit writes is the report's own, never the request's: this page fixes what somebody complained about, and taking the field from the body would make it a general single field writer that happens to need a report id. |
 | `translation-audit.js` | The needs-translation audit over `gftvjobs_needs_translation`. Its own file rather than more of the queue: the helper area needs the same list scoped to one granted language. The audit is per language, chosen rather than filtered, and the route says in its payload which language it answered with. |

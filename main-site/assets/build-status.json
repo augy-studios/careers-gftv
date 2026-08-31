@@ -1,7 +1,7 @@
 {
   "$comment": "Single source of truth for the phased rollout, per section 0c of careers-gftv-spec.md. The site, the Telegram bot, and the docs site all read this one file, so the three stay in step. Flipping a phase to shipped is the only edit needed when it goes live. No copy anywhere hardcodes a phase number. Phase names and descriptions carry a translated variant per non default language, because three separate consumers render them and they are content, not interface strings; everything else the site says comes from assets/i18n.",
   "schema_version": 3,
-  "updated": "2026-08-30",
+  "updated": "2026-08-31",
   "locales": [
     "en",
     "zh"
@@ -121,11 +121,11 @@
       "number": 12,
       "name": "Polish",
       "name_zh": "打磨完善",
-      "status": "building",
+      "status": "shipped",
       "description": "An accessibility and responsive pass across every page, theme, language, and screen size, plus the discovery files search engines read.",
       "description_zh": "针对每个页面、主题、语言和屏幕尺寸进行无障碍与响应式检查，并加入供搜索引擎读取的站点文件。",
-      "shipped_note": null,
-      "shipped_note_zh": null
+      "shipped_note": "There is nothing new to use here, and that is the point: this phase was a pass over everything already built. Every page was measured at six screen widths, from a small phone to a desktop, in both languages, in both colour themes and in both light and dark, so nothing overflows its box, nothing is cut off, and no text sits at a contrast that is hard to read. Measured against the WCAG AA standard rather than judged by eye, and the colours that had only ever been chosen were finally checked. Every dialog, tab strip and menu can now be worked with a keyboard alone, and the parts of the site a screen reader used to pass over in silence now say what they are. The site can also be found now: it was closed to search engines for the whole of the build so that nobody landed on something half finished, and this phase opened it, with a sitemap listing every open role. One more thing was built and is not on screen yet: a service status page, which answers whether the site is working rather than what has been built, and which takes the place of this page once the last phase has shipped. Next is the documentation site: guides to using this portal and the Telegram bot, with a sign in for the people running it.",
+      "shipped_note_zh": "本阶段没有新功能可以使用，而这正是它的用意：这是一次针对已建成内容的全面检查。每个页面都在六种屏幕宽度下测量过，从小屏手机到桌面电脑，涵盖两种语言、两种配色主题以及浅色和深色模式，确保内容不会超出边框、不会被截断，也不会出现难以辨认的文字对比度。这些都是按照 WCAG AA 标准实际测量的，而不是凭肉眼判断，那些一直以来只是凭感觉选定的颜色，这次终于逐一量过。所有对话框、标签栏和菜单现在都可以只用键盘操作，屏幕阅读器过去默默略过的部分，现在也会说明自己是什么。本网站现在也能被搜索到了：整个开发期间我们都不让搜索引擎收录，以免有人看到尚未完成的内容，本阶段将其开放，并提供列出所有公开职位的站点地图。还有一项已经建好但尚未显示的功能：服务状态页面，它回答的是网站本身是否运作正常，而不是已经建成了什么，等最后一个阶段上线后，它就会取代本页面。下一阶段是文档网站：介绍如何使用本平台和 Telegram 机器人的指南，并为运营人员提供登录入口。"
     },
     {
       "number": 13,

@@ -43,7 +43,7 @@ const serviceKey = requireEnv('SUPABASE_SERVICE_KEY');
 export const supabase = createClient(url, serviceKey, {
   auth: {
     // Supabase Auth is not used anywhere in this build. Sessions are our own
-    // rows in gftvhello_sessions and gftvjobs_sessions.
+    // rows in gftvjobs_staff_sessions and gftvjobs_sessions.
     persistSession: false,
     autoRefreshToken: false,
     detectSessionInUrl: false,
@@ -135,11 +135,22 @@ export const T = Object.freeze({
   // gftvhello_users is referenced, never written to. See migration 025.
   staffPasskeys: 'gftvjobs_staff_passkeys',
 
-  // Staff realm. Read only, apart from the session, challenge, trusted device,
-  // and backup code rows the login flow legitimately owns. Never insert,
-  // update, or delete anything else here.
+  // **The portal's own staff sessions, since migration 038.** They lived in
+  // gftvhello_sessions until 31 August 2026, which is what 5a asks for, and the
+  // consequence was that one set of rows served two applications: a sign in on
+  // either site ended the session on the other, and a 30 day session on this
+  // one did not outlive a day. Nothing here shortened or deleted those rows —
+  // that was measured before anything was changed — so what was left was the
+  // table. **Sharing the accounts is the point of 5a; sharing the session rows
+  // was a consequence of it**, and 5h already gives the docs site its own table
+  // for exactly this reason. Deviation 122.
+  staffSessions: 'gftvjobs_staff_sessions',
+
+  // Staff realm. Read only, apart from the challenge, trusted device, and
+  // backup code rows the login flow legitimately owns. Never insert, update, or
+  // delete anything else here. **The session row used to be a fourth**, and is
+  // not one any more.
   staffUsers: 'gftvhello_users',
-  staffSessions: 'gftvhello_sessions',
   staffTotpChallenges: 'gftvhello_totp_challenges',
   staffTrustedDevices: 'gftvhello_trusted_devices',
   staffBackupCodes: 'gftvhello_backup_codes',

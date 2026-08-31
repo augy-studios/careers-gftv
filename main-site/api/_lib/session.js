@@ -4,8 +4,19 @@
 // separate helpers. Nothing here lets a staff session satisfy an applicant
 // check or the other way round, and there is no shared "current user".
 //
-//   Staff      gftvhello_users + gftvhello_sessions, cookie gftv_staff_session
-//   Applicant  gftvjobs_users  + gftvjobs_sessions,  cookie gftv_applicant_session
+//   Staff      gftvhello_users + gftvjobs_staff_sessions, cookie gftv_staff_session
+//   Applicant  gftvjobs_users  + gftvjobs_sessions,       cookie gftv_applicant_session
+//
+// **The staff session table is this build's own as of migration 038**, and it
+// was gftvhello_sessions until 31 August 2026. 5a asks for the shared table and
+// what that bought was two applications writing one set of rows: a sign in on
+// either site ended the session on the other, and a 30 day session here did not
+// last a day. Measured before it was changed — this portal issues exactly the
+// expiry it promises and deletes nothing but the row it is ending — so the
+// coupling was the table rather than anything in this file. Deviation 122, and
+// 5h had already reached the same answer for the docs site. **The accounts are
+// still shared and always were**: gftvhello_users is the one source of who a
+// staff member is, read only, exactly as before.
 //
 // Phase 1 wrote the read path. Phase 2 added the creation path, logout,
 // wholesale invalidation, and the trusted device handling from 5d.
@@ -23,11 +34,27 @@ import { COOKIE, readCookie, setCookie, clearCookie } from './cookies.js';
 import { ERR, fail } from './respond.js';
 import { randomToken, sha256 } from './tokens.js';
 
+/** The portal's own staff session columns, since migration 038.
+ *
+ *  Named here beside HELLO rather than written inline, because the docs site
+ *  reads a table of the same shape in phase 13 and the two are meant to stay
+ *  the same shape. `staff_user_id` rather than `user_id`, matching what section
+ *  6 specifies for `gftvjobs_docs_sessions`.
+ */
+const STAFF_SESSION = Object.freeze({
+  id: 'id',
+  userId: 'staff_user_id',
+  token: 'token',
+  expiresAt: 'expires_at',
+});
+
 /**
  * The gftvhello column names this portal reads and writes.
  *
- * Only the session, challenge, trusted device, and backup code rows are ever
- * written, per section 2. gftvhello_users is read only, always.
+ * Only the challenge, trusted device, and backup code rows are ever written,
+ * per section 2. gftvhello_users is read only, always. **The session row was a
+ * fourth until migration 038** and is not one any more: staff sessions live in
+ * `gftvjobs_staff_sessions` and use STAFF_SESSION above.
  *
  * These names are no longer assumptions. They were, until a staff sign in
  * failed on the live site with 42703, and the four real schemas were then read
@@ -42,15 +69,16 @@ import { randomToken, sha256 } from './tokens.js';
  *
  * Confirmed, 19 August 2026:
  *
- *   sessions      id, user_id, token (unique), expires_at, created_at
  *   challenges    token (pk), user_id, expires_at
  *   devices       id, user_id, device_token (unique), expires_at
  *   backupCodes   id, user_id, code_hash, created_at
  *
+ * The sessions entry was here too, and went with migration 038 along with the
+ * last reason to name a gftvhello_sessions column at all.
+ *
  * If any of these changes on the gftv.asia side, this object is the one edit.
  */
 export const HELLO = Object.freeze({
-  sessions: { id: 'id', userId: 'user_id', token: 'token', expiresAt: 'expires_at' },
   // No id on this one. The token is the primary key.
   challenges: { userId: 'user_id', token: 'token', expiresAt: 'expires_at' },
   // device_token, not token. No last_used_at, and no label: see
@@ -152,10 +180,10 @@ export async function getStaffSession(req) {
   const { data, error } = await supabase
     .from(T.staffSessions)
     .select(
-      `${HELLO.sessions.id}, ${HELLO.sessions.expiresAt},
+      `${STAFF_SESSION.id}, ${STAFF_SESSION.expiresAt},
        user:${T.staffUsers} ( id, username, is_approved, is_admin, is_editor, totp_secret )`
     )
-    .eq(HELLO.sessions.token, token)
+    .eq(STAFF_SESSION.token, token)
     .maybeSingle();
 
   if (error) {
@@ -164,13 +192,13 @@ export async function getStaffSession(req) {
   }
   if (!data || !data.user) return null;
 
-  const sessionId = data[HELLO.sessions.id];
-  const expiresAt = data[HELLO.sessions.expiresAt];
+  const sessionId = data[STAFF_SESSION.id];
+  const expiresAt = data[STAFF_SESSION.expiresAt];
 
   if (new Date(expiresAt).getTime() <= Date.now()) {
     // Deleting an expired session row is within the narrow set of gftvhello
     // writes section 2 allows.
-    await supabase.from(T.staffSessions).delete().eq(HELLO.sessions.id, sessionId);
+    await supabase.from(T.staffSessions).delete().eq(STAFF_SESSION.id, sessionId);
     return null;
   }
 
@@ -223,9 +251,9 @@ export async function createStaffSession(res, userId, staySignedIn) {
   const expiresAt = sessionExpiry(Boolean(staySignedIn));
 
   const { error } = await supabase.from(T.staffSessions).insert({
-    [HELLO.sessions.userId]: userId,
-    [HELLO.sessions.token]: token,
-    [HELLO.sessions.expiresAt]: expiresAt.toISOString(),
+    [STAFF_SESSION.userId]: userId,
+    [STAFF_SESSION.token]: token,
+    [STAFF_SESSION.expiresAt]: expiresAt.toISOString(),
   });
 
   if (error) throw new Error(`could not create the staff session: ${error.message}`);
@@ -244,7 +272,7 @@ export async function createStaffSession(res, userId, staySignedIn) {
  */
 export async function destroySession(realm, sessionId) {
   const table = realm === 'staff' ? T.staffSessions : T.sessions;
-  const idColumn = realm === 'staff' ? HELLO.sessions.id : 'id';
+  const idColumn = realm === 'staff' ? STAFF_SESSION.id : 'id';
   const { error } = await supabase.from(table).delete().eq(idColumn, sessionId);
   if (error) console.error('[careers-gftv] destroySession:', error);
 }
@@ -261,7 +289,7 @@ export async function endSession(req, res, realm) {
 
   if (token) {
     const table = realm === 'staff' ? T.staffSessions : T.sessions;
-    const column = realm === 'staff' ? HELLO.sessions.token : 'token';
+    const column = realm === 'staff' ? STAFF_SESSION.token : 'token';
     const { error } = await supabase.from(table).delete().eq(column, token);
     if (error) console.error('[careers-gftv] endSession:', error);
   }
@@ -280,9 +308,9 @@ export async function endSession(req, res, realm) {
  */
 export async function invalidateAllSessions(realm, userId, options = {}) {
   const table = realm === 'staff' ? T.staffSessions : T.sessions;
-  const userColumn = realm === 'staff' ? HELLO.sessions.userId : 'user_id';
+  const userColumn = realm === 'staff' ? STAFF_SESSION.userId : 'user_id';
 
-  const idColumn = realm === 'staff' ? HELLO.sessions.id : 'id';
+  const idColumn = realm === 'staff' ? STAFF_SESSION.id : 'id';
 
   let query = supabase.from(table).delete().eq(userColumn, userId);
   if (options.keepSessionId) query = query.neq(idColumn, options.keepSessionId);

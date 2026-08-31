@@ -37,7 +37,7 @@ You need three things.
    this level of the repository rather than under `main-site/`.
 
 2. **A staff account with portal access.** `requireStaff` re-reads
-   `gftvhello_sessions` and re-checks `hasPortalAccess` on every request, so
+   `gftvjobs_staff_sessions` and re-checks `hasPortalAccess` on every request, so
    there is no way to fake one.
 
    **Run it once as each role.** The account's `is_admin` decides which half of

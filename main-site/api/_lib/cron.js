@@ -297,9 +297,17 @@ export async function resolveStalePrompts() {
  * schedule nobody else agreed to is the kind of helpfulness that is somebody
  * else's outage. gftvhello_totp_challenges is swept, because section 11 names
  * it outright and because a challenge row is spent within minutes.
+ *
+ * **The portal's staff sessions are swept as of migration 038**, and that is
+ * the same rule rather than an exception to it: they moved out of
+ * gftvhello_sessions into a gftvjobs_ table this build owns, and what the
+ * paragraph above declines to tidy is other people's rows. An expired staff
+ * session is deleted on read when somebody presents it, exactly as an
+ * applicant's is, and this is what clears the ones nobody ever comes back for.
  */
 const EXPIRING = Object.freeze([
   { table: T.sessions, column: 'expires_at', label: 'applicant sessions' },
+  { table: T.staffSessions, column: 'expires_at', label: 'staff sessions' },
   { table: T.trustedDevices, column: 'expires_at', label: 'applicant trusted devices' },
   { table: T.passwordResets, column: 'expires_at', label: 'password resets' },
   { table: T.telegramTokens, column: 'expires_at', label: 'telegram tokens' },

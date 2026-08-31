@@ -1,6 +1,6 @@
 // POST /api/auth/staff/logout
 //
-// Deletes the gftvhello_sessions row and clears the staff session cookie. One
+// Deletes the gftvjobs_staff_sessions row and clears the staff session cookie. One
 // of the four gftvhello writes section 2 allows.
 //
 // The staff device cookie is left alone, per 5d. Signing out of the portal is

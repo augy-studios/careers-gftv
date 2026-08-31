@@ -183,7 +183,7 @@ async function countBy(table, column, ids) {
 /**
  * When each account last signed in, and how.
  *
- * Read from `gftvjobs_audit_log` rather than from `gftvhello_sessions`, which
+ * Read from `gftvjobs_audit_log` rather than from the staff session table, which
  * is the more obvious source and the wrong one: a session is deleted when it
  * expires or when somebody signs out, so the last session row is "when they
  * last signed in and are still signed in", which is a different question and

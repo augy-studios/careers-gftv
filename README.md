@@ -8,7 +8,7 @@ collected in Google Forms: the portal's job is to gate access, hand the
 applicant over, log the handoff, and track what happened next. It is a GFTV
 HelloApp and follows the same conventions as the other GFTV PWAs.
 
-**Phases 1 to 11 of 15 have shipped, and phase 12 is being built.** The database
+**Phases 1 to 12 of 15 have shipped.** The database
 schema and the shared server side code, then signing in, then the job board,
 the postings themselves, applying to one, and the applicant's own account area.
 The public surface is the home page, `/search` with its filters and
@@ -149,8 +149,12 @@ with other GFTV apps.
 
 The existing `gftvhello_*` tables belong to the gftv.asia portal. They are
 referenced by foreign key and never created, altered, or dropped from here, and
-nothing is written to them beyond the session, challenge, trusted device, and
-backup code rows the login flow legitimately owns.
+nothing is written to them beyond the challenge, trusted device, and backup
+code rows the login flow legitimately owns. **The staff session row was a
+fourth of those until migration `038`**, which moved the portal's staff
+sessions into `gftvjobs_staff_sessions`: one table serving two sites meant each
+could end the other's sessions, and 5h had already given the docs site its own
+for that reason. The accounts stay shared.
 
 ## Environment variables
 
