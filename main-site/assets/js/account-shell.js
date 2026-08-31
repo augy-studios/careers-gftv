@@ -23,6 +23,7 @@
 //   this phase owes it.
 
 import { api, applicantSession, noteHelperSession } from './api.js';
+import { messageInOpenDialog } from './dialog.js';
 import { t } from './i18n.js';
 import { formatDateTime } from './format.js';
 import { putMine, readMine, storedUserId } from './idb.js';
@@ -496,15 +497,26 @@ function initialNode(user) {
  * has nowhere else to put "that saved" where somebody will see it. A page without
  * the element gets nothing, which is why every caller may call it.
  *
+ * **And it goes into the open modal instead, when there is one**, for the same
+ * reason and by the same route as adminMessage: the page this writes to is
+ * inert and behind the dim while a dialog is showing, so a failed save in the
+ * helper's section editor was answered on a line nobody in the dialog could
+ * see.
+ *
  * @param {'ok'|'error'} kind
  * @param {string} text
  */
 export function accountMessage(kind, text) {
+  const tone = kind === 'ok' ? 'note' : 'danger';
+  const role = kind === 'ok' ? 'status' : 'alert';
+
+  if (messageInOpenDialog({ tone, role, text })) return;
+
   const holder = document.querySelector('#accountMessage');
   if (!holder) return;
 
-  holder.className = `callout ${kind === 'ok' ? 'note' : 'danger'}`;
-  holder.setAttribute('role', kind === 'ok' ? 'status' : 'alert');
+  holder.className = `callout ${tone}`;
+  holder.setAttribute('role', role);
   holder.textContent = text;
   holder.hidden = false;
 

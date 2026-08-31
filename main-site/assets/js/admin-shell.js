@@ -27,6 +27,7 @@
 //   screen." Those items stay in the sidebar, disabled, with the reason.
 
 import { api, noteStaffSession } from './api.js';
+import { clearDialogMessage, messageInOpenDialog } from './dialog.js';
 import { t } from './i18n.js';
 import { hydrateIcons } from './icons.js';
 import { escapeHtml } from './markdown.js';
@@ -684,6 +685,14 @@ const MESSAGE_TONE = Object.freeze({
  * on a failure so a screen reader hears it without moving focus, role="status"
  * on a success so it does not interrupt.
  *
+ * **A modal takes it instead, whenever one is open.** The bar this writes to
+ * lives on the page, and the page is inert and behind the dim while a modal
+ * dialog is showing: a failed save in the applicant editor or the decision
+ * composer put its sentence somewhere the person doing the saving could not
+ * see, so the button read as broken. `messageInOpenDialog` answers where they
+ * are standing, and the decision is made here rather than at each of the forty
+ * call sites, none of which knows whether it was reached from a modal.
+ *
  * **`maintenance` is amber rather than red, and that is the point of having it.**
  * A feature that is off is off because an admin turned it off, and the admin
  * reading this is very often that admin. Red says something has gone wrong;
@@ -695,11 +704,19 @@ const MESSAGE_TONE = Object.freeze({
  * @param {string} text
  */
 export function adminMessage(kind, text) {
+  const tone = MESSAGE_TONE[kind] ?? 'danger';
+  const role = kind === 'ok' ? 'status' : 'alert';
+
+  // A modal is closed before its success message is shown on nearly every page
+  // here, so an 'ok' usually lands on the page bar anyway. The ones that stay
+  // open get it in the panel, which is still the only place it would be read.
+  if (messageInOpenDialog({ tone, role, text })) return;
+
   const holder = document.querySelector('#adminMessage');
   if (!holder) return;
 
-  holder.className = `callout ${MESSAGE_TONE[kind] ?? 'danger'}`;
-  holder.setAttribute('role', kind === 'ok' ? 'status' : 'alert');
+  holder.className = `callout ${tone}`;
+  holder.setAttribute('role', role);
   holder.textContent = text;
   holder.hidden = false;
 
@@ -731,8 +748,9 @@ export function adminApiError(error) {
   adminMessage(maintenance ? 'maintenance' : 'error', error?.message ?? t('error.unexpected'));
 }
 
-/** Hide whatever adminMessage last put on screen. */
+/** Hide whatever adminMessage last put on screen, wherever it put it. */
 export function clearAdminMessage() {
+  clearDialogMessage();
   const holder = document.querySelector('#adminMessage');
   if (holder) holder.hidden = true;
 }

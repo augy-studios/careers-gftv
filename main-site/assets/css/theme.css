@@ -1031,6 +1031,16 @@ dialog.modal-backdrop:not([open]) .modal {
   font-size: 1.125rem;
 }
 
+/* The line adminMessage and accountMessage write into when a modal is open,
+   built by dialog.js directly under the heading. It is the page's message bar
+   moved inside, because the page is inert and behind the dim while a dialog is
+   showing and a "give this a title first" written out there is a sentence
+   nobody in the modal can read. The margin matches .modal-head's, so a panel
+   with a message keeps the spacing of one without. */
+.modal-message {
+  margin-bottom: 1rem;
+}
+
 .modal-section-label {
   margin: 1rem 0 0.5rem;
   font-size: 0.8125rem;

@@ -103,6 +103,9 @@ export function createDialog(options) {
 
   function open() {
     if (isOpen()) return;
+    // A modal that is opened, closed and opened again is the same element, so
+    // whatever the last run failed on is still sitting in its message line.
+    clearDialogMessage(panel);
     // Remembered rather than left to the browser's own restoration, which is
     // the same behaviour but is not something every engine has always done.
     lastFocus = document.activeElement;
@@ -121,6 +124,7 @@ export function createDialog(options) {
   // Both ways out land here: close(), the close control, the backdrop, and
   // Escape, which the browser handles without asking this file.
   wrap.addEventListener('close', () => {
+    clearDialogMessage(panel);
     document.body.setAttribute('data-scroll-locked', 'false');
     if (lastFocus instanceof HTMLElement) lastFocus.focus();
     lastFocus = null;
@@ -136,6 +140,85 @@ export function createDialog(options) {
   });
 
   return { element: wrap, panel, open, close, isOpen };
+}
+
+/* -------------------------------------------------------------------------
+ * The message line a modal shows instead of the page's
+ * ---------------------------------------------------------------------- */
+
+/**
+ * The panel of the modal that is on top, or null when none is open.
+ *
+ * Every modal in the build is a native `<dialog>` opened with `showModal()` —
+ * the ones this file builds, the confirmations in danger-confirm.js, the
+ * recovery code panel — so `dialog[open]` is the whole set. Document order is
+ * open order, because each of them appends itself to the body as it opens, so
+ * the last match is the one on top of the stack: the confirmation opened from
+ * an applicant detail panel, and not the panel underneath it.
+ */
+function topDialogPanel() {
+  const open = document.querySelectorAll('dialog[open]');
+  const top = open[open.length - 1];
+  if (!top) return null;
+  return top.querySelector('.modal') ?? top;
+}
+
+/**
+ * Say something inside the open modal, if one is open.
+ *
+ * **The bug this exists for.** A page level message bar — `#adminMessage`,
+ * `#accountMessage` — is in the document, and the document is inert and behind
+ * the dim while a modal dialog is showing. So "give this a title first" or "that
+ * save failed" was being written to a line nobody standing in the modal could
+ * see: the button appeared to do nothing, which is exactly the failure
+ * `runAction` was written to stop happening. The modal is where the person is,
+ * so the modal is where the answer goes.
+ *
+ * The line is built on demand rather than baked into the shell, because a page
+ * is free to redraw the panel's contents between opens and a holder that was
+ * put there at build time would go with it. It sits directly under the heading,
+ * above whatever the caller drew, and scrolls itself into view: `.modal` is the
+ * scroll container, and a long form can easily have its top off screen by the
+ * time somebody reaches the save button.
+ *
+ * @param {{ tone: string, role: string, text: string }} message
+ *   tone is the callout class — note, warn, danger, ok.
+ * @returns {boolean} whether a modal took it, so a caller can fall back to the
+ *   page's own bar when nothing is open.
+ */
+export function messageInOpenDialog({ tone, role, text }) {
+  const panel = topDialogPanel();
+  if (!panel) return false;
+
+  let holder = panel.querySelector('[data-dialog-message]');
+  if (!holder) {
+    holder = document.createElement('div');
+    holder.setAttribute('data-dialog-message', '');
+    const head = panel.querySelector('.modal-head');
+    if (head) head.after(holder);
+    else panel.prepend(holder);
+  }
+
+  holder.className = `callout ${tone} modal-message`;
+  holder.setAttribute('role', role);
+  holder.textContent = text;
+  holder.hidden = false;
+  holder.scrollIntoView({ block: 'nearest' });
+
+  return true;
+}
+
+/**
+ * Take the message line back down.
+ *
+ * @param {ParentNode|null} [panel] the panel to clear. The open modal's own by
+ *   default, which is the one a caller clearing up after itself means; a
+ *   document wide lookup would find the first holder in the body instead,
+ *   inside whichever closed dialog happens to be earliest.
+ */
+export function clearDialogMessage(panel = topDialogPanel()) {
+  const holder = panel?.querySelector('[data-dialog-message]');
+  if (holder) holder.hidden = true;
 }
 
 /**
