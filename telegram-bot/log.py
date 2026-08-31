@@ -47,12 +47,18 @@ NOISY = (
 )
 
 
-def setup_logging(level: str, log_dir: Path) -> logging.Logger:
+def setup_logging(level: str, log_dir: Path, filename: str = "bot.log") -> logging.Logger:
     """Configure the root logger and return the bot's own.
 
     Idempotent: calling it twice does not double every line, which matters
     because a failed startup path may well configure logging before the thing
     that failed gets a chance to report itself.
+
+    `filename` is what phase 12's `probe.py` passes. It is a second process on
+    the same machine writing to the same directory, and two processes appending
+    to one rotating file is how a rotation loses somebody's lines: the handler
+    renames the file underneath the other writer, which keeps writing to a file
+    with no name. One file each, and the probe's is `probe.log`.
     """
     formatter = logging.Formatter(FORMAT, DATE_FORMAT)
     formatter.converter = time.gmtime
@@ -72,7 +78,7 @@ def setup_logging(level: str, log_dir: Path) -> logging.Logger:
     try:
         log_dir.mkdir(parents=True, exist_ok=True)
         rotating = logging.handlers.RotatingFileHandler(
-            log_dir / "bot.log",
+            log_dir / filename,
             maxBytes=MAX_BYTES,
             backupCount=BACKUP_COUNT,
             encoding="utf-8",

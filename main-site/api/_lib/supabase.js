@@ -105,6 +105,17 @@ export const T = Object.freeze({
   auditLog: 'gftvjobs_audit_log',
   settings: 'gftvjobs_settings',
   cronRuns: 'gftvjobs_cron_runs',
+  // Phase 12 part 7, migration 037. **The only tables in this schema written by
+  // something outside Vercel**: the probe on the VPS writes both with the
+  // service key, because a status page hosted on the thing it monitors is
+  // useless during the outage it exists to report. Nothing in main-site writes
+  // to either; the status page reads them and the daily cron sweeps them.
+  //
+  // A day and an outage rather than a check. Decision 23: storing every request
+  // was half a million rows over the window the page draws, nearly all of them
+  // recording that nothing happened.
+  statusDays: 'gftvjobs_status_days',
+  statusIncidents: 'gftvjobs_status_incidents',
   rateLimits: 'gftvjobs_rate_limits',
   adminAccess: 'gftvjobs_admin_access',
 

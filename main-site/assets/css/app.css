@@ -456,6 +456,20 @@ body {
        shrink to their longest word and "Find a role" stacks three lines high,
        which is what the drawer's vertical layout hides. */
     white-space: nowrap;
+
+    /* **The pill was tight rather than broken**, and the difference was worth
+       measuring before changing anything: reported on 31 August 2026 as the
+       label exceeding its own box on hover, measured at 12px from box edge to
+       ink on *both* sides with scrollWidth equal to clientWidth at every width
+       from 1024 to 1600. Nothing was clipping. What makes the right look
+       tighter than the left is the icon: its own glyph carries whitespace, so
+       the same 12px reads as more on the side it is on.
+
+       16px in the row only. The drawer keeps 12px because its items are full
+       width, so the padding there moves the ink rather than the box. The row
+       can afford it: part 1 measured a staff session at 817px of a 992px
+       content box at 1024px, and six items at 8px more each is about 865px. */
+    padding-inline: 1rem;
   }
 
   /* The drawer gives these width: 100% so they fill a column. On a row that
@@ -5617,4 +5631,214 @@ ul.field-hint {
   max-width: 9rem;
   font-size: 1.1rem;
   letter-spacing: 0.2em;
+}
+
+/* ---------------------------------------------------------------------------
+ * The service status page, phase 12 part 7
+ *
+ * Every colour here is a token part 3 already measured. That is deliberate:
+ * this page's whole job is to be read quickly by somebody who is already
+ * annoyed, and a new palette invented for it would be four more combinations
+ * to measure and one more place for the four themes to disagree.
+ * ------------------------------------------------------------------------ */
+
+.status-headline {
+  margin-top: 1.5rem;
+}
+
+.status-headline h2 {
+  font-size: 1.125rem;
+  margin: 0;
+}
+
+.status-headline p {
+  margin-top: 0.375rem;
+  font-size: 0.9375rem;
+}
+
+.status-panel {
+  margin-top: 1.5rem;
+}
+
+.status-components {
+  list-style: none;
+  margin-top: 1rem;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+/* Name on the left, state on the right, and the note under both. `wrap` rather
+   than a fixed two column grid: a long feature name in Chinese beside a pill is
+   exactly the pair that overflows at 320, and section 3's rule is that it wraps
+   rather than pushing the layout. */
+.status-component {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  padding: 0.625rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.status-component:last-child {
+  border-bottom: 0;
+}
+
+.status-component-name {
+  font-weight: 600;
+}
+
+.status-component .status-note,
+.status-component .small {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.status-pill[data-state='on'] {
+  background: var(--callout-ok-bg);
+  color: var(--ok);
+}
+
+.status-pill[data-state='off'] {
+  background: var(--callout-warn-bg);
+  color: var(--warn);
+}
+
+/* A feature nobody can switch off. Neutral rather than green: it is a fact
+   about the switch, not a measurement of the feature, and drawing it in the
+   same colour as a measured "available" would be the page claiming something
+   it did not check. */
+.status-pill[data-state='always'] {
+  background: var(--control-off-bg);
+  border-color: var(--border-control);
+  color: var(--text-muted-strong);
+}
+
+.status-note {
+  margin-top: 0.25rem;
+  color: var(--text);
+}
+
+.small {
+  font-size: 0.8125rem;
+}
+
+.status-uptime {
+  margin-top: 1.25rem;
+}
+
+.status-target {
+  font-size: 0.9375rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Ninety squares, one a day, oldest on the left.
+ *
+ * It scrolls sideways inside itself rather than shrinking the squares away or
+ * dropping days at narrow widths. Both alternatives were rejected for the same
+ * reason: the sentence underneath says ninety days, and a bar that quietly drew
+ * thirty of them would be the page saying two different things at two widths.
+ * Focusable, because a region that scrolls has to be reachable by somebody who
+ * has no pointer. */
+.status-bar {
+  display: flex;
+  gap: 1px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.status-day {
+  flex: 1 0 3px;
+  height: 34px;
+  border-radius: 2px;
+  background: var(--control-off-bg);
+}
+
+.status-day[data-state='up'] {
+  background: var(--ok);
+}
+
+.status-day[data-state='degraded'] {
+  background: var(--warn);
+}
+
+.status-day[data-state='down'] {
+  background: var(--danger);
+}
+
+/* A day that was measured for part of its length. The same hue as a working day
+   because that is what was measured, lighter because there was less of it, and
+   **shorter, which is the half that does not depend on a colour**: part 3's
+   lesson was that hue is the thing a contrast ratio throws away, and two states
+   a colour blind reader cannot tell apart are one state. The height says how
+   much of the day was watched without anybody having to read the legend. */
+.status-day[data-state='partial'] {
+  background: color-mix(in srgb, var(--ok) 45%, transparent);
+  height: 20px;
+  align-self: center;
+}
+
+/* No data at all, and the one state that must never be mistaken for either of
+   the others. Achromatic by construction, from the token part 6 added for the
+   off half of a switch, plus an edge so an empty square still reads as a square
+   rather than as a gap in the bar.
+
+   **A real border rather than an inset shadow**, settled 31 August 2026 after
+   looking at the four plates: on hello light the shadow sat inside a 3px wide
+   square, mostly under its own fill, and forty five of them read as a pale
+   smudge rather than as forty five days nobody measured. This is the state the
+   whole page's honesty rests on, so it is the one square that has to be
+   unmistakably drawn. `box-sizing` is border-box from the reset, so the border
+   costs no width. */
+.status-day[data-state='unknown'] {
+  background: var(--control-off-bg);
+  border: 1px solid var(--border-control);
+}
+
+.status-legend {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin-top: 1rem;
+  padding: 0;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.status-legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+/* The legend's swatches are square rather than a strip of one, so the shape
+   says "this is one day" without a sentence. */
+.status-legend .status-day {
+  flex: none;
+  width: 12px;
+  height: 12px;
+}
+
+.status-incidents {
+  list-style: none;
+  margin-top: 0.75rem;
+  padding: 0;
+  display: grid;
+  gap: 0.875rem;
+}
+
+.status-incidents li {
+  padding-left: 0.75rem;
+  border-left: 3px solid var(--border-strong);
+}
+
+.status-incident-name {
+  font-weight: 600;
+}
+
+.status-incidents p {
+  margin-top: 0.25rem;
 }

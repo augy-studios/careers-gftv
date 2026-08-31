@@ -37,6 +37,10 @@ import { supabase, T } from './supabase.js';
 import { recordAudit, AUDIT } from './audit.js';
 import { checkFormUrl } from './form-check.js';
 import { HELLO } from './session.js';
+// The window the status page draws, so the sweep and the page cannot disagree
+// about how long ninety days is. Phase 12 part 7, and the same move part 1 made
+// with MIN_SIZE: a number two files both need is imported, not repeated.
+import { DAYS as STATUS_DAYS } from './status.js';
 
 /** What section 11 calls it, and the default job_name in migration 012. */
 export const DAILY = 'daily';
@@ -376,6 +380,59 @@ export async function sweepExpiredRows() {
   } catch (cause) {
     console.error('[careers-gftv] sweep rate limits:', cause);
     failed.push(T.rateLimits);
+  }
+
+  // The probe's own two tables, per section 11: "Delete gftvjobs_status_checks
+  // rows older than ninety days, once that table exists in phase 12." Decision
+  // 23 replaced the row-per-check table with a row per day and a row per
+  // outage, so what section 11 asked for is a much smaller sweep than it
+  // expected — four rows a day and an incident now and then — and it is still
+  // worth doing, because the page draws exactly ninety days and anything older
+  // is weight nothing reads.
+  //
+  // **Ninety days is imported rather than repeated.** It is the same window the
+  // status page draws, and a sweep set shorter than the page would quietly
+  // empty the left hand end of every uptime bar while the page went on labelling
+  // it ninety days.
+  //
+  // **An open incident is never swept, whatever its age.** `ended_at is null`
+  // means it is still the current state of that target as far as anything here
+  // knows, and deleting it would take the one row the page most needs.
+  const statusCutoff = new Date(Date.now() - STATUS_DAYS * 24 * 60 * 60 * 1000).toISOString();
+
+  try {
+    const { data, error } = await supabase
+      .from(T.statusDays)
+      .delete()
+      .lt('day', statusCutoff.slice(0, 10))
+      .select('target');
+
+    if (error) throw error;
+
+    const count = data?.length ?? 0;
+    byTable[T.statusDays] = count;
+    deleted += count;
+  } catch (cause) {
+    console.error('[careers-gftv] sweep status days:', cause);
+    failed.push(T.statusDays);
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from(T.statusIncidents)
+      .delete()
+      .lt('started_at', statusCutoff)
+      .not('ended_at', 'is', null)
+      .select('id');
+
+    if (error) throw error;
+
+    const count = data?.length ?? 0;
+    byTable[T.statusIncidents] = count;
+    deleted += count;
+  } catch (cause) {
+    console.error('[careers-gftv] sweep status incidents:', cause);
+    failed.push(T.statusIncidents);
   }
 
   return { deleted, by_table: byTable, failed };

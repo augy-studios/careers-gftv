@@ -12,6 +12,7 @@
 // ---------------------------------------------------------------------------
 //
 //   navigation to a precached route   the cached shell, immediately
+//   navigation to /status             network first, cached copy when offline
 //   navigation to /jobs/{id}          stale while revalidate, capped at 100
 //   navigation to anything else       network, and /offline when that fails
 //   /assets/**, icons, the manifest   cache first
@@ -70,7 +71,7 @@
 //                     because a kill switch that forgets itself on the deploy
 //                     that broke something is not a kill switch.
 
-const VERSION = 'careers-gftv-phase12-v106';
+const VERSION = 'careers-gftv-phase12-v107';
 
 const SHELL = `careers-gftv-shell-${VERSION}`;
 const PUBLIC_DATA = 'careers-gftv-public';
@@ -105,6 +106,15 @@ const SWITCH_KEY = '/__sw/feature-switches';
 // to match after every trim.
 const INDEX_KEY = '/__sw/posting-index';
 
+// Precached pages that are answered from the network first and from the cache
+// only when that fails. Phase 12 part 7, and one entry so far.
+//
+// The test for this list is not "is it important". Every other precached page
+// is a shell that asks for its own data after it loads, so an old copy of the
+// markup is not an old answer; /status is rendered on the server and *is* the
+// answer, so a cached copy is a claim about a moment that has passed.
+const NETWORK_FIRST_PAGES = new Set(['/status']);
+
 /* -------------------------------------------------------------------------
  * The precache list
  *
@@ -137,6 +147,11 @@ const PRECACHE = [
   '/offline',
   '/register',
   '/search',
+  // Served by a function since phase 12 part 7, and precached all the same: the
+  // worker fetches an address at install and keeps what answers, so this works
+  // offline exactly as the file it replaced did. **It is network first**, see
+  // NETWORK_FIRST_PAGES below, because what this page renders is now an answer
+  // rather than a shell.
   '/status',
 
   // The account area. Precached for everybody, signed in or not: these are
@@ -549,6 +564,33 @@ async function navigation(event, request, url) {
   if (POSTING_PATH.test(url.pathname)) return posting(event, request, url);
 
   const shell = await caches.open(SHELL);
+
+  // **The one precached page that must not be answered from the cache while
+  // there is a network.** Every other entry in PRECACHE is a shell that fetches
+  // its own data after it loads, so a copy from install time is as good as a
+  // fresh one. /status stopped being that in phase 12 part 7: it is rendered on
+  // the server and what it renders is an answer about right now, so a cached
+  // copy served to somebody online would be a status page frozen at whenever
+  // they last updated the worker — on the one page people open when things are
+  // going wrong.
+  //
+  // Network first, cache second, and the cached copy is refreshed on every
+  // successful load, so what an offline reader gets is the last state anybody
+  // actually saw rather than the state at install. The page stamps the time it
+  // was measured at the top, which is what makes a stale copy honest rather
+  // than misleading.
+  if (NETWORK_FIRST_PAGES.has(url.pathname)) {
+    try {
+      const response = await fetch(request);
+      if (isCacheable(response)) await store(shell, url.pathname, response.clone());
+      return response;
+    } catch {
+      const held = await shell.match(url.pathname);
+      if (held) return held;
+      const fallback = await shell.match('/offline');
+      return fallback ?? Response.error();
+    }
+  }
 
   // Matched on the path and not on the request, so /search?q=editor is answered
   // by the cached /search. The query is read by search-page.js, not by the

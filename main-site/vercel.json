@@ -56,6 +56,10 @@
       "destination": "/api/sitemap"
     },
     {
+      "source": "/status",
+      "destination": "/api/status-page"
+    },
+    {
       "source": "/jobs/:id",
       "destination": "/api/job-page?id=:id"
     },

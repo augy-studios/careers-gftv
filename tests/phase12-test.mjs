@@ -60,6 +60,36 @@ import {
   sitemapXml,
 } from '../main-site/api/_lib/discovery.js';
 
+// Part 7's status page. Pure for the same reason part 5's discovery module is:
+// what decides a day's colour, a headline or an incident is measurable without
+// a database, and `api/status-page.js` is the queries and the headers.
+import {
+  VIEW,
+  DAYS,
+  EXPECTED_PER_DAY,
+  TARGET_KEYS,
+  HEADLINE_TONE,
+  everyPhaseShipped,
+  viewFor,
+  dayState,
+  dayWindow,
+  uptimeFor,
+  headline,
+  declaredIncidents,
+  observedIncidents,
+  renderServiceBody,
+  renderBuildBody,
+  statusDocument,
+  en,
+} from '../main-site/api/_lib/status.js';
+
+// `renderDocument` reads SITE_URL for the canonical link, and the offline
+// sections have no deployment to name. The real value on a deployment is the
+// real domain; here it only has to be an absolute origin, and setting it rather
+// than requiring it keeps this file's promise that the public sections need no
+// environment at all.
+process.env.SITE_URL ??= 'https://careers.globalfurry.tv';
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SITE = join(HERE, '..', 'main-site');
 
@@ -367,6 +397,81 @@ async function isFile(path) {
   }
 }
 
+// Public pages this tree serves from a function rather than from a file. One
+// so far, and each one is a route vercel.json rewrites: part 7's /status, which
+// cannot be a file because Vercel matches the filesystem before it consults
+// rewrites and the gate would never run.
+const FUNCTION_PAGES = ['/status'];
+
+/**
+ * A service status page with something wrong on it, for measuring rather than
+ * for admiring.
+ *
+ * **Deliberately the worst arrangement the page allows**, on part 1's lesson
+ * about the empty board: a page drawn from a clean quarter is a page with no
+ * incident list, no note, no switched off feature and no gaps, which is a
+ * different and much easier document than the one somebody actually opens. So
+ * this one has a feature off with an admin's note on it, a declared incident
+ * that ended, an observed one that did not, and forty five days nothing
+ * measured at all.
+ */
+function serviceFixture(now = new Date('2026-08-31T12:00:00Z')) {
+  const measured = dayWindow(now)
+    .slice(45)
+    .map((day, index) => ({
+      day,
+      // One short day, so the partial state is on the page being measured. The
+      // day the probe was started is exactly this day, every time.
+      checks: index === 2 ? 200 : EXPECTED_PER_DAY,
+      failures: day.endsWith('15') ? 90 : day.endsWith('07') ? EXPECTED_PER_DAY : 0,
+      duration_total_ms: (index === 2 ? 200 : EXPECTED_PER_DAY) * 240,
+      slowest_ms: 1800,
+      last_checked_at: `${day}T23:59:00Z`,
+    }));
+
+  const incidents = [
+    {
+      target: 'search',
+      started_at: '2026-08-30T03:00:00Z',
+      last_failed_at: '2026-08-30T03:02:00Z',
+      ended_at: '2026-08-30T03:03:00Z',
+      failures: 3,
+      status_code: 502,
+    },
+  ];
+
+  return {
+    now,
+    probeLastSeen: '2026-08-31T11:59:00Z',
+    headline: headline({ lastSeen: '2026-08-31T11:59:00Z', incidents, off: ['apply'], now }),
+    components: [
+      { key: 'applicant_login', phase: 2, off: false, note: null, since: null, denied: true, reason: 'Locks everybody out.' },
+      {
+        key: 'apply',
+        phase: 5,
+        off: true,
+        note: 'The form provider is not answering. We are watching it and will switch this back on as soon as it is.',
+        since: '2026-08-31T09:00:00Z',
+        denied: false,
+        reason: null,
+      },
+      { key: 'saved_jobs', phase: 6, off: false, note: null, since: null, denied: false, reason: null },
+    ],
+    uptime: TARGET_KEYS.map((target) => ({ target, ...uptimeFor(measured, { now }) })),
+    declared: declaredIncidents([
+      { action: 'feature_disabled', created_at: '2026-08-20T10:00:00Z', metadata: { feature: 'apply', note: 'Forms are down.' } },
+      { action: 'feature_enabled', created_at: '2026-08-20T12:30:00Z', metadata: { feature: 'apply' } },
+    ]),
+    observed: observedIncidents(incidents, { now }),
+  };
+}
+
+/** Whether a public route is served at all, by a file or by a function. */
+async function routeExists(pathname) {
+  if (FUNCTION_PAGES.includes(pathname)) return true;
+  return (await resolveRoute(pathname)) !== null;
+}
+
 async function resolveRoute(pathname) {
   if (pathname === '/') return join(SITE, 'index.html');
   const bare = pathname.replace(/^\/|\/$/g, '');
@@ -403,6 +508,28 @@ async function serveSite(locale = 'en') {
       // easier test.
       res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
       return res.end('{"error":{"code":"UNAVAILABLE","message":"no fixture for this route"}}');
+    }
+
+    // **The one page with no file behind it.** Part 7 moved /status into a
+    // function so one derivation can decide which of its two pages a reader
+    // gets, and Vercel matches the filesystem before it consults rewrites, so
+    // the file had to go. This server renders the same thing the function
+    // renders for the same reason it serves the working tree's markup
+    // everywhere else: the sweeps measure this tree, not a deployment.
+    if (url.pathname === '/status') {
+      // `?view=service` is the staff preview on a deployment; here it is how the
+      // page a reader cannot reach yet gets measured at all. The model is a
+      // fixture rather than a database, which is the same trade the search
+      // fixtures make: what is being measured is the page, and the worst data
+      // the build allows is what makes that measurement mean anything.
+      const service = url.searchParams.get('view') === 'service';
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+      return res.end(
+        statusDocument({
+          view: service ? VIEW.service : VIEW.build,
+          body: service ? renderServiceBody(serviceFixture()) : renderBuildBody(),
+        })
+      );
     }
 
     const file = await resolveRoute(url.pathname);
@@ -2320,6 +2447,18 @@ function servedPages() {
       pages.push({ route, file: full, html: readFileSync(full, 'utf8') });
     }
   })(SITE);
+
+  // **The one page with no .html file behind it**, since part 7 moved /status
+  // into a function so one derivation can decide which of its two pages a
+  // reader gets. It is still a public page and still belongs in every list here
+  // that is derived from the markup; reading it from the renderer rather than
+  // from disk is what keeps that derivation honest instead of quietly one page
+  // short. Section 4 lists /status in the sitemap, and the check below compares
+  // that list against this one in both directions.
+  for (const route of FUNCTION_PAGES) {
+    pages.push({ route, file: null, html: statusDocument({ view: VIEW.build, body: renderBuildBody() }) });
+  }
+
   return pages;
 }
 
@@ -2539,7 +2678,11 @@ define('discovery', 'robots.txt, sitemap.xml and llms.txt, and the one switch be
   );
 
   for (const path of STATIC_PAGES) {
-    check(`${path} is a page that exists in this tree`, (await resolveRoute(path)) !== null, 'no file for it');
+    check(
+      `${path} is a page that exists in this tree`,
+      await routeExists(path),
+      'no file and no function serving it'
+    );
   }
 
   // ---- llms.txt ------------------------------------------------------------
@@ -2578,7 +2721,7 @@ define('discovery', 'robots.txt, sitemap.xml and llms.txt, and the one switch be
       );
       continue;
     }
-    check(`${path} is a page that exists`, (await resolveRoute(path)) !== null, 'llms.txt links a page that is not there');
+    check(`${path} is a page that exists`, await routeExists(path), 'llms.txt links a page that is not there');
   }
 
   check(
@@ -3128,6 +3271,575 @@ define('polish', 'One modal shell, one runAction, one tab keyboard, and no dead 
   } finally {
     await browser.close();
   }
+});
+
+/* =========================================================================
+ * 11. The status page, and the promises it makes about what it knows
+ * ====================================================================== */
+
+// **This is the section that has to be sceptical of its own subject.** 0c gives
+// the page one rule above all the others — it never claims to know more than it
+// does — and every way of breaking that rule looks like a working page: a green
+// day nobody measured, a percentage over a period with gaps, an "all systems
+// operational" printed because nothing could be reached. None of those show up
+// as an error anywhere. So most of what follows feeds the renderer data with
+// holes in it and reads what it drew.
+//
+// Everything here is offline. `api/_lib/status.js` is pure by construction and
+// the function beside it is the queries and the headers, which is part 5's
+// arrangement and the reason it exists.
+
+define('status', 'The service status page, and what it refuses to claim', async () => {
+  const source = (relative) => readFileSync(join(HERE, '..', relative), 'utf8');
+
+  /* -- the four targets, in three languages -------------------------------- */
+
+  // Phase 11's commands.py lesson: a list copied into other files needs a
+  // check. This one is in JavaScript, in Python, and in a check constraint, and
+  // the database is what refuses a name nobody agreed to.
+  const probe = source('telegram-bot/probe.py');
+  const migration = source('migrations/037_status_checks.sql');
+
+  const pythonTargets = (probe.match(/^TARGETS = \(([^)]*)\)/m)?.[1] ?? '')
+    .split(',')
+    .map((part) => part.trim().replace(/^["']|["']$/g, ''))
+    .filter(Boolean);
+
+  const sqlTargets = (migration.match(/target in \(([^)]*)\)/)?.[1] ?? '')
+    .split(',')
+    .map((part) => part.trim().replace(/^'|'$/g, ''))
+    .filter(Boolean);
+
+  check(
+    `probe.py names the same ${TARGET_KEYS.length} targets as status.js`,
+    pythonTargets.length === TARGET_KEYS.length && pythonTargets.every((key, i) => key === TARGET_KEYS[i]),
+    `python: ${pythonTargets.join(', ')}`
+  );
+  check(
+    'migration 037 constrains the column to the same four',
+    sqlTargets.length === TARGET_KEYS.length && TARGET_KEYS.every((key) => sqlTargets.includes(key)),
+    `sql: ${sqlTargets.join(', ')}`
+  );
+
+  /* -- which page this route is -------------------------------------------- */
+
+  check(
+    'the gate is closed, so /status is still the phase list',
+    everyPhaseShipped() === false && viewFor() === VIEW.build,
+    'every phase reads shipped, which means the switchover has happened'
+  );
+  check(
+    'a staff preview is the only thing that opens it early',
+    viewFor({ preview: true }) === VIEW.service,
+    'the preview did not reach the service page'
+  );
+  check(
+    'a phase list with one unshipped phase never reads as shipped',
+    everyPhaseShipped({ phases: [{ status: 'shipped' }, { status: 'building' }] }) === false &&
+      everyPhaseShipped({ phases: [{ status: 'shipped' }] }) === true &&
+      everyPhaseShipped({ phases: [] }) === false,
+    'an empty list must answer false, not vacuously true'
+  );
+
+  // Vercel matches the filesystem before it consults rewrites, so a status page
+  // on disk would win and the gate above would be decoration. Phase 3's rule,
+  // and the same deletion part 5 had to make for robots.txt.
+  check(
+    'no status page is left on disk for the filesystem to serve first',
+    !existsSync(join(SITE, 'status', 'index.html')) && !existsSync(join(SITE, 'status.html')),
+    'main-site/status/ is back, and it beats the rewrite'
+  );
+
+  const vercel = JSON.parse(source('main-site/vercel.json'));
+  check(
+    '/status is rewritten to the function',
+    vercel.rewrites.some((rule) => rule.source === '/status' && rule.destination === '/api/status-page'),
+    JSON.stringify(vercel.rewrites.map((rule) => rule.source))
+  );
+  const worker = source('main-site/sw.js');
+  check(
+    'it is still precached, so it works offline like every other page',
+    worker.includes("'/status'"),
+    'the entry is gone from PRECACHE'
+  );
+
+  // **Precached and network first, which no other page here is.** Every other
+  // entry is a shell that fetches its own data, so a copy from install time is
+  // as good as a fresh one; this page is rendered on the server and is the
+  // answer itself, so cache-first would serve a frozen status page to somebody
+  // online — on the page people open when something is wrong.
+  check(
+    'and it is answered from the network first, unlike every other precached page',
+    /NETWORK_FIRST_PAGES = new Set\(\['\/status'\]\)/.test(worker) &&
+      worker.includes('if (NETWORK_FIRST_PAGES.has(url.pathname))'),
+    'the worker would serve a cached status page to a reader who is online'
+  );
+
+  /* -- a day's colour ------------------------------------------------------ */
+
+  check(
+    'a day with no checks at all is unknown, and is never either state',
+    dayState({ total: 0, failed: 0 }) === 'unknown',
+    dayState({ total: 0, failed: 0 })
+  );
+  check(
+    'a full day with no failures is up',
+    dayState({ total: EXPECTED_PER_DAY, failed: 0 }) === 'up',
+    dayState({ total: EXPECTED_PER_DAY, failed: 0 })
+  );
+  check(
+    'a day watched for twenty minutes is partial rather than up',
+    dayState({ total: 20, failed: 0 }) === 'partial',
+    dayState({ total: 20, failed: 0 })
+  );
+  check(
+    'a failure seen counts however little of the day was watched',
+    dayState({ total: 20, failed: 1 }) === 'degraded' &&
+      dayState({ total: 20, failed: 20 }) === 'down',
+    'a partial day must not soften a day with failures in it'
+  );
+
+  /* -- ninety days --------------------------------------------------------- */
+
+  const now = new Date('2026-08-31T12:00:00Z');
+  const window = dayWindow(now);
+
+  check(`the window is ${DAYS} days and ends today`, window.length === DAYS && window.at(-1) === '2026-08-31', window.at(-1));
+
+  const halfMeasured = window
+    .slice(45)
+    .map((day) => ({ day, checks: EXPECTED_PER_DAY, failures: 0, duration_total_ms: EXPECTED_PER_DAY * 240, slowest_ms: 900 }));
+  const half = uptimeFor(halfMeasured, { now });
+
+  check(
+    'a day the probe never wrote is drawn as unknown rather than filled in',
+    half.cells.filter((cell) => cell.state === 'unknown').length === 45 && half.noData === 45,
+    `${half.noData} unknown days`
+  );
+  check(
+    'the percentage is computed from the checks that exist and says how many',
+    half.percent === 100 && half.checks === 45 * EXPECTED_PER_DAY,
+    `${half.percent}% of ${half.checks}`
+  );
+  check(
+    'nothing measured is a null percentage rather than a hundred',
+    uptimeFor([], { now }).percent === null,
+    String(uptimeFor([], { now }).percent)
+  );
+  check(
+    'the response time is an average over what was measured, and null over nothing',
+    half.averageMs === 240 && half.slowestMs === 900 && uptimeFor([], { now }).averageMs === null,
+    JSON.stringify({ averageMs: half.averageMs, slowestMs: half.slowestMs })
+  );
+
+  /* -- the headline -------------------------------------------------------- */
+
+  const heardAt = '2026-08-31T11:59:00Z';
+  const openIncident = {
+    target: 'search',
+    started_at: '2026-08-31T11:50:00Z',
+    last_failed_at: '2026-08-31T11:59:00Z',
+    ended_at: null,
+    failures: 9,
+    status_code: 502,
+  };
+  const endedIncident = { ...openIncident, ended_at: '2026-08-31T11:40:00Z', last_failed_at: '2026-08-31T11:39:00Z' };
+
+  check(
+    'everything answering and nothing switched off is the only way to say all is well',
+    headline({ lastSeen: heardAt, incidents: [], off: [], now }).state === 'ok',
+    headline({ lastSeen: heardAt, incidents: [], off: [], now }).state
+  );
+  check(
+    'a feature switched off is maintenance rather than a fault',
+    headline({ lastSeen: heardAt, incidents: [], off: ['saved_jobs'], now }).state === 'maintenance',
+    headline({ lastSeen: heardAt, incidents: [], off: ['saved_jobs'], now }).state
+  );
+  check(
+    'an outage still open is down, whatever anybody declared',
+    headline({ lastSeen: heardAt, incidents: [openIncident], off: ['saved_jobs'], now }).state === 'down',
+    headline({ lastSeen: heardAt, incidents: [openIncident], off: [], now }).state
+  );
+  check(
+    'one that ended within the hour is degraded rather than fine',
+    headline({ lastSeen: heardAt, incidents: [endedIncident], off: [], now }).state === 'degraded',
+    'something that failed twenty minutes ago read as working'
+  );
+  check(
+    'and one that ended yesterday is not held against today',
+    headline({
+      lastSeen: heardAt,
+      incidents: [{ ...endedIncident, started_at: '2026-08-30T03:00:00Z', last_failed_at: '2026-08-30T03:02:00Z', ended_at: '2026-08-30T03:03:00Z' }],
+      off: [],
+      now,
+    }).state === 'ok',
+    'an old incident is still colouring the headline'
+  );
+
+  // **The failure 0c exists to prevent.** Everything the page has says the site
+  // was perfect, and all of it is an hour old, which means it knows nothing.
+  check(
+    'a last-heard-from an hour ago is unknown, not fine',
+    headline({ lastSeen: '2026-08-31T11:00:00Z', incidents: [], off: [], now }).state === 'unknown',
+    headline({ lastSeen: '2026-08-31T11:00:00Z', incidents: [], off: [], now }).state
+  );
+  check(
+    'never having heard from the probe is unknown',
+    headline({ lastSeen: null, incidents: [], off: [], now }).state === 'unknown',
+    headline({ lastSeen: null, incidents: [], off: [], now }).state
+  );
+  check(
+    'and an outage nothing has written to for a quarter of an hour is not reported as happening now',
+    headline({
+      lastSeen: heardAt,
+      incidents: [{ ...openIncident, last_failed_at: '2026-08-31T11:30:00Z' }],
+      off: [],
+      now,
+    }).state !== 'down',
+    'a stale open incident was read as an outage in progress'
+  );
+
+  /* -- incidents ----------------------------------------------------------- */
+
+  const declared = declaredIncidents([
+    { action: 'feature_disabled', created_at: '2026-08-20T10:00:00Z', metadata: { feature: 'apply', note: 'Forms are down.' } },
+    { action: 'feature_disabled', created_at: '2026-08-20T10:05:00Z', metadata: { feature: 'apply', note: 'Forms are down. Watching.' } },
+    { action: 'feature_enabled', created_at: '2026-08-20T12:30:00Z', metadata: { feature: 'apply' } },
+    { action: 'feature_disabled', created_at: '2026-08-29T08:00:00Z', metadata: { feature: 'saved_jobs', note: null } },
+  ]);
+
+  check(
+    'a disable and its enable are one incident with a duration',
+    declared.length === 2 && declared.at(-1).feature === 'apply' && declared.at(-1).durationMs === 150 * 60 * 1000,
+    JSON.stringify(declared)
+  );
+  check(
+    'a second disable with no enable between them keeps the first start',
+    declared.at(-1).start === '2026-08-20T10:00:00Z' && declared.at(-1).note === 'Forms are down. Watching.',
+    JSON.stringify(declared.at(-1))
+  );
+  check(
+    'one still switched off has no end rather than a guessed one',
+    declared[0].feature === 'saved_jobs' && declared[0].end === null && declared[0].durationMs === null,
+    JSON.stringify(declared[0])
+  );
+
+  const outage = (over) => ({
+    target: 'search',
+    started_at: '2026-08-30T03:00:00Z',
+    last_failed_at: '2026-08-30T03:02:00Z',
+    ended_at: '2026-08-30T03:03:00Z',
+    failures: 3,
+    status_code: 502,
+    ...over,
+  });
+
+  const blip = observedIncidents([outage({ failures: 2, last_failed_at: '2026-08-30T03:01:00Z' })], { now });
+  check('a single blip is written but not listed', blip.length === 0, JSON.stringify(blip));
+
+  const ended = observedIncidents([outage({})], { now });
+  check(
+    'an outage that was seen to end carries its real duration, not a floor',
+    ended.length === 1 && ended[0].state === 'ended' && ended[0].durationMs === 3 * 60 * 1000,
+    JSON.stringify(ended)
+  );
+
+  const live = observedIncidents(
+    [outage({ started_at: '2026-08-31T11:50:00Z', last_failed_at: '2026-08-31T11:59:00Z', ended_at: null, failures: 9 })],
+    { now }
+  );
+  check(
+    'one still open with a recent failure is happening now, and has no end',
+    live[0].state === 'ongoing' && live[0].end === null && live[0].durationMs === null,
+    JSON.stringify(live[0])
+  );
+
+  // The third ending, and the one a two-state model would get wrong: the row is
+  // open because the probe stopped writing, not because the site is still down.
+  const stalled = observedIncidents([outage({ ended_at: null })], { now });
+  check(
+    'one still open whose last failure is old is stalled rather than ongoing',
+    stalled[0].state === 'stalled' && stalled[0].ongoing === false && stalled[0].end === null,
+    JSON.stringify(stalled[0])
+  );
+  check(
+    'and the page says so in words rather than leaving it as an open outage',
+    renderServiceBody(serviceFixture()).length > 0 &&
+      renderServiceBody({ ...serviceFixture(), observed: stalled }).includes(en('serviceStatus.stalled')),
+    'a stalled incident renders as though it were still failing'
+  );
+
+  /* -- what the page actually draws ---------------------------------------- */
+
+  const model = (overrides = {}) => ({
+    now,
+    probeLastSeen: '2026-08-31T11:59:00Z',
+    headline: headline({ lastSeen: heardAt, incidents: [], off: [], now }),
+    components: [
+      { key: 'saved_jobs', phase: 6, off: false, note: null, since: null, denied: false, reason: null },
+      { key: 'apply', phase: 5, off: true, note: 'The form provider is down.', since: '2026-08-31T09:00:00Z', denied: false, reason: null },
+      { key: 'applicant_login', phase: 2, off: false, note: null, since: null, denied: true, reason: 'Locks everybody out.' },
+    ],
+    uptime: TARGET_KEYS.map((target) => ({ target, ...uptimeFor(halfMeasured, { now }) })),
+    declared,
+    observed: ended,
+    ...overrides,
+  });
+
+  const body = renderServiceBody(model());
+  const document = statusDocument({ view: VIEW.service, body });
+
+  check('nothing rendered as undefined', !/\bundefined\b/.test(document), 'an undefined reached the markup');
+  check(
+    'every day of the window is drawn for every target',
+    (body.match(/class="status-day" data-state=/g) ?? []).length === DAYS * TARGET_KEYS.length + 5,
+    'the bars and the five legend swatches do not add up'
+  );
+  check(
+    'the legend names the unknown state, so a grey square means something',
+    body.includes('data-i18n="serviceStatus.day.unknown"'),
+    'the legend does not name it'
+  );
+
+  // **The whole rule in one check.** Nothing was measured, so nothing may be
+  // drawn as up and no percentage may be printed.
+  const empty = renderServiceBody(
+    model({
+      uptime: TARGET_KEYS.map((target) => ({ target, ...uptimeFor([], { now }) })),
+      headline: headline({ lastSeen: null, incidents: [], off: [], now }),
+      probeLastSeen: null,
+      declared: [],
+      observed: [],
+    })
+  );
+  // The bars alone. The legend draws one swatch of every state by definition —
+  // that is what a legend is — so reading the whole page for `up` would fail on
+  // the thing that makes the grey squares mean anything.
+  const bars = (markup) => [...markup.matchAll(/<div class="status-bar"[^>]*>([\s\S]*?)<\/div>/g)].map((m) => m[1]).join('');
+
+  check(
+    'a page with no data draws no good days and quotes no percentage',
+    !bars(empty).includes('data-state="up"') && !/\d+\.\d\d%/.test(empty),
+    'a green day or a percentage appeared over nothing'
+  );
+  check(
+    'and every square it does draw is the unknown one',
+    (bars(empty).match(/data-state="unknown"/g) ?? []).length === DAYS * TARGET_KEYS.length,
+    'the bars are not all unknown on a page with nothing behind it'
+  );
+  check(
+    'and it says the probe has never been heard from',
+    empty.includes(en('serviceStatus.noProbeYet')) && empty.includes(en('serviceStatus.headline.unknown')),
+    'the empty page did not say why it is empty'
+  );
+  check(
+    'a percentage is never printed without the coverage beside it',
+    body.includes(`${DAYS} days`) && body.includes(en('serviceStatus.uptimeGaps', { days: 45 })),
+    'the gaps sentence is missing from a bar with 45 unmeasured days'
+  );
+
+  /* -- no JavaScript, no session ------------------------------------------- */
+
+  check(
+    'the service page loads no module but the shell',
+    !document.includes('status-page.js') && document.includes('shell.js'),
+    'the service view is carrying the build page module'
+  );
+  check(
+    'and the build view still loads the one that fills it',
+    statusDocument({ view: VIEW.build, body: renderBuildBody() }).includes('status-page.js'),
+    'the phase list has nothing to fill it'
+  );
+  check(
+    'the headline is drawn in a tone theme.css actually carries',
+    ['note', 'ok', 'warn', 'danger'].includes(HEADLINE_TONE[headline({ lastSeen: null, incidents: [], off: [], now }).state]),
+    JSON.stringify(HEADLINE_TONE)
+  );
+
+  /* -- every key it names exists in both dictionaries ----------------------- */
+
+  const dictionary = (name) =>
+    JSON.parse(readFileSync(join(SITE, 'assets', 'i18n', `${name}.json`), 'utf8'));
+  const enJson = dictionary('en');
+  const zhJson = dictionary('zh');
+
+  const keys = [...new Set([...body.matchAll(/data-i18n="([^"]+)"/g)].map((match) => match[1]))];
+  check(
+    `all ${keys.length} keys the page marks up are in en.json`,
+    keys.every((key) => key in enJson),
+    keys.filter((key) => !(key in enJson)).join(', ')
+  );
+  check(
+    'and in zh.json, so a Chinese reader gets the page rather than half of it',
+    keys.every((key) => key in zhJson),
+    keys.filter((key) => !(key in zhJson)).join(', ')
+  );
+
+  /* -- the page in a browser, against part 2's own rules -------------------- */
+
+  // **A new public page in the phase whose part 2 was the accessibility pass.**
+  // The sweeps in `a11y` walk PUBLIC_PAGES and this page is not on that list —
+  // it is not reachable until the switchover — so it would have shipped with no
+  // pass over it at all. It gets the same eight rules, at the same two widths,
+  // served from the tree at `?view=service`.
+  const browser = await chromium.launch();
+  try {
+    const server = await serveSite('en');
+    const ctx = await contextFor(browser, server.base, 'en');
+    const page = await ctx.newPage();
+
+    const results = [];
+    for (const width of A11Y_WIDTHS) {
+      await page.setViewportSize({ width, height: 800 });
+      await page.goto(`${server.base}/status?view=service`, { waitUntil: 'domcontentloaded' });
+      await page.waitForLoadState('networkidle').catch(() => {});
+      results.push({ width, ...(await page.evaluate(auditA11y, { focusable: FOCUSABLE })) });
+    }
+    reportA11y('/status, the service page', results);
+
+    // Section 3's rule at the bottom end, for the one element on this page that
+    // is 90 squares wide by construction. It scrolls inside itself; the page
+    // does not scroll sideways.
+    await page.setViewportSize({ width: 320, height: 800 });
+    await page.goto(`${server.base}/status?view=service`, { waitUntil: 'domcontentloaded' });
+    const narrow = await page.evaluate(() => {
+      window.scrollTo(5000, 0);
+      const sideways = window.scrollX;
+      window.scrollTo(0, 0);
+      const bar = document.querySelector('.status-bar');
+      return {
+        sideways,
+        barScrolls: bar ? bar.scrollWidth > bar.clientWidth : null,
+        barFocusable: bar ? bar.tabIndex >= 0 : null,
+        named: bar ? (bar.getAttribute('aria-label') ?? '').length > 20 : null,
+      };
+    });
+
+    check('at 320 the page does not scroll sideways', narrow.sideways <= SCROLL_SLACK, `${narrow.sideways}px`);
+    check(
+      'the ninety day bar scrolls inside itself and can be reached without a pointer',
+      narrow.barScrolls === true && narrow.barFocusable === true,
+      JSON.stringify(narrow)
+    );
+    check(
+      'and it carries the same numbers in its name that the sentence under it carries',
+      narrow.named === true,
+      'the bar has no aria-label worth reading'
+    );
+
+    // Colour is never the only carrier: every state in the bar is also a word
+    // in the legend and in each square's own title.
+    const titled = await page.evaluate(
+      () => document.querySelectorAll('.status-bar .status-day[title]').length
+    );
+    check(
+      'every day square says in words what its colour says',
+      titled === DAYS * TARGET_KEYS.length,
+      `${titled} of ${DAYS * TARGET_KEYS.length} carry a title`
+    );
+
+    // **Two states that differ only in hue are one state** to a reader who
+    // cannot separate them, which is part 3's own finding about the switch
+    // arriving from the other direction. A partly measured day is a lighter
+    // green than a working one, so it is also a shorter square.
+    const shapes = await page.evaluate(() => {
+      const height = (state) => {
+        const square = document.querySelector(`.status-bar .status-day[data-state="${state}"]`);
+        return square ? Math.round(square.getBoundingClientRect().height) : null;
+      };
+      return { up: height('up'), partial: height('partial'), unknown: height('unknown') };
+    });
+    check(
+      'a partly measured day differs from a working one in shape and not only in colour',
+      shapes.up !== null && shapes.partial !== null && shapes.partial < shapes.up,
+      JSON.stringify(shapes)
+    );
+
+    await ctx.close();
+    server.close();
+  } finally {
+    await browser.close();
+  }
+
+  /* -- the migration, the sweep, and the probe ------------------------------ */
+
+  check(
+    'both tables get row level security',
+    /alter table gftvjobs_status_days\s+enable row level security/.test(migration) &&
+      /alter table gftvjobs_status_incidents\s+enable row level security/.test(migration),
+    'migration 037 does not enable RLS on both tables'
+  );
+
+  // **035's lesson pointed at a function.** Supabase grants execute on a new
+  // function in public to anon and authenticated by default, and this project's
+  // anon key is shared with other GFTV apps. Without the revoke, anybody holding
+  // it could write status history for a site they do not run.
+  check(
+    'the recording function is not callable by anon or authenticated',
+    /revoke all on function gftvjobs_status_record\(jsonb\) from public, anon, authenticated/.test(migration),
+    'the one write path into this history is open to an anon key'
+  );
+  check(
+    "and it carries 036's search_path",
+    /set search_path = public, extensions, pg_catalog/.test(migration),
+    'the function has a mutable search_path'
+  );
+  // The revoke takes the implicit PUBLIC grant with it, so the one role that
+  // has to call this is granted back by name. Without that line the probe's
+  // first write could fail on permissions, on a project where the default
+  // privileges landed differently.
+  check(
+    'and the probe is granted it back by name',
+    /grant execute on function gftvjobs_status_record\(jsonb\) to service_role/.test(migration),
+    'the revoke could take the probe with it'
+  );
+  check(
+    'one open incident per target is a rule the database keeps, not the probe',
+    /create unique index[\s\S]*gftvjobs_status_incidents \(target\)[\s\S]*where ended_at is null/.test(migration),
+    'two open incidents could exist for one target'
+  );
+
+  const cron = source('main-site/api/_lib/cron.js');
+  check(
+    'the sweep takes its ninety days from the page rather than repeating the number',
+    cron.includes('DAYS as STATUS_DAYS') && cron.includes('T.statusDays') && cron.includes('T.statusIncidents'),
+    'the sweep and the page can disagree about how long ninety days is'
+  );
+  check(
+    'and it never sweeps an outage that is still open',
+    /statusIncidents[\s\S]*\.not\('ended_at', 'is', null\)/.test(cron),
+    'the sweep could delete the one row the page most needs'
+  );
+
+  check(
+    'the probe writes to Supabase and never to the portal',
+    !/http\.post|_http\.post/.test(probe) && probe.includes('rpc("gftvjobs_status_record"'),
+    'something in probe.py posts somewhere'
+  );
+  check(
+    'and it writes through the function rather than reading a row and writing it back',
+    !probe.includes('insert(') && !probe.includes('select('),
+    'probe.py reads and then writes, which is what the function exists to prevent'
+  );
+  check(
+    'it does not import Telethon, so a wedged bot cannot stop it recording',
+    !probe.includes('telethon') && !probe.includes('import bot'),
+    'the probe depends on the thing it has to outlive'
+  );
+  // Nothing local to write to and nothing to write with. Section 15: a failure
+  // to reach Supabase writes nothing, no local buffer and no backfill on
+  // reconnect, because a row timestamped an hour late is worse than a gap. The
+  // words are in the docstring; what this reads is that there is no store.
+  check(
+    'it buffers nothing, so a gap stays a gap',
+    !/sqlite3|import db\b|write_text|json\.dump|open\(/.test(probe),
+    'probe.py has somewhere to keep rows it could not send, and a backfilled row is a lie with a timestamp'
+  );
+  check(
+    'it is not a command and says nothing in Telegram',
+    !source('telegram-bot/commands.py').includes('probe'),
+    'the probe has reached the command list'
+  );
 });
 
 /* =========================================================================
@@ -3752,6 +4464,166 @@ define('polish-live', 'The removed rewrites, and the pages that answer without t
       answer.status === 200 && body.includes(route.marker),
       `${answer.status}, ${body.length} bytes, ${route.marker} present: ${body.includes(route.marker)}`
     );
+  }
+});
+
+/* =========================================================================
+ * 15. /status as Vercel actually serves it
+ * ====================================================================== */
+
+// **The same shape as `discovery-live` and `polish-live`, and the same trap.**
+// The build page a reader gets today looks identical whether it came from the
+// file part 7 deleted or from the function that replaced it, so a pass against
+// the old deployment would say nothing at all. The gate is a rule part 7 adds
+// to app.css: no `.status-bar` in the stylesheet means this deployment does not
+// carry the part, and the section skips by name rather than passing.
+//
+// **What only a deployment can answer** is that the rewrite fires. Everything
+// else about this page is decided offline, on purpose.
+
+define('status-live', 'The /status rewrite, the cache header, and the preview nobody else gets', async () => {
+  const base = (process.env.BASE ?? 'https://careers.globalfurry.tv').replace(/\/+$/, '');
+  const fresh = `?t=${Date.now()}`;
+
+  let css;
+  try {
+    css = await fetch(`${base}/assets/css/app.css${fresh}`);
+  } catch (cause) {
+    skip('the deployment could be reached', String(cause));
+    return;
+  }
+
+  const stylesheet = css.ok ? await css.text() : '';
+  if (!stylesheet.includes('.status-bar')) {
+    skip(
+      '/status as a function',
+      `${base} does not carry part 7 yet. Push it and re-run — until then this page is the file, ` +
+        'and every check below would pass against it while proving nothing.'
+    );
+    return;
+  }
+
+  const answer = await fetch(`${base}/status${fresh}`);
+  const html = answer.ok ? await answer.text() : '';
+
+  check(
+    '/status answers 200 as html',
+    answer.status === 200 && (answer.headers.get('content-type') ?? '').includes('text/html'),
+    `${answer.status} ${answer.headers.get('content-type')}`
+  );
+
+  // **The discriminator.** A static file gets Vercel's own caching; this header
+  // is written by the function and by nothing else, so its presence is the
+  // proof that the rewrite is what served the page.
+  check(
+    'it is the function serving it, not a file, and it is cached at the edge',
+    /s-maxage=60/.test(answer.headers.get('cache-control') ?? ''),
+    String(answer.headers.get('cache-control'))
+  );
+
+  check(
+    'the gate is closed on the deployment too, so a reader still gets the phase list',
+    html.includes('id="phaseList"') && !html.includes('class="status-uptime"'),
+    'the deployment is serving the service page while phases are unshipped'
+  );
+
+  const head = await fetch(`${base}/status${fresh}`, { method: 'HEAD' });
+  check('HEAD answers beside GET', head.status === 200, String(head.status));
+
+  // The preview is staff only, and signed out it must be indistinguishable from
+  // the ordinary page. A leak here would put both pages in public at once,
+  // which is the one thing 0c forbids outright.
+  const sneaked = await fetch(`${base}/status?view=service&t=${Date.now()}`);
+  const sneakedHtml = sneaked.ok ? await sneaked.text() : '';
+  check(
+    'the preview is refused to anybody without a staff session',
+    sneakedHtml.includes('id="phaseList"') && !sneakedHtml.includes('class="status-uptime"'),
+    'a signed out reader was shown the service page'
+  );
+
+  const user = process.env.STAFF_USER;
+  const pass = process.env.STAFF_PASS;
+  if (!user || !pass) {
+    skip(
+      'the service page itself, against real probe data',
+      'set STAFF_USER and STAFF_PASS. The preview is the only way the ninety day query runs before the flip.'
+    );
+    return;
+  }
+
+  const browser = await chromium.launch();
+  try {
+    const ctx = await browser.newContext({ baseURL: base, serviceWorkers: 'block' });
+    const page = await ctx.newPage();
+
+    await page.goto(`${base}/admin/login`, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('#staffLoginForm', { timeout: 20000 });
+    await page.fill('#username', user);
+    await page.fill('#password', pass);
+    await page.click('#staffLoginForm button[type="submit"]');
+    await page.waitForURL('**/admin', { timeout: 20000 }).catch(() => {});
+
+    const signedIn = page.url().includes('/admin') && !page.url().includes('/admin/login');
+    check('a staff session was established for the preview', signedIn, page.url());
+    if (!signedIn) return;
+
+    const preview = await page.goto(`${base}/status?view=service`, { waitUntil: 'domcontentloaded' });
+
+    check(
+      'a staff reader gets the service page from the same address',
+      (await page.locator('.status-uptime').count()) > 0,
+      'the preview did not render the uptime panel'
+    );
+    check(
+      'the preview is never cached, because it is one reader on a public URL',
+      /no-store/.test(preview?.headers()['cache-control'] ?? ''),
+      String(preview?.headers()['cache-control'])
+    );
+    check(
+      'all four panels are there',
+      (await page.locator('#statusComponents').count()) === 1 &&
+        (await page.locator('#statusUptime').count()) === 1 &&
+        (await page.locator('#statusIncidents').count()) === 1 &&
+        (await page.locator('.status-headline').count()) === 1,
+      'a panel is missing from the rendered page'
+    );
+
+    const bars = await page.locator('.status-bar').count();
+    check(`a bar for each of the ${TARGET_KEYS.length} targets`, bars === TARGET_KEYS.length, `${bars} bars`);
+
+    // **What the probe is actually doing**, read off the page rather than out of
+    // the database. Before the VPS is running probe.py every day is unknown,
+    // and that is a correct page rather than a failure — so this reports what it
+    // found instead of asserting a state the deployment cannot yet have.
+    const measured = await page.locator('.status-day:not([data-state="unknown"])').count();
+    console.log(`      ${measured} of ${DAYS * TARGET_KEYS.length} days carry probe data`);
+    if (measured === 0) {
+      skip(
+        'the probe has written something',
+        'every day is unknown, which is the honest drawing of a probe that is not running yet. ' +
+          'Start telegram-bot/probe.py on the VPS and re-run.'
+      );
+    } else {
+      check('the page is drawing measured days rather than only gaps', measured > 0, `${measured} days`);
+    }
+
+    // No JavaScript, per 0c. The page has to be readable with the scripts off,
+    // and this is the only place that can be proved against the real response.
+    const quiet = await browser.newContext({ baseURL: base, javaScriptEnabled: false, serviceWorkers: 'block' });
+    // The session cookie is what the preview is gated on, so it travels with it.
+    await quiet.addCookies(await ctx.cookies());
+    const quietPage = await quiet.newPage();
+    await quietPage.goto(`${base}/status?view=service`, { waitUntil: 'domcontentloaded' });
+    check(
+      'it reads with JavaScript switched off',
+      (await quietPage.locator('.status-uptime').count()) > 0 &&
+        (await quietPage.locator('.status-day').count()) > 0,
+      'the page needs a browser to draw itself, which is the one thing 0c rules out'
+    );
+    await quiet.close();
+    await ctx.close();
+  } finally {
+    await browser.close();
   }
 });
 

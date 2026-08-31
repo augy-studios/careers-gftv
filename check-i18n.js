@@ -96,6 +96,15 @@ const DYNAMIC_FAMILIES = [
   'settings.pictureError_',
   'report.status_',
   'language.name_',
+  // Phase 12 part 7. The service status page renders on the server and marks
+  // each element with the key it came from, so four of its families are built
+  // from a value rather than named: the headline state, a component's state, a
+  // probe target, and a day's colour on the uptime bar. Narrow prefixes, so a
+  // dead serviceStatus.* key is still reported.
+  'serviceStatus.headline.',
+  'serviceStatus.state.',
+  'serviceStatus.target.',
+  'serviceStatus.day.',
 ];
 
 // A dictionary key: dotted, no interpolation. Anything with a ${ in it came

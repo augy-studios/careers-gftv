@@ -1019,6 +1019,62 @@ is wrong:
   feature they used last week was never built.
 - **The API refuses too.** A disabled button stops nobody holding the endpoint.
 
+## `/status`, and the two pages behind one address
+
+**It is a serverless function, not a file.** `api/status-page.js` is rewritten
+onto `/status` in `vercel.json`, and `main-site/status/index.html` was deleted in
+the same commit — phase 12 part 7. Vercel matches the filesystem before it
+consults rewrites, so a file there would have won and the gate below would never
+run. Phase 3 learned that rule and the discovery files paid it again.
+
+0c gives this route two jobs. During the build it lists every phase and says what
+is not here yet; once everything has shipped, the question a reader arrives with
+changes to "is it working right now", and the page becomes a service status page:
+a headline, the features and whether they are switched off, ninety days of
+uptime, and past incidents.
+
+**The switchover is a derivation, not a deploy step.** `everyPhaseShipped()` in
+`api/_lib/status.js` reads `build-status.json`, and the last phase flipping to
+`shipped` is the switchover. There is no flag to remember, no rewrite to move and
+no file to delete on the day. **The two pages are never on screen together**,
+which is 0c's rule and its reason: a page listing both what is unbuilt and what
+is degraded gives a reader two reasons a thing might not work and no way to tell
+which they are looking at.
+
+**Staff can see the service page early**, at `/status?view=service`. It is
+refused to everybody without a portal session and it is never cached, so the two
+pages cannot both be public. It exists because the alternative is a ninety day
+aggregate whose first run against real data is the day of the flip.
+
+Four things about the page that are rules rather than implementation:
+
+- **It never claims to know more than it does.** A day the probe did not write is
+  drawn as unknown in a neutral colour the legend names, never as a good day. A
+  percentage is always printed beside the number of checks it came from and the
+  count of days with no data. When no probe result has arrived in fifteen
+  minutes the headline says so rather than reading an empty window as good news.
+- **No JavaScript and no session.** Everything it says is in the markup before
+  `shell.js` runs. The server renders English from `en.json` and marks each
+  element with the key it came from, so a browser with a dictionary swaps the
+  text and a browser with the scripts off still reads the page.
+- **Network first in the service worker.** Every other precached page is a shell
+  that fetches its own data, so an install-time copy is as good as a fresh one.
+  This page *is* the answer, so `NETWORK_FIRST_PAGES` in `sw.js` keeps it out of
+  the cache-first path; the cached copy is refreshed on every successful load and
+  is what an offline reader gets, stamped with the time it was measured.
+- **The data comes from outside Vercel.** `telegram-bot/probe.py` on the VPS
+  reports four public checks a minute with the service key. Nothing in
+  `main-site/api` ever writes those tables; the page reads them, and the daily
+  cron sweeps them at ninety days.
+- **What is stored is a day and an outage, not a check.** Migration `037`
+  creates `gftvjobs_status_days` — one row per target per UTC day, counting what
+  was watched — and `gftvjobs_status_incidents`, one row per outage, opened by
+  the first failed check and closed by the first one that succeeds. Both are
+  written through `gftvjobs_status_record()` so nothing reads and then writes.
+  The day counters are what let the page keep its promise: a day carries how
+  much of itself was actually watched, and a day nobody probed has no row rather
+  than a row of zeroes.
+
 ## Fonts
 
 Proxima Nova is the GFTV branding font. It is licensed and is not on Google

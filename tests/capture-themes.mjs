@@ -40,6 +40,27 @@ import { readFile, stat, writeFile, mkdir } from 'node:fs/promises';
 import { join, extname, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// Phase 12 part 7's status page, which is a function rather than a file and so
+// has to be rendered here rather than read off disk. **Its service view is the
+// plate this tool exists for**: five day states, four callout tones and a
+// component list, in four theme combinations, and the whole of it is colour
+// somebody has to look at.
+import {
+  VIEW,
+  TARGET_KEYS,
+  EXPECTED_PER_DAY,
+  dayWindow,
+  uptimeFor,
+  headline,
+  declaredIncidents,
+  observedIncidents,
+  renderServiceBody,
+  renderBuildBody,
+  statusDocument,
+} from '../main-site/api/_lib/status.js';
+
+process.env.SITE_URL ??= 'https://careers.globalfurry.tv';
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SITE = join(HERE, '..', 'main-site');
 
@@ -71,7 +92,64 @@ const PAGES = [
   ['search', '/search'],
   ['login', '/login'],
   ['status', '/status'],
+  // The page nobody can reach until the last phase ships. It is drawn from a
+  // model with something wrong in it on purpose: a feature switched off with a
+  // note, an incident that ended and one that has not, and forty five days
+  // nothing measured, because a status page of a clean quarter shows none of
+  // the states worth looking at.
+  ['status-service', '/status?view=service'],
 ];
+
+/** The four panels, with every state on them at once. */
+function serviceModel(now = new Date('2026-08-31T12:00:00Z')) {
+  const measured = dayWindow(now)
+    .slice(45)
+    .map((day, index) => ({
+      day,
+      // A short day near the start, so the partial state is on the plate too.
+      checks: index === 2 ? 200 : EXPECTED_PER_DAY,
+      failures: day.endsWith('15') ? 90 : day.endsWith('07') ? EXPECTED_PER_DAY : 0,
+      duration_total_ms: (index === 2 ? 200 : EXPECTED_PER_DAY) * 240,
+      slowest_ms: 1800,
+      last_checked_at: `${day}T23:59:00Z`,
+    }));
+
+  const incidents = [
+    {
+      target: 'search',
+      started_at: '2026-08-30T03:00:00Z',
+      last_failed_at: '2026-08-30T03:02:00Z',
+      ended_at: '2026-08-30T03:03:00Z',
+      failures: 3,
+      status_code: 502,
+    },
+  ];
+
+  return {
+    now,
+    probeLastSeen: '2026-08-31T11:59:00Z',
+    headline: headline({ lastSeen: '2026-08-31T11:59:00Z', incidents, off: ['apply'], now }),
+    components: [
+      { key: 'applicant_login', phase: 2, off: false, note: null, since: null, denied: true, reason: 'Locks everybody out.' },
+      {
+        key: 'apply',
+        phase: 5,
+        off: true,
+        note: 'The form provider is not answering. We are watching it and will switch this back on as soon as it is.',
+        since: '2026-08-31T09:00:00Z',
+        denied: false,
+        reason: null,
+      },
+      { key: 'saved_jobs', phase: 6, off: false, note: null, since: null, denied: false, reason: null },
+    ],
+    uptime: TARGET_KEYS.map((target) => ({ target, ...uptimeFor(measured, { now }) })),
+    declared: declaredIncidents([
+      { action: 'feature_disabled', created_at: '2026-08-20T10:00:00Z', metadata: { feature: 'apply', note: 'Forms are down.' } },
+      { action: 'feature_enabled', created_at: '2026-08-20T12:30:00Z', metadata: { feature: 'apply' } },
+    ]),
+    observed: observedIncidents(incidents, { now }),
+  };
+}
 
 /* The components the served pages cannot draw without a session and a
  * database: both switch states, the three language pills, both stars, and the
@@ -234,6 +312,19 @@ async function resolve(pathname) {
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
 
+  // No file behind it since part 7: one derivation decides which of its two
+  // pages a reader gets, and the filesystem would have won over the rewrite.
+  if (url.pathname === '/status') {
+    const service = url.searchParams.get('view') === 'service';
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+    return res.end(
+      statusDocument({
+        view: service ? VIEW.service : VIEW.build,
+        body: service ? renderServiceBody(serviceModel()) : renderBuildBody(),
+      })
+    );
+  }
+
   if (url.pathname === '/__swatch') {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
     return res.end(SWATCH);
@@ -320,7 +411,11 @@ for (const [theme, mode] of THEMES) {
     const buf = await page.screenshot({
       type: 'jpeg',
       quality: 80,
-      fullPage: path === '/__swatch',
+      // Full page for the swatch sheet, and for the service status page: its
+      // whole subject is below the fold. Four bars of ninety squares, the five
+      // day states and the two incident lists are the plate somebody is meant
+      // to look at, and a viewport shot of it is a screenshot of a heading.
+      fullPage: path === '/__swatch' || path.startsWith('/status?view=service'),
     });
     await writeFile(join(OUT, file), buf);
     shots.push({ name, theme, mode, file, bytes: buf.length });

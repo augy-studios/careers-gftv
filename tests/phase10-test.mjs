@@ -29,6 +29,14 @@
 
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
+
+// Phase 12 part 7's status page, which is a function rather than a file. Its
+// renderer is pure, so this file serves the same markup the deployment does.
+// `renderDocument` reads SITE_URL for the canonical link and this file has no
+// deployment to name, so it is defaulted rather than required — nothing in
+// phase 10 needs a network.
+import { VIEW, statusDocument, renderBuildBody } from '../main-site/api/_lib/status.js';
+process.env.SITE_URL ??= 'https://careers.globalfurry.tv';
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { join, extname, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -154,6 +162,18 @@ async function serveSite() {
   const server = createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
     requested.push(url.pathname);
+
+    // **/status has no file behind it since phase 12 part 7**, which moved it
+    // into a serverless function so one derivation can decide whether a reader
+    // gets the phase list or the service status page. Vercel matches the
+    // filesystem before it consults rewrites, so the file had to go. It is
+    // still precached and still has to install here, and this renders the same
+    // document the function renders. Without it the install stores 105 of 106
+    // entries and this file reports the page as broken offline when it is not.
+    if (url.pathname === '/status') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      return res.end(statusDocument({ view: VIEW.build, body: renderBuildBody() }));
+    }
 
     const file = await resolveRoute(url.pathname);
     if (!file) {

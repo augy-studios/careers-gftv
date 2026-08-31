@@ -68,6 +68,22 @@ const EXPECTED_ABSENT = {
     'production, checked 26 August 2026. It holds no real value either way.',
 };
 
+// Precached, and served by a serverless function rather than by a file. The
+// worker fetches an address at install and keeps whatever answers, so these work
+// offline exactly as a static page does; what they do not have is a file for the
+// check below to point at.
+//
+// **This list is not a place to put a broken entry.** Anything here must be a
+// route vercel.json rewrites to a function, and `--only=status-live` and
+// `--only=discovery-live` are what prove a rewrite is actually serving.
+const SERVED_BY_FUNCTION = {
+  '/status':
+    'phase 12 part 7. The page is the build status list or the service status ' +
+    'page depending on whether every phase has shipped, and one derivation ' +
+    'decides which, so it cannot be a file: Vercel matches the filesystem ' +
+    'before it consults rewrites. See api/_lib/status.js.',
+};
+
 /* -------------------------------------------------------------------------
  * Reading the list out of sw.js
  * ---------------------------------------------------------------------- */
@@ -161,6 +177,8 @@ for (const entry of entries) {
   if (seen.has(entry)) duplicates.push(entry);
   seen.add(entry);
 
+  if (entry in SERVED_BY_FUNCTION) continue;
+
   const found = candidates(entry).find((relativePath) => existsSync(join(ROOT, relativePath)));
   if (found) resolved.add(found);
   else missing.push({ entry, tried: candidates(entry) });
@@ -170,7 +188,17 @@ const notPrecached = servedFiles()
   .filter((file) => !resolved.has(file))
   .filter((file) => !(file in EXPECTED_ABSENT));
 
-console.log(`${entries.length} precache entries, ${resolved.size} resolved to a file.`);
+const byFunction = entries.filter((entry) => entry in SERVED_BY_FUNCTION);
+
+console.log(
+  `${entries.length} precache entries, ${resolved.size} resolved to a file` +
+    (byFunction.length > 0 ? `, ${byFunction.length} served by a function.` : '.')
+);
+
+if (byFunction.length > 0) {
+  console.log('\nServed by a function, so there is no file to check:');
+  for (const entry of byFunction) console.log(`  ${entry}   ${SERVED_BY_FUNCTION[entry]}`);
+}
 
 if (duplicates.length > 0) {
   console.log(`\n${duplicates.length} listed more than once:`);

@@ -110,6 +110,30 @@ refreshes the counts for all of its tags.
 nowhere to live. The header comment in `012` names the section behind each
 one.
 
+**`gftvjobs_status_days` and `gftvjobs_status_incidents` in `037` are the only
+tables anything outside Vercel writes.** 0c puts the status prober on the VPS
+beside the Telegram bot, because a status page hosted on the thing it monitors is
+useless during the outage it exists to report, and `telegram-bot/probe.py` writes
+both with the service key. Nothing in `main-site/api` writes them: the site reads
+them and the daily cron sweeps them at ninety days. Neither carries a foreign key
+on purpose — these are observations about an address at a moment, and they have
+to be writable while the portal is answering 500 to everything.
+
+**A day and an outage rather than a check**, and the difference is the whole
+design. One row per target per day counts what was watched, which is what lets
+the page refuse to call a barely watched day a good one; one row per outage is
+opened by the first failed check and closed by the first one that succeeds,
+which is what lets it state a real duration. Storing every request instead would
+have been about half a million rows over the window the page draws, nearly all
+of them recording that nothing happened.
+
+**`gftvjobs_status_record()` is the only way in, and it is revoked from anon and
+authenticated.** That is `035`'s lesson pointed at a function rather than a view:
+Supabase grants execute on a new function in public to both roles by default, and
+this project's anon key is shared with other GFTV apps, so without the revoke
+anybody holding it could write green days nobody measured. It also carries
+`036`'s `search_path`.
+
 **All Chinese in this directory is Singapore Mandarin**, 华文, not Mainland
 Putonghua: 义工 not 志愿者, 华文 not 中文, 电邮 not 电子邮件, 营运 not 运营,
 合约 not 合同, 摄影棚 not 录影棚, and 文件 not 文档. That applies to the seeded

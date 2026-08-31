@@ -59,6 +59,18 @@ TABLES = {
     "applications": "gftvjobs_applications",
     "tasks": "gftvjobs_tasks",
     "analytics": "gftvjobs_analytics",
+    # Phase 12 part 7, migration 037. **The only tables anything on this VPS
+    # writes that the site never writes at all**, and the only ones written by
+    # `probe.py` rather than by the bot: 0c puts the prober outside Vercel
+    # because a status page hosted on the thing it monitors is useless during
+    # the outage it exists to report.
+    #
+    # Neither is written through this map. The probe calls
+    # `gftvjobs_status_record()` instead, because a check is a counter going up
+    # and an outage being opened or closed rather than a row being inserted.
+    # They are named here so the reach of this service key is one list.
+    "status_days": "gftvjobs_status_days",
+    "status_incidents": "gftvjobs_status_incidents",
 }
 
 # What counts as an invitation still worth answering, per migration 008's status
@@ -211,6 +223,31 @@ class Supabase:
         return await self._request(
             "POST", table, json=row, prefer=f"return={returning}"
         )
+
+    async def rpc(self, name: str, payload: dict) -> None:
+        """Call a Postgres function, and read nothing back.
+
+        The probe's shape and nothing else's, and it is a function rather than
+        an insert for the reason migration 037 gives at length: what a check
+        means is a day counter going up and an outage row being opened,
+        extended or closed, and all of that is one statement per check inside
+        one function. Doing it from here would be a read and then a write,
+        which is the thing this file's own docstring says nothing does.
+
+        One request per cycle, carrying all four results, so the four
+        observations of one moment land together or not at all.
+        """
+        response = await self._client.post(
+            f"{self._base}/rpc/{name}",
+            json=payload,
+            headers={**self._headers, "Prefer": "return=minimal"},
+            timeout=TIMEOUT,
+        )
+
+        if response.status_code >= 400:
+            raise SupabaseError(
+                f"rpc {name} answered {response.status_code}: {response.text[:400]}"
+            )
 
     async def update(self, table: str, filters: dict[str, str], patch: dict) -> list[dict]:
         """Update, and answer with the rows that actually changed.
