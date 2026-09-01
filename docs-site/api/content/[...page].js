@@ -24,7 +24,7 @@
 
 import { ok, fail, ERR, methodNotAllowed, failInternal } from '../_lib/respond.js';
 import { reader } from '../_lib/reader.js';
-import { readablePage, pagePathFromSegments } from '../_lib/pages.js';
+import { readablePage, pagePathFromSegments, frontMatter } from '../_lib/pages.js';
 import { readFile } from 'node:fs/promises';
 
 /** One sentence, for every reason this route says no. */
@@ -45,7 +45,13 @@ export default async function handler(req, res) {
     const found = readablePage(path, tier);
     if (!found) return notFound(res);
 
-    const markdown = await readFile(found.file, 'utf8');
+    // The body, and never the file. The front matter is configuration the
+    // loader has already read, and everything in it that a reader should see is
+    // in the payload beside this as a field of its own. Sending the block as
+    // well put "title:" and "access:" on the top of every page, and the `---`
+    // that closes it rendered as a rule.
+    const source = await readFile(found.file, 'utf8');
+    const markdown = frontMatter(source)?.body ?? source;
 
     return ok(
       res,

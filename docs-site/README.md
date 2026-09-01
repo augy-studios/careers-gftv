@@ -8,15 +8,18 @@ content in phase 14, so that it documents what was actually built, not
 what was planned. See
 [the build status page](https://careers.globalfurry.tv/status).
 
-What is here as of phase 13 part 3: the whole staff sign in, and the gate.
-`api/_lib/` and the six routes under `api/auth/staff/` are generated copies of
-the portal's, per [the pair rule](#the-modules-shared-with-the-portal) below.
-They cover signing in and out, reading the session, the second factor in all
-three of its forms — a passkey, the authenticator code, a backup code —
+What is here as of phase 13 part 4: the whole staff sign in, the gate, and the
+shell. `api/_lib/` and the six routes under `api/auth/staff/` are generated
+copies of the portal's, per [the pair rule](#the-modules-shared-with-the-portal)
+below. They cover signing in and out, reading the session, the second factor in
+all three of its forms — a passkey, the authenticator code, a backup code —
 registering and removing a passkey, and the trusted devices. Beside them,
-[the gate](#the-gate) decides what a reader may open, and there are placeholder
-pages at every tier to prove that it does. There is no shell and nothing is
-rendered, so this directory still draws no page a person would want to look at.
+[the gate](#the-gate) decides what a reader may open, and [the shell](#the-shell)
+draws it: three columns, the sidebar, the on-page contents, callouts, code
+blocks and the rest of 16d, over placeholder pages at every tier.
+
+What is not here yet is parts 5 to 7: the static build for the public pages, the
+split search index, the account settings suite, and the Vercel project itself.
 
 **Two things about the second factor that are this site's and not the portal's.**
 A passkey registered on either site works on both, because 5e has both claim the
@@ -209,6 +212,95 @@ every one it found instead of stopping at the first:
 - a section directory with no `index.md` for its sidebar heading to point at
 - two files claiming one path, or a page nested more than a section deep
 
+## The shell
+
+One document, `shell.html`, and it is the layout for both pipelines. 16e:
+"a reader must not be able to tell which pipeline a page came from."
+
+At runtime every address that is not a static file and not an API route rewrites
+to it. It reads its own path, asks `/api/content` for that page, renders the
+markdown and fills itself in. At build time part 5 reads the same file, puts the
+page's HTML into the article, marks it `data-prerendered`, and writes the result
+out for each public page. Vercel matches the filesystem before it consults
+rewrites, so those files win over the rewrite by themselves and nothing has to
+change when they arrive.
+
+**There is no second copy of the markup anywhere**, and that is the point of
+serving it this way.
+
+### What draws it
+
+| File | What it is |
+|---|---|
+| `shell.html` | The document. The header, the three columns, and the mount points. |
+| `assets/css/docs.css` | The layout and every component. This site's own. |
+| `assets/js/shell.js` | The behaviour: sidebar, contents, account control, mode, tabs, copy buttons. |
+| `assets/js/markdown.js` | The renderer, called by the browser and by part 5's build script. |
+| `assets/css/theme.css` | The tokens. **Generated** from the portal's, so the AA work is not repeated. |
+| `assets/js/theme.js` | The two axis switcher. **Generated.** |
+| `assets/js/i18n.js` | The dictionary machinery. **Generated**, less the portal's locale write. |
+| `assets/i18n/en.json` | The chrome's strings. English only until phase 14, per decision 5. |
+
+**A reader's theme does not follow them here from the portal.** The two sites use
+the same `localStorage` key names and storage is scoped per origin, so this site
+reads its own values and starts everybody at classic light. That is a
+consequence of being a second host and not a bug to hunt. The colour axis has no
+switcher here either, because 16d's header list does not carry one: both
+attributes are still set on `<html>` and every colour block still selects on
+both, so the second palette is a control away if it is ever wanted.
+
+**Nothing in the shell decides what a reader may see.** The sidebar is whatever
+`/api/nav` returned, and that endpoint filtered it against the session on the
+server. There is no tier in any of these files and no comparison against one: a
+gate that runs in the browser is not a gate, and one that runs in both places is
+a gate that can disagree with itself.
+
+### The layout, by width
+
+| Width | What is on screen |
+|---|---|
+| 1024px and up | Sidebar, content, and the on-page contents down the right. |
+| 640 to 1024px | Sidebar and content. The contents become a collapsible block above the page. |
+| Below 640px | Content, with the sidebar behind the hamburger as a panel. |
+
+**Search and the account control keep their place in the header at every width**
+and never go inside the hamburger. 16d gives the reason for each: search is how
+people navigate documentation on a phone, and a reader who cannot find how to
+sign out assumes they have not.
+
+**What does come out of the header below 640px**, and why: the site name, the
+portal link, and the role beside the account name. Measured at 375px, the header
+row wanted 494px and the fixed width controls were 256px of it, so the search
+field had nothing left to be. The page title and the first entry in the panel
+both carry the site name; the portal link moves into the panel, where it is a
+link like any other. Everything else in 16d's header list stays.
+
+### Writing a page
+
+The markdown is a deliberately small subset. It renders what a guide needs and
+nothing else, and anything unsupported renders as the characters that were
+typed:
+
+| Mark | What it makes |
+|---|---|
+| `#` to `####` | Headings. Each gets an id from its own words and an anchor link. |
+| blank line | A new paragraph. **Wrapped lines are joined**; two trailing spaces force a break. |
+| `-` `*` `+`, `1.` | Lists. A wrapped item's second line belongs to the item above it. |
+| `` ```lang `` | A code block, with the language shown and a copy button. |
+| `> [!NOTE]` | A callout. `NOTE`, `TIP`, `WARNING`, `DANGER`, and it carries a word as well as a tint. |
+| `\| a \| b \|` | A table, with the second row as the alignment rule. It scrolls in its own box. |
+| `:::details X` | A collapsible block, closed by `:::`. |
+| `:::tabs` / `::tab X` | Tabbed blocks, for anything that differs between a desktop and a phone. |
+
+**Everything is escaped before any pattern runs.** A page containing a literal
+`<script>` renders as those characters. That holds even though every page in
+both trees is written by us: "behind a login" was never the same thing as "safe
+to paste anything into".
+
+**Renaming a heading breaks every link to it**, including a bookmark, because
+the id comes from the words. That is the trade every documentation site makes,
+and it is why a heading is worth getting right once.
+
 ## The modules shared with the portal
 
 **`api/_lib/` is a duplicate of `main-site/api/_lib/`, and the two are a pair.**
@@ -225,11 +317,16 @@ node gen-docs-lib.js --check  # fail when one is out of date
 Both are run from the repository root. `--check` belongs in whatever runs before
 a deploy, beside `check-i18n.js`.
 
-**Nothing under `api/_lib/` or `api/auth/staff/` is edited here.** Every file in
-both directories opens with a banner naming the portal file it came from; an
-edit made here is undone by the next run of the generator, which is a great deal
-louder than an edit that survives in one copy only. The change goes in
-`main-site/api/_lib/`, and the generator carries it across.
+**Nothing generated is edited here.** Every generated file opens with a banner
+naming the portal file it came from; an edit made here is undone by the next run
+of the generator, which is a great deal louder than an edit that survives in one
+copy only. The change goes in `main-site/`, and the generator carries it across.
+
+Four directories are the generator's, and a file in one of them is either
+generated or named in its `OWN` list: `api/_lib/`, `api/auth/staff/`,
+`assets/js/` and `assets/css/`, plus `assets/fonts/`, which is one woff2 copied
+byte for byte. The six files that are this site's own are the gate and the
+shell, and each opens by saying so.
 
 The two sites do differ, in five places, and each one is a rule in
 `gen-docs-lib.js` with its reason written beside it:
@@ -241,6 +338,7 @@ The two sites do differ, in five places, and each one is a rule in
 | The relying party pair | 5e. The id comes from `SITE_URL`, which on this site is **the portal**, and the expected origin comes from `DOCS_URL`. That pair is what makes one passkey work on both sites, and it is the one thing here that is not a copy. |
 | The variable list | Four rather than six. Nothing here answers a Google Apps Script, runs a cron, or talks to Telegram. |
 | The site constant | `api/_lib/site.js`, one line, read by everything that has to record which application acted: `site: "docs"` in every audit row per 5f and 5g, and `registered_on` on every passkey registered here per 5f and migration `039`. |
+| The locale write | `assets/js/i18n.js` keeps the language in this browser and nowhere else. The portal mirrors it onto `gftvjobs_users` so the bot can start a conversation in the right language; this site has one realm, its accounts are `gftvhello_users` rows section 2 forbids writing to, and nothing here ever speaks first. |
 
 Everything else is byte for byte the portal's, including the rate limit table,
 which is shared on purpose: the limits are per account and per address, so

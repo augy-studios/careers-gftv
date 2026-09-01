@@ -226,11 +226,11 @@ async function serveSite() {
  * is the code working, and a poll that threw on it would be reporting the
  * feature as broken because it works.
  */
-async function until(page, predicate, { timeout = 10000, every = 250 } = {}) {
+async function until(page, predicate, { timeout = 10000, every = 250, arg } = {}) {
   const deadline = Date.now() + timeout;
   for (;;) {
     try {
-      if (await page.evaluate(predicate)) return true;
+      if (await page.evaluate(predicate, arg)) return true;
     } catch (cause) {
       if (!/Execution context was destroyed|Target closed/.test(String(cause))) throw cause;
     }
@@ -1062,19 +1062,51 @@ define('account', "The applicant's own pages with no connection", async () => {
 
     /* Online, the copy is kept ------------------------------------------- */
 
+    /**
+     * Wait for the local copy itself, and never for something that stands in
+     * for it.
+     *
+     * **This is what the section was getting wrong**, found on 1 September 2026
+     * after checks 70 and 71 failed twice in nine runs. `pageData` in
+     * `account-shell.js` calls `putMine` and deliberately does not await it —
+     * the page has its data and a reader is not made to wait on a write to
+     * their own device. So the copy lands a moment after the page draws, and a
+     * test that treated "the loading row has gone" as "the copy exists"
+     * navigated away in that gap and left the page with nothing to open
+     * offline. It failed sometimes and only on a loaded machine, which is what
+     * a race looks like from the outside.
+     *
+     * Phase 9 left this rule and phase 12 wrote it into section 3, both times
+     * in the same words: **assert the thing, not the thing beside it.**
+     */
+    const cachedCopy = (kind) =>
+      until(
+        page,
+        async (a) => {
+          const { readMine } = await import('/assets/js/idb.js');
+          return Boolean(await readMine(a.id, a.kind));
+        },
+        { timeout: 15000, arg: { id: USER.id, kind } }
+      );
+
     await page.goto('/account/saved', { waitUntil: 'domcontentloaded' });
     await until(page, () => document.querySelectorAll('#savedList .account-row').length > 0, {
       timeout: 15000,
     });
+    await cachedCopy('saved');
 
     // The other two are visited online as well. A page that has never loaded
     // has nothing saved, and offline it is right for it to say so rather than
     // invent a copy — so they are opened here for the same reason a person
     // would have: they used the app before they lost the connection.
-    for (const path of ['/account/applications', '/account/tasks']) {
+    for (const [path, kind] of [
+      ['/account/applications', 'applications'],
+      ['/account/tasks', 'tasks'],
+    ]) {
       await page.goto(path, { waitUntil: 'domcontentloaded' });
-      await until(page, () => !document.querySelector('#accountLoading'), { timeout: 15000 });
+      await cachedCopy(kind);
     }
+
     await page.goto('/account/saved', { waitUntil: 'domcontentloaded' });
     await until(page, () => document.querySelectorAll('#savedList .account-row').length > 0, {
       timeout: 15000,
@@ -1098,7 +1130,19 @@ define('account', "The applicant's own pages with no connection", async () => {
 
     online = false;
     await page.goto('/account/saved', { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(2500);
+
+    // **Waited for, and not slept through.** This was `waitForTimeout(2500)`
+    // until 1 September 2026, which is section 3's "a fixed wait after a click
+    // is a race, not a delay" written into the file that inherited the rule. An
+    // offline page reads IndexedDB, resolves a profile and draws a list, and on
+    // a loaded machine that ran past the sleep: two failures in nine runs, on
+    // checks 70 and 71 below, which had the same shape. Nothing is asserted
+    // here that the wait was hiding -- when the page bounces to /login instead,
+    // this times out and check 65 reports the URL it actually landed on, which
+    // is the finding rather than the flake.
+    await until(page, () => document.querySelectorAll('#savedList .account-row').length > 0, {
+      timeout: 15000,
+    });
 
     check(
       '65. an account page does not bounce to sign in when the session cannot be asked',
@@ -1137,10 +1181,14 @@ define('account', "The applicant's own pages with no connection", async () => {
       ['/account/tasks', '71. outstanding tasks'],
     ]) {
       await page.goto(path, { waitUntil: 'domcontentloaded' });
-      await page.waitForTimeout(2000);
+      const drawn = await until(
+        page,
+        () => document.querySelectorAll('#accountCached').length === 1,
+        { timeout: 15000 }
+      );
       check(
         `${name} opens offline from its own copy`,
-        page.url().includes(path) && (await page.locator('#accountCached').count()) === 1,
+        drawn && page.url().includes(path),
         page.url()
       );
     }

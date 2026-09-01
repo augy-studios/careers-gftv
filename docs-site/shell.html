@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <!-- The shell. One document, both pipelines, per 16e: "the two pipelines
+         share one layout, one sidebar component, one table of contents, and one
+         stylesheet. A reader must not be able to tell which pipeline a page came
+         from."
+
+         At runtime it is what every address that is not a static file and not an
+         API route resolves to, through the rewrite in vercel.json. It reads its
+         own path, asks /api/content for that page, and renders it.
+
+         At build time, part 5 reads this same file, fills the article with the
+         page's HTML and marks it data-prerendered, and writes the result out as
+         a static file for each public page. Vercel matches the filesystem before
+         it consults rewrites, so those files win over the rewrite by themselves
+         and nothing here has to change when they arrive.
+
+         There is deliberately no second copy of this markup anywhere. -->
+
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title data-i18n="shell.title">Careers@GFTV documentation</title>
+    <meta name="description" data-i18n-attr="content:shell.description"
+        content="Guides to the Careers@GFTV job portal and its Telegram bot.">
+
+    <!-- Theme, before the stylesheet, so both axes exist on <html> before any
+         colour block is evaluated. The portal's head carries the same script and
+         it is deliberately not shared: it cannot import anything, it has to run
+         before first paint, and a fetched copy would defeat the point of it.
+         Keep the keys in step with APP_KEY in /assets/js/theme.js.
+
+         The portal's version also holds the page blank while a non default
+         dictionary loads. Nothing here does, because this site ships one
+         language until phase 14 and holding a page blank waiting for a file that
+         is already the fallback would be a blank page for no reason. -->
+    <meta name="theme-color" content="#ffffff">
+    <script>
+        (function () {
+            var k = "gftv-careers";
+            var m = localStorage.getItem(k + ".mode") || "light";
+
+            if (m === "time") {
+                var h = new Date().getHours();
+                m = h >= 9 && h < 18 ? "light" : "dark";
+                document.documentElement.setAttribute("data-mode-preference", "time");
+            }
+
+            document.documentElement.setAttribute("data-mode", m);
+            document.documentElement.setAttribute(
+                "data-color-theme",
+                localStorage.getItem(k + ".colorTheme") || "classic"
+            );
+            document.documentElement.setAttribute("data-locale", "en");
+        })();
+    </script>
+
+    <link rel="stylesheet" href="/assets/css/theme.css">
+    <link rel="stylesheet" href="/assets/css/docs.css">
+</head>
+
+<body class="docs-shell">
+    <a class="docs-skip" href="#docsMain" data-i18n="shell.skipToContent">Skip to the content</a>
+
+    <header class="docs-header">
+        <button type="button" class="docs-btn docs-btn-quiet docs-menu-btn" id="docsMenu"
+            aria-expanded="false" aria-controls="docsSidebar"></button>
+
+        <a class="docs-brand" href="/" data-i18n="shell.siteName">Careers@GFTV docs</a>
+
+        <!-- Search stays in the header at every width and never goes inside the
+             hamburger: it is how people navigate documentation on a phone. -->
+        <div class="docs-search">
+            <input type="search" id="docsSearch"
+                data-i18n-attr="placeholder:search.placeholder,aria-label:search.label">
+        </div>
+
+        <div class="docs-header-actions">
+            <!-- Below 640px this is hidden and the sidebar panel carries it
+                 instead. Search and the account control never move. -->
+            <a class="docs-btn docs-btn-quiet docs-portal-link" href="https://careers.globalfurry.tv"
+                data-i18n="header.portal" data-i18n-attr="title:header.portalLabel">The portal</a>
+
+            <button type="button" class="docs-btn docs-btn-quiet" id="docsMode"></button>
+
+            <!-- The account control keeps its place at every width too, for the
+                 reason 16d gives: a reader who cannot find how to sign out
+                 assumes they have not. -->
+            <div class="docs-account" id="docsAccount"></div>
+        </div>
+    </header>
+
+    <div class="docs-layout">
+        <nav class="docs-sidebar" id="docsSidebar" data-i18n-attr="aria-label:nav.sidebar"></nav>
+
+        <main class="docs-main" id="docsMain" tabindex="-1">
+            <nav class="docs-breadcrumbs" id="docsBreadcrumbs"></nav>
+
+            <!-- Below 1024px the contents column drops to this collapsible block
+                 above the content. The same list, and only one of the two is
+                 ever on screen. -->
+            <details class="docs-toc-inline" id="docsTocInline" hidden></details>
+
+            <article class="docs-article" id="docsArticle"></article>
+
+            <nav class="docs-pager" id="docsPager" hidden></nav>
+        </main>
+
+        <aside class="docs-toc" id="docsToc" data-i18n-attr="aria-label:nav.contents"></aside>
+    </div>
+
+    <script type="module" src="/assets/js/shell.js"></script>
+</body>
+
+</html>

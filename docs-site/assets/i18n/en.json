@@ -1,0 +1,56 @@
+{
+  "_comment": "The docs site's interface strings. Phase 13 part 4, decision 5: the shell is written with keys and this dictionary now, so that no file is retrofitted when 华文 arrives in phase 14 beside the pages it belongs to. These are the chrome only. Everything a reader comes here to read is a markdown page in content/ or api/_content/, and no page string ever appears in this file.",
+
+  "shell.title": "Careers@GFTV documentation",
+  "shell.siteName": "Careers@GFTV docs",
+  "shell.skipToContent": "Skip to the content",
+  "shell.description": "Guides to the Careers@GFTV job portal and its Telegram bot.",
+
+  "header.menu": "Menu",
+  "header.menuClose": "Close the menu",
+  "header.portal": "The portal",
+  "header.portalLabel": "Open the Careers@GFTV portal",
+  "header.modeLight": "Light",
+  "header.modeDark": "Dark",
+  "header.modeLabel": "Switch to dark",
+  "header.modeLabelDark": "Switch to light",
+
+  "search.placeholder": "Search the guides",
+  "search.label": "Search the guides",
+  "search.unavailable": "Search is switched on with the guides themselves.",
+
+  "account.signIn": "Sign in",
+  "account.signInHint": "Staff sign in",
+  "account.menu": "Your account",
+  "account.settings": "Account settings",
+  "account.signOut": "Sign out",
+  "account.signingOut": "Signing out",
+  "account.signOutFailed": "That did not go through. Try again.",
+  "account.roleAdmin": "admin",
+  "account.rolePoster": "job poster",
+
+  "nav.sidebar": "Guides",
+  "nav.contents": "On this page",
+  "nav.contentsShow": "On this page",
+  "nav.breadcrumbHome": "Documentation",
+  "nav.previous": "Previous",
+  "nav.next": "Next",
+
+  "page.loading": "Loading",
+  "page.headingLink": "Link to this heading",
+  "page.notFoundTitle": "There is no page here",
+  "page.notFoundBody": "The address may be wrong, or the page may be one your account cannot open. If you are staff, sign in and try again.",
+  "page.errorTitle": "That did not load",
+  "page.errorBody": "Something went wrong at our end. Reload the page in a moment.",
+  "page.offline": "You are offline, so this page could not be fetched.",
+
+  "code.copy": "Copy",
+  "code.copyLabel": "Copy this block",
+  "code.copied": "Copied",
+  "code.copyFailed": "Copy it by hand",
+
+  "callout.note": "Note",
+  "callout.tip": "Tip",
+  "callout.warning": "Warning",
+  "callout.danger": "Danger"
+}

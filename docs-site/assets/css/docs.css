@@ -1,0 +1,878 @@
+/* THIS SITE'S OWN FILE. Not generated, and named in gen-docs-lib.js under OWN.
+ *
+ * The documentation shell. 16d: GitBook's structure and interaction patterns,
+ * with GFTV's own palette. **The layout conventions, never the branding** --
+ * no GitBook logo, name, or assets, and nothing implying any affiliation.
+ *
+ * Every colour here is a token from theme.css, which is generated from the
+ * portal's copy and measured against AA in all four combinations of theme and
+ * mode. **That measurement does not carry over to this file.** Phase 12 part 3
+ * is the standing warning: a ratio cannot tell you a state is drawn only in
+ * hue, and every component below is new. What the shared tokens buy is that no
+ * component here invents a colour; what they do not buy is that the components
+ * are right.
+ *
+ * **This covers the whole site and not only the public half.** The sign in form
+ * and the account settings page render in this shell, with the content column
+ * carrying a form where the prose would be. It is documentation that happens to
+ * need a session, not an admin panel with pages in it, and it must not start
+ * looking like one. The portal's dashboard look does not come here.
+ *
+ * Three columns on desktop, and what happens as the width goes:
+ *
+ *   >= 1024px   sidebar, content, on-page contents
+ *   >= 640px    sidebar, content, and the contents as a collapsible block above
+ *   <  640px    content, with the sidebar behind the hamburger as a panel
+ *
+ * Search and the account control keep their place in the header at every width
+ * and never go inside the hamburger. 16d gives the reason for both: search is
+ * how people navigate documentation on a phone, and a reader who cannot find
+ * how to sign out assumes they have not.
+ */
+
+:root {
+  /* The three callout tints this site needs that theme.css already has, and the
+   * fourth it does not.
+   *
+   * A note is the flavour with no status behind it, so there is no --note to
+   * mix from. Derived against --text the way --border-control is, for the same
+   * reason: it composites over whatever surface is behind it and stays correct
+   * in all four combinations without four literals somebody has to re-measure.
+   *
+   * Defined here and not in theme.css because theme.css is generated from the
+   * portal's copy, and the portal has no callouts. A token added there for this
+   * site alone would be a token nothing on that site ever references. */
+  --callout-note-bg: color-mix(in srgb, var(--text) 6%, transparent);
+  --callout-note-line: color-mix(in srgb, var(--text) 40%, transparent);
+
+  --docs-header-height: 3.5rem;
+  --docs-sidebar-width: 17rem;
+  --docs-toc-width: 14rem;
+  --docs-content-width: 48rem;
+  --docs-gutter: 2rem;
+}
+
+/* ---------------------------------------------------------------------------
+ * The frame
+ * ------------------------------------------------------------------------ */
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  line-height: 1.65;
+}
+
+.docs-skip {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  padding: 0.6rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-sm);
+}
+
+.docs-skip:focus {
+  left: 0.5rem;
+  top: 0.5rem;
+}
+
+/* Every focusable thing, one ring. --focus-ring is --brand-dark, which is over
+ * 3:1 in all four combinations; --border is not and is why this does not use
+ * it. */
+.docs-shell :focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ---------------------------------------------------------------------------
+ * Header
+ * ------------------------------------------------------------------------ */
+
+.docs-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  height: var(--docs-header-height);
+  padding: 0 1rem;
+  border-bottom: 1px solid var(--border);
+
+  /* Glass, and the blur is not decoration. --surface is 60% white in classic
+   * light, so a sticky bar painted with it and nothing else has the page's own
+   * text sliding legibly through it. theme.css pairs the token with this blur
+   * in .glass-card for exactly that reason, and anything sticky needs the pair
+   * and not the half. */
+  background: var(--surface);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+}
+
+.docs-brand {
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.docs-brand:hover {
+  color: var(--brand-text);
+}
+
+/* The search field, and the flexible space in the header. It grows and the two
+ * controls to its right do not, which is what keeps them in the same place as
+ * the window changes size. */
+.docs-search {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 26rem;
+  margin: 0 auto;
+}
+
+.docs-search input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.4rem 0.75rem;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-sm);
+}
+
+/* Switched off until part 5 builds the index it searches. 0c: a control that is
+ * not there yet says so, and does not fail when it is pressed. */
+.docs-search input:disabled {
+  color: var(--text-light);
+  cursor: not-allowed;
+}
+
+.docs-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.docs-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.7rem;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--transition) var(--ease);
+}
+
+.docs-btn:hover {
+  background: var(--surface-hover);
+}
+
+.docs-btn-quiet {
+  border-color: transparent;
+  background: transparent;
+}
+
+.docs-btn-quiet:hover {
+  background: var(--surface-hover);
+}
+
+/* The hamburger. Present only below 640px, where it is the sidebar's only
+ * opener. */
+.docs-menu-btn {
+  display: none;
+}
+
+.docs-account {
+  position: relative;
+}
+
+.docs-account-role {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.docs-account-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.4rem);
+  min-width: 12rem;
+  padding: 0.35rem;
+  /* Opaque, and not the glass surface. A menu is read over whatever it happens
+   * to be covering, and two overlapping words are worse than a plain box. */
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.docs-account-menu button,
+.docs-account-menu a {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.45rem 0.6rem;
+  font: inherit;
+  font-size: 0.9rem;
+  text-align: left;
+  color: var(--text);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.docs-account-menu button:hover,
+.docs-account-menu a:hover {
+  background: var(--surface-hover);
+}
+
+/* ---------------------------------------------------------------------------
+ * The three columns
+ * ------------------------------------------------------------------------ */
+
+.docs-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  max-width: 96rem;
+  margin: 0 auto;
+  padding: 0 1rem;
+  gap: var(--docs-gutter);
+}
+
+.docs-sidebar {
+  display: none;
+}
+
+.docs-main {
+  min-width: 0;
+  padding: 1.5rem 0 4rem;
+}
+
+.docs-article {
+  max-width: var(--docs-content-width);
+}
+
+.docs-toc {
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .docs-layout {
+    grid-template-columns: var(--docs-sidebar-width) minmax(0, 1fr);
+    padding: 0 1.5rem;
+  }
+
+  .docs-sidebar {
+    display: block;
+  }
+}
+
+@media (min-width: 1024px) {
+  .docs-layout {
+    grid-template-columns: var(--docs-sidebar-width) minmax(0, 1fr) var(--docs-toc-width);
+  }
+
+  .docs-toc {
+    display: block;
+  }
+
+  /* The collapsible copy above the content is the same list, and only one of
+     the two is ever on screen. */
+  .docs-toc-inline {
+    display: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Sidebar
+ * ------------------------------------------------------------------------ */
+
+.docs-sidebar {
+  position: sticky;
+  top: var(--docs-header-height);
+  align-self: start;
+  max-height: calc(100vh - var(--docs-header-height));
+  overflow-y: auto;
+  padding: 1.5rem 0.5rem 3rem 0;
+  font-size: 0.925rem;
+}
+
+.docs-sidebar-section + .docs-sidebar-section {
+  margin-top: 1.25rem;
+}
+
+.docs-sidebar-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.3rem 0.5rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--text);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: left;
+}
+
+.docs-sidebar-heading:hover {
+  background: var(--surface-hover);
+}
+
+.docs-sidebar-heading svg {
+  flex: none;
+  transition: transform var(--transition) var(--ease);
+}
+
+.docs-sidebar-heading[aria-expanded='false'] svg {
+  transform: rotate(-90deg);
+}
+
+.docs-sidebar ul {
+  list-style: none;
+  margin: 0.15rem 0 0;
+  padding: 0 0 0 0.5rem;
+}
+
+.docs-sidebar li a {
+  display: block;
+  padding: 0.3rem 0.5rem;
+  color: var(--text-muted);
+  border-left: 2px solid var(--border);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.docs-sidebar li a:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+/* The current page. **Not colour alone**: the left rule thickens and the weight
+ * steps up, so the state survives a reader who cannot separate the two hues.
+ * Part 3 of phase 12 is the reason that sentence is here. */
+.docs-sidebar li a[aria-current='page'] {
+  color: var(--text);
+  font-weight: 600;
+  border-left-color: var(--brand-dark);
+  background: var(--surface-active);
+}
+
+/* The portal link, which lives in the header above 640px and here below it. One
+ * of the two is always hidden, and it is a link either way. */
+.docs-sidebar-foot {
+  margin-top: 1.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+@media (min-width: 640px) {
+  .docs-sidebar-foot {
+    display: none;
+  }
+}
+
+/* Below 640px the sidebar is an off canvas panel, per section 3. */
+@media (max-width: 639.98px) {
+  .docs-menu-btn {
+    display: inline-flex;
+  }
+
+  /* **What comes out of the header at this width, and why.** 16d pins two
+   * things there at every width and gives the reason for each: search, because
+   * it is how people navigate documentation on a phone, and the account
+   * control, because a reader who cannot find how to sign out assumes they have
+   * not. Everything else in that list is movable, and all of it has to move:
+   * measured at 375px, the row wanted 494px and the three fixed width controls
+   * were 256px of it, so the search field had nothing left to be.
+   *
+   * The site name goes, because the page title and the first entry in the panel
+   * both carry it. The portal link goes into the panel, where it is a link like
+   * any other and is not lost. The role beside the name goes, because the name
+   * is what identifies the account and the role is what qualifies it. */
+  .docs-brand,
+  .docs-portal-link,
+  .docs-account-role {
+    display: none;
+  }
+
+  .docs-search input {
+    min-width: 6rem;
+  }
+
+  .docs-sidebar {
+    display: block;
+    position: fixed;
+    inset: var(--docs-header-height) auto 0 0;
+    z-index: 50;
+    width: min(20rem, 84vw);
+    max-height: none;
+    padding: 1rem;
+    /* Opaque, for the same reason the account menu is: this panel covers the
+     * page and its whole job is a list somebody has to read. */
+    background: var(--bg);
+    border-right: 1px solid var(--border);
+    transform: translateX(-100%);
+    transition: transform var(--transition) var(--ease);
+  }
+
+  .docs-sidebar[data-open='true'] {
+    transform: translateX(0);
+  }
+
+  .docs-scrim {
+    position: fixed;
+    inset: var(--docs-header-height) 0 0 0;
+    z-index: 45;
+    background: rgba(0, 0, 0, 0.4);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * On-page contents
+ * ------------------------------------------------------------------------ */
+
+.docs-toc {
+  position: sticky;
+  top: var(--docs-header-height);
+  align-self: start;
+  max-height: calc(100vh - var(--docs-header-height));
+  overflow-y: auto;
+  padding: 1.5rem 0 3rem;
+  font-size: 0.875rem;
+}
+
+.docs-toc h2,
+.docs-toc-inline summary {
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.docs-toc ol,
+.docs-toc-inline ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.docs-toc a,
+.docs-toc-inline a {
+  display: block;
+  padding: 0.2rem 0 0.2rem 0.65rem;
+  color: var(--text-muted);
+  border-left: 2px solid var(--border);
+}
+
+.docs-toc a:hover {
+  color: var(--text);
+}
+
+.docs-toc li[data-level='3'] a,
+.docs-toc-inline li[data-level='3'] a {
+  padding-left: 1.4rem;
+}
+
+.docs-toc li[data-level='4'] a,
+.docs-toc-inline li[data-level='4'] a {
+  padding-left: 2.15rem;
+}
+
+/* Weight as well as colour, again. */
+.docs-toc a[aria-current='true'] {
+  color: var(--text);
+  font-weight: 600;
+  border-left-color: var(--brand-dark);
+}
+
+.docs-toc-inline {
+  margin: 0 0 1.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.docs-toc-inline summary {
+  cursor: pointer;
+}
+
+.docs-toc:empty,
+.docs-toc-inline[hidden] {
+  display: none;
+}
+
+/* ---------------------------------------------------------------------------
+ * Breadcrumbs, and the pager at the foot
+ * ------------------------------------------------------------------------ */
+
+.docs-breadcrumbs {
+  margin-bottom: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.docs-breadcrumbs a {
+  color: var(--text-muted);
+}
+
+.docs-breadcrumbs a:hover {
+  color: var(--text);
+}
+
+.docs-breadcrumbs span {
+  margin: 0 0.4rem;
+  color: var(--text-light);
+}
+
+.docs-pager {
+  display: flex;
+  gap: 1rem;
+  max-width: var(--docs-content-width);
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.docs-pager a {
+  flex: 1 1 0;
+  padding: 0.75rem 1rem;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: border-color var(--transition) var(--ease);
+}
+
+.docs-pager a:hover {
+  border-color: var(--border-strong);
+}
+
+.docs-pager .docs-pager-next {
+  text-align: right;
+}
+
+.docs-pager small {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+/* ---------------------------------------------------------------------------
+ * The article itself
+ * ------------------------------------------------------------------------ */
+
+.docs-article h1 {
+  margin: 0 0 1rem;
+  font-size: 2rem;
+  line-height: 1.25;
+}
+
+.docs-article h2 {
+  margin: 2.5rem 0 0.75rem;
+  padding-top: 0.5rem;
+  font-size: 1.4rem;
+  line-height: 1.3;
+  border-top: 1px solid var(--border);
+}
+
+.docs-article h3 {
+  margin: 2rem 0 0.5rem;
+  font-size: 1.15rem;
+}
+
+.docs-article h4 {
+  margin: 1.5rem 0 0.5rem;
+  font-size: 1rem;
+}
+
+.docs-article p,
+.docs-article ul,
+.docs-article ol {
+  margin: 0 0 1rem;
+}
+
+.docs-article li {
+  margin-bottom: 0.35rem;
+}
+
+/* Anchor links, which appear on hover and on focus. Focus matters more than
+ * hover here: a keyboard reader has no pointer to hover with, and the link is
+ * otherwise unreachable. */
+.docs-anchor {
+  margin-left: 0.4rem;
+  color: var(--text-light);
+  opacity: 0;
+  transition: opacity var(--transition) var(--ease);
+}
+
+.docs-article h1:hover .docs-anchor,
+.docs-article h2:hover .docs-anchor,
+.docs-article h3:hover .docs-anchor,
+.docs-article h4:hover .docs-anchor,
+.docs-anchor:focus {
+  opacity: 1;
+}
+
+/* Anything wide scrolls inside its own box. The page body never scrolls
+ * sideways, at any width. */
+.docs-scroller {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.docs-article table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0 0 1rem;
+  font-size: 0.925rem;
+}
+
+.docs-article th,
+.docs-article td {
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border);
+}
+
+.docs-article th {
+  border-bottom-color: var(--border-strong);
+  font-weight: 600;
+}
+
+.docs-article code {
+  padding: 0.1em 0.35em;
+  font-size: 0.9em;
+  background: var(--surface-active);
+  border-radius: var(--radius-sm);
+}
+
+.docs-article blockquote {
+  margin: 0 0 1rem;
+  padding: 0.25rem 0 0.25rem 1rem;
+  border-left: 3px solid var(--border-strong);
+  color: var(--text-muted);
+}
+
+.docs-article blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+.docs-article hr {
+  margin: 2rem 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+/* Code blocks */
+.docs-code {
+  margin: 0 0 1.25rem;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.docs-code-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.35rem 0.5rem 0.35rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.docs-code-lang {
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.docs-copy {
+  padding: 0.2rem 0.55rem;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.docs-copy:hover {
+  background: var(--surface-hover);
+}
+
+.docs-code pre {
+  margin: 0;
+  padding: 0.85rem;
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+
+.docs-code pre code {
+  padding: 0;
+  background: none;
+}
+
+/* Callouts, 16d's four flavours. Used sparingly, which is a rule for whoever
+ * writes the pages and not something this file can enforce.
+ *
+ * **A label as well as a tint.** The four are told apart by a word, not by
+ * colour: three of the tints are 14% of a status colour and would be four
+ * shades of pale to a reader who cannot separate them. */
+.docs-callout {
+  margin: 0 0 1.25rem;
+  padding: 0.85rem 1rem;
+  border-left: 3px solid var(--callout-note-line);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: var(--callout-note-bg);
+}
+
+.docs-callout-label {
+  margin: 0 0 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.docs-callout p:last-child {
+  margin-bottom: 0;
+}
+
+.docs-callout[data-callout='tip'] {
+  background: var(--callout-ok-bg);
+  border-left-color: var(--ok);
+}
+
+.docs-callout[data-callout='warning'] {
+  background: var(--callout-warn-bg);
+  border-left-color: var(--warn);
+}
+
+.docs-callout[data-callout='danger'] {
+  background: var(--callout-danger-bg);
+  border-left-color: var(--danger);
+}
+
+/* Collapsible blocks */
+.docs-details {
+  margin: 0 0 1.25rem;
+  padding: 0.5rem 1rem;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.docs-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 0.25rem 0;
+}
+
+.docs-details-body {
+  padding-top: 0.5rem;
+}
+
+/* Tabs, for anything that differs between a desktop and a phone. */
+.docs-tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin: 0 0 -1px;
+  border-bottom: 1px solid var(--border);
+}
+
+.docs-tabs button {
+  padding: 0.4rem 0.85rem;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  background: none;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  cursor: pointer;
+}
+
+.docs-tabs button[aria-selected='true'] {
+  color: var(--text);
+  font-weight: 600;
+  background: var(--bg-alt);
+  border-color: var(--border);
+}
+
+.docs-tabpanel {
+  margin: 0 0 1.25rem;
+  padding: 1rem;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: 0 var(--radius) var(--radius) var(--radius);
+}
+
+.docs-tabpanel > :last-child {
+  margin-bottom: 0;
+}
+
+/* ---------------------------------------------------------------------------
+ * States the shell itself draws
+ * ------------------------------------------------------------------------ */
+
+.docs-state {
+  max-width: var(--docs-content-width);
+  padding: 2rem 0;
+}
+
+.docs-state h1 {
+  margin: 0 0 0.75rem;
+  font-size: 1.5rem;
+}
+
+.docs-state p {
+  color: var(--text-muted);
+}
+
+/* Nothing for 250ms, then a fade, which is theme.css's own loading rule and the
+ * reason a fast page never flashes a spinner at anybody. */
+.docs-loading {
+  color: var(--text-muted);
+  opacity: 0;
+  animation: docs-fade-in 0.2s var(--ease) 0.25s both;
+}
+
+@keyframes docs-fade-in {
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .docs-sidebar,
+  .docs-anchor,
+  .docs-btn,
+  .docs-pager a,
+  .docs-loading {
+    transition-duration: 0.01ms;
+    animation-duration: 0.01ms;
+    animation-delay: 0ms;
+  }
+}

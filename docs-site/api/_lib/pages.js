@@ -191,6 +191,14 @@ function readTree(root, directory, pipeline, prefix, problems) {
     const title = (data.title ?? '').trim();
     const access = (data.access ?? '').trim();
 
+    // `index` is reserved as a section name. `pagePathFromSegments` answers the
+    // home page to a request for `/index`, since a catch-all route cannot be
+    // asked for no segments at all, and a section by that name would sit at an
+    // address the alias has already taken.
+    if (slugs[0] === 'index') {
+      problems.push(`${where}: "index" is reserved and cannot be a section name.`);
+    }
+
     if (title === '') {
       problems.push(`${where}: no title.`);
     }
@@ -459,6 +467,14 @@ export function pagePathFromSegments(segments) {
 
   const clean = parts.map((part) => String(part).trim());
   if (clean.some((part) => !/^[a-z0-9][a-z0-9-]*$/.test(part))) return null;
+
+  // **The home page is the one page whose address has no segments**, and a
+  // catch-all route cannot be asked for nothing. `/api/content/index` is how the
+  // shell asks for it. It is an alias and never a second address, because
+  // `index` is a reserved section name in the loader above: nothing can occupy
+  // `/index` for this to shadow. Added in part 4, when something first had to
+  // fetch the home page.
+  if (clean.length === 1 && clean[0] === 'index') return '/';
 
   return `/${clean.join('/')}`;
 }

@@ -64,12 +64,20 @@ const BANNED = [
  * Where the copy is
  * ---------------------------------------------------------------------- */
 
-/** Every English string in the interface dictionary. */
+/** Every English string in either site's interface dictionary. */
 function dictionaryStrings() {
-  const dict = JSON.parse(read('main-site/assets/i18n/en.json'));
-  return Object.entries(dict)
-    .filter(([, value]) => typeof value === 'string')
-    .map(([key, value]) => ({ where: `en.json ${key}`, text: value }));
+  const out = [];
+
+  // The docs site's is small and separate on purpose: the two share no keys, and
+  // its shell is keyed now and translated in phase 14, per decision 5.
+  for (const site of ['main-site', 'docs-site']) {
+    const dict = JSON.parse(read(`${site}/assets/i18n/en.json`));
+    for (const [key, value] of Object.entries(dict)) {
+      if (typeof value === 'string') out.push({ where: `${site} en.json ${key}`, text: value });
+    }
+  }
+
+  return out;
 }
 
 /** The phase list and its notes, which /status renders in full. */
@@ -103,28 +111,35 @@ function llmsStrings() {
  */
 function pageStrings() {
   const out = [];
-  const site = path.join(repo, 'main-site');
 
-  (function walk(dir) {
-    for (const item of fs.readdirSync(dir)) {
-      if (item === 'node_modules' || item === 'api') continue;
-      const full = path.join(dir, item);
-      if (fs.statSync(full).isDirectory()) {
-        walk(full);
-        continue;
+  // Both sites, as of phase 13 part 4. The docs shell is one HTML file and
+  // every fallback string in it is read by somebody whose dictionary has not
+  // loaded yet, which is exactly when copy matters most.
+  for (const name of ['main-site', 'docs-site']) {
+    const site = path.join(repo, name);
+    if (!fs.existsSync(site)) continue;
+
+    (function walk(dir) {
+      for (const item of fs.readdirSync(dir)) {
+        if (item === 'node_modules' || item === 'api') continue;
+        const full = path.join(dir, item);
+        if (fs.statSync(full).isDirectory()) {
+          walk(full);
+          continue;
+        }
+        if (!item.endsWith('.html')) continue;
+
+        const relative = full.slice(site.length + 1).split(path.sep).join('/');
+        const markup = fs
+          .readFileSync(full, 'utf8')
+          .replace(/<!--[\s\S]*?-->/g, ' ')
+          .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+          .replace(/<style[\s\S]*?<\/style>/gi, ' ');
+
+        out.push({ where: `${name}/${relative}`, text: markup });
       }
-      if (!item.endsWith('.html')) continue;
-
-      const relative = full.slice(site.length + 1).split(path.sep).join('/');
-      const markup = fs
-        .readFileSync(full, 'utf8')
-        .replace(/<!--[\s\S]*?-->/g, ' ')
-        .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-        .replace(/<style[\s\S]*?<\/style>/gi, ' ');
-
-      out.push({ where: `main-site/${relative}`, text: markup });
-    }
-  })(site);
+    })(site);
+  }
 
   return out;
 }

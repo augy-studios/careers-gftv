@@ -11,6 +11,13 @@
     }
   },
 
+  "rewrites": [
+    {
+      "source": "/((?!api/|assets/).*)",
+      "destination": "/shell"
+    }
+  ],
+
   "headers": [
     {
       "source": "/(.*)",

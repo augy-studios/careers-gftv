@@ -26,8 +26,8 @@
 //
 // What it cannot read: a key built at runtime, such as t(`field.${code}`).
 // Those are listed separately as unverifiable, and their families are declared
-// in DYNAMIC_FAMILIES below so the unused check does not report every member of
-// them as dead.
+// per site below, in PORTAL_FAMILIES and DOCS_FAMILIES, so the unused check does
+// not report every member of them as dead.
 //
 // It also checks for a *duplicate* key, added in phase 8 part 11 after part 8
 // shipped one. JSON has no duplicate key error: the second wins silently, so
@@ -37,6 +37,14 @@
 //
 // Comments are stripped before scanning, or this file would flag the worked
 // examples in i18n.js as missing keys, which it did on the first run.
+//
+// **Two sites, as of phase 13 part 4.** The docs site's shell is written with
+// data-i18n keys and an English dictionary now, per decision 5, so that no file
+// is retrofitted when 华文 lands beside the pages in phase 14. Each site is
+// scanned against its own dictionaries and its own runtime families: they share
+// no keys, and a key from one appearing in the other would be a copy nobody
+// asked for. The docs site has no zh.json yet, and every check that needs one is
+// skipped for it by saying so instead of by passing.
 
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, dirname } from 'node:path';
@@ -46,13 +54,10 @@ import { fileURLToPath } from 'node:url';
 // the same whether it is run from the repo root or through npm run check-i18n
 // from main-site.
 const HERE = dirname(fileURLToPath(import.meta.url));
-const ROOT = join(HERE, 'main-site');
-const EN = join(ROOT, 'assets/i18n/en.json');
-const ZH = join(ROOT, 'assets/i18n/zh.json');
 
 // Key prefixes assembled at runtime. Everything under them is reachable even
 // though no literal names it.
-const DYNAMIC_FAMILIES = [
+const PORTAL_FAMILIES = [
   'field.',
   'error.',
   'commitment.',
@@ -107,6 +112,27 @@ const DYNAMIC_FAMILIES = [
   'serviceStatus.day.',
 ];
 
+/**
+ * The docs site's runtime families, phase 13 part 4. One, so far.
+ *
+ * `callout.<kind>` is built by the markdown renderer from the four flavours 16d
+ * names, so no literal in the source names any of them.
+ */
+const DOCS_FAMILIES = ['callout.'];
+
+/**
+ * The two sites, each with its own dictionaries.
+ *
+ * `locales` is the dictionaries that exist, in fallback order: the first is the
+ * one every key must be in, and the rest read in that language or fall back to
+ * it. The docs site has one, which is decision 5 and not an oversight -- the
+ * shell is keyed now and translated in phase 14 beside the pages it wraps.
+ */
+const SITES = [
+  { name: 'main-site', locales: ['en', 'zh'], families: PORTAL_FAMILIES },
+  { name: 'docs-site', locales: ['en'], families: DOCS_FAMILIES },
+];
+
 // A dictionary key: dotted, no interpolation. Anything with a ${ in it came
 // out of a template literal and is a runtime expression, not a key.
 const KEY_SHAPE = /^[A-Za-z][\w]*(?:\.[\w]+)+$/;
@@ -136,87 +162,85 @@ function walk(dir) {
   });
 }
 
-const files = walk(ROOT).filter((f) => f.endsWith('.html') || f.endsWith('.js'));
-
-const used = new Map(); // key -> [where]
-const dynamic = new Map(); // expression -> [where]
-const mentioned = new Set(); // every key shaped literal anywhere in the source
-
 function note(map, key, where) {
   if (!map.has(key)) map.set(key, []);
   if (!map.get(key).includes(where)) map.get(key).push(where);
 }
 
-for (const file of files) {
-  const raw = readFileSync(file, 'utf8');
-  const source = file.endsWith('.js') ? stripComments(raw) : raw;
-  const where = relative(HERE, file).replace(/\\/g, '/');
+/** Every key one site's source asks for, and how. */
+function scan(root) {
+  const files = walk(root).filter((f) => f.endsWith('.html') || f.endsWith('.js'));
 
-  for (const m of source.matchAll(/data-i18n(?:-html)?=["']([^"']+)["']/g)) {
-    if (isKey(m[1])) note(used, m[1], where);
-  }
+  const used = new Map(); // key -> [where]
+  const dynamic = new Map(); // expression -> [where]
+  const mentioned = new Set(); // every key shaped literal anywhere in the source
 
-  for (const m of source.matchAll(/data-i18n-attr=["']([^"']+)["']/g)) {
-    for (const pair of m[1].split(',')) {
-      const key = pair.split(':')[1]?.trim();
-      if (isKey(key)) note(used, key, where);
+  for (const file of files) {
+    const raw = readFileSync(file, 'utf8');
+    const source = file.endsWith('.js') ? stripComments(raw) : raw;
+    const where = relative(HERE, file).replace(/\\/g, '/');
+
+    for (const m of source.matchAll(/data-i18n(?:-html)?=["']([^"']+)["']/g)) {
+      if (isKey(m[1])) note(used, m[1], where);
+    }
+
+    for (const m of source.matchAll(/data-i18n-attr=["']([^"']+)["']/g)) {
+      for (const pair of m[1].split(',')) {
+        const key = pair.split(':')[1]?.trim();
+        if (isKey(key)) note(used, key, where);
+      }
+    }
+
+    // Every key shaped string literal inside a t( ... ) call, which covers
+    // t('key'), t('key', vars), and t(cond ? 'a' : 'b'). That last form is not
+    // exotic: common.modeLight and common.modeDark are only ever reached through
+    // one, and were reported as dead because of it.
+    //
+    // Scoped to the call, not to the whole file, on purpose. Matching every
+    // dotted string anywhere would pick up things like careers.globalfurry.tv and
+    // report those as missing keys.
+    for (const call of source.matchAll(/\bt\(/g)) {
+      const region = source.slice(call.index, call.index + 240);
+      const end = region.indexOf(')');
+      const args = region.slice(0, end === -1 ? region.length : end);
+      for (const literal of args.matchAll(/['"]([^'"]+)['"]/g)) {
+        if (isKey(literal[1])) note(used, literal[1], where);
+      }
+    }
+
+    // The NAV and FOOTER tables in shell.js, which name their labels by key.
+    for (const m of source.matchAll(/\b(?:key|headingKey)\s*:\s*['"]([^'"]+)['"]/g)) {
+      if (isKey(m[1])) note(used, m[1], where);
+    }
+
+    // t(`...${...}...`) and t(someVariable), which cannot be resolved here.
+    for (const m of source.matchAll(/\bt\(\s*(`[^`]*\$\{[^`]*`|[A-Za-z_$][\w$]*)\s*[,)]/g)) {
+      note(dynamic, m[1].replace(/\s+/g, ' '), where);
+    }
+
+    // Every key shaped literal anywhere in the file, whatever it is doing there.
+    //
+    // This feeds the unused report and nothing else, which is what makes it safe
+    // to be this loose: careers.globalfurry.tv lands in here too, and a set that
+    // can only ever *suppress* a "never referenced" line cannot invent a missing
+    // key. It exists because the unused list had grown to 54 entries, none of
+    // them dead: account.tileSaved is passed as titleKey, saved.needAccount as
+    // messageKey, home.featuredHeading through a ternary into a variable. A list
+    // that is entirely false positives is a list nobody reads, which is the only
+    // way a genuinely dead key stays in the dictionary.
+    for (const literal of source.matchAll(/['"`]([A-Za-z][\w]*(?:\.[\w]+)+)['"`]/g)) {
+      mentioned.add(literal[1]);
     }
   }
 
-  // Every key shaped string literal inside a t( ... ) call, which covers
-  // t('key'), t('key', vars), and t(cond ? 'a' : 'b'). That last form is not
-  // exotic: common.modeLight and common.modeDark are only ever reached through
-  // one, and were reported as dead because of it.
-  //
-  // Scoped to the call, not to the whole file, on purpose. Matching every
-  // dotted string anywhere would pick up things like careers.globalfurry.tv and
-  // report those as missing keys.
-  for (const call of source.matchAll(/\bt\(/g)) {
-    const region = source.slice(call.index, call.index + 240);
-    const end = region.indexOf(')');
-    const args = region.slice(0, end === -1 ? region.length : end);
-    for (const literal of args.matchAll(/['"]([^'"]+)['"]/g)) {
-      if (isKey(literal[1])) note(used, literal[1], where);
-    }
-  }
-
-  // The NAV and FOOTER tables in shell.js, which name their labels by key.
-  for (const m of source.matchAll(/\b(?:key|headingKey)\s*:\s*['"]([^'"]+)['"]/g)) {
-    if (isKey(m[1])) note(used, m[1], where);
-  }
-
-  // t(`...${...}...`) and t(someVariable), which cannot be resolved here.
-  for (const m of source.matchAll(/\bt\(\s*(`[^`]*\$\{[^`]*`|[A-Za-z_$][\w$]*)\s*[,)]/g)) {
-    note(dynamic, m[1].replace(/\s+/g, ' '), where);
-  }
-
-  // Every key shaped literal anywhere in the file, whatever it is doing there.
-  //
-  // This feeds the unused report and nothing else, which is what makes it safe
-  // to be this loose: careers.globalfurry.tv lands in here too, and a set that
-  // can only ever *suppress* a "never referenced" line cannot invent a missing
-  // key. It exists because the unused list had grown to 54 entries, none of
-  // them dead: account.tileSaved is passed as titleKey, saved.needAccount as
-  // messageKey, home.featuredHeading through a ternary into a variable. A list
-  // that is entirely false positives is a list nobody reads, which is the only
-  // way a genuinely dead key stays in the dictionary.
-  for (const literal of source.matchAll(/['"`]([A-Za-z][\w]*(?:\.[\w]+)+)['"`]/g)) {
-    mentioned.add(literal[1]);
-  }
+  return { used, dynamic, mentioned, files };
 }
-
-const enRaw = readFileSync(EN, 'utf8');
-const zhRaw = readFileSync(ZH, 'utf8');
-const en = JSON.parse(enRaw);
-const zh = JSON.parse(zhRaw);
-
-let problems = 0;
 
 /**
  * Keys written twice in one file.
  *
  * JSON.parse keeps the last one and says nothing, so this counts the keys in
- * the raw text instead and compares. Every key in these two files is at the top
+ * the raw text instead and compares. Every key in these files is at the top
  * level and on its own line, which is what makes a line anchored match honest:
  * a colon inside a value cannot look like a key, and neither can a brace.
  */
@@ -230,70 +254,115 @@ function duplicateKeys(raw) {
   return [...twice].sort();
 }
 
-for (const [name, raw] of [['en.json', enRaw], ['zh.json', zhRaw]]) {
-  const twice = duplicateKeys(raw);
-  if (twice.length > 0) {
-    problems += twice.length;
+/** One site, against its own dictionaries. Returns how many problems it found. */
+function checkSite(site) {
+  const root = join(HERE, site.name);
+  const { used, dynamic, mentioned } = scan(root);
+
+  const raw = new Map();
+  const dict = new Map();
+  for (const locale of site.locales) {
+    const text = readFileSync(join(root, `assets/i18n/${locale}.json`), 'utf8');
+    raw.set(locale, text);
+    dict.set(locale, JSON.parse(text));
+  }
+
+  // The first locale is the fallback layer, so every key must be in it and a
+  // key in any other and not in it breaks the fallback.
+  const [base, ...others] = site.locales;
+  const en = dict.get(base);
+
+  let problems = 0;
+  console.log(`\n${site.name}`);
+
+  for (const locale of site.locales) {
+    const twice = duplicateKeys(raw.get(locale));
+    if (twice.length > 0) {
+      problems += twice.length;
+      console.log(
+        `\n  Written twice in ${locale}.json, so the second silently wins (${twice.length}):`
+      );
+      for (const key of twice) console.log(`    ${key}`);
+    }
+  }
+
+  const missing = [...used.keys()].filter((k) => !(k in en)).sort();
+  if (missing.length > 0) {
+    problems += missing.length;
     console.log(
-      `\nWritten twice in ${name}, so the second silently wins (${twice.length}):`
+      `\n  Missing from ${base}.json, so they render as their own key on screen (${missing.length}):`
     );
-    for (const key of twice) console.log(`  ${key}`);
+    for (const key of missing) {
+      console.log(`    ${key}`);
+      for (const where of used.get(key)) console.log(`        ${where}`);
+    }
   }
-}
 
-const missing = [...used.keys()].filter((k) => !(k in en)).sort();
-if (missing.length > 0) {
-  problems += missing.length;
-  console.log(`\nMissing from en.json, so they render as their own key on screen (${missing.length}):`);
-  for (const key of missing) {
-    console.log(`  ${key}`);
-    for (const where of used.get(key)) console.log(`      ${where}`);
+  for (const locale of others) {
+    const other = dict.get(locale);
+
+    const absent = [...used.keys()].filter((k) => k in en && !(k in other)).sort();
+    if (absent.length > 0) {
+      // Not fatal. The base language is the fallback layer by design, so these
+      // read in English instead of breaking, but a reader of that language sees
+      // English.
+      console.log(
+        `\n  In ${base}.json but not ${locale}.json, so they read in ${base} (${absent.length}):`
+      );
+      for (const key of absent) console.log(`    ${key}`);
+    }
+
+    const orphans = Object.keys(other).filter((k) => !(k in en) && k !== '_comment').sort();
+    if (orphans.length > 0) {
+      problems += orphans.length;
+      console.log(
+        `\n  In ${locale}.json but not ${base}.json, which breaks the fallback (${orphans.length}):`
+      );
+      for (const key of orphans) console.log(`    ${key}`);
+    }
   }
-}
 
-const missingZh = [...used.keys()].filter((k) => k in en && !(k in zh)).sort();
-if (missingZh.length > 0) {
-  // Not fatal. English is the fallback layer by design, so these read in
-  // English instead of breaking, but a Chinese reader sees English.
-  console.log(`\nIn en.json but not zh.json, so they read in English (${missingZh.length}):`);
-  for (const key of missingZh) console.log(`  ${key}`);
-}
+  const unused = Object.keys(en)
+    .filter((k) => k !== '_comment')
+    .filter((k) => !used.has(k))
+    .filter((k) => !mentioned.has(k))
+    .filter((k) => !site.families.some((prefix) => k.startsWith(prefix)))
+    .sort();
 
-const onlyZh = Object.keys(zh).filter((k) => !(k in en) && k !== '_comment').sort();
-if (onlyZh.length > 0) {
-  problems += onlyZh.length;
-  console.log(`\nIn zh.json but not en.json, which breaks the fallback (${onlyZh.length}):`);
-  for (const key of onlyZh) console.log(`  ${key}`);
-}
-
-const unused = Object.keys(en)
-  .filter((k) => k !== '_comment')
-  .filter((k) => !used.has(k))
-  .filter((k) => !mentioned.has(k))
-  .filter((k) => !DYNAMIC_FAMILIES.some((prefix) => k.startsWith(prefix)))
-  .sort();
-
-if (unused.length > 0) {
-  console.log(`\nIn the dictionaries but never referenced (${unused.length}). Not an error:`);
-  console.log('  a key can be for a page that has not been built yet.');
-  for (const key of unused) console.log(`  ${key}`);
-}
-
-if (dynamic.size > 0) {
-  console.log(`\nBuilt at runtime, so not checkable here (${dynamic.size}):`);
-  for (const [expression, where] of dynamic) {
-    console.log(`  ${expression}   ${where.join(', ')}`);
+  if (unused.length > 0) {
+    console.log(`\n  In the dictionary but never referenced (${unused.length}). Not an error:`);
+    console.log('    a key can be for a page that has not been built yet.');
+    for (const key of unused) console.log(`    ${key}`);
   }
+
+  if (dynamic.size > 0) {
+    console.log(`\n  Built at runtime, so not checkable here (${dynamic.size}):`);
+    for (const [expression, where] of dynamic) {
+      console.log(`    ${expression}   ${where.join(', ')}`);
+    }
+  }
+
+  const counts = site.locales
+    .map((locale) => `${Object.keys(dict.get(locale)).length - 1} in ${locale}.json`)
+    .join(', ');
+  console.log(`\n  ${used.size} literal keys referenced, ${counts}.`);
+
+  // Said rather than passed over in silence. This site ships one language today
+  // and two in phase 14, and a check that simply did not mention the second is
+  // how somebody concludes it was covered.
+  if (site.locales.length === 1) {
+    console.log(`  Only ${base}.json exists here, so nothing was compared across languages.`);
+  }
+
+  return problems;
 }
 
-console.log(
-  `\n${used.size} literal keys referenced, ${Object.keys(en).length - 1} in en.json, ` +
-    `${Object.keys(zh).length - 1} in zh.json.`
-);
+let problems = 0;
+for (const site of SITES) problems += checkSite(site);
 
 if (problems > 0) {
   console.log(`\n${problems} problem${problems === 1 ? '' : 's'}. Fix before shipping.`);
   process.exit(1);
 }
 
-console.log('No missing keys.');
+console.log('\nNo missing keys.');

@@ -157,6 +157,12 @@ const EXEMPT = {
   'telegram-bot/README.md': 'The by-hand checklist, which asks somebody to switch Telegram to 华文.',
   'docs-site/README.md':
     'A document. It names the language the second sample account reads, in that language, where the screenshot rules are written down.',
+  'docs-site/assets/js/i18n.js':
+    'The generated copy of the portal\'s i18n.js. Its Chinese is in comments, and the portal\'s original is not on this page either.',
+  'docs-site/assets/js/markdown.js':
+    'A character range in a regular expression, so a Chinese heading gets an id made of its own words instead of one made of dashes. Not words.',
+  'docs-site/assets/i18n/en.json':
+    'One 华文 in the file comment, saying when the Chinese dictionary arrives. The strings themselves are English and this site has no Chinese one until phase 14.',
   // Outside SCAN_ROOTS, since the repo root holds this file, the specification
   // and the memo and is not scanned at all. Written down anyway: the judgement
   // is the one dev-seed-jobs.sql gets, and if the root is ever scanned it is

@@ -405,10 +405,127 @@ const FILES = [
       'Identical, and the table is shared while the cookie is not. Trusting a',
       'browser here does not trust it on the portal, per 5h, because the device',
       'cookie is host scoped -- but gftvhello_trusted_devices has no column saying',
-      'which site wrote a row, so this endpoint lists and revokes both sites\'',
+      "which site wrote a row, so this endpoint lists and revokes both sites'",
       'devices for the account. The header of the source file is the account of',
       'that, and it is the same account on both copies.'
     ),
+  },
+  {
+    // Phase 13 part 4. **The tokens are not copied by hand at any price.**
+    // Phase 12 part 3 measured every colour in this file against 1.4.3 and
+    // 1.4.11 in all four combinations of theme and mode, found seven things,
+    // and added a token. A second palette that started as a copy of this one
+    // would be a second palette nobody ever measures again, and the failure
+    // would be invisible: it looks right, and it is 3.9:1.
+    path: 'assets/css/theme.css',
+    comment: 'css',
+    note: text(
+      'Identical, and it is the whole reason this generator learned to write a',
+      'CSS banner. 16d: "two axis theming exactly as the main site, same tokens,',
+      'same data-color-theme and data-mode attributes, light default, WCAG AA in',
+      'every combination." Same tokens means the same file.',
+      '',
+      'The docs site draws its own components out of these, and part 3 of phase 12',
+      'is the standing warning about that: a ratio cannot tell you a state is drawn',
+      'only in hue, and every component here is new.'
+    ),
+  },
+  {
+    path: 'assets/js/theme.js',
+    comment: 'js',
+    note: text(
+      'Identical. The two axes, the three mode preferences, the time based mode,',
+      'and the legacy key migration. The localStorage keys are the same names on',
+      'purpose and cannot collide: storage is scoped per origin, so this site',
+      "reads its own values and a reader's portal choice does not follow them",
+      'here. What that costs is stated in docs-site/README.md, since somebody will',
+      'notice their theme did not come with them.'
+    ),
+  },
+  {
+    path: 'assets/js/i18n.js',
+    comment: 'js',
+    note: text(
+      'The dictionary machinery, per decision 5: the shell is written with keys',
+      'and an English dictionary now, and 华文 lands in phase 14 beside the pages',
+      'it belongs to. LOCALES still names both languages, which is correct and',
+      'costs nothing -- there is no switcher in this header, per 16d, so zh is',
+      'never selected and zh.json is never fetched.'
+    ),
+    rules: [
+      {
+        why: 'there is no account here to mirror a language choice onto',
+        find: text(
+          '  // Section 3a, and the reason gftvjobs_users.locale exists. localStorage is',
+          '  // the source of truth for rendering, and the server cannot read it. The',
+          '  // Telegram bot in phase 11 has to start conversations with people who are',
+          '  // not looking at the site, so the choice is mirrored onto the account',
+          '  // whenever there is one to mirror it onto.',
+          '  //',
+          '  // Deliberately not awaited: the language has already been applied, and a',
+          '  // slow or failed write must not hold up the page. Signed out callers get a',
+          '  // 200 saying nothing was stored.',
+          '  storeLocaleOnAccount(locale);'
+        ),
+        replace: text(
+          '  // Nothing to mirror the choice onto. The portal writes it to',
+          '  // gftvjobs_users here, per 3a, because the Telegram bot has to start',
+          '  // conversations with people who are not looking at the site. This site',
+          "  // has one realm, its accounts are gftvhello_users rows that section 2",
+          '  // forbids writing to, and nothing on it ever speaks first. The choice',
+          '  // lives in this browser and nowhere else.'
+        ),
+      },
+      {
+        why: 'and so the function that did it is not carried across',
+        find: text(
+          '/**',
+          ' * Mirror the language choice onto the signed in account, if there is one.',
+          ' *',
+          ' * Skipped on the first application of the stored preference, which happens on',
+          ' * every page load: that is not somebody changing language, and a request per',
+          ' * page view to record a value that has not changed is waste. Only an actual',
+          ' * change is written.',
+          ' */',
+          'let lastStoredLocale = null;',
+          '',
+          'function storeLocaleOnAccount(locale) {',
+          '  if (lastStoredLocale === null) {',
+          '    lastStoredLocale = locale;',
+          '    return;',
+          '  }',
+          '  if (lastStoredLocale === locale) return;',
+          '  lastStoredLocale = locale;',
+          '',
+          "  fetch('/api/auth/applicant/locale', {",
+          "    method: 'POST',",
+          "    credentials: 'same-origin',",
+          "    headers: { 'Content-Type': 'application/json' },",
+          '    body: JSON.stringify({ locale }),',
+          '    keepalive: true,',
+          '  }).catch(() => {',
+          '    // Offline, or signed out with the network refusing. The choice is stored',
+          '    // in this browser either way, which is what rendering depends on.',
+          '  });',
+          '}',
+          ''
+        ),
+        replace: '',
+      },
+    ],
+  },
+];
+
+/**
+ * Files copied byte for byte, with no banner, because there is nowhere in one to
+ * put a comment. Everything else about them is the FILES rule: the copy is
+ * written by this generator, `--check` fails when it drifts, and it is never
+ * edited in place.
+ */
+const ASSETS = [
+  {
+    path: 'assets/fonts/ProximaNova-Regular.woff2',
+    note: 'The one font file this repository carries. theme.css names it by path.',
   },
 ];
 
@@ -418,7 +535,18 @@ const FILES = [
  * a dozen that were, is how the next person concludes the directory is theirs
  * to edit.
  */
-const OWNED_DIRECTORIES = ['api/_lib', 'api/auth/staff'];
+const OWNED_DIRECTORIES = [
+  'api/_lib',
+  'api/auth/staff',
+  // Phase 13 part 4. The shell's own modules live here beside three generated
+  // ones, which is exactly the mixture this check exists to keep honest.
+  'assets/css',
+  'assets/js',
+  'assets/fonts',
+];
+
+/** What counts as a file in one of those directories. */
+const OWNED_EXTENSIONS = ['.js', '.css', '.woff2'];
 
 /**
  * The gate, from phase 13 part 3, and the only three files in either directory
@@ -435,7 +563,19 @@ const OWNED_DIRECTORIES = ['api/_lib', 'api/auth/staff'];
  * nobody declared. Each of the three opens by saying it is this site's own and
  * naming this list, so the two kinds of file are never confused for each other.
  */
-const OWN = ['api/_lib/tiers.js', 'api/_lib/pages.js', 'api/_lib/reader.js'];
+const OWN = [
+  // The gate, phase 13 part 3.
+  'api/_lib/tiers.js',
+  'api/_lib/pages.js',
+  'api/_lib/reader.js',
+  // The shell, phase 13 part 4. The layout, its behaviour, and the renderer the
+  // two pipelines share. The portal has no equivalent of any of the three: its
+  // markdown.js renders a posting body, which is paragraphs and bullets and no
+  // heading, and a documentation page is nothing but headings.
+  'assets/css/docs.css',
+  'assets/js/shell.js',
+  'assets/js/markdown.js',
+];
 
 /* -------------------------------------------------------------------------
  * Generating
@@ -448,31 +588,37 @@ function banner(entry, globalHits) {
   ];
 
   const lines = [
-    '// GENERATED FILE. Do not edit this copy.',
-    '//',
-    `// Written by gen-docs-lib.js from main-site/${entry.path}.`,
-    '// Change that file and run:  node gen-docs-lib.js',
-    '//',
-    '// It exists because Vercel builds each project from its own root directory, so',
-    "// this site cannot import the portal's modules. 5h: duplicate them, and keep",
-    '// the two copies identical.',
-    '//',
+    'GENERATED FILE. Do not edit this copy.',
+    '',
+    `Written by gen-docs-lib.js from main-site/${entry.path}.`,
+    'Change that file and run:  node gen-docs-lib.js',
+    '',
+    'It exists because Vercel builds each project from its own root directory, so',
+    "this site cannot import the portal's modules. 5h: duplicate them, and keep",
+    'the two copies identical.',
+    '',
   ];
 
   if (entry.note) {
-    for (const line of entry.note.split('\n')) lines.push(`// ${line}`);
-    lines.push('//');
+    for (const line of entry.note.split('\n')) lines.push(line);
+    lines.push('');
   }
 
   if (differences.length > 0) {
-    lines.push("// What differs from the portal's copy, and why:");
-    for (const why of differences) lines.push(`//   - ${why}`);
+    lines.push("What differs from the portal's copy, and why:");
+    for (const why of differences) lines.push(`  - ${why}`);
   } else {
-    lines.push("// Nothing differs from the portal's copy but this banner.");
+    lines.push("Nothing differs from the portal's copy but this banner.");
   }
 
-  lines.push('');
-  return lines.join('\n');
+  // A stylesheet has no line comment, so the same banner is wrapped in a block
+  // one. The marker text is identical in both, which is what lets a reader --
+  // and a grep -- recognise a generated file without knowing its language.
+  if (entry.comment === 'css') {
+    return ['/*', ...lines.map((line) => (line === '' ? ' *' : ` * ${line}`)), ' */', '', ''].join('\n');
+  }
+
+  return [...lines.map((line) => (line === '' ? '//' : `// ${line}`)), ''].join('\n');
 }
 
 /**
@@ -522,6 +668,32 @@ async function read(site, path) {
   return source.replace(/\r\n/g, '\n');
 }
 
+/** The byte for byte copies. Same three properties, no transform to get wrong. */
+async function copyAssets(written, stale, missing) {
+  for (const entry of ASSETS) {
+    const source = await readFile(join(HERE, 'main-site', entry.path));
+
+    let existing = null;
+    try {
+      existing = await readFile(join(HERE, 'docs-site', entry.path));
+    } catch {
+      existing = null;
+    }
+
+    if (existing !== null && existing.equals(source)) continue;
+
+    if (CHECK) {
+      (existing === null ? missing : stale).push(entry.path);
+      continue;
+    }
+
+    const target = join(HERE, 'docs-site', entry.path);
+    await mkdir(dirname(target), { recursive: true });
+    await writeFile(target, source);
+    written.push(entry.path);
+  }
+}
+
 async function generate() {
   const written = [];
   const stale = [];
@@ -560,12 +732,18 @@ async function generate() {
     written.push(entry.path);
   }
 
+  if (failures.length === 0) await copyAssets(written, stale, missing);
+
   return { written, stale, missing, failures };
 }
 
 /** Files sitting in a generated directory that nothing here put there. */
 async function strays() {
-  const expected = new Set([...FILES.map((entry) => entry.path), ...OWN]);
+  const expected = new Set([
+    ...FILES.map((entry) => entry.path),
+    ...ASSETS.map((entry) => entry.path),
+    ...OWN,
+  ]);
   const found = [];
 
   for (const directory of OWNED_DIRECTORIES) {
@@ -577,7 +755,7 @@ async function strays() {
     }
 
     for (const name of names) {
-      if (!name.endsWith('.js')) continue;
+      if (!OWNED_EXTENSIONS.some((extension) => name.endsWith(extension))) continue;
       const path = `${directory}/${name}`;
       if (!expected.has(path)) found.push(path);
     }
