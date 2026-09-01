@@ -1,0 +1,19 @@
+{
+  "name": "careers-gftv-docs-site",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Careers@GFTV documentation site. Markdown converted to static HTML at deploy time, plus Vercel serverless functions under api/ for the staff login and the gated pages.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@simplewebauthn/server": "^13.3.2",
+    "@supabase/supabase-js": "^2.45.0",
+    "bcryptjs": "^2.4.3"
+  },
+  "scripts": {
+    "gen-lib": "node ../gen-docs-lib.js",
+    "check-lib": "node ../gen-docs-lib.js --check"
+  }
+}

@@ -1,3 +1,17 @@
+// GENERATED FILE. Do not edit this copy.
+//
+// Written by gen-docs-lib.js from main-site/api/_lib/audit.js.
+// Change that file and run:  node gen-docs-lib.js
+//
+// It exists because Vercel builds each project from its own root directory, so
+// this site cannot import the portal's modules. 5h: duplicate them, and keep
+// the two copies identical.
+//
+// Every row it writes is stamped as this site, per 5f and 5g.
+//
+// What differs from the portal's copy, and why:
+//   - audit rows record which site the action was performed from
+//   - log lines are prefixed [careers-gftv-docs]
 // The audit log.
 //
 // gftvjobs_audit_log was created in migration 012 for 7g ("every destructive
@@ -40,7 +54,7 @@ import { supabase, T } from './supabase.js';
  * **This is the one line gen-docs-lib.js changes in this file.** The docs
  * site's generated copy reads 'docs'.
  */
-const SITE = 'portal';
+const SITE = 'docs';
 
 /**
  * The actions this build writes. A fixed list rather than free text, so the
@@ -250,10 +264,10 @@ export async function recordAudit(entry) {
     });
 
     if (error) {
-      console.error('[careers-gftv] audit write failed:', entry.action, error);
+      console.error('[careers-gftv-docs] audit write failed:', entry.action, error);
     }
   } catch (cause) {
-    console.error('[careers-gftv] audit write threw:', entry.action, cause);
+    console.error('[careers-gftv-docs] audit write threw:', entry.action, cause);
   }
 }
 

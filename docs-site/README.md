@@ -3,11 +3,18 @@
 The documentation site for Careers@GFTV, served at
 `docs.careers.globalfurry.tv`.
 
-**Status: not built yet.** The site's foundations ship in phase 13 and its
+**Status: being built.** The site's foundations ship in phase 13 and its
 content in phase 14, so that it documents what was actually built, not
-what was planned. This directory currently holds the scaffold only: this README
-and an empty `content/`. See
+what was planned. See
 [the build status page](https://careers.globalfurry.tv/status).
+
+What is here as of phase 13 part 1: the staff session, which is this site's
+own. `api/_lib/` and the three routes under `api/auth/staff/` are generated
+copies of the portal's, per [the pair rule](#the-modules-shared-with-the-portal)
+below, and they cover signing in, signing out, and reading the session. **A sign
+in that needs a second factor cannot finish yet**: `verify-2fa` and the passkey
+and trusted device routes are part 2. There are no pages, no shell, and no
+gate, so nothing is deployable from this directory yet.
 
 ## What it covers
 
@@ -63,8 +70,21 @@ node docs-site/scripts/embed-tests.mjs --check  # fail if it is out of date
 
 Nothing is written by hand: adding a script to `tests/` and rerunning it is the
 whole of the work, and `--check` is what belongs in whatever runs before a docs
-deploy. Where the output goes is a decision for phase 13, when this site has a
-content pipeline to put it in.
+deploy.
+
+**Where the output goes was settled in phase 13**: `api/_content/developer/`,
+committed, and never `content/`. The developer guide is admin only, so its data
+file goes through the gate with the page that reads it; anything in the static
+root is world readable no matter what the interface does. It is committed rather
+than generated at deploy time so that a change to a test script shows up as a
+reviewable diff. The pipeline that serves it is part 5 and the page that reads
+it is phase 14's, so the file itself is written when there is something to read
+it:
+
+```sh
+node docs-site/scripts/embed-tests.mjs --out docs-site/api/_content/developer/test-scripts.json
+node docs-site/scripts/embed-tests.mjs --check docs-site/api/_content/developer/test-scripts.json
+```
 
 **The download should have no address of its own.** The content travels inside
 the page and the download link is a `blob:` URL built in that tab: unique to the
@@ -90,6 +110,89 @@ portal does not sign you in here.
 A passkey registered on the portal does work here, because both sites share one
 WebAuthn relying party id. A passkey does not work on a preview deployment,
 which is a different host; password plus a code still does.
+
+## The modules shared with the portal
+
+**`api/_lib/` is a duplicate of `main-site/api/_lib/`, and the two are a pair.**
+Vercel builds each project from its own root directory and cannot reach outside
+it, so nothing here can import anything there. 5h says to duplicate the shared
+session helpers and keep the two copies identical, and phase 13 part 1 made that
+generated rather than remembered:
+
+```sh
+node gen-docs-lib.js          # write this site's copies
+node gen-docs-lib.js --check  # fail when one is out of date
+```
+
+Both are run from the repository root. `--check` belongs in whatever runs before
+a deploy, beside `check-i18n.js`.
+
+**Nothing under `api/_lib/` or `api/auth/staff/` is edited here.** Every file in
+both directories opens with a banner naming the portal file it came from; an
+edit made here is undone by the next run of the generator, which is a great deal
+louder than an edit that survives in one copy only. The change goes in
+`main-site/api/_lib/`, and the generator carries it across.
+
+The two sites do differ, in five places, and each one is a rule in
+`gen-docs-lib.js` with its reason written beside it:
+
+| What differs | Why |
+|---|---|
+| `gftv_docs_session` and `gftv_docs_device` | 5h. Its own cookies, host scoped, so signing out of one site does not sign you out of the other and trusting a device here does not trust it on the portal. |
+| `gftvjobs_docs_sessions` | 5h and migration `038`. The same shape as the portal's table, which is what lets one file read either. |
+| The relying party pair | 5e. The id comes from `SITE_URL`, which on this site is **the portal**, and the expected origin comes from `DOCS_URL`. That pair is what makes one passkey work on both sites, and it is the one thing here that is not a copy. |
+| The variable list | Four rather than six. Nothing here answers a Google Apps Script, runs a cron, or talks to Telegram. |
+| The audit stamp | 5f and 5g want the site an action was performed from. Every row this site writes carries `site: "docs"`. |
+
+Everything else is byte for byte the portal's, including the rate limit table,
+which is shared on purpose: the limits are per account and per address, so
+attempts against one account count together across both sites.
+
+**A rule that stops matching stops the generator.** If the portal edits a line
+one of these depends on, nothing is written and the failure names the rule, so
+somebody decides what this site should do about the change. That is the check
+the duplication actually needed: not whether the two files are the same, since
+they are deliberately not, but whether the difference between them is still the
+one that was intended.
+
+A file appearing in either generated directory that the generator did not write
+fails the same check. It is either added to the manifest or named as this site's
+own; there are none yet.
+
+## Environment variables
+
+[`.env.example`](.env.example) is the list, with a comment above each one saying
+where to get it. Copy it to `.env.local` for local development and set the same
+four in the Vercel project settings.
+
+**This project's variables are its own.** Vercel reads only the variables set on
+the project being built, so setting a value on the portal's project sets it on
+the portal's project. Two of the four are worth reading twice:
+
+- `DOCS_URL` is this site. It scopes the cookies and it is the origin a passkey
+  response is checked against.
+- `SITE_URL` is **the portal**, not this site. It is the WebAuthn relying party
+  id, per 5e, and pointing it here breaks every passkey registered on the
+  portal.
+
+## Previewing locally
+
+```sh
+cp docs-site/.env.example docs-site/.env.local   # then fill it in
+cd docs-site && vercel dev --listen 3001
+```
+
+Port 3001 so the portal can run on 3000 at the same time, which is what
+`DOCS_URL=http://localhost:3001` and `SITE_URL=http://localhost:3000` in
+`.env.local` assume. With that pair, the relying party id is `localhost` on both
+sites, so a passkey registered against a local portal works against a local docs
+site exactly as it does in production.
+
+**Signing in locally needs a real staff account**, since the accounts are
+`gftvhello_users` rows in the shared Supabase project and this build never
+creates one. Use your own, and note that it must pass the same access rule the
+portal applies: approved, and either `is_admin` or `is_editor`, or a row in
+`gftvjobs_admin_access` granting it.
 
 ## How it will be built
 
@@ -137,11 +240,6 @@ delete, and the page says so and links across.
 
 Lands with the build in phase 14. Which pipeline a page goes through is decided
 by its `access` front matter key and nothing else.
-
-## Previewing locally
-
-Lands with the build in phase 13, including how to sign in against a local
-staff account.
 
 ## Screenshots
 

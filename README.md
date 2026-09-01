@@ -66,7 +66,7 @@ nothing is unbuilt, and it will work again in a moment.
 | `main-site/` | The portal. Static HTML, CSS, and JavaScript with no build step, plus Vercel serverless functions in `main-site/api/`. This is the Vercel root directory for the portal project. |
 | `migrations/` | Every numbered SQL file, run by hand in the Supabase SQL editor. Nothing automated applies these. |
 | `telegram-bot/` | The `careersgftv_bot` Telegram bot, phase 11, all nine commands answering. Linking from either end, sign in codes and the one tap link, the outbox drain behind the three notification kinds, and the four list commands. Runs on a Debian VPS under tmux, deployed by pulling this repository and restarting the process by hand. **It has no scripted checks at all**, by deviation 91: a person walks the checklist in its README. |
-| `docs-site/` | The public documentation site for `docs.careers.globalfurry.tv`. Scaffold only until phase 13. Its own Vercel project on the same repo. |
+| `docs-site/` | The documentation site for `docs.careers.globalfurry.tv`, four audiences behind one gate, being built in phase 13. Its own Vercel project on the same repo, so it cannot import anything from `main-site/`: what it shares is duplicated into it by `gen-docs-lib.js` and never edited in place. |
 | `apps-script/` | The Google Apps Script that each job's application form runs on submit, per section 13. Not deployed by anything: it is pasted into a form by hand. See [The application form webhook](#the-application-form-webhook). |
 | `tests/` | Playwright checks, run by hand against a deployment. Not a CI suite: they need a staff credential and they write real rows. Phase 10's is the exception and needs neither, because a service worker cannot be checked by asking a deployment anything. |
 
@@ -316,7 +316,7 @@ person who remembers it. Run it before pushing; `--list` prints what it reads.
 
 ## Scripts at the repo root
 
-Seven, all plain `node`, none of them part of a build. The three checkers are
+Eight, all plain `node`, none of them part of a build. The four checkers are
 the ones to run before pushing.
 
 | Script | What it does |
@@ -324,6 +324,7 @@ the ones to run before pushing.
 | `check-i18n.js` | Every `t()` key in the source against both dictionaries. Reports missing keys, unused ones, and the sixty built at runtime that it cannot resolve. **Run it before shipping**: a missing key renders as the raw key. |
 | `check-copy.js` | Every English string a reader can see, against the house style above. Reads the dictionary, the pages with their comments stripped out, the phase list, `llms.txt`, every quoted string in the bot's Python and its About and Description text — 3,470 strings today — and exits non-zero on a banned phrase, naming the key and the sentence around it. `--list` prints what it reads and what is banned. |
 | `check-precache.js` | Every entry in `sw.js`'s precache list resolved the way `cleanUrls` does, and non-zero on one that is not on disk. The precache list is the most dangerous object in the site: a bad entry costs one file at runtime and this is what stops it reaching production at all. |
+| `gen-docs-lib.js` | The docs site's copies of the portal's shared modules, written from `main-site/api/_lib/` and `api/auth/staff/`. Vercel builds each project from its own root and cannot reach outside it, so 5h says duplicate them and keep the two copies identical; this is what makes that true rather than remembered. Every place the two sites genuinely differ is a rule in the file with its reason beside it, and a rule whose text no longer appears stops the run instead of quietly dropping the difference. `--check` fails on a stale copy and **belongs beside the other three before a push**: a change to `main-site/api/_lib/` is half a change until this has run. |
 | `gen-icons.js` | Every icon under `main-site/`, from `HLC-source.png` at this level. The source is deliberately not one of the outputs. See [`main-site/README.md`](main-site/README.md). |
 | `gen-screenshots.js` | The two install screenshots in the manifest, captured from `/search` on the deployment. Rerun after clearing the seed. |
 | `seed.mjs` | Section 17's seed script, phase 12 part 8. Sample postings, one ready Chinese translation, and two sample accounts for the docs screenshots, all marked SAMPLE and all removable again. `node seed.mjs` says what it would do and writes nothing; `--yes` does it; `--clear --yes` removes it **and the phase 3 dev seed with it**. There is one database, so it refuses to write while `INDEXING` is true rather than putting a sample posting where a crawler can find it. |

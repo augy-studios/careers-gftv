@@ -1135,6 +1135,26 @@ The docs site is a **second Vercel project on the same repo**, with its root
 directory set to `docs-site` and the domain `docs.careers.globalfurry.tv`. It
 ships in phase 13.
 
+**`api/_lib/` has a twin, and the two are a pair.** Vercel builds each project
+from its own root directory and cannot reach outside it, so `docs-site/api/`
+cannot import anything here. 5h answers that by duplicating the shared modules
+into `docs-site/api/_lib/` and keeping the two copies identical, and phase 13
+part 1 made that duplication generated rather than remembered:
+
+```sh
+node gen-docs-lib.js          # write the docs site's copies
+node gen-docs-lib.js --check  # fail when one is out of date
+```
+
+Thirteen modules and three staff auth routes are copied, and the handful of
+places the two sites genuinely differ — the session cookie, the session table,
+the audit stamp, the variable list, and 5e's relying party pair — are written as
+rules in `gen-docs-lib.js` with the reason beside each one. **So changing a file
+in this directory is half the change.** Run the generator afterwards, or
+`--check` fails before the deploy does. A rule whose text no longer appears
+stops the generator rather than silently producing a copy that has lost the
+difference it was there to keep.
+
 `vercel.json` holds the rewrites that send every unbuilt route to
 `placeholder.html`, the 301 from `/jobs` to `/search`, and the headers. Two of
 those headers matter more than the rest: `sw.js` is served `Cache-Control:
