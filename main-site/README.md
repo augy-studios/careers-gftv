@@ -416,7 +416,8 @@ Shared helpers live in `api/_lib/`:
 | `accounts.js` | Account lookup by username or email, uniqueness checks, and the two code sets. |
 | `password.js` | bcrypt for passwords and codes, the password rule, and the constant time comparisons that keep an unknown account from answering faster than a wrong password. |
 | `totp.js` | RFC 6238, for the staff realm's existing authenticator app. |
-| `webauthn.js` | Passkeys, both realms, both ceremonies. |
+| `webauthn.js` | Passkeys, both realms, both ceremonies. One relying party id covers this site and the docs site, per 5e, so a registration also records which of the two it happened on. |
+| `site.js` | One line: whether this copy of the helpers is the portal or the docs site. Read by `audit.js` for every row's metadata and by `webauthn.js` for `registered_on`, and it is the one line `gen-docs-lib.js` changes to turn the copies into the docs site's. |
 | `rate-limit.js` | The table backed limiter and every limit in one place. |
 | `validate.js` | Input validation, returning codes instead of English so the client renders them in either language. |
 | `jobs.js` | The board's query string parameter names, parsed defensively, and the public shape of a posting. Also the `ts_headline` sanitiser: that string is the one field the browser assigns as markup, and everything except `<mark>` is escaped here and not in the client. |

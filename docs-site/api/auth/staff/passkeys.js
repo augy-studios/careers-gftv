@@ -1,3 +1,18 @@
+// GENERATED FILE. Do not edit this copy.
+//
+// Written by gen-docs-lib.js from main-site/api/auth/staff/passkeys.js.
+// Change that file and run:  node gen-docs-lib.js
+//
+// It exists because Vercel builds each project from its own root directory, so
+// this site cannot import the portal's modules. 5h: duplicate them, and keep
+// the two copies identical.
+//
+// Identical. The credential table is shared and so is the relying party id,
+// so a passkey registered here is offered on the portal and the other way
+// round. Which of the two made it is registered_on, written from site.js, and
+// the row is the only place that fact exists.
+//
+// Nothing differs from the portal's copy but this banner.
 // GET  /api/auth/staff/passkeys   list them
 // POST /api/auth/staff/passkeys   { action } start, finish, or remove
 //

@@ -8,13 +8,21 @@ content in phase 14, so that it documents what was actually built, not
 what was planned. See
 [the build status page](https://careers.globalfurry.tv/status).
 
-What is here as of phase 13 part 1: the staff session, which is this site's
-own. `api/_lib/` and the three routes under `api/auth/staff/` are generated
+What is here as of phase 13 part 2: the whole staff sign in, which is this
+site's own. `api/_lib/` and the six routes under `api/auth/staff/` are generated
 copies of the portal's, per [the pair rule](#the-modules-shared-with-the-portal)
-below, and they cover signing in, signing out, and reading the session. **A sign
-in that needs a second factor cannot finish yet**: `verify-2fa` and the passkey
-and trusted device routes are part 2. There are no pages, no shell, and no
-gate, so nothing is deployable from this directory yet.
+below. They cover signing in and out, reading the session, the second factor in
+all three of its forms — a passkey, the authenticator code, a backup code —
+registering and removing a passkey, and the trusted devices. There are no pages,
+no shell, and no gate, so nothing is deployable from this directory yet.
+
+**Two things about the second factor that are this site's and not the portal's.**
+A passkey registered on either site works on both, because 5e has both claim the
+portal's host as the relying party id, and the row records which of the two the
+ceremony ran on. A trusted device does not: the device cookie is host scoped, so
+trusting a browser here does not trust it on the portal. The device *list*,
+though, is the account's across both sites, because `gftvhello_trusted_devices`
+has no column saying which site wrote a row and section 2 forbids adding one.
 
 ## What it covers
 
@@ -142,7 +150,7 @@ The two sites do differ, in five places, and each one is a rule in
 | `gftvjobs_docs_sessions` | 5h and migration `038`. The same shape as the portal's table, which is what lets one file read either. |
 | The relying party pair | 5e. The id comes from `SITE_URL`, which on this site is **the portal**, and the expected origin comes from `DOCS_URL`. That pair is what makes one passkey work on both sites, and it is the one thing here that is not a copy. |
 | The variable list | Four rather than six. Nothing here answers a Google Apps Script, runs a cron, or talks to Telegram. |
-| The audit stamp | 5f and 5g want the site an action was performed from. Every row this site writes carries `site: "docs"`. |
+| The site constant | `api/_lib/site.js`, one line, read by everything that has to record which application acted: `site: "docs"` in every audit row per 5f and 5g, and `registered_on` on every passkey registered here per 5f and migration `039`. |
 
 Everything else is byte for byte the portal's, including the rate limit table,
 which is shared on purpose: the limits are per account and per address, so

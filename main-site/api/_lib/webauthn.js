@@ -33,6 +33,11 @@ import {
 import { supabase, T } from './supabase.js';
 import { siteUrl } from './env.js';
 import { sha256 } from './tokens.js';
+// Written to registered_on when a passkey is created, per 5f's "show which site
+// each was registered from". One relying party id covers both sites, so a
+// passkey made on either appears on both and a reader would otherwise have no
+// way to tell which one they made it on.
+import { SITE } from './site.js';
 
 /** How long a ceremony may stay open. */
 const CHALLENGE_MINUTES = 5;
@@ -74,6 +79,19 @@ function realmConfig(realm) {
   return config;
 }
 
+/**
+ * What a caller is told about a stored passkey. Named once because the list and
+ * the row returned by a registration are the same shape, and were two copies of
+ * one string until `registered_on` arrived in phase 13 part 2 and had to be
+ * added to both.
+ *
+ * **Never a star.** `public_key` and `sign_count` have no business in a browser,
+ * and a select('*') added later by habit would send them.
+ */
+const PASSKEY_COLUMNS =
+  'id, credential_id, transports, aaguid, backed_up, device_type, label, ' +
+  'registered_on, created_at, last_used_at';
+
 /* -------------------------------------------------------------------------
  * Stored credentials
  * ---------------------------------------------------------------------- */
@@ -88,7 +106,7 @@ export async function listPasskeys(realm, userId) {
 
   const { data, error } = await supabase
     .from(table)
-    .select('id, credential_id, transports, aaguid, backed_up, device_type, label, created_at, last_used_at')
+    .select(PASSKEY_COLUMNS)
     .eq(userColumn, userId)
     .order('created_at', { ascending: false });
 
@@ -305,12 +323,17 @@ export async function finishRegistration({ realm, userId, response, label = null
     backed_up: Boolean(credentialBackedUp),
     device_type: credentialDeviceType ?? null,
     label,
+    // 5f, and migration 039. Named explicitly rather than left to the column
+    // default, which is 'portal' and exists for the rows that predate the docs
+    // site: a default is right until the day a second application forgets to
+    // pass the value, and then it is a row claiming to be from here.
+    registered_on: SITE,
   };
 
   const { data, error } = await supabase
     .from(table)
     .insert(row)
-    .select('id, credential_id, transports, aaguid, backed_up, device_type, label, created_at, last_used_at')
+    .select(PASSKEY_COLUMNS)
     .single();
 
   if (error) {

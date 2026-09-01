@@ -7,10 +7,12 @@
 // this site cannot import the portal's modules. 5h: duplicate them, and keep
 // the two copies identical.
 //
-// Every row it writes is stamped as this site, per 5f and 5g.
+// Identical since part 2. Every row it writes is still stamped as this site,
+// per 5f and 5g, but the stamp is site.js above and this file only imports
+// it. It carried the rule itself in part 1, and lost it the moment a second
+// file needed the same fact.
 //
 // What differs from the portal's copy, and why:
-//   - audit rows record which site the action was performed from
 //   - log lines are prefixed [careers-gftv-docs]
 // The audit log.
 //
@@ -40,21 +42,11 @@
 //      logged to the server console as well, so nothing is silently lost.
 
 import { supabase, T } from './supabase.js';
-
-/**
- * Which site this copy of the helper is running on, stamped into the metadata
- * of every row it writes.
- *
- * 5f and 5g both require a staff action to record "which site it was performed
- * from", and as of phase 13 there are two applications writing one table. A
- * value here rather than an argument at every call site, because the one thing
- * a call site cannot be trusted to remember is the fact that is the same on
- * every call it will ever make.
- *
- * **This is the one line gen-docs-lib.js changes in this file.** The docs
- * site's generated copy reads 'docs'.
- */
-const SITE = 'docs';
+// Stamped into the metadata of every row written here, per 5f and 5g's "which
+// site it was performed from". It lived in this file until phase 13 part 2 gave
+// the passkey table the same question to answer; see site.js for why there is
+// exactly one of it.
+import { SITE } from './site.js';
 
 /**
  * The actions this build writes. A fixed list rather than free text, so the

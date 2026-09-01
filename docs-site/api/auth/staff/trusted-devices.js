@@ -1,3 +1,20 @@
+// GENERATED FILE. Do not edit this copy.
+//
+// Written by gen-docs-lib.js from main-site/api/auth/staff/trusted-devices.js.
+// Change that file and run:  node gen-docs-lib.js
+//
+// It exists because Vercel builds each project from its own root directory, so
+// this site cannot import the portal's modules. 5h: duplicate them, and keep
+// the two copies identical.
+//
+// Identical, and the table is shared while the cookie is not. Trusting a
+// browser here does not trust it on the portal, per 5h, because the device
+// cookie is host scoped -- but gftvhello_trusted_devices has no column saying
+// which site wrote a row, so this endpoint lists and revokes both sites'
+// devices for the account. The header of the source file is the account of
+// that, and it is the same account on both copies.
+//
+// Nothing differs from the portal's copy but this banner.
 // GET  /api/auth/staff/trusted-devices   list them
 // POST /api/auth/staff/trusted-devices   { action } revoke or revoke_all
 //

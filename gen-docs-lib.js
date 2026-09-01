@@ -78,6 +78,23 @@ const GLOBAL = [
  */
 const FILES = [
   {
+    path: 'api/_lib/site.js',
+    note: text(
+      'One line, and the whole of what makes this copy say it is the docs site.',
+      'Both of the places that record which application did something read it:',
+      "the audit row's metadata per 5f and 5g, and a passkey's registered_on per",
+      "5f. It is a file rather than a constant in each of them so this generator",
+      'has one rule to keep instead of two that must agree.'
+    ),
+    rules: [
+      {
+        why: 'this build is the docs site',
+        find: "export const SITE = 'portal';",
+        replace: "export const SITE = 'docs';",
+      },
+    ],
+  },
+  {
     path: 'api/_lib/respond.js',
     note: 'Identical. The same status codes and the same JSON shapes.',
   },
@@ -261,14 +278,12 @@ const FILES = [
   },
   {
     path: 'api/_lib/audit.js',
-    note: 'Every row it writes is stamped as this site, per 5f and 5g.',
-    rules: [
-      {
-        why: 'audit rows record which site the action was performed from',
-        find: "const SITE = 'portal';",
-        replace: "const SITE = 'docs';",
-      },
-    ],
+    note: text(
+      'Identical since part 2. Every row it writes is still stamped as this site,',
+      'per 5f and 5g, but the stamp is site.js above and this file only imports',
+      'it. It carried the rule itself in part 1, and lost it the moment a second',
+      'file needed the same fact.'
+    ),
   },
   {
     path: 'api/_lib/rate-limit.js',
@@ -355,12 +370,45 @@ const FILES = [
     ),
   },
   {
+    path: 'api/auth/staff/verify-2fa.js',
+    note: text(
+      'Identical, and the challenge table is shared on purpose. 5e: "the challenge',
+      'tables are shared, since a challenge is a short lived random string with no',
+      'privileges of its own". A challenge issued by the portal can therefore be',
+      'answered here, which buys nobody anything: it is handed to the browser that',
+      'has just passed the password step, and redeeming it still costs a second',
+      'factor. What it does mean is that a passkey assertion made against this',
+      "origin verifies here and not on the portal, because webauthn.js's expected",
+      'origin is this site while the relying party id is not.'
+    ),
+  },
+  {
     path: 'api/auth/staff/logout.js',
     note: 'Identical.',
   },
   {
     path: 'api/auth/staff/session.js',
     note: 'Identical.',
+  },
+  {
+    path: 'api/auth/staff/passkeys.js',
+    note: text(
+      'Identical. The credential table is shared and so is the relying party id,',
+      'so a passkey registered here is offered on the portal and the other way',
+      'round. Which of the two made it is registered_on, written from site.js, and',
+      'the row is the only place that fact exists.'
+    ),
+  },
+  {
+    path: 'api/auth/staff/trusted-devices.js',
+    note: text(
+      'Identical, and the table is shared while the cookie is not. Trusting a',
+      'browser here does not trust it on the portal, per 5h, because the device',
+      'cookie is host scoped -- but gftvhello_trusted_devices has no column saying',
+      'which site wrote a row, so this endpoint lists and revokes both sites\'',
+      'devices for the account. The header of the source file is the account of',
+      'that, and it is the same account on both copies.'
+    ),
   },
 ];
 
