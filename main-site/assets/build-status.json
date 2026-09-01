@@ -1,7 +1,7 @@
 {
   "$comment": "Single source of truth for the phased rollout, per section 0c of careers-gftv-spec.md. The site, the Telegram bot, and the docs site all read this one file, so the three stay in step. Flipping a phase to shipped is the only edit needed when it goes live. No copy anywhere hardcodes a phase number. Phase names and descriptions carry a translated variant per non default language, because three separate consumers render them and they are content, not interface strings; everything else the site says comes from assets/i18n.",
   "schema_version": 3,
-  "updated": "2026-08-31",
+  "updated": "2026-09-01",
   "locales": [
     "en",
     "zh"
@@ -131,7 +131,7 @@
       "number": 13,
       "name": "Docs site foundations",
       "name_zh": "文档站基础",
-      "status": "planned",
+      "status": "building",
       "description": "The documentation site itself, with a staff sign in on it. What a reader sees depends on their role: applicants read the public guides, job posters also read the dashboard guide, and admins also read the admin and developer guides.",
       "description_zh": "文档网站本身，并附有员工登录功能。读者看到的内容取决于其身份：申请人可阅读公开指南，职位发布者另可阅读后台使用指南，管理员另可阅读管理与开发文档。",
       "shipped_note": null,

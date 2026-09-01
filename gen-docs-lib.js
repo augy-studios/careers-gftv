@@ -419,7 +419,23 @@ const FILES = [
  * to edit.
  */
 const OWNED_DIRECTORIES = ['api/_lib', 'api/auth/staff'];
-const OWN = [];
+
+/**
+ * The gate, from phase 13 part 3, and the only three files in either directory
+ * that are this site's own.
+ *
+ * **They are not generated because the portal has no equivalent to generate them
+ * from.** The portal has one staff area behind one access rule; this site has
+ * four tiers of reader behind that same rule, and a page list read off two
+ * content trees. Writing the portal a copy of either, so that this one could be
+ * derived from it, would be inventing a module over there to satisfy a rule made
+ * for the modules that were already shared.
+ *
+ * The rule that stays true: nothing in these directories is a hand written file
+ * nobody declared. Each of the three opens by saying it is this site's own and
+ * naming this list, so the two kinds of file are never confused for each other.
+ */
+const OWN = ['api/_lib/tiers.js', 'api/_lib/pages.js', 'api/_lib/reader.js'];
 
 /* -------------------------------------------------------------------------
  * Generating

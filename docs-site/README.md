@@ -8,13 +8,15 @@ content in phase 14, so that it documents what was actually built, not
 what was planned. See
 [the build status page](https://careers.globalfurry.tv/status).
 
-What is here as of phase 13 part 2: the whole staff sign in, which is this
-site's own. `api/_lib/` and the six routes under `api/auth/staff/` are generated
-copies of the portal's, per [the pair rule](#the-modules-shared-with-the-portal)
-below. They cover signing in and out, reading the session, the second factor in
-all three of its forms — a passkey, the authenticator code, a backup code —
-registering and removing a passkey, and the trusted devices. There are no pages,
-no shell, and no gate, so nothing is deployable from this directory yet.
+What is here as of phase 13 part 3: the whole staff sign in, and the gate.
+`api/_lib/` and the six routes under `api/auth/staff/` are generated copies of
+the portal's, per [the pair rule](#the-modules-shared-with-the-portal) below.
+They cover signing in and out, reading the session, the second factor in all
+three of its forms — a passkey, the authenticator code, a backup code —
+registering and removing a passkey, and the trusted devices. Beside them,
+[the gate](#the-gate) decides what a reader may open, and there are placeholder
+pages at every tier to prove that it does. There is no shell and nothing is
+rendered, so this directory still draws no page a person would want to look at.
 
 **Two things about the second factor that are this site's and not the portal's.**
 A passkey registered on either site works on both, because 5e has both claim the
@@ -119,6 +121,94 @@ A passkey registered on the portal does work here, because both sites share one
 WebAuthn relying party id. A passkey does not work on a preview deployment,
 which is a different host; password plus a code still does.
 
+## The gate
+
+Four tiers, cumulative, so each one opens everything the tier below it opens.
+The names are the values a page's `access` front matter key may carry, and there
+is no fifth:
+
+| `access` | Who | Where the pages live |
+|---|---|---|
+| `public` | Anyone, signed out included | `content/`, at `/` |
+| `poster` | Staff with portal access and no `is_admin` | `api/_content/`, at `/staff` |
+| `admin` | Staff with `is_admin` | `api/_content/`, at `/staff` |
+| `developer` | The same accounts as `admin` | `api/_content/`, at `/staff` |
+
+`developer` is not a flag on anybody's account and none is to be invented: the
+admins of this project are its developers, so an admin lands on the top tier.
+What an account *is* called on screen is separate and is "job poster" or
+"admin", per 16b, because those are the two things a staff account can be.
+
+**An account with staff access and no `is_admin` reads as a job poster**, which
+covers `is_editor` and covers an account let in by a `gftvjobs_admin_access` row
+with neither flag set. That overlay decides whether somebody may use the staff
+side at all; the flags decide how much of it. What the job poster guide
+documents is exactly what such an account can reach on the portal.
+
+Three rules, and each one is a way the same mistake gets made:
+
+- **A page above the reader's tier answers 404 and never 401.** A 401 confirms
+  the page exists to anybody probing for it. A path nobody has ever written and
+  a path belonging to the developer guide answer identically.
+- **The sidebar carries only what the reader may open.** No padlocks and no
+  greyed out entries: they teach nothing and invite guessing at URLs. The
+  filtering is server side in `api/nav.js`, so the browser is never sent a title
+  it is not allowed to see.
+- **The role comes from the session on the server, on every request.** Access is
+  re-checked each time, so revoking somebody takes effect on their next request
+  and not on their next sign in.
+
+The one thing this site says out loud is on the home page: staff documentation
+exists and is behind a sign in. Hiding that protects nothing when the sign in
+form is right there, and naming the pages inside it would do the opposite.
+
+### The three files that are this site's own
+
+Everything else under `api/_lib/` is a generated copy of the portal's. These
+three are not, because the portal has nothing to generate them from: it has one
+staff area behind one access rule, and this site has four tiers of reader behind
+that same rule.
+
+| File | What it holds |
+|---|---|
+| `api/_lib/tiers.js` | The four tiers, the comparison, and the words a role is called on screen. Reads nothing and imports nothing. |
+| `api/_lib/pages.js` | Both content trees read off disk, the front matter, every refusal, and the gate applied to the page list. |
+| `api/_lib/reader.js` | Four lines: the session, the access rule re-applied, the tier. Every route that decides what to show starts here. |
+
+They are named in `gen-docs-lib.js` under `OWN`, which is what keeps the rest of
+the directory trustworthy: a file there is either generated or declared.
+
+### The two routes
+
+```text
+GET /api/nav              the sidebar, filtered to whoever is asking
+GET /api/content/{path}   one page's markdown, if they may read it
+```
+
+Neither is cached anywhere shared. The answer depends on a session cookie, and
+this is where getting that wrong hands one reader another reader's page.
+
+**Nothing a caller sends ever reaches the filesystem.** The path segments are
+turned into a page path, the path is looked up in the map the loader built, and
+the file that gets read is the one that map recorded. `../` in a segment is a
+lookup miss like any other.
+
+### What fails to load, and why
+
+The page list is derived from the filesystem and never written down anywhere, so
+adding a page is adding a file. What a written value decides is order, and
+nothing else. In exchange, the loader refuses to start on any of these, naming
+every one it found instead of stopping at the first:
+
+- a page with no front matter block, no `title`, or no `access` key
+- an `access` value that is not one of the four, including a misspelling
+- **a gated page in `content/`**, which is the leak: anything in the static root
+  is world readable whatever the interface does
+- **a public page in `api/_content/`**, which is a page nobody can find
+- a page sitting outside every section, which nothing would ever link to
+- a section directory with no `index.md` for its sidebar heading to point at
+- two files claiming one path, or a page nested more than a section deep
+
 ## The modules shared with the portal
 
 **`api/_lib/` is a duplicate of `main-site/api/_lib/`, and the two are a pair.**
@@ -165,7 +255,8 @@ one that was intended.
 
 A file appearing in either generated directory that the generator did not write
 fails the same check. It is either added to the manifest or named as this site's
-own; there are none yet.
+own, under `OWN`. There are three, and they are
+[the gate](#the-three-files-that-are-this-sites-own).
 
 ## Environment variables
 
@@ -203,6 +294,9 @@ portal applies: approved, and either `is_admin` or `is_editor`, or a row in
 `gftvjobs_admin_access` granting it.
 
 ## How it will be built
+
+The first two are built, as of part 3, and are [the gate](#the-gate) above. The
+rest is parts 4 to 7.
 
 - Content is markdown with front matter, and the front matter carries a
   required `access` key of `public`, `poster`, `admin`, or `developer`. A page
@@ -246,8 +340,35 @@ delete, and the page says so and links across.
 
 ## Adding or editing a page
 
-Lands with the build in phase 14. Which pipeline a page goes through is decided
-by its `access` front matter key and nothing else.
+A page is a markdown file in a section directory, and adding one is adding the
+file. Which tree it goes in is decided by its `access` key and nothing else:
+`public` in `content/`, anything else in `api/_content/`, and putting one in the
+wrong tree stops the site loading with a message saying so.
+
+```text
+content/portal/applying.md            ->  /portal/applying
+content/portal/index.md               ->  /portal          (the section itself)
+api/_content/admin/settings.md        ->  /staff/admin/settings
+```
+
+Front matter carries four keys:
+
+```text
+---
+title: Applying to a role          required. The sidebar entry and the tab.
+access: public                     required. public, poster, admin, developer.
+order: 3                           optional. See below.
+summary: What happens when you     optional. One line, for listings and search.
+---
+```
+
+`order` means two things at two levels, which are the same question asked twice:
+on a section's `index.md` it orders the sections, and on any other page it orders
+that page within its section. A page with no `order` sorts last by path, so a new
+file is never invisible for want of a number.
+
+Rendering the markdown, the images beside a gated page, and the search index are
+phase 13 part 5. Until then a page is served as it was written.
 
 ## Screenshots
 
@@ -298,6 +419,16 @@ domain `docs.careers.globalfurry.tv`.
 This project has serverless functions of its own, so it needs its own
 environment variables set in Vercel, documented in `.env.example`, and its own
 `vercel.json` carrying the `includeFiles` entry for the gated content.
+
+**That `includeFiles` glob covers both trees**, `content/` as well as
+`api/_content/`, because `api/nav.js` reads the whole page list to build a
+sidebar for a signed out reader too. A function that cannot find `content/`
+throws at the first request and names this entry, which is the failure to expect
+if either tree is ever moved. `vercel.json` is schema validated and cannot carry
+a comment, so the reasoning lives in `api/_lib/pages.js` beside the code that
+depends on it.
+
+The project itself, its domain and its variables are part 7.
 
 `robots.txt`, `sitemap.xml`, and `llms.txt` are generated from the page list
 and cover public pages only. A gated page must never appear in any of the

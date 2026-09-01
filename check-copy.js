@@ -129,6 +129,44 @@ function pageStrings() {
   return out;
 }
 
+/** The documentation pages, both pipelines.
+ *
+ *  Added in phase 13 part 3, with the first pages. A guide is copy in the
+ *  fullest sense — it is nothing but sentences somebody reads — and the two
+ *  trees are here from the part that created them so that phase 14 cannot land
+ *  thirty pages the check has never seen.
+ *
+ *  **The whole file, front matter included.** A page's title and summary are the
+ *  sidebar entry and the search result, so they are read more often than the
+ *  page is. Markdown has no comment syntax in use here, which is why this needs
+ *  none of the stripping `pageStrings` does: there is nowhere in one of these
+ *  files to explain a decision, and an explanation belongs in the code anyway.
+ */
+function docsPageStrings() {
+  const out = [];
+
+  for (const tree of ['docs-site/content', 'docs-site/api/_content']) {
+    const root = path.join(repo, tree);
+    if (!fs.existsSync(root)) continue;
+
+    (function walk(dir) {
+      for (const item of fs.readdirSync(dir)) {
+        const full = path.join(dir, item);
+        if (fs.statSync(full).isDirectory()) {
+          walk(full);
+          continue;
+        }
+        if (!item.endsWith('.md')) continue;
+
+        const relative = full.slice(root.length + 1).split(path.sep).join('/');
+        out.push({ where: `${tree}/${relative}`, text: fs.readFileSync(full, 'utf8') });
+      }
+    })(root);
+  }
+
+  return out;
+}
+
 /** What the Telegram bot says, English only.
  *
  *  Read as text and not by importing Python, which `gen-review.js` does need to
@@ -203,6 +241,7 @@ const SOURCES = [
   ['the phase list on /status', buildStatusStrings],
   ['llms.txt', llmsStrings],
   ['the pages themselves', pageStrings],
+  ['the documentation pages', docsPageStrings],
   ["the Telegram bot's own strings", botStrings],
   ["the bot's profile text", botProfileStrings],
 ];

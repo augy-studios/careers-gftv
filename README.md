@@ -26,7 +26,9 @@ kinds of notification an applicant can switch off one at a time. **Phase 12 is
 the sweep**: the responsive and accessibility passes, measured colours, the
 Chinese round trip, `robots.txt`, `sitemap.xml` and `llms.txt`, a seed script,
 and `/status` rebuilt as a service status page fed by a probe on the bot's VPS.
-Live status:
+Of the three that remain, phase 13 is being built: the documentation site at
+`docs.careers.globalfurry.tv`, its own Vercel project with its own staff sign in
+and the role gate that decides what a reader is allowed to see. Live status:
 [careers.globalfurry.tv/status](https://careers.globalfurry.tv/status).
 
 **The portal is open to search engines from phase 12 part 8**, on 31 August
