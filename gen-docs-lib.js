@@ -568,6 +568,10 @@ const OWN = [
   'api/_lib/tiers.js',
   'api/_lib/pages.js',
   'api/_lib/reader.js',
+  // What the build leaves behind for the functions, phase 13 part 5. The portal
+  // has no equivalent for the plainest of reasons: it has no build step, which
+  // is the rule 16e makes this site the stated exception to.
+  'api/_lib/generated.js',
   // The shell, phase 13 part 4. The layout, its behaviour, and the renderer the
   // two pipelines share. The portal has no equivalent of any of the three: its
   // markdown.js renders a posting body, which is paragraphs and bullets and no

@@ -17,7 +17,10 @@
 
   "search.placeholder": "Search the guides",
   "search.label": "Search the guides",
-  "search.unavailable": "Search is switched on with the guides themselves.",
+  "search.results": "Search results",
+  "search.none": "Nothing matched {query}.",
+  "search.failed": "Search could not load. Reload the page in a moment.",
+  "search.staffFailed": "The staff guides could not be searched this time.",
 
   "account.signIn": "Sign in",
   "account.signInHint": "Staff sign in",
@@ -37,6 +40,9 @@
   "nav.next": "Next",
 
   "page.loading": "Loading",
+  "page.tabTitle": "{title} | {site}",
+  "page.updated": "Last updated {date}",
+  "page.imagePending": "Screenshot pending",
   "page.headingLink": "Link to this heading",
   "page.notFoundTitle": "There is no page here",
   "page.notFoundBody": "The address may be wrong, or the page may be one your account cannot open. If you are staff, sign in and try again.",

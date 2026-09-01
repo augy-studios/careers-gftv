@@ -21,7 +21,7 @@
 // banner for an application; this draws a manual.
 
 import { initTheme, applyMode } from './theme.js';
-import { initI18n, t, translateDom } from './i18n.js';
+import { initI18n, t, translateDom, getLocale } from './i18n.js';
 import { render } from './markdown.js';
 
 const CHEVRON =
@@ -35,6 +35,16 @@ const MENU_ICON =
   ' stroke-linecap="round"/></svg>';
 
 const el = (id) => document.getElementById(id);
+
+// Intl wants a BCP 47 tag and our locale ids are not quite that. The portal's
+// format.js carries the same two, for the same reason: both are Singapore, so a
+// date reads as 1 September 2026 and never in the American order. They are two
+// short maps and not one shared module, because nothing can be imported across
+// the two projects and a generated copy of four lines would be a rule to keep.
+const INTL_LOCALE = {
+  en: 'en-SG',
+  zh: 'zh-Hans-SG',
+};
 
 /** Every string that reaches the DOM as markup goes through this first. */
 function escapeHtml(value) {
@@ -333,6 +343,46 @@ function drawPager(prev, next) {
   mount.hidden = !prev && !next;
 }
 
+/** The tab title, from one string, so the two pipelines cannot word it apart. */
+function tabTitle(title) {
+  return t('page.tabTitle', { title, site: t('shell.siteName') });
+}
+
+/**
+ * When this page last changed, or nothing at all.
+ *
+ * **Null is drawn as no line**, per 16e's date and phase 12's rule about gaps: a
+ * page git could not date carries no date, and a reader is never shown one this
+ * site made up. The date is formatted in the reader's own locale, so phase 14's
+ * dictionary brings the wording and this needs no second format.
+ */
+function drawUpdated(iso) {
+  const mount = el('docsUpdated');
+  if (!mount) return;
+
+  if (!iso) {
+    mount.hidden = true;
+    mount.textContent = '';
+    return;
+  }
+
+  const date = new Date(`${iso}T00:00:00Z`);
+  const formatted = Number.isNaN(date.valueOf())
+    ? iso
+    : new Intl.DateTimeFormat(INTL_LOCALE[getLocale()] ?? INTL_LOCALE.en, {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        // The date is a day and not a moment, so it is read back in the zone it
+        // was written in. Without this, a reader west of UTC is shown the day
+        // before the one git recorded.
+        timeZone: 'UTC',
+      }).format(date);
+
+  mount.textContent = t('page.updated', { date: formatted });
+  mount.hidden = false;
+}
+
 function drawContents(headings) {
   const aside = el('docsToc');
   const inline = el('docsTocInline');
@@ -456,25 +506,52 @@ async function drawPage(nav) {
   const article = el('docsArticle');
   if (!article) return { page: null, headings: [] };
 
-  // Part 5 writes the public pages out as HTML with the article already in it.
-  // Nothing is fetched for one of those, and the contents are built from the
+  // The build writes the public pages out as HTML with the article already in
+  // it. Nothing is fetched for one of those, and the contents are built from the
   // headings the same renderer numbered at build time.
+  //
+  // **Everything around the article is drawn here either way.** The build could
+  // have written the breadcrumbs and the pager into the file, and then this site
+  // would have two things drawing its chrome and one of them would eventually be
+  // a version behind. So the build writes the page's data into the document and
+  // the functions below are the same ones a gated page goes through.
   if (article.hasAttribute('data-prerendered')) {
     const headings = [...article.querySelectorAll('h2[id], h3[id], h4[id]')].map((node) => ({
       id: node.id,
       text: node.textContent.replace(/#$/, '').trim(),
       level: Number(node.tagName.slice(1)),
     }));
-    return { page: null, headings };
+
+    let data = null;
+    try {
+      data = JSON.parse(el('docsPageData')?.textContent ?? 'null');
+    } catch {
+      // A page whose data block did not parse still has its article, which is
+      // what the reader came for. The chrome around it stays as the shell drew
+      // it rather than half filled in.
+      data = null;
+    }
+
+    if (data) {
+      document.title = tabTitle(data.page.title);
+      drawBreadcrumbs(data.page, nav);
+      drawPager(data.prev, data.next);
+      drawUpdated(data.updated);
+    }
+
+    return { page: data?.page ?? null, headings };
   }
 
   article.innerHTML = `<p class="docs-loading" data-i18n="page.loading"></p>`;
   translateDom(article);
 
-  // The home page is the one page whose address has no segments, so it is asked
-  // for by the alias the loader answers to. Everything else is its own path.
+  // **The page is named in a parameter and not in the path.** Part 5 found that
+  // a file based dynamic route binds nothing in a bare api/ project on Vercel:
+  // the old `/api/content/portal/applying` never reached the function at all,
+  // and locally it looked perfect. The home page is an empty parameter, so it
+  // needs no alias either.
   const path = window.location.pathname.replace(/\/+$/, '');
-  const result = await get(`/api/content${path === '' ? '/index' : path}`);
+  const result = await get(`/api/content?path=${encodeURIComponent(path)}`);
 
   if (!result.ok) {
     const missing = result.status === 404;
@@ -486,20 +563,25 @@ async function drawPage(nav) {
 
     translateDom(article);
     setRobots(true);
-    document.title = `${t(missing ? 'page.notFoundTitle' : 'page.errorTitle')} — ${t('shell.siteName')}`;
+    document.title = tabTitle(t(missing ? 'page.notFoundTitle' : 'page.errorTitle'));
     drawPager(null, null);
+    drawUpdated(null);
     return { page: null, headings: [] };
   }
 
   setRobots(false);
   const data = result.data;
-  const { html, headings } = render(data.markdown);
+  // The images beside a gated page are addressed from where the page itself was
+  // read, which the server sent: nothing in the browser works out where a gated
+  // file lives.
+  const { html, headings } = render(data.markdown, { assetBase: data.asset_base });
   article.innerHTML = html;
   translateDom(article);
 
-  document.title = `${data.page.title} — ${t('shell.siteName')}`;
+  document.title = tabTitle(data.page.title);
   drawBreadcrumbs(data.page, nav);
   drawPager(data.prev, data.next);
+  drawUpdated(data.updated);
 
   // An address with a fragment in it arrives before the page it points into
   // exists, so the browser has already given up scrolling by now.
@@ -508,6 +590,294 @@ async function drawPage(nav) {
   }
 
   return { page: data.page, headings };
+}
+
+/* -------------------------------------------------------------------------
+ * Search
+ * ---------------------------------------------------------------------- */
+
+/**
+ * Two indexes, fetched once, and never merged anywhere but here.
+ *
+ * 16e: "the public index is a static file. The gated index is served per role by
+ * api/search-index, built at deploy time into one file per tier and never merged
+ * into the public one." So this tab holds whichever halves its reader is
+ * entitled to, and the merge happens in the reader's own browser where the
+ * mistake is not available to make: a signed out reader never fetches the second
+ * half, and the server would send them an empty one if they did.
+ *
+ * **The two halves fail separately**, because they are different sentences. The
+ * public half failing is search being broken; the staff half failing is the
+ * staff guides being unsearchable this time, which a signed in reader has to be
+ * told rather than left to conclude their guides hold nothing.
+ */
+const index = { loading: null, entries: [], failed: false, staffFailed: false };
+
+/**
+ * Fetch both halves once, and hand every later caller the same promise.
+ *
+ * **A flag set at the top of an async function is not a lock.** The first
+ * keystroke focuses the field and starts this; the keystroke itself calls it
+ * again a moment later, and a `loaded` boolean would have let that second call
+ * return immediately with an index that was still arriving -- so the first
+ * search a reader ever ran answered "nothing matched" and the second worked.
+ * Phase 10's rule in its third shape: what is awaited is the work, not a flag
+ * somebody set beside it.
+ */
+function loadIndex(signedIn) {
+  index.loading ??= fetchIndex(signedIn);
+  return index.loading;
+}
+
+async function fetchIndex(signedIn) {
+  try {
+    const response = await fetch('/search-index.json', { headers: { Accept: 'application/json' } });
+    if (!response.ok) throw new Error(String(response.status));
+    index.entries = await response.json();
+  } catch {
+    index.failed = true;
+  }
+
+  if (!signedIn) return;
+
+  const staff = await get('/api/search-index');
+  if (staff.ok) index.entries = index.entries.concat(staff.data?.entries ?? []);
+  else index.staffFailed = true;
+}
+
+const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * One entry against one query, or null when it does not answer it.
+ *
+ * Every term has to appear somewhere in the page, so two words narrow a search
+ * instead of widening it. Where a term appears is what orders the results: a
+ * word in a title is what somebody is looking for, a word in a heading is the
+ * part of the page they want, and a word in the body is the page mentioning it.
+ */
+function scoreEntry(entry, terms) {
+  const title = String(entry.title ?? '').toLowerCase();
+  const summary = String(entry.summary ?? '').toLowerCase();
+  const blocks = (entry.blocks ?? []).map((block) => ({
+    ...block,
+    hay: `${block.heading ?? ''} ${block.text ?? ''}`.toLowerCase(),
+  }));
+
+  const found = new Set();
+  let score = 0;
+
+  for (const term of terms) {
+    if (title.includes(term)) {
+      score += 6;
+      found.add(term);
+    }
+    if (summary.includes(term)) {
+      score += 3;
+      found.add(term);
+    }
+    for (const block of blocks) {
+      if (!block.hay.includes(term)) continue;
+      score += String(block.heading ?? '').toLowerCase().includes(term) ? 2 : 1;
+      found.add(term);
+    }
+  }
+
+  if (found.size < terms.length) return null;
+
+  // The heading the match sits under, per 16e: "show the matching heading in the
+  // result, and jump straight to the anchor."
+  let best = null;
+  let bestHits = 0;
+  for (const block of blocks) {
+    const hits = terms.filter((term) => block.hay.includes(term)).length;
+    if (hits > bestHits) {
+      bestHits = hits;
+      best = block;
+    }
+  }
+
+  return { entry, score, block: best };
+}
+
+/**
+ * The words around the first match, with the terms marked.
+ *
+ * **It cuts at a space and never inside a word.** The first version took sixty
+ * characters either side of the hit and produced "…s guide is phase 14's", which
+ * reads as a rendering fault before it reads as an excerpt -- and a reader
+ * deciding whether a result is the one they want is reading the first two words
+ * of it.
+ */
+function snippet(text, terms) {
+  const source = String(text ?? '');
+  if (source === '') return '';
+
+  const lower = source.toLowerCase();
+  const at = Math.min(...terms.map((term) => lower.indexOf(term)).filter((i) => i !== -1), Infinity);
+
+  let start = Number.isFinite(at) ? Math.max(0, at - 60) : 0;
+  if (start > 0) {
+    const space = source.indexOf(' ', start);
+    start = space === -1 || space > start + 20 ? start : space + 1;
+  }
+
+  let end = Math.min(source.length, start + 180);
+  if (end < source.length) {
+    const space = source.lastIndexOf(' ', end);
+    end = space <= start ? end : space;
+  }
+
+  const marked = escapeHtml(
+    (start > 0 ? '…' : '') + source.slice(start, end) + (end < source.length ? '…' : '')
+  );
+
+  return marked.replace(
+    new RegExp(terms.map(escapeRegExp).join('|'), 'gi'),
+    (hit) => `<mark>${hit}</mark>`
+  );
+}
+
+function drawResults(query) {
+  const panel = el('docsSearchResults');
+  const field = el('docsSearch');
+  if (!panel || !field) return;
+
+  const terms = query.toLowerCase().split(/\s+/).filter((term) => term.length > 1);
+
+  if (terms.length === 0) {
+    closeResults();
+    return;
+  }
+
+  const notes = [];
+  if (index.failed) notes.push(t('search.failed'));
+  if (index.staffFailed) notes.push(t('search.staffFailed'));
+
+  const results = index.entries
+    .map((entry) => scoreEntry(entry, terms))
+    .filter((result) => result !== null)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 8);
+
+  const parts = notes.map((note) => `<p class="docs-result-note">${escapeHtml(note)}</p>`);
+
+  if (results.length === 0 && !index.failed) {
+    parts.push(`<p class="docs-result-note">${escapeHtml(t('search.none', { query }))}</p>`);
+  }
+
+  parts.push(
+    ...results.map((result, at) => {
+      // **A page's own h1 is not a heading to show.** It carries the same words
+      // as the title above it, and a result reading "Using the portal / Using
+      // the portal" over a link to the top of the page it is already naming
+      // tells a reader nothing twice. The other headings are the whole point of
+      // showing one.
+      const inTitle = result.block?.heading === result.entry.title;
+      const anchor = result.block?.id && !inTitle ? `#${result.block.id}` : '';
+      const heading =
+        result.block?.heading && !inTitle
+          ? `<span class="docs-result-heading">${escapeHtml(result.block.heading)}</span>`
+          : '';
+      const text = snippet(result.block?.text ?? result.entry.summary ?? '', terms);
+
+      return (
+        `<a class="docs-result" role="option" id="docs-result-${at}" aria-selected="false"` +
+        ` href="${escapeHtml(result.entry.path)}${anchor}">` +
+        `<span class="docs-result-title">${escapeHtml(result.entry.title)}</span>${heading}` +
+        `<span class="docs-result-snippet">${text}</span></a>`
+      );
+    })
+  );
+
+  panel.innerHTML = parts.join('');
+  panel.hidden = false;
+  field.setAttribute('aria-expanded', 'true');
+  field.removeAttribute('aria-activedescendant');
+}
+
+function closeResults() {
+  const panel = el('docsSearchResults');
+  const field = el('docsSearch');
+  if (panel) {
+    panel.hidden = true;
+    panel.innerHTML = '';
+  }
+  if (field) {
+    field.setAttribute('aria-expanded', 'false');
+    field.removeAttribute('aria-activedescendant');
+  }
+}
+
+/** Move the highlight, which is what the field's aria-activedescendant names. */
+function moveResult(step) {
+  const panel = el('docsSearchResults');
+  const field = el('docsSearch');
+  if (!panel || panel.hidden) return;
+
+  const options = [...panel.querySelectorAll('.docs-result')];
+  if (options.length === 0) return;
+
+  // Nothing highlighted yet is its own case and not an index to do arithmetic
+  // on: down goes to the first result and up goes to the last, which is what
+  // every list of this shape does.
+  const current = options.findIndex((option) => option.getAttribute('aria-selected') === 'true');
+  const next =
+    current === -1
+      ? step > 0
+        ? 0
+        : options.length - 1
+      : (current + step + options.length) % options.length;
+
+  for (const [at, option] of options.entries()) {
+    option.setAttribute('aria-selected', at === next ? 'true' : 'false');
+  }
+  options[next].scrollIntoView({ block: 'nearest' });
+  field.setAttribute('aria-activedescendant', options[next].id);
+}
+
+function wireSearch(reader) {
+  const field = el('docsSearch');
+  const panel = el('docsSearchResults');
+  if (!field || !panel) return;
+
+  const signedIn = reader?.signed_in === true;
+
+  field.addEventListener('focus', () => loadIndex(signedIn), { once: true });
+
+  field.addEventListener('input', async () => {
+    await loadIndex(signedIn);
+    drawResults(field.value.trim());
+  });
+
+  field.addEventListener('keydown', (event) => {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      moveResult(event.key === 'ArrowDown' ? 1 : -1);
+      return;
+    }
+    if (event.key === 'Escape') {
+      closeResults();
+      return;
+    }
+    if (event.key === 'Enter') {
+      const chosen =
+        panel.querySelector('.docs-result[aria-selected="true"]') ??
+        panel.querySelector('.docs-result');
+      if (chosen) {
+        event.preventDefault();
+        window.location.assign(chosen.getAttribute('href'));
+      }
+    }
+  });
+
+  // A result inside the page being read is a fragment away, and a fragment does
+  // not reload anything -- so the panel has to be shut by hand or it stays over
+  // the heading the reader just jumped to.
+  panel.addEventListener('click', () => closeResults());
+
+  document.addEventListener('click', (event) => {
+    if (!event.target.closest('.docs-search')) closeResults();
+  });
 }
 
 /* -------------------------------------------------------------------------
@@ -586,20 +956,15 @@ async function start() {
   wireMenu();
   wireArticle();
 
-  // The search field is drawn now and answers nothing until part 5 builds the
-  // index behind it. 0c's pattern: a control that is not there yet says so on
-  // itself, and does not fail when it is pressed.
-  const search = el('docsSearch');
-  if (search) {
-    search.disabled = true;
-    search.title = t('search.unavailable');
-  }
-
   // A sidebar that could not be fetched is an empty one, and never a guess. The
   // page itself still renders, which is the right way round: somebody who
   // followed a link came for the page and not for the navigation.
   const { data } = await get('/api/nav');
   const nav = data?.nav ?? { home: null, staff_home: null, sections: [] };
+
+  // Search waits for the reader, because which halves of the index this tab may
+  // fetch is the one thing about it that is not the same for everybody.
+  wireSearch(data?.reader ?? null);
 
   drawAccount(data?.reader ?? null);
   drawSidebar(nav, window.location.pathname.replace(/\/+$/, '') || '/');

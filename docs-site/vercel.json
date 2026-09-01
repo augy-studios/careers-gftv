@@ -5,9 +5,12 @@
   "trailingSlash": false,
   "regions": ["sin1"],
 
+  "buildCommand": "node scripts/build.js",
+  "outputDirectory": "dist",
+
   "functions": {
     "api/**/*.js": {
-      "includeFiles": "{content,api/_content}/**"
+      "includeFiles": "{content,api/_content,api/_generated}/**"
     }
   },
 

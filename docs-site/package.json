@@ -13,6 +13,7 @@
     "bcryptjs": "^2.4.3"
   },
   "scripts": {
+    "build": "node scripts/build.js",
     "gen-lib": "node ../gen-docs-lib.js",
     "check-lib": "node ../gen-docs-lib.js --check"
   }

@@ -121,7 +121,11 @@ function pageStrings() {
 
     (function walk(dir) {
       for (const item of fs.readdirSync(dir)) {
-        if (item === 'node_modules' || item === 'api') continue;
+        // `dist` is the docs site's build output, phase 13 part 5. Every string
+        // in it came from the shell or from a markdown page, both of which are
+        // read below from their sources, so scanning it would report each hit
+        // twice and blame a generated file for it.
+        if (item === 'node_modules' || item === 'api' || item === 'dist') continue;
         const full = path.join(dir, item);
         if (fs.statSync(full).isDirectory()) {
           walk(full);

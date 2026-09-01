@@ -74,6 +74,14 @@ pnpm-debug.log*
 .vercel/
 .vercel_build_output/
 
+# The docs site's build, phase 13 part 5. `node docs-site/scripts/build.js`
+# writes both, at deploy time and before a local preview, and neither is a
+# source file: dist/ is everything that project serves, and api/_generated/ is
+# what the build leaves for the functions to read. Committing either would be
+# committing a copy of the content trees that can disagree with them.
+docs-site/dist/
+docs-site/api/_generated/
+
 # Python, for telegram-bot/
 __pycache__/
 *.py[cod]

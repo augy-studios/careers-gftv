@@ -38,9 +38,23 @@
 //   :::tabs / ::tab X    tabbed blocks, for anything that differs by device
 //   ---                  a rule
 //   **bold**  *italic*  [text](href)
+//   ![alt](src "caption")  an image; alone on a line it becomes a figure
+//   ![alt](pending:name "caption")  16g's placeholder slot, until the capture
+//                        run happens
 //
 // Anything else renders as the characters that were typed, which is the honest
 // failure for a mark nobody meant as a mark.
+//
+// **An image with a bare file name is resolved against the page it is on**, which
+// is what keeps a gated screenshot gated: `![](shot.webp)` on a page under
+// api/_content/admin becomes `/api/content?path=/staff/admin/shot.webp` and goes
+// through the same session check the page did. 16e: "images for gated pages live
+// beside them and stream through the same authenticated route. A gated page with
+// a public screenshot is a leak with extra steps." A src that is already a path
+// or a URL is taken as written, and the build refuses a gated page carrying one.
+//
+// Nothing here knows that address: the server sends it as `assetBase`, which is
+// why the shape of the content route could change without this file moving.
 
 /* -------------------------------------------------------------------------
  * Inline
@@ -73,18 +87,80 @@ export function safeHref(href) {
 }
 
 /**
+ * Where a bare image file name points.
+ *
+ * A src that is already a path, a URL or the `pending:` marker is left alone.
+ * Anything else is a file sitting beside the page, and `assetBase` is the
+ * address the page itself came from: `/api/content?path=/staff/admin` for a
+ * gated page, and nothing at all for a public one. **A page with no
+ * assetBase leaves a bare name alone**, which renders a broken image instead of
+ * guessing at a directory -- the visible failure, and the one an author fixes.
+ *
+ * @param {string} src
+ * @param {{ assetBase?: string }} [opts]
+ */
+export function resolveSrc(src, opts = {}) {
+  const value = String(src ?? '').trim();
+  if (value === '' || /^[a-z]+:/i.test(value) || value.startsWith('/') || value.startsWith('#')) {
+    return value;
+  }
+  const base = String(opts.assetBase ?? '').replace(/\/+$/, '');
+  return base === '' ? value : `${base}/${value}`;
+}
+
+/** One image, for the renderer below and for the build's leak check. */
+export const IMAGE = /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/;
+
+/**
+ * One image, or 16g's placeholder in place of one that has not been captured.
+ *
+ * The placeholder is not a missing image drawn nicely: it is what a page says
+ * before the capture run happens, "so a missing image reads as pending rather
+ * than broken". It carries the alt text the real shot will have, which is also
+ * the review that catches a shot nobody can describe.
+ */
+function imageMarkup(alt, src, opts) {
+  const label = escapeHtml(alt ?? '');
+
+  if (/^pending:/i.test(String(src ?? '').trim())) {
+    return (
+      '<span class="docs-pending"><span class="docs-pending-label"' +
+      ' data-i18n="page.imagePending">Screenshot pending</span>' +
+      `<span class="docs-pending-alt">${label}</span></span>`
+    );
+  }
+
+  const safe = safeHref(resolveSrc(src, opts));
+  if (safe === null) return label;
+
+  return `<img src="${escapeHtml(safe)}" alt="${label}" loading="lazy">`;
+}
+
+/**
  * Inline marks, over already escaped text.
  *
  * Code spans are lifted out first and put back last, so a backtick span
  * containing `**` keeps its asterisks and a span containing a bracket pair is
  * never read as a link. That ordering is the only subtle thing in this file.
+ *
+ * @param {string} text
+ * @param {{ assetBase?: string }} [opts] passed to every image on the way
+ *        through, because where a bare file name points is a fact about the page
+ *        and not about the mark.
  */
-export function inline(text) {
+export function inline(text, opts = {}) {
   const spans = [];
   let out = escapeHtml(text).replace(/`([^`]+)`/g, (match, code) => {
     spans.push(`<code>${code}</code>`);
     return `\u0000${spans.length - 1}\u0000`;
   });
+
+  // Images before links, because the link pattern matches the `[alt](src)` half
+  // of an image and would otherwise leave a stray exclamation mark in front of
+  // one. A caption belongs to a figure and is ignored on an inline image.
+  out = out.replace(new RegExp(IMAGE.source, 'g'), (match, alt, src) =>
+    imageMarkup(alt, src, opts)
+  );
 
   out = out.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (match, label, href) => {
     const safe = safeHref(href);
@@ -133,7 +209,7 @@ const CALLOUTS = ['note', 'tip', 'warning', 'danger'];
  * would turn one sentence into three bullets. A line starting with a mark opens
  * an item; anything else continues the one before it.
  */
-function listBlock(lines) {
+function listBlock(lines, opts) {
   const MARK = /^(?:[-*+]|\d+[.)])\s+/;
   const ordered = /^\d+[.)]\s+/.test(lines[0]);
   const items = [];
@@ -143,11 +219,11 @@ function listBlock(lines) {
     else items[items.length - 1] += ` ${line}`;
   }
 
-  const html = items.map((item) => `<li>${inline(item)}</li>`).join('');
+  const html = items.map((item) => `<li>${inline(item, opts)}</li>`).join('');
   return ordered ? `<ol>${html}</ol>` : `<ul>${html}</ul>`;
 }
 
-function tableBlock(lines) {
+function tableBlock(lines, opts) {
   const cells = (line) =>
     line
       .replace(/^\s*\|/, '')
@@ -163,16 +239,16 @@ function tableBlock(lines) {
   // page sideways", and a table is the other thing that does that.
   return (
     '<div class="docs-scroller"><table><thead><tr>' +
-    head.map((cell) => `<th>${inline(cell)}</th>`).join('') +
+    head.map((cell) => `<th>${inline(cell, opts)}</th>`).join('') +
     '</tr></thead><tbody>' +
     body
-      .map((row) => `<tr>${row.map((cell) => `<td>${inline(cell)}</td>`).join('')}</tr>`)
+      .map((row) => `<tr>${row.map((cell) => `<td>${inline(cell, opts)}</td>`).join('')}</tr>`)
       .join('') +
     '</tbody></table></div>'
   );
 }
 
-function quoteBlock(lines) {
+function quoteBlock(lines, opts) {
   const stripped = lines.map((line) => line.replace(/^>\s?/, ''));
   const alert = /^\[!(\w+)\]\s*$/.exec(stripped[0] ?? '');
 
@@ -182,11 +258,11 @@ function quoteBlock(lines) {
     return (
       `<div class="docs-callout" data-callout="${kind}">` +
       `<p class="docs-callout-label" data-i18n="callout.${kind}">${kind}</p>` +
-      `${render(body).html}</div>`
+      `${render(body, opts).html}</div>`
     );
   }
 
-  return `<blockquote>${render(stripped.join('\n')).html}</blockquote>`;
+  return `<blockquote>${render(stripped.join('\n'), opts).html}</blockquote>`;
 }
 
 /**
@@ -197,11 +273,11 @@ function quoteBlock(lines) {
  * differs between a desktop and a phone. Anything else after the colons renders
  * as the characters that were typed.
  */
-function containerBlock(kind, argument, body) {
+function containerBlock(kind, argument, body, opts) {
   if (kind === 'details') {
     return (
-      `<details class="docs-details"><summary>${inline(argument || 'Details')}</summary>` +
-      `<div class="docs-details-body">${render(body).html}</div></details>`
+      `<details class="docs-details"><summary>${inline(argument || 'Details', opts)}</summary>` +
+      `<div class="docs-details-body">${render(body, opts).html}</div></details>`
     );
   }
 
@@ -238,7 +314,7 @@ function containerBlock(kind, argument, body) {
             `<button type="button" role="tab" id="${group}-t${index}"` +
             ` aria-controls="${group}-p${index}"` +
             ` aria-selected="${index === 0 ? 'true' : 'false'}"` +
-            ` tabindex="${index === 0 ? '0' : '-1'}">${inline(panel.label)}</button>`
+            ` tabindex="${index === 0 ? '0' : '-1'}">${inline(panel.label, opts)}</button>`
         )
         .join('') +
       '</div>' +
@@ -247,27 +323,39 @@ function containerBlock(kind, argument, body) {
           (panel, index) =>
             `<div class="docs-tabpanel" role="tabpanel" id="${group}-p${index}"` +
             ` aria-labelledby="${group}-t${index}"${index === 0 ? '' : ' hidden'}>` +
-            `${render(panel.body).html}</div>`
+            `${render(panel.body, opts).html}</div>`
         )
         .join('')
     );
   }
 
-  return `<p>${inline(`:::${kind} ${argument}`.trim())}</p>`;
+  return `<p>${inline(`:::${kind} ${argument}`.trim(), opts)}</p>`;
 }
 
 /**
  * Render a whole page.
  *
  * @param {string} source markdown, with the front matter already removed
- * @returns {{ html: string, headings: Array<{ id: string, text: string, level: number }> }}
+ * @param {{ assetBase?: string }} [opts] where a bare image file name points
+ * @returns {{
+ *   html: string,
+ *   headings: Array<{ id: string, text: string, level: number }>,
+ *   outline: Array<{ id: string, text: string, level: number }>
+ * }}
  *
  * The headings come back with the HTML because the table of contents is built
  * from the same pass that numbered them. Scanning the rendered DOM for them
  * afterwards would work in a browser and not in the build script, and 16e wants
  * one of these, not two.
+ *
+ * **`outline` is the same list with the h1 in it**, and it exists for one
+ * caller: the build script splits a page into blocks so that a search result can
+ * name the heading it matched under and jump to that anchor. It cannot count
+ * headings itself without owning a second copy of the rule for what a heading is
+ * and what id it gets -- which is how the two would drift into disagreeing about
+ * where a search result points.
  */
-export function render(source) {
+export function render(source, opts = {}) {
   const lines = String(source ?? '')
     .replace(/\r\n/g, '\n')
     .replace(/\t/g, '  ')
@@ -275,6 +363,7 @@ export function render(source) {
 
   const html = [];
   const headings = [];
+  const outline = [];
   const used = new Map();
   let index = 0;
 
@@ -315,7 +404,9 @@ export function render(source) {
       index += 1;
       const body = take((next) => next.trim() !== ':::');
       if (index < lines.length) index += 1;
-      html.push(containerBlock(container[1].toLowerCase(), container[2].trim(), body.join('\n')));
+      html.push(
+        containerBlock(container[1].toLowerCase(), container[2].trim(), body.join('\n'), opts)
+      );
       continue;
     }
 
@@ -324,7 +415,7 @@ export function render(source) {
       index += 1;
       const level = heading[1].length;
       const text = heading[2];
-      const rendered = inline(text);
+      const rendered = inline(text, opts);
 
       // Two headings with the same words get -2, -3, and so on, in the order
       // they appear. Silent, because a page is allowed to say "Troubleshooting"
@@ -338,7 +429,9 @@ export function render(source) {
       // The h1 is the page title and is deliberately not a contents entry:
       // a table of contents whose first line is the heading above it is one
       // wasted line on every page.
-      if (level > 1) headings.push({ id, text: text.replace(/[*`]/g, ''), level });
+      const entry = { id, text: text.replace(/[*`]/g, ''), level };
+      outline.push(entry);
+      if (level > 1) headings.push(entry);
 
       // **The anchor is reachable by keyboard**, which is the whole reason it
       // carries a name instead of aria-hidden. It was written the other way
@@ -361,7 +454,9 @@ export function render(source) {
     }
 
     if (line.trimStart().startsWith('>')) {
-      html.push(quoteBlock(take((next) => next.trimStart().startsWith('>')).map((l) => l.trim())));
+      html.push(
+        quoteBlock(take((next) => next.trimStart().startsWith('>')).map((l) => l.trim()), opts)
+      );
       continue;
     }
 
@@ -371,14 +466,30 @@ export function render(source) {
       const run = take(
         (next) => next.trim() !== '' && !/^(#{1,4}\s|```|:::|>|\|)/.test(next.trim())
       );
-      html.push(listBlock(run.map((l) => l.trim())));
+      html.push(listBlock(run.map((l) => l.trim()), opts));
       continue;
     }
 
     // A table is a header row, an alignment rule, and its body. The rule is
     // what tells a table apart from a paragraph that happens to contain a pipe.
     if (line.includes('|') && /^\s*\|?[\s:|-]+\|[\s:|-]*$/.test(lines[index + 1] ?? '')) {
-      html.push(tableBlock(take((next) => next.includes('|')).map((l) => l.trim())));
+      html.push(tableBlock(take((next) => next.includes('|')).map((l) => l.trim()), opts));
+      continue;
+    }
+
+    // **An image in a block of its own is a figure**, and one inside a sentence
+    // is an image. The caption is the title after the src, which is where a
+    // figure's caption lives in markdown, and it is ignored on an inline image
+    // because a caption in the middle of a paragraph has nowhere to go.
+    const figure = new RegExp(`^${IMAGE.source}$`).exec(line.trim());
+    if (figure) {
+      index += 1;
+      const caption = figure[3] ? `<figcaption>${inline(figure[3], opts)}</figcaption>` : '';
+      const kind = /^pending:/i.test(figure[2]) ? ' docs-figure-pending' : '';
+      html.push(
+        `<figure class="docs-figure${kind}">${imageMarkup(figure[1], figure[2], opts)}` +
+          `${caption}</figure>`
+      );
       continue;
     }
 
@@ -400,8 +511,8 @@ export function render(source) {
       )
       .join(' ');
 
-    html.push(`<p>${inline(joined).split('\u0000br\u0000').join('<br>')}</p>`);
+    html.push(`<p>${inline(joined, opts).split('\u0000br\u0000').join('<br>')}</p>`);
   }
 
-  return { html: html.join(''), headings };
+  return { html: html.join(''), headings, outline };
 }

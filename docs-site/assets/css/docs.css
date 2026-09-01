@@ -146,11 +146,78 @@ body {
   border-radius: var(--radius-sm);
 }
 
-/* Switched off until part 5 builds the index it searches. 0c: a control that is
- * not there yet says so, and does not fail when it is pressed. */
-.docs-search input:disabled {
-  color: var(--text-light);
-  cursor: not-allowed;
+/* The results, hung under the field. Fixed width and its own scroll, because it
+ * holds up to eight results and the header it hangs from is 3.5rem tall. */
+.docs-search {
+  position: relative;
+}
+
+.docs-search-results {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 0.4rem);
+  z-index: 45;
+  max-height: min(70vh, 30rem);
+  overflow-y: auto;
+  padding: 0.35rem;
+  /* Opaque, for the reason the account menu is: it is read over whatever the
+   * page happens to have under it. */
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.docs-result {
+  display: block;
+  padding: 0.5rem 0.6rem;
+  color: var(--text);
+  border-radius: var(--radius-sm);
+}
+
+.docs-result:hover,
+.docs-result[aria-selected='true'] {
+  background: var(--surface-active);
+}
+
+.docs-result-title {
+  display: block;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+/* The heading the match sits under, and the result jumps to its anchor. */
+.docs-result-heading {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--brand-text);
+}
+
+.docs-result-snippet {
+  display: block;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+/* A matched word. **Not colour alone**: the weight steps up with the tint, so
+ * the mark survives a reader who cannot separate the two. */
+.docs-result mark {
+  padding: 0 0.1em;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--surface-active);
+  border-radius: 2px;
+}
+
+/* Nothing matched, or a half of the index that did not load. A sentence in the
+ * panel and never an empty box, which reads as a broken control. */
+.docs-result-note {
+  margin: 0;
+  padding: 0.5rem 0.6rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
 }
 
 .docs-header-actions {
@@ -834,8 +901,69 @@ body {
 }
 
 /* ---------------------------------------------------------------------------
+ * Figures, and the slots waiting for a screenshot
+ * ------------------------------------------------------------------------ */
+
+.docs-figure {
+  margin: 1.5rem 0;
+  max-width: 100%;
+}
+
+.docs-figure img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.docs-figure figcaption {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* 16g: "until the first capture run, render clearly marked placeholder slots
+ * with the intended alt text and caption in place, so a missing image reads as
+ * pending rather than broken." A dashed edge and the words, and it is
+ * deliberately not styled to look like a picture: it is a note saying one is
+ * coming. */
+.docs-pending {
+  display: block;
+  padding: 1.5rem;
+  text-align: center;
+  border: 1px dashed var(--border-control);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.docs-pending-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.docs-pending-alt {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--text);
+}
+
+/* ---------------------------------------------------------------------------
  * States the shell itself draws
  * ------------------------------------------------------------------------ */
+
+/* When the page last changed, per 16e. Quiet, and absent when there is no date
+ * to show. */
+.docs-updated {
+  max-width: var(--docs-content-width);
+  margin: 2rem 0 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
 
 .docs-state {
   max-width: var(--docs-content-width);

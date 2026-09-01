@@ -68,7 +68,7 @@ nothing is unbuilt, and it will work again in a moment.
 | `main-site/` | The portal. Static HTML, CSS, and JavaScript with no build step, plus Vercel serverless functions in `main-site/api/`. This is the Vercel root directory for the portal project. |
 | `migrations/` | Every numbered SQL file, run by hand in the Supabase SQL editor. Nothing automated applies these. |
 | `telegram-bot/` | The `careersgftv_bot` Telegram bot, phase 11, all nine commands answering. Linking from either end, sign in codes and the one tap link, the outbox drain behind the three notification kinds, and the four list commands. Runs on a Debian VPS under tmux, deployed by pulling this repository and restarting the process by hand. **It has no scripted checks at all**, by deviation 91: a person walks the checklist in its README. |
-| `docs-site/` | The documentation site for `docs.careers.globalfurry.tv`, four audiences behind one gate, being built in phase 13. Its own Vercel project on the same repo, so it cannot import anything from `main-site/`: what it shares is duplicated into it by `gen-docs-lib.js` and never edited in place. |
+| `docs-site/` | The documentation site for `docs.careers.globalfurry.tv`, four audiences behind one gate, being built in phase 13. Its own Vercel project on the same repo, so it cannot import anything from `main-site/`: what it shares is duplicated into it by `gen-docs-lib.js` and never edited in place. **It is the one directory with a build step**, `docs-site/scripts/build.js`, per 16e. |
 | `apps-script/` | The Google Apps Script that each job's application form runs on submit, per section 13. Not deployed by anything: it is pasted into a form by hand. See [The application form webhook](#the-application-form-webhook). |
 | `tests/` | Playwright checks, run by hand against a deployment. Not a CI suite: they need a staff credential and they write real rows. Phase 10's is the exception and needs neither, because a service worker cannot be checked by asking a deployment anything. |
 
@@ -203,8 +203,13 @@ Two Vercel projects, one repository.
 | Portal | `main-site` | `careers.globalfurry.tv` | 1 |
 | Documentation | `docs-site` | `docs.careers.globalfurry.tv` | 13 |
 
-Neither has a build step for its static files. The portal project installs
-`main-site/package.json` so the functions have their dependencies.
+**The portal has no build step and the docs site has one**, which is section
+16e's stated exception and nothing wider: hand maintaining a shared sidebar and
+header across thirty documentation files is how documentation rots. The docs
+project's settings come from its own `vercel.json` — Build Command
+`node scripts/build.js`, Output Directory `dist` — so only what that script wrote
+is served, and the markdown it was built from is not. Both projects install their
+own `package.json` so their functions have their dependencies.
 
 To point `careers.globalfurry.tv` at the portal project: add it as a domain in
 the Vercel project settings, then add the CNAME Vercel gives you at the DNS
@@ -319,12 +324,14 @@ person who remembers it. Run it before pushing; `--list` prints what it reads.
 ## Scripts at the repo root
 
 Eight, all plain `node`, none of them part of a build. The four checkers are
-the ones to run before pushing.
+the ones to run before pushing. The one script that *is* a build is not here:
+[`docs-site/scripts/build.js`](docs-site/scripts/build.js) belongs to that
+project and is documented in its own README.
 
 | Script | What it does |
 |---|---|
 | `check-i18n.js` | Every `t()` key in the source against both dictionaries. Reports missing keys, unused ones, and the sixty built at runtime that it cannot resolve. **Run it before shipping**: a missing key renders as the raw key. |
-| `check-copy.js` | Every English string a reader can see, against the house style above. Reads the dictionary, the pages with their comments stripped out, the phase list, `llms.txt`, every quoted string in the bot's Python and its About and Description text — 3,470 strings today — and exits non-zero on a banned phrase, naming the key and the sentence around it. `--list` prints what it reads and what is banned. |
+| `check-copy.js` | Every English string a reader can see, against the house style above. Reads the dictionary, the pages with their comments stripped out, the phase list, `llms.txt`, every quoted string in the bot's Python and its About and Description text — 3,536 strings today — and exits non-zero on a banned phrase, naming the key and the sentence around it. `--list` prints what it reads and what is banned. |
 | `check-precache.js` | Every entry in `sw.js`'s precache list resolved the way `cleanUrls` does, and non-zero on one that is not on disk. The precache list is the most dangerous object in the site: a bad entry costs one file at runtime and this is what stops it reaching production at all. |
 | `gen-docs-lib.js` | The docs site's copies of the portal's shared modules, written from `main-site/api/_lib/` and `api/auth/staff/`. Vercel builds each project from its own root and cannot reach outside it, so 5h says duplicate them and keep the two copies identical; this is what makes that true rather than remembered. Every place the two sites genuinely differ is a rule in the file with its reason beside it, and a rule whose text no longer appears stops the run instead of quietly dropping the difference. `--check` fails on a stale copy and **belongs beside the other three before a push**: a change to `main-site/api/_lib/` is half a change until this has run. |
 | `gen-icons.js` | Every icon under `main-site/`, from `HLC-source.png` at this level. The source is deliberately not one of the outputs. See [`main-site/README.md`](main-site/README.md). |

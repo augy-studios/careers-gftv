@@ -180,7 +180,11 @@ const EXEMPT = {
  */
 const SCAN_ROOTS = ['main-site', 'telegram-bot', 'migrations', 'docs-site'];
 
-const SCAN_SKIP_DIRS = new Set(['node_modules', '.git', '.vercel', '__pycache__']);
+// `dist` is the docs site's build output, phase 13 part 5: copies of files this
+// scan already reads at their source, plus one HTML page per public markdown
+// page. Reading it would report the same comment twice and ask for an exemption
+// on a file nobody wrote.
+const SCAN_SKIP_DIRS = new Set(['node_modules', '.git', '.vercel', '__pycache__', 'dist']);
 const SCAN_SKIP_EXT = new Set([
   '.png', '.jpg', '.jpeg', '.webp', '.gif', '.ico', '.svg',
   '.woff', '.woff2', '.ttf', '.pdf', '.zip', '.map',

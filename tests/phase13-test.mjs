@@ -1,0 +1,762 @@
+// Phase 13 verification run, from next-steps.md section 2.
+//
+//   node tests/phase13-test.mjs                  everything that can run
+//   node tests/phase13-test.mjs --only=index     one or more sections
+//
+// **Everything in this file needs no deployment, no credentials and no
+// network**, like phase 10's and for a related reason: what phase 13 part 5
+// builds is a build, and a build is wrong before it is deployed or it is not
+// wrong at all. Phase 9's lesson is kept as well — nothing reads a credential
+// above a section, so `--only=` cannot be defeated by a `requireEnv` at module
+// level.
+//
+// It is the phase's file and not part 5's, so parts 6 and 7 add sections to it.
+// What is here is part 5: the two pipelines, the split search index, the gated
+// images, and the refusals the build makes.
+//
+// **It writes two fixtures into the gated content tree and removes them again.**
+// There is no other way to prove a gated image end to end while every page in
+// both trees is still a placeholder: the thing under test is a file beside a
+// page and the route that serves it. Both paths are checked for absence first,
+// so a run can never overwrite something somebody wrote, and the finally at the
+// foot removes them and rebuilds whatever the run replaced.
+//
+// The sections, and what each one is about:
+//
+//   build      what the build wrote, and what it deliberately did not
+//   index      the split search index, which is the check 16e asks for by name
+//   render     the marks part 5 added to the renderer
+//   refusals   every way the build says no, each one fired on purpose
+//   shell      a browser over the built output and a stand in for the routes
+
+import { chromium } from 'playwright';
+import { createServer } from 'node:http';
+import { execFileSync } from 'node:child_process';
+import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, rmSync } from 'node:fs';
+import { join, extname, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const DOCS = join(HERE, '..', 'docs-site');
+const DIST = join(DOCS, 'dist');
+const GENERATED = join(DOCS, 'api/_generated');
+
+const ONLY = (() => {
+  const arg = process.argv.find((value) => value.startsWith('--only='));
+  return arg ? arg.slice('--only='.length).split(',').map((s) => s.trim()) : null;
+})();
+
+/* -------------------------------------------------------------------------
+ * Reporting. Phase 8's habits, kept.
+ * ---------------------------------------------------------------------- */
+
+let passed = 0;
+let failed = 0;
+let skipped = 0;
+const failures = [];
+const skips = [];
+let currentSection = '';
+
+function check(name, condition, detail) {
+  if (condition) {
+    passed += 1;
+    console.log(`  ✓ ${name}`);
+    return;
+  }
+  failed += 1;
+  failures.push({ section: currentSection, name, detail });
+  console.log(`  ✗ ${name}`);
+  if (detail) console.log(`      ${detail}`);
+}
+
+function skip(name, why) {
+  skipped += 1;
+  skips.push({ section: currentSection, name, why });
+  console.log(`  – ${name}`);
+  console.log(`      ${why}`);
+}
+
+function section(title) {
+  currentSection = title;
+  console.log(`\n${title}`);
+}
+
+/* -------------------------------------------------------------------------
+ * The build, and the fixtures
+ * ---------------------------------------------------------------------- */
+
+/** Run the build. Never throws: its exit code and output are the subject. */
+function build() {
+  try {
+    return {
+      code: 0,
+      out: execFileSync(process.execPath, ['scripts/build.js'], {
+        cwd: DOCS,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      }),
+    };
+  } catch (cause) {
+    return { code: cause.status ?? 1, out: `${cause.stdout ?? ''}${cause.stderr ?? ''}` };
+  }
+}
+
+// A 1x1 png. Small enough to sit in a source file, real enough that a browser
+// reports a natural width for it, which is how the gated image check tells a
+// picture that loaded from an <img> that merely exists.
+const PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  'base64'
+);
+
+const FIXTURE_IMAGE = join(DOCS, 'api/_content/admin/example.png');
+const FIXTURE_PAGE = join(DOCS, 'api/_content/admin/example-shot.md');
+const FIXTURE_PATH = '/staff/admin/example-shot';
+
+function writeFixtures() {
+  for (const file of [FIXTURE_IMAGE, FIXTURE_PAGE]) {
+    if (existsSync(file)) {
+      console.error(`${file} already exists. This run writes and deletes it, so it stops here.`);
+      process.exit(1);
+    }
+  }
+
+  writeFileSync(FIXTURE_IMAGE, PNG);
+  writeFileSync(
+    FIXTURE_PAGE,
+    [
+      '---',
+      'title: An example shot',
+      'access: admin',
+      'order: 9',
+      'summary: A page with a picture on it.',
+      '---',
+      '',
+      '# An example shot',
+      '',
+      'A picture that only an admin may fetch.',
+      '',
+      '![The overview](example.png "The overview, with seeded data.")',
+      '',
+      '## Waiting for a capture',
+      '',
+      '![The applications table](pending:admin-applications "Coming with the capture run.")',
+      '',
+    ].join('\n')
+  );
+}
+
+const clearFixtures = () => {
+  for (const file of [FIXTURE_IMAGE, FIXTURE_PAGE]) rmSync(file, { force: true });
+};
+
+function walk(dir) {
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir).flatMap((entry) => {
+    const full = join(dir, entry);
+    return statSync(full).isDirectory() ? walk(full) : [full];
+  });
+}
+
+/* -------------------------------------------------------------------------
+ * The modules under test, imported once
+ * ---------------------------------------------------------------------- */
+
+const pagesModule = await import('../docs-site/api/_lib/pages.js');
+const generatedModule = await import('../docs-site/api/_lib/generated.js');
+const markdown = await import('../docs-site/assets/js/markdown.js');
+
+const {
+  loadPages,
+  readablePage,
+  readableAsset,
+  pagePathFromSegments,
+  assetPathFromSegments,
+  frontMatter,
+  navFor,
+} = pagesModule;
+const { gatedIndexFor, updatedFor } = generatedModule;
+const { render } = markdown;
+
+/* -------------------------------------------------------------------------
+ * Sections
+ * ---------------------------------------------------------------------- */
+
+const SECTIONS = [];
+function define(name, title, fn) {
+  SECTIONS.push({ name, title, fn });
+}
+
+define('build', 'What the build wrote, and what it did not', async () => {
+  const { pages } = loadPages({ fresh: true });
+  const publicPages = [...pages.values()].filter((page) => page.pipeline === 'public');
+  const gatedPages = [...pages.values()].filter((page) => page.pipeline === 'gated');
+
+  check(
+    '1. one static file per public page',
+    publicPages.every((page) =>
+      existsSync(join(DIST, page.path === '/' ? 'index.html' : `${page.path.slice(1)}.html`))
+    ),
+    `${publicPages.length} public pages`
+  );
+
+  check(
+    '2. no gated page is in the output',
+    gatedPages.every((page) => !existsSync(join(DIST, `${page.path.slice(1)}.html`))),
+    'a gated page in the static root is the leak the two pipelines exist to prevent'
+  );
+
+  const distFiles = walk(DIST);
+  check('3. no markdown in the output', !distFiles.some((file) => file.endsWith('.md')));
+  check('4. neither content tree is in the output', !existsSync(join(DIST, 'content')) && !existsSync(join(DIST, 'api')));
+  check('5. the shell is in the output, for the gated addresses', existsSync(join(DIST, 'shell.html')));
+  check('6. the assets are in the output', existsSync(join(DIST, 'assets/js/shell.js')));
+  check(
+    '7. what the functions read is outside the output',
+    existsSync(join(GENERATED, 'updated.json')) && !existsSync(join(DIST, 'api/_generated')),
+    'api/_generated is carried by includeFiles and is never a URL'
+  );
+
+  const home = readFileSync(join(DIST, 'index.html'), 'utf8');
+  check('8. a built page is marked prerendered', home.includes('id="docsArticle" data-prerendered'));
+  check('9. a built page carries its own title', /<title>[^<]*\|[^<]*<\/title>/.test(home));
+  check('10. and no data-i18n on it to overwrite it', !/<title data-i18n/.test(home));
+  check('11. a built page carries no front matter', !home.includes('access: public'));
+
+  const block = /<script type="application\/json" id="docsPageData">([\s\S]*?)<\/script>/.exec(home);
+  const data = block ? JSON.parse(block[1]) : null;
+  check('12. the data block parses and names the page', data?.page?.path === '/');
+  check(
+    '13. the data block carries no build machine path',
+    data !== null && data.page.file === undefined,
+    'page.file is an absolute path on whoever ran the build'
+  );
+  check('14. the data block carries a date', /^\d{4}-\d{2}-\d{2}$/.test(data?.updated ?? ''));
+});
+
+define('index', 'The split search index, and the dates', async () => {
+  const { pages } = loadPages({ fresh: true });
+  const publicPages = [...pages.values()].filter((page) => page.pipeline === 'public');
+
+  const publicIndex = JSON.parse(readFileSync(join(DIST, 'search-index.json'), 'utf8'));
+  const publicText = JSON.stringify(publicIndex);
+
+  check(
+    '15. the public index holds every public page',
+    publicIndex.length === publicPages.length,
+    `${publicIndex.length} of ${publicPages.length}`
+  );
+  check('16. the public index holds no gated path', !publicText.includes('/staff'));
+
+  // Not the titles. The public home page names the staff documentation on
+  // purpose, per 16a's one exception to the silence, so "Staff documentation"
+  // appears in the public index correctly. What must never appear is a sentence
+  // out of a gated page.
+  const gatedSentences = gatedIndexFor('developer')
+    .flatMap((entry) => entry.blocks.map((entry) => entry.text))
+    .filter((text) => text.length >= 30)
+    .map((text) => text.slice(0, 30));
+  check(
+    '17. the public index holds no sentence from a gated page',
+    gatedSentences.length > 0 && gatedSentences.every((text) => !publicText.includes(text)),
+    `${gatedSentences.length} gated sentences compared`
+  );
+
+  const poster = gatedIndexFor('poster');
+  const developer = gatedIndexFor('developer');
+  check('18. a signed out reader gets nothing from the gated index', gatedIndexFor('public').length === 0);
+  check('19. a poster gets gated pages only', poster.every((entry) => entry.path.startsWith('/staff')));
+  check('20. a poster cannot see a developer page', !JSON.stringify(poster).includes('/staff/developer'));
+  check('21. a developer gets more than a poster', developer.length > poster.length);
+  check(
+    '22. the gated index holds no public page',
+    !developer.some((entry) => !entry.path.startsWith('/staff'))
+  );
+  check(
+    '23. a result can name the heading it matched and its anchor',
+    developer.some((entry) => entry.blocks.some((block) => block.id && block.heading)),
+    '16e: show the matching heading in the result, and jump straight to the anchor'
+  );
+
+  const committed = [...pages.values()].filter((page) => page.path !== FIXTURE_PATH);
+  const dated = committed.filter((page) => /^\d{4}-\d{2}-\d{2}$/.test(updatedFor(page.path) ?? ''));
+
+  if (dated.length === 0) {
+    skip(
+      '24. every committed page has a date',
+      'git dated nothing, so this is a clone with no history rather than a defect'
+    );
+  } else {
+    check(
+      '24. every committed page has a date',
+      dated.length === committed.length,
+      `${dated.length} of ${committed.length}`
+    );
+  }
+
+  check(
+    '25. a page git cannot date carries none',
+    updatedFor(FIXTURE_PATH) === null,
+    'a gap is data: no date, and never the day the deploy happened'
+  );
+});
+
+define('render', 'The marks part 5 added to the renderer', async () => {
+  const figure = render('![A shot](example.png "The caption.")', {
+    assetBase: '/api/content?path=/staff/admin',
+  }).html;
+  check(
+    '26. a bare file name resolves against the page it is on',
+    figure.includes('src="/api/content?path=/staff/admin/example.png"')
+  );
+  check('27. an image in a block of its own is a figure', figure.includes('<figcaption>The caption.</figcaption>'));
+
+  const pending = render('![The overview](pending:overview "Soon.")').html;
+  check('28. a pending image is a slot and not an image', pending.includes('docs-pending') && !pending.includes('<img'));
+  check('29. a pending slot carries the alt text the shot will have', pending.includes('The overview'));
+
+  const inline = render('Text with ![a shot](/screenshots/x.webp) in it.').html;
+  check('30. an image inside a sentence stays an image', inline.startsWith('<p>') && inline.includes('<img'));
+  check('31. an absolute src is left as it was written', inline.includes('src="/screenshots/x.webp"'));
+  check('32. an unsafe src renders as text', !render('![x](javascript:alert(1))').html.includes('javascript:'));
+
+  const { headings, outline } = render('# One\n\ntext\n\n## Two\n\nmore\n\n### Three');
+  check('33. the contents leave the h1 out', headings.length === 2 && headings[0].text === 'Two');
+  check('34. the outline keeps it, in document order', outline.length === 3 && outline[0].text === 'One');
+  check(
+    '35. every outline entry has the id its heading was given',
+    outline.every((entry) => typeof entry.id === 'string' && entry.id !== ''),
+    'the build splits a page by these, so a wrong id is a search result pointing nowhere'
+  );
+});
+
+define('refusals', 'Every way the build says no', async () => {
+  let number = 36;
+  const fire = (what, file, body, expected) => {
+    try {
+      writeFileSync(file, body);
+      const result = build();
+      check(
+        `${number}. ${what}`,
+        result.code !== 0 && result.out.includes(expected),
+        result.out.split('\n').slice(0, 2).join(' ')
+      );
+    } finally {
+      rmSync(file, { force: true });
+      number += 1;
+    }
+  };
+
+  fire(
+    'a page with no access key stops the build',
+    join(DOCS, 'content/portal/zz-test-nameless.md'),
+    '---\ntitle: No key\n---\n\n# No key\n',
+    'no access key'
+  );
+  fire(
+    'a page whose access is misspelled',
+    join(DOCS, 'content/portal/zz-test-typo.md'),
+    '---\ntitle: Typo\naccess: pubic\n---\n\n# Typo\n',
+    'which is not one of'
+  );
+  fire(
+    'a gated page pointing at a public image',
+    join(DOCS, 'api/_content/admin/zz-test-leaky.md'),
+    '---\ntitle: Leaky\naccess: admin\n---\n\n# Leaky\n\n![x](/screenshots/x.webp)\n',
+    'address outside this page'
+  );
+  fire(
+    'a gated page pointing at a file that is not there',
+    join(DOCS, 'api/_content/admin/zz-test-missing.md'),
+    '---\ntitle: Missing\naccess: admin\n---\n\n# Missing\n\n![x](nowhere.png)\n',
+    'not a file beside it'
+  );
+  fire(
+    'a public page with a bare image name',
+    join(DOCS, 'content/portal/zz-test-bare.md'),
+    '---\ntitle: Bare\naccess: public\n---\n\n# Bare\n\n![x](shot.webp)\n',
+    'has no directory'
+  );
+  fire(
+    'a picture dropped into the public tree',
+    join(DOCS, 'content/portal/zz-test-stray.png'),
+    PNG,
+    'not a page'
+  );
+  fire(
+    'an asset of a type this site does not serve',
+    join(DOCS, 'api/_content/admin/zz-test-notes.txt'),
+    'hello',
+    'is not something this site serves'
+  );
+  fire(
+    'an asset outside every section',
+    join(DOCS, 'api/_content/zz-test-loose.png'),
+    PNG,
+    'sits in a section directory'
+  );
+
+  // The one file that is none of the above: a page embeds it and nothing else
+  // can reach it. Decision 6 puts the developer guide's test-scripts.json here,
+  // and part 5's asset rule would have refused it as an unrecognised file.
+  const dataFile = join(DOCS, 'api/_content/developer/zz-test-data.json');
+  try {
+    writeFileSync(dataFile, '{"scripts":[]}');
+    const result = build();
+    check(`${number}. a data file in the gated tree is allowed`, result.code === 0, result.out);
+    number += 1;
+    check(
+      `${number}. and has no address of its own`,
+      readableAsset('/staff/developer/zz-test-data.json', 'developer') === null,
+      'the only supported way to that content is the page explaining what it does'
+    );
+    number += 1;
+  } finally {
+    rmSync(dataFile, { force: true });
+  }
+
+  const clean = build();
+  check(`${number}. the build is clean again once they are gone`, clean.code === 0, clean.out);
+});
+
+define('shell', 'The shell, over the built output and the three routes', async () => {
+  const TYPES = {
+    '.html': 'text/html; charset=utf-8',
+    '.js': 'text/javascript; charset=utf-8',
+    '.css': 'text/css; charset=utf-8',
+    '.json': 'application/json; charset=utf-8',
+    '.woff2': 'font/woff2',
+    '.png': 'image/png',
+  };
+
+  // The three routes, over the real modules. **The tier arrives in a header,
+  // which is this file standing in for a session and nothing else**: on the site
+  // it comes from reader.js, out of a session row, and never from anything a
+  // client sent. Serving it this way is what lets every check here run with no
+  // database and no credential.
+  const server = createServer((req, res) => {
+    const url = new URL(req.url, 'http://localhost');
+    const tier = req.headers['x-tier'] ?? 'public';
+    const json = (body, status = 200) => {
+      res.writeHead(status, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(body));
+    };
+
+    if (url.pathname === '/api/nav') {
+      return json({
+        ok: true,
+        data: {
+          reader: {
+            signed_in: tier !== 'public',
+            username: tier === 'public' ? null : 'staffer',
+            role: tier === 'developer' ? 'admin' : tier === 'public' ? null : 'job poster',
+            tier,
+          },
+          nav: navFor(tier),
+        },
+      });
+    }
+
+    if (url.pathname === '/api/search-index') {
+      return json({ ok: true, data: { entries: gatedIndexFor(tier) } });
+    }
+
+    // **The platform's own 404, for the shape that does not exist.** Part 3
+    // wrote this route as `api/content/[...page].js` and part 5 found, against
+    // the deployment, that a bare `api/` project on Vercel binds nothing from a
+    // file based dynamic route and does not match more than one segment at all.
+    // The stand in server it had been proved against read the segments itself,
+    // which is how a route that answered nothing on production looked perfect
+    // here. So this one refuses the path shape outright: **a harness that is
+    // more capable than the platform is a harness that hides this class of
+    // defect**, and this is the class phase 3 has now been bitten by four times.
+    if (url.pathname.startsWith('/api/content/')) {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      return res.end('The page could not be found. NOT_FOUND');
+    }
+
+    if (url.pathname === '/api/content') {
+      const segments = (url.searchParams.get('path') ?? '').split('/').filter(Boolean);
+
+      const assetPath = assetPathFromSegments(segments);
+      if (assetPath !== null) {
+        const asset = readableAsset(assetPath, tier);
+        if (!asset) return json({ ok: false, error: { code: 'not_found' } }, 404);
+        res.writeHead(200, { 'Content-Type': asset.type, 'Cache-Control': 'private, max-age=300' });
+        return res.end(readFileSync(asset.file));
+      }
+
+      const path = segments.length === 0 ? '/' : pagePathFromSegments(segments);
+      const found = path === null ? null : readablePage(path, tier);
+      if (!found) return json({ ok: false, error: { code: 'not_found' } }, 404);
+
+      return json({
+        ok: true,
+        data: {
+          page: found.page,
+          prev: found.prev,
+          next: found.next,
+          asset_base: found.assetBase,
+          updated: updatedFor(found.page.path),
+          markdown: frontMatter(readFileSync(found.file, 'utf8'))?.body ?? '',
+        },
+      });
+    }
+
+    // The filesystem, then the rewrite, in that order, which is Vercel's own and
+    // is the reason the built pages take over from the shell without anything
+    // being switched.
+    const candidates = [
+      join(DIST, url.pathname.slice(1)),
+      join(DIST, `${url.pathname.slice(1)}.html`),
+      join(DIST, 'shell.html'),
+    ];
+    const file = candidates.find((candidate) => existsSync(candidate) && extname(candidate) !== '');
+    res.writeHead(200, { 'Content-Type': TYPES[extname(file)] ?? 'application/octet-stream' });
+    res.end(readFileSync(file));
+  });
+
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  console.log(`      serving the built site at ${base}`);
+
+  const browser = await chromium.launch();
+
+  const open = async (path, tier, viewport = { width: 1280, height: 900 }) => {
+    const context = await browser.newContext({
+      viewport,
+      extraHTTPHeaders: tier === 'public' ? {} : { 'x-tier': tier },
+    });
+    const page = await context.newPage();
+    await page.goto(`${base}${path}`, { waitUntil: 'networkidle' });
+    return { context, page };
+  };
+
+  try {
+    {
+      const { context, page } = await open('/portal/creating-an-account', 'public');
+      check('47. a built page renders its article', (await page.locator('#docsArticle h1').count()) === 1);
+      check('48. and its breadcrumbs', (await page.locator('#docsBreadcrumbs a').count()) > 0);
+      check('49. and its pager', await page.locator('#docsPager a').first().isVisible());
+      check(
+        '50. and when it was last updated',
+        /Last updated \d+ \w+ \d{4}/.test((await page.locator('#docsUpdated').textContent()) ?? ''),
+        (await page.locator('#docsUpdated').textContent()) ?? ''
+      );
+      check('51. its tab title carries the site name', (await page.title()).includes('Careers@GFTV docs'));
+      check(
+        '52. and it fetched no content route to do any of it',
+        !(await page.evaluate(() =>
+          performance.getEntriesByType('resource').some((entry) => entry.name.includes('/api/content'))
+        )),
+        'a static page that still fetches its own body is not a static page'
+      );
+      await context.close();
+    }
+
+    {
+      const { context, page } = await open('/', 'public');
+      await page.fill('#docsSearch', 'telegram');
+      await page.waitForSelector('.docs-result');
+      check('53. search finds a public page', (await page.locator('.docs-result').count()) > 0);
+      check('54. and marks the words it matched', (await page.locator('.docs-result mark').count()) > 0);
+
+      await page.fill('#docsSearch', 'developer');
+      await page.waitForTimeout(150);
+      const hits = (await page.locator('.docs-result').allTextContents()).join(' ').toLowerCase();
+      check(
+        '55. a signed out reader cannot find a developer page',
+        !hits.includes('developer guide'),
+        '16e: a public reader must not be able to find a developer page heading in search'
+      );
+
+      await page.fill('#docsSearch', 'portal');
+      await page.waitForSelector('.docs-result');
+      await page.keyboard.press('ArrowDown');
+      check(
+        '56. the first arrow down takes the first result',
+        (await page.locator('#docsSearch').getAttribute('aria-activedescendant')) === 'docs-result-0'
+      );
+      await page.keyboard.press('ArrowUp');
+      check(
+        '57. arrow up from there wraps to the last',
+        (await page.locator('#docsSearch').getAttribute('aria-activedescendant')) ===
+          `docs-result-${(await page.locator('.docs-result').count()) - 1}`
+      );
+      await page.keyboard.press('Escape');
+      check('58. escape shuts the panel', await page.locator('#docsSearchResults').isHidden());
+
+      await page.fill('#docsSearch', 'portal');
+      await page.waitForSelector('.docs-result');
+      await page.locator('.docs-result').first().click();
+      await page.waitForLoadState('networkidle');
+      check('59. a result goes to its page', new URL(page.url()).pathname.startsWith('/portal'));
+      await context.close();
+    }
+
+    {
+      const { context, page } = await open('/', 'developer');
+      await page.fill('#docsSearch', 'developer');
+      await page.waitForSelector('.docs-result');
+      const hits = (await page.locator('.docs-result').allTextContents()).join(' ').toLowerCase();
+      check('60. an admin does find the developer guide', hits.includes('developer'));
+      await context.close();
+    }
+
+    {
+      const { context, page } = await open(FIXTURE_PATH, 'developer');
+      check('61. a gated page renders in the same shell', (await page.locator('#docsArticle h1').count()) === 1);
+      check('62. its image is drawn', (await page.locator('.docs-figure img').count()) === 1);
+      check(
+        '63. through the authenticated route, addressed the way the platform routes',
+        ((await page.locator('.docs-figure img').first().getAttribute('src')) ?? '').startsWith(
+          '/api/content?path=/staff/admin/'
+        ),
+        'a path shaped address here is the defect part 5 found on the deployment'
+      );
+      check(
+        '64. and it loads',
+        await page.locator('.docs-figure img').first().evaluate((img) => img.naturalWidth > 0)
+      );
+      check('65. a shot not yet captured is a slot', (await page.locator('.docs-pending').count()) === 1);
+      check(
+        '66. a page git cannot date shows no date',
+        await page.locator('#docsUpdated').isHidden(),
+        'the fixture is written by this run and never committed'
+      );
+
+      const admin = await page.evaluate(async () => {
+        const response = await fetch('/api/content?path=/staff/admin/example.png');
+        return { status: response.status, cache: response.headers.get('cache-control') };
+      });
+      check('67. an admin may fetch the image', admin.status === 200);
+      check(
+        '68. and it never enters a shared cache',
+        (admin.cache ?? '').includes('private'),
+        `Cache-Control: ${admin.cache}`
+      );
+
+      await page.goto(`${base}/staff/developer/start-here`, { waitUntil: 'networkidle' });
+      check(
+        '69. a committed gated page shows when it was last updated',
+        /Last updated \d+ \w+ \d{4}/.test((await page.locator('#docsUpdated').textContent()) ?? ''),
+        (await page.locator('#docsUpdated').textContent()) ?? ''
+      );
+      check(
+        '70. and draws its breadcrumbs and pager from the same functions',
+        (await page.locator('#docsBreadcrumbs a').count()) > 0 &&
+          (await page.locator('#docsPager a').count()) > 0
+      );
+      await context.close();
+    }
+
+    {
+      const { context, page } = await open('/', 'public');
+      const status = await page.evaluate(async () => {
+        const response = await fetch('/api/content?path=/staff/admin/example.png');
+        return response.status;
+      });
+      check(
+        '71. a signed out reader gets 404 for that image',
+        status === 404,
+        'the same answer a file nobody wrote gets'
+      );
+
+      // The shape the platform never routed. It is checked here so that going
+      // back to it is a failing check rather than a silent 404 on production.
+      const asPath = await page.evaluate(async () => {
+        const response = await fetch('/api/content/staff/admin/example.png');
+        return response.status;
+      });
+      check('72. and the path shaped address answers nothing to anybody', asPath === 404);
+      await context.close();
+    }
+
+    let number = 73;
+    for (const width of [375, 1440]) {
+      const { context, page } = await open('/', 'public', { width, height: 900 });
+      await page.fill('#docsSearch', 'portal');
+      await page.waitForSelector('.docs-result');
+
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth
+      );
+      check(`${number}. no sideways scroll at ${width}px with results open`, overflow <= 0, `${overflow}px`);
+      number += 1;
+
+      const inside = await page
+        .locator('#docsSearchResults')
+        .evaluate((panel) => panel.getBoundingClientRect().right <= window.innerWidth + 1);
+      check(`${number}. the results panel stays on screen at ${width}px`, inside);
+      number += 1;
+
+      await context.close();
+    }
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
+/* -------------------------------------------------------------------------
+ * Run
+ * ---------------------------------------------------------------------- */
+
+async function main() {
+  console.log('Phase 13 verification');
+  console.log('  every section here needs no deployment, no credentials, and no network');
+
+  // A mistyped --only= otherwise runs nothing and exits 0, which reads exactly
+  // like a clean run.
+  const unknown = (ONLY ?? []).filter((name) => !SECTIONS.some((entry) => entry.name === name));
+  if (unknown.length > 0) {
+    console.error(`\nNo such section: ${unknown.join(', ')}`);
+    console.error(`Sections: ${SECTIONS.map((entry) => entry.name).join(', ')}`);
+    process.exit(1);
+  }
+
+  writeFixtures();
+
+  try {
+    const first = build();
+    if (first.code !== 0) {
+      console.error('\nThe build failed before any check ran:');
+      console.error(first.out);
+      process.exit(1);
+    }
+
+    for (const entry of SECTIONS) {
+      if (ONLY && !ONLY.includes(entry.name)) continue;
+      section(entry.title);
+      try {
+        await entry.fn();
+      } catch (cause) {
+        check(`${entry.name} threw`, false, String(cause?.stack ?? cause));
+      }
+    }
+  } finally {
+    // The fixtures go, and the output is rebuilt without them, so a run leaves
+    // the tree exactly as it found it.
+    clearFixtures();
+    build();
+  }
+
+  console.log(`\n${passed} passed, ${failed} failed, ${skipped} skipped.`);
+
+  if (failures.length > 0) {
+    console.log('\nFailures:');
+    for (const item of failures) console.log(`  ${item.section} — ${item.name}`);
+  }
+  if (skips.length > 0) {
+    console.log('\nSkipped:');
+    for (const item of skips) console.log(`  ${item.section} — ${item.name}: ${item.why}`);
+  }
+
+  process.exit(failed > 0 ? 1 : 0);
+}
+
+main().catch((cause) => {
+  clearFixtures();
+  console.error(cause);
+  process.exit(1);
+});

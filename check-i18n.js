@@ -154,10 +154,16 @@ function stripComments(source) {
     .join('\n');
 }
 
+// `dist` is the docs site's build output, phase 13 part 5: a copy of the shell
+// and of every asset, plus one HTML file per public page. Reading it would count
+// the same keys twice and report a stale build as a second site's worth of
+// problems, so the source is what this checks and the output is never read.
+const SKIP = new Set(['node_modules', 'dist']);
+
 function walk(dir) {
   return readdirSync(dir).flatMap((entry) => {
     const full = join(dir, entry);
-    if (entry === 'node_modules' || entry.startsWith('.')) return [];
+    if (SKIP.has(entry) || entry.startsWith('.')) return [];
     return statSync(full).isDirectory() ? walk(full) : [full];
   });
 }

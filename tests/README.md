@@ -388,6 +388,30 @@ They take the same `BASE`, `STAFF_USER`, and `STAFF_PASS` as the harness.
 | `screenshot.mjs` | The same pages, captured, because a measurement that passes is not the same as a page that looks right. |
 | `cleanup-smoke.mjs` | Deletes what a run left behind. `--dry-run` lists without touching anything. |
 
+### Phase 13's sections
+
+`node tests/phase13-test.mjs`, same `--only=` habit. **Every section needs no
+deployment, no credentials and no network**, like phase 10's and for a related
+reason: what phase 13 part 5 adds is a build, and a build is wrong before it is
+deployed or it is not wrong at all. It is the phase's file, so parts 6 and 7 add
+to it; what is in it today is part 5.
+
+| Section | Covers |
+|---|---|
+| `build` | What `docs-site/scripts/build.js` wrote: one static file per public page and none for a gated one, no markdown and neither content tree in the output, the shell and the assets present, and a built page carrying its own title, its data block and no front matter. |
+| `index` | The split search index, which is the check 16e asks for by name: no sentence from a gated page in the public file, a poster's index holding no developer page, a signed out reader getting nothing at all. Plus the dates, in both directions — every committed page has one, and a page git cannot date has none. |
+| `render` | The marks part 5 added: images, figures with captions, 16g's pending slots, a bare file name resolved against the page it is on, an unsafe src rendering as text, and the outline the build splits pages by. |
+| `refusals` | Every way the build says no, each fired on purpose and checked for the message it names: a page with no `access` key, a misspelled one, a gated page pointing at a public image, an image with no file behind it, a picture in the public tree, an asset of a type this site will not serve, and one outside every section. |
+| `shell` | A browser over the built output, with a local server standing in for the three routes. The static pipeline drawing its own chrome without fetching anything, search in both halves, the keyboard on the results, a gated page and its image through the authenticated route, and two widths with the results panel open. |
+
+**It writes two fixtures into the gated content tree and removes them again**: a
+1x1 png and a page that points at it, because there is no other way to prove a
+gated image end to end while every page in both trees is still a placeholder.
+Both paths are checked for absence first, so a run cannot overwrite something
+somebody wrote, and the `finally` removes them and rebuilds the output. **A run
+leaves the tree as it found it**, and it does rebuild `dist/`, so run the build
+again yourself only if you had one in flight.
+
 ## These scripts on the docs site
 
 The developer guide will hand readers these files directly rather than pointing

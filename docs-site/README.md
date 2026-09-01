@@ -8,18 +8,19 @@ content in phase 14, so that it documents what was actually built, not
 what was planned. See
 [the build status page](https://careers.globalfurry.tv/status).
 
-What is here as of phase 13 part 4: the whole staff sign in, the gate, and the
-shell. `api/_lib/` and the six routes under `api/auth/staff/` are generated
-copies of the portal's, per [the pair rule](#the-modules-shared-with-the-portal)
-below. They cover signing in and out, reading the session, the second factor in
-all three of its forms — a passkey, the authenticator code, a backup code —
-registering and removing a passkey, and the trusted devices. Beside them,
-[the gate](#the-gate) decides what a reader may open, and [the shell](#the-shell)
-draws it: three columns, the sidebar, the on-page contents, callouts, code
-blocks and the rest of 16d, over placeholder pages at every tier.
+What is here as of phase 13 part 5: the whole staff sign in, the gate, the
+shell, and both content pipelines. `api/_lib/` and the six routes under
+`api/auth/staff/` are generated copies of the portal's, per
+[the pair rule](#the-modules-shared-with-the-portal) below. They cover signing in
+and out, reading the session, the second factor in all three of its forms — a
+passkey, the authenticator code, a backup code — registering and removing a
+passkey, and the trusted devices. Beside them, [the gate](#the-gate) decides what
+a reader may open, [the shell](#the-shell) draws it, and
+[the build](#the-build-and-the-two-pipelines) turns the public tree into static
+HTML with a search index beside it.
 
-What is not here yet is parts 5 to 7: the static build for the public pages, the
-split search index, the account settings suite, and the Vercel project itself.
+What is not here yet is parts 6 and 7: the account settings suite, and the Vercel
+project itself.
 
 **Two things about the second factor that are this site's and not the portal's.**
 A passkey registered on either site works on both, because 5e has both claim the
@@ -86,7 +87,9 @@ whole of the work, and `--check` is what belongs in whatever runs before a docs
 deploy.
 
 **Where the output goes was settled in phase 13**: `api/_content/developer/`,
-committed, and never `content/`. The developer guide is admin only, so its data
+committed, and never `content/`. Part 5's page loader knows that file's kind and
+gives it no address of its own, which is the half of this decision a later
+reader is most likely to undo by accident. The developer guide is admin only, so its data
 file goes through the gate with the page that reads it; anything in the static
 root is world readable no matter what the interface does. It is committed rather
 than generated at deploy time so that a change to a test script shows up as a
@@ -165,31 +168,57 @@ The one thing this site says out loud is on the home page: staff documentation
 exists and is behind a sign in. Hiding that protects nothing when the sign in
 form is right there, and naming the pages inside it would do the opposite.
 
-### The three files that are this site's own
+### The four files that are this site's own
 
 Everything else under `api/_lib/` is a generated copy of the portal's. These
-three are not, because the portal has nothing to generate them from: it has one
-staff area behind one access rule, and this site has four tiers of reader behind
-that same rule.
+four are not, because the portal has nothing to generate them from: it has one
+staff area behind one access rule and no build step at all, and this site has
+four tiers of reader behind that same rule.
 
 | File | What it holds |
 |---|---|
 | `api/_lib/tiers.js` | The four tiers, the comparison, and the words a role is called on screen. Reads nothing and imports nothing. |
-| `api/_lib/pages.js` | Both content trees read off disk, the front matter, every refusal, and the gate applied to the page list. |
+| `api/_lib/pages.js` | Both content trees read off disk, the front matter, every refusal, the gated assets, and the gate applied to all of it. |
 | `api/_lib/reader.js` | Four lines: the session, the access rule re-applied, the tier. Every route that decides what to show starts here. |
+| `api/_lib/generated.js` | What [the build](#the-build-and-the-two-pipelines) left in `api/_generated/` for the functions: the per tier search indexes and the page dates. |
 
 They are named in `gen-docs-lib.js` under `OWN`, which is what keeps the rest of
 the directory trustworthy: a file there is either generated or declared.
 
-### The two routes
+### The three routes
 
 ```text
-GET /api/nav              the sidebar, filtered to whoever is asking
-GET /api/content/{path}   one page's markdown, if they may read it
+GET /api/nav                              the sidebar, filtered to whoever is asking
+GET /api/content?path=/portal/applying    one page's markdown, if they may read it
+GET /api/content?path=/staff/a/shot.png   an image beside a gated page, same check
+GET /api/search-index                     the gated search index, tier by tier
 ```
 
-Neither is cached anywhere shared. The answer depends on a session cookie, and
+None is cached anywhere shared. Every answer depends on a session cookie, and
 this is where getting that wrong hands one reader another reader's page.
+
+**The page is named in a parameter and not in the path, and that was learned the
+hard way.** The content route was `api/content/[...page].js` from part 3 until
+part 5 was checked against the deployment, where **every request to it answered
+404**: Vercel's file based dynamic routes are a framework's feature, and in a
+bare `api/` project a `[...catchall]` binds nothing into `req.query` and does not
+match more than one segment at all. One segment reached the handler with an empty
+parameter; two never reached it. Locally it looked perfect, because the stand in
+server it had been proved against read the segments itself.
+
+That is phase 3's rule for the fourth time — **a route answering locally is not
+evidence that the platform routes it** — and the fix is the shape the portal has
+always used: a plain function, addressed explicitly. **There is no file based
+dynamic route anywhere in this repository now**, and
+[`tests/phase13-test.mjs`](../tests/phase13-test.mjs) refuses the path shape in
+its own stand in server, so the same defect cannot hide behind a harness that is
+more capable than the platform.
+
+**A missing search index is loud and a missing date is quiet**, and the two come
+out of the same build. Serving an empty index would tell a reader their words
+appear nowhere in the staff guides, which is a sentence this site would be making
+up, so the route fails and names the command that was not run. A page git could
+not date carries no date at all, and never today's.
 
 **Nothing a caller sends ever reaches the filesystem.** The path segments are
 turned into a page path, the path is looked up in the map the loader built, and
@@ -211,6 +240,15 @@ every one it found instead of stopping at the first:
 - a page sitting outside every section, which nothing would ever link to
 - a section directory with no `index.md` for its sidebar heading to point at
 - two files claiming one path, or a page nested more than a section deep
+- **a picture in `content/`**, which belongs in `public/` and is linked
+  absolutely, and an image in the gated tree that is not beside a page or is not
+  one of the types this site serves
+
+One kind of file sits in the gated tree and is none of the above: a `.json` data
+file a page embeds, such as the developer guide's `test-scripts.json`. It is
+known to the loader so that committing one does not stop the site, and it is
+given no address, because the only supported way to that content is the page
+explaining what it does.
 
 ## The shell
 
@@ -219,11 +257,25 @@ One document, `shell.html`, and it is the layout for both pipelines. 16e:
 
 At runtime every address that is not a static file and not an API route rewrites
 to it. It reads its own path, asks `/api/content` for that page, renders the
-markdown and fills itself in. At build time part 5 reads the same file, puts the
-page's HTML into the article, marks it `data-prerendered`, and writes the result
-out for each public page. Vercel matches the filesystem before it consults
-rewrites, so those files win over the rewrite by themselves and nothing has to
-change when they arrive.
+markdown and fills itself in. At build time the same file is read again: the
+page's HTML goes into the article, which is marked `data-prerendered`, and the
+result is written out for each public page. Vercel matches the filesystem before
+it consults rewrites, so those files win over the rewrite by themselves and
+nothing had to change when they arrived.
+
+**Everything around the article is drawn by the shell either way.** The build
+writes the page's own data into the document and `shell.js` draws the
+breadcrumbs, the pager and the date from it with the same functions a gated page
+goes through, because the alternative is two things drawing this site's chrome
+and one of them eventually being a version behind.
+
+**A static page carries the public reading order, for everybody.** It is one
+file served to every reader, so the previous and next links on a public page
+never point into the staff guides even for somebody signed in — 16e's rule that
+they never point at a page the reader cannot open, kept by the only means a
+static file has. The sidebar is the other half and is drawn from the reader's own
+session on every page, so the staff half is one click away and is never a link
+that turns out to be a 404.
 
 **There is no second copy of the markup anywhere**, and that is the point of
 serving it this way.
@@ -291,6 +343,8 @@ typed:
 | `\| a \| b \|` | A table, with the second row as the alignment rule. It scrolls in its own box. |
 | `:::details X` | A collapsible block, closed by `:::`. |
 | `:::tabs` / `::tab X` | Tabbed blocks, for anything that differs between a desktop and a phone. |
+| `![alt](src "caption")` | An image. Alone in a block it becomes a figure with the caption under it; inside a sentence it stays an image. See [Images](#images). |
+| `![alt](pending:name)` | 16g's placeholder slot, until the capture run happens. |
 
 **Everything is escaped before any pattern runs.** A page containing a literal
 `<script>` renders as those characters. That holds even though every page in
@@ -353,8 +407,8 @@ one that was intended.
 
 A file appearing in either generated directory that the generator did not write
 fails the same check. It is either added to the manifest or named as this site's
-own, under `OWN`. There are three, and they are
-[the gate](#the-three-files-that-are-this-sites-own).
+own, under `OWN`. There are four, and they are
+[the gate and what the build leaves for it](#the-four-files-that-are-this-sites-own).
 
 ## Environment variables
 
@@ -376,8 +430,14 @@ the portal's project. Two of the four are worth reading twice:
 
 ```sh
 cp docs-site/.env.example docs-site/.env.local   # then fill it in
-cd docs-site && vercel dev --listen 3001
+cd docs-site
+node scripts/build.js                            # first, and after any page edit
+vercel dev --listen 3001
 ```
+
+**The build comes first.** `dist/` and `api/_generated/` are not committed, so
+without it there are no static pages to serve and `/api/search-index` fails with
+a message saying which command was not run.
 
 Port 3001 so the portal can run on 3000 at the same time, which is what
 `DOCS_URL=http://localhost:3001` and `SITE_URL=http://localhost:3000` in
@@ -391,28 +451,109 @@ creates one. Use your own, and note that it must pass the same access rule the
 portal applies: approved, and either `is_admin` or `is_editor`, or a row in
 `gftvjobs_admin_access` granting it.
 
-## How it will be built
+## The build, and the two pipelines
 
-The first two are built, as of part 3, and are [the gate](#the-gate) above. The
-rest is parts 4 to 7.
+```sh
+node scripts/build.js     # from docs-site/, and before any local preview
+```
 
-- Content is markdown with front matter, and the front matter carries a
-  required `access` key of `public`, `poster`, `admin`, or `developer`. A page
-  with no `access` key fails the build and does not default to either.
-- Two pipelines, because a gated page cannot be a file on the CDN. Public pages
-  live in `content/` and are converted to static HTML at deploy time by a small
-  Node script using a shared layout. Gated pages live in `api/_content/`, where
-  Vercel will not serve them statically, and are returned by an authenticated
-  function that checks the session and the page's role.
-- The static build is a deliberate exception to the no build step rule that
-  governs `main-site`, and the reason is that hand maintaining a shared sidebar
-  and header across thirty HTML files is how documentation rots.
-- Both pipelines share one layout, one sidebar, and one stylesheet. A reader
-  must not be able to tell which one a page came from.
-- Search is client side over a generated index, split the same way: the public
-  index is a static file, and the gated index is served per role. A public
-  reader must never find a developer page's heading in search.
-- No third party search service, on either half.
+It is this project's Vercel Build Command, named in `vercel.json` so the project
+settings have nothing to remember, and it is **the only build step in this
+repository**. 16e states the exception and gives the reason: hand maintaining a
+shared sidebar and header across thirty files is how documentation rots. Node
+built-ins only, no dependencies, and the portal keeps no build command at all.
+
+**Two pipelines, because a gated page cannot be a file on the CDN.** A public
+page is rendered into a static file at deploy time; a gated page is returned by
+an authenticated function and rendered in the browser. Both go through
+`shell.html` and `markdown.js`, so a reader cannot tell which one a page came
+from, and neither can a maintainer without looking at the address.
+
+| Written in | Served as | Rendered by |
+|---|---|---|
+| `content/` | a static file in `dist/` | the build, at deploy time |
+| `api/_content/` | JSON from `api/content?path=…` | the browser, from the same module |
+
+**What the build writes, and the one thing that matters about where:**
+
+| Path | What it is |
+|---|---|
+| `dist/` | **Everything this project serves, and nothing else.** It is the Output Directory, so a file that was not copied in here has no address. That is what keeps `content/*.md` from being fetchable as raw markdown beside the pages built from it. |
+| `dist/<page>.html` | One file per public page: the shell with its article already in it and the page's own title, description and data. |
+| `dist/assets/`, `dist/shell.html` | Copied as they are. The shell is still what every gated address rewrites to. |
+| `dist/screenshots/` | `public/` copied in, so a shot at `public/screenshots/x.webp` is `/screenshots/x.webp`. |
+| `dist/search-index.json` | The public search index. |
+| `api/_generated/` | **Not public.** Written for the functions to read and carried to them by the `includeFiles` entry: one search index per gated tier, and every page's last updated date. |
+
+Neither `dist/` nor `api/_generated/` is committed. Both are rebuilt by the
+command above, and a local preview needs it run first.
+
+**The build refuses rather than coping**, naming every problem it found:
+
+- a page with no `access` key, which is 16e's own instruction: a page whose tier
+  was forgotten must not default to public, and defaulting to gated instead just
+  means a page nobody notices is missing
+- a gated page pointing at an image outside itself, which is the leak with extra
+  steps
+- an image with no file behind it, in either tree
+- anything [the page loader refuses](#what-fails-to-load-and-why)
+- a `shell.html` that has lost a marker the build fills in
+
+## Search
+
+Client side, over an index the build generates, with no third party service on
+either half.
+
+- **The public index is a static file** and the browser has it before anybody
+  types. **The gated index is one file per tier**, served by
+  `GET /api/search-index` to the tiers at or below the reader's own, and the two
+  are never merged anywhere but in the reader's own tab. A signed out reader
+  gets an empty list from that route, and a 200: telling them 401 would confirm
+  the size of what they cannot see.
+- A result names the page, the heading the match sits under, and the words
+  around it, and it goes straight to that heading's anchor.
+- **The two halves fail separately**, because they are different sentences. The
+  public half failing is search being broken. The staff half failing is the
+  staff guides being unsearchable this time, and a signed in reader is told that
+  rather than left to conclude their guides hold nothing.
+- Nothing is truncated when the index is built. If its size ever becomes the
+  problem, that is a decision to take in the open and not a default to inherit.
+
+## Images
+
+**A gated page's images live beside it and stream through the same
+authenticated route**, per 16e: a gated page with a public screenshot is a leak
+with extra steps.
+
+```text
+api/_content/admin/overview.png  ->  /api/content?path=/staff/admin/overview.png
+![The overview](overview.png "A caption.")
+```
+
+- A gated page writes a **bare file name**, resolved against the page it is on.
+  An absolute path on one fails the build.
+- A public page writes an **absolute path**, into `public/`. A bare name on one
+  fails the build, because there is no directory for it to be in.
+- **An asset is gated at its section's level.** There is nowhere in a `.png` for
+  an `access` key, and a section is what a reader had to pass to be told the
+  image exists. So an asset sits in a section directory, and one anywhere else
+  fails the build.
+- The file types served are `.webp`, `.png`, `.jpg`, `.jpeg` and `.gif`.
+  **No SVG**: an SVG is a document that can carry script, served from this
+  origin, and what a gated asset is for is a screenshot.
+- `![alt](pending:name "caption")` renders 16g's placeholder slot with the alt
+  text and caption the real shot will have, so a missing image reads as pending
+  and not as broken.
+- **A gated image answers `private, max-age=300`** while its page answers
+  `no-store`. `private` is the half that matters: it never enters a shared cache,
+  which is the leak the gate exists to prevent arriving one hop later. The five
+  minutes is the reader's own browser, so a page carrying a dozen screenshots
+  does not refetch every one on every view. What that costs, plainly: somebody
+  whose access is revoked can still see an image their own browser already
+  fetched, for up to five minutes, on a page that no longer loads for them.
+
+## What the design follows
+
 - Layout follows GitBook's structure and interaction patterns with GFTV's own
   palette, taken from `main-site/assets/css/theme.css`. The conventions, never
   the branding: no GitBook logo, name, or assets, and no implied affiliation.
@@ -465,8 +606,10 @@ on a section's `index.md` it orders the sections, and on any other page it order
 that page within its section. A page with no `order` sorts last by path, so a new
 file is never invisible for want of a number.
 
-Rendering the markdown, the images beside a gated page, and the search index are
-phase 13 part 5. Until then a page is served as it was written.
+**Run the build after adding one**, or the new page has no static file and no
+line in the search index. Nothing else is needed: the sidebar, the pager and the
+breadcrumbs all come off the page list, and the last updated date comes from the
+commit that adds it.
 
 ## Screenshots
 
@@ -498,7 +641,11 @@ Rules that will not change:
 - Runs are deterministic: animations disabled, relative dates frozen or masked.
 - A shot for a gated page is written beside the gated content in
   `api/_content/`, never into the public output. Landing one in the public
-  directory is a build failure, not a review comment.
+  directory is a build failure, not a review comment — and as of part 5 that is
+  literally true in both directions: a picture in `content/` stops the build, and
+  so does a gated page pointing at a public image. See [Images](#images).
+- Public shots go in `public/screenshots/`, which the build copies to
+  `/screenshots/` in the output, and a public page links one absolutely.
 
 ## The service worker
 
@@ -518,13 +665,24 @@ This project has serverless functions of its own, so it needs its own
 environment variables set in Vercel, documented in `.env.example`, and its own
 `vercel.json` carrying the `includeFiles` entry for the gated content.
 
-**That `includeFiles` glob covers both trees**, `content/` as well as
-`api/_content/`, because `api/nav.js` reads the whole page list to build a
-sidebar for a signed out reader too. A function that cannot find `content/`
-throws at the first request and names this entry, which is the failure to expect
-if either tree is ever moved. `vercel.json` is schema validated and cannot carry
-a comment, so the reasoning lives in `api/_lib/pages.js` beside the code that
-depends on it.
+**The Build Command and the Output Directory are in `vercel.json`**, not in the
+project settings: `node scripts/build.js` and `dist`. Keeping them in the file
+means a fresh project needs nothing typed into a form to serve the right thing,
+and that **only what the build wrote is public** — the two content trees are not
+in the output at all.
+
+**That `includeFiles` glob covers three directories.** Both trees, `content/` as
+well as `api/_content/`, because `api/nav.js` reads the whole page list to build
+a sidebar for a signed out reader too; and `api/_generated/`, which the build
+writes and the functions read. A function that cannot find `content/` throws at
+the first request and names this entry, which is the failure to expect if either
+tree is ever moved. `vercel.json` is schema validated and cannot carry a comment,
+so the reasoning lives in `api/_lib/pages.js` beside the code that depends on it.
+
+**The build runs before the functions are packaged**, which is what carries
+`api/_generated/` to them. That ordering is Vercel's and this build does not
+control it: if a deploy ever answers `/api/search-index` with the missing file
+message, this is the assumption that broke.
 
 The project itself, its domain and its variables are part 7.
 

@@ -23,8 +23,8 @@
 //
 // **The two trees, and the URL each one occupies.**
 //
-//   content/            ->  /...        public, built to static HTML in part 5
-//   api/_content/       ->  /staff/...  gated, served by api/content/[...page].js
+//   content/            ->  /...        public, built to static HTML by the build
+//   api/_content/       ->  /staff/...  gated, served by api/content.js
 //
 // `/staff` is not a choice this part made. `main-site/vercel.json` has redirected
 // /admin/docs to https://docs.careers.globalfurry.tv/staff since phase 8, and
@@ -55,7 +55,7 @@ const GATED_PREFIX = '/staff';
  * URL covers the second case and is checked against the directory that has to
  * exist either way.
  */
-function projectRoot() {
+export function projectRoot() {
   const fromModule = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
   const candidates = [process.cwd(), fromModule];
 
@@ -136,11 +136,20 @@ export function frontMatter(source) {
  * Loading
  * ---------------------------------------------------------------------- */
 
-function markdownFiles(root, directory) {
+/**
+ * Every file in one tree, split into the pages and everything else.
+ *
+ * The second half is 16e's "images for gated pages live beside them": a file
+ * that is not a page, sitting in a section directory, is an asset that section's
+ * pages may point at. Reading both in one walk is what keeps the two lists
+ * describing the same directory.
+ */
+function treeFiles(root, directory) {
   const here = join(root, directory);
-  if (!existsSync(here)) return [];
+  if (!existsSync(here)) return { pages: [], assets: [] };
 
-  const out = [];
+  const pages = [];
+  const assets = [];
   const walk = (relativePath) => {
     const entries = readdirSync(join(here, relativePath), { withFileTypes: true });
     for (const entry of entries) {
@@ -149,12 +158,56 @@ function markdownFiles(root, directory) {
         walk(next);
         continue;
       }
-      if (entry.name.toLowerCase().endsWith('.md')) out.push(next);
+      if (entry.name.toLowerCase().endsWith('.md')) pages.push(next);
+      else assets.push(next);
     }
   };
 
   walk('');
-  return out.sort();
+  return { pages: pages.sort(), assets: assets.sort() };
+}
+
+/**
+ * The file types an asset may be, and what each is served as.
+ *
+ * **No SVG**, deliberately. An SVG is a document that can carry script, served
+ * from this origin, and the one thing a gated asset is for is a screenshot.
+ * Adding it would trade the whole of that argument for a file format nothing
+ * here needs.
+ */
+export const ASSET_TYPES = Object.freeze({
+  '.webp': 'image/webp',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+});
+
+/**
+ * File types that may sit in the gated tree and have no address at all.
+ *
+ * **A data file is read by a page, and never by a URL.** Phase 13's decision 6
+ * puts `test-scripts.json` in `api/_content/developer/` for the developer guide
+ * to embed, and states the reason it must not also be fetchable: a raw path
+ * would be a second entry point to a file whose only supported one is the page
+ * explaining what it does. So the loader knows this kind exists -- otherwise the
+ * first one committed would stop the site loading as an unrecognised file -- and
+ * gives it nothing.
+ */
+const DATA_EXTENSIONS = ['.json'];
+
+/**
+ * The address a page's bare image file names resolve against.
+ *
+ * A query parameter, because that is how the content route is addressed: part 5
+ * found that a file based dynamic route binds nothing in a bare `api/` project
+ * on Vercel, so there is no `/api/content/staff/admin/shot.webp` to point at.
+ * The renderer appends `/shot.webp` to whatever this returns, which lands inside
+ * the parameter and is exactly where it belongs.
+ */
+function assetBaseOf(path, isIndex) {
+  const directory = isIndex ? path : path.replace(/\/[^/]*$/, '');
+  return `/api/content?path=${directory === '/' ? '' : directory}`;
 }
 
 /**
@@ -164,8 +217,23 @@ function markdownFiles(root, directory) {
  */
 function readTree(root, directory, pipeline, prefix, problems) {
   const pages = [];
+  const { pages: files, assets } = treeFiles(root, directory);
 
-  for (const relativePath of markdownFiles(root, directory)) {
+  // **A file in the public tree that is not a page is refused**, and the message
+  // says where it belongs. 16g puts public screenshots in public/, which is
+  // copied into the build output as it stands; a picture dropped in here would
+  // be served from a directory the build does not publish and would render as a
+  // broken image on a page nobody looked at again.
+  if (pipeline === 'public') {
+    for (const relativePath of assets) {
+      problems.push(
+        `${directory}/${relativePath}: not a page. A public image goes in public/, ` +
+          'per 16g, and is linked by an absolute path.'
+      );
+    }
+  }
+
+  for (const relativePath of files) {
     const where = `${directory}/${relativePath}`;
     const parsed = frontMatter(readFileSync(join(root, directory, relativePath), 'utf8'));
 
@@ -190,14 +258,6 @@ function readTree(root, directory, pipeline, prefix, problems) {
     const path = `${prefix}/${slugs.join('/')}`.replace(/\/$/, '') || '/';
     const title = (data.title ?? '').trim();
     const access = (data.access ?? '').trim();
-
-    // `index` is reserved as a section name. `pagePathFromSegments` answers the
-    // home page to a request for `/index`, since a catch-all route cannot be
-    // asked for no segments at all, and a section by that name would sit at an
-    // address the alias has already taken.
-    if (slugs[0] === 'index') {
-      problems.push(`${where}: "index" is reserved and cannot be a section name.`);
-    }
 
     if (title === '') {
       problems.push(`${where}: no title.`);
@@ -247,6 +307,54 @@ function readTree(root, directory, pipeline, prefix, problems) {
   return pages;
 }
 
+/**
+ * The gated tree's assets: the files beside a page that are not pages.
+ *
+ * **An asset is gated at its section's own level**, and there is nothing in a
+ * file for it to carry an `access` key in. That is the honest reading of a
+ * directory whose sections are one per tier, and it fails safe in the one
+ * direction that matters: an asset can never be more open than the section it
+ * sits in, and the section is the thing a reader had to pass to be told the
+ * image exists at all.
+ */
+function readAssets(root, directory, prefix, problems) {
+  const out = [];
+
+  for (const relativePath of treeFiles(root, directory).assets) {
+    const where = `${directory}/${relativePath}`;
+    const segments = relativePath.split('/');
+    const name = segments[segments.length - 1];
+    const extension = name.slice(name.lastIndexOf('.')).toLowerCase();
+
+    if (DATA_EXTENSIONS.includes(extension)) continue;
+
+    if (!Object.hasOwn(ASSET_TYPES, extension)) {
+      problems.push(
+        `${where}: ${extension || 'no extension'} is not something this site serves. ` +
+          `Assets are one of: ${Object.keys(ASSET_TYPES).join(', ')}.`
+      );
+      continue;
+    }
+
+    if (segments.length !== 2) {
+      problems.push(
+        `${where}: an asset sits in a section directory beside the page that uses it, ` +
+          'because the section is what decides who may fetch it.'
+      );
+      continue;
+    }
+
+    out.push({
+      path: `${prefix}/${relativePath}`,
+      section: segments[0],
+      type: ASSET_TYPES[extension],
+      file: join(root, directory, relativePath),
+    });
+  }
+
+  return out;
+}
+
 let cache = null;
 
 /**
@@ -268,6 +376,8 @@ export function loadPages(options = {}) {
     ...readTree(root, PUBLIC_DIR, 'public', '', problems),
     ...readTree(root, GATED_DIR, 'gated', GATED_PREFIX, problems),
   ];
+
+  const assetFiles = readAssets(root, GATED_DIR, GATED_PREFIX, problems);
 
   const byPath = new Map();
   for (const page of pages) {
@@ -320,6 +430,22 @@ export function loadPages(options = {}) {
     section.pages.push(page);
   }
 
+  const assets = new Map();
+  for (const asset of assetFiles) {
+    const section = bySlug.get(`gated:${asset.section}`);
+    if (!section) {
+      problems.push(
+        `${asset.path}: its section has no index.md, so nothing says who may fetch it.`
+      );
+      continue;
+    }
+    if (assets.has(asset.path)) {
+      problems.push(`${asset.path}: two files claim this path.`);
+      continue;
+    }
+    assets.set(asset.path, { ...asset, access: section.access });
+  }
+
   if (problems.length > 0) {
     throw new Error(`The documentation pages did not load:\n  ${problems.join('\n  ')}`);
   }
@@ -343,6 +469,7 @@ export function loadPages(options = {}) {
 
   cache = {
     pages: byPath,
+    assets,
     sections,
     home: byPath.get('/') ?? null,
     staffHome: byPath.get(GATED_PREFIX) ?? null,
@@ -445,9 +572,33 @@ export function readablePage(path, readerAccess) {
   return {
     page: publicShape(page),
     file: page.file,
+    // Only a gated page has one. A public page's images are in public/ and are
+    // written as absolute paths, per 16g, so a bare file name on one has no
+    // directory to be in and the build refuses it.
+    assetBase: page.pipeline === 'gated' ? assetBaseOf(page.path, page.isIndex) : null,
     prev: at > 0 ? flat[at - 1] : null,
     next: at !== -1 && at < flat.length - 1 ? flat[at + 1] : null,
   };
+}
+
+/**
+ * The asset at this path, if this reader may fetch it.
+ *
+ * Null for both halves of the same pair the pages answer: no such file, and not
+ * for you. **A screenshot of the admin interface is a list of applicants**, so
+ * the file being unreadable and the file not existing look identical from
+ * outside, exactly as 16a asks of a page.
+ *
+ * @param {string} path
+ * @param {string} readerAccess
+ * @returns {null | { file: string, type: string }}
+ */
+export function readableAsset(path, readerAccess) {
+  const { assets } = loadPages();
+  const asset = assets.get(path);
+  if (!asset) return null;
+  if (!canRead(readerAccess, asset.access)) return null;
+  return { file: asset.file, type: asset.type };
 }
 
 /**
@@ -457,6 +608,10 @@ export function readablePage(path, readerAccess) {
  * the map loadPages built, so a caller sending `../../etc/passwd` gets a lookup
  * miss and a 404 like any other unknown path. The validation below is about
  * keeping the lookup key tidy, and is not what makes traversal impossible.
+ *
+ * The home page is not answered here: it is the one page with no segments at
+ * all, and the route maps an empty parameter to it. It had an `/index` alias
+ * while the address was a path, and part 5 took the alias away with the path.
  *
  * @param {unknown} segments
  * @returns {string|null}
@@ -468,13 +623,32 @@ export function pagePathFromSegments(segments) {
   const clean = parts.map((part) => String(part).trim());
   if (clean.some((part) => !/^[a-z0-9][a-z0-9-]*$/.test(part))) return null;
 
-  // **The home page is the one page whose address has no segments**, and a
-  // catch-all route cannot be asked for nothing. `/api/content/index` is how the
-  // shell asks for it. It is an alias and never a second address, because
-  // `index` is a reserved section name in the loader above: nothing can occupy
-  // `/index` for this to shadow. Added in part 4, when something first had to
-  // fetch the home page.
-  if (clean.length === 1 && clean[0] === 'index') return '/';
+  return `/${clean.join('/')}`;
+}
+
+/**
+ * The same, for an asset: a file name in the last segment instead of a slug.
+ *
+ * **Nothing built here reaches the filesystem either.** The result is a key
+ * looked up in the map the loader built, so a dot or a slash smuggled through a
+ * segment is a lookup miss like any other. What the shape below does is decide
+ * which of the two lookups a request is asking for, and a request that is
+ * neither is a 404 without either map being consulted.
+ *
+ * @param {unknown} segments
+ * @returns {string|null}
+ */
+export function assetPathFromSegments(segments) {
+  const parts = Array.isArray(segments) ? segments : typeof segments === 'string' ? [segments] : [];
+  if (parts.length === 0) return null;
+
+  const clean = parts.map((part) => String(part).trim());
+  const name = clean[clean.length - 1];
+
+  const extension = name.slice(name.lastIndexOf('.')).toLowerCase();
+  if (!Object.hasOwn(ASSET_TYPES, extension)) return null;
+  if (!/^[a-z0-9][a-z0-9-]*\.[a-z0-9]+$/.test(name)) return null;
+  if (clean.slice(0, -1).some((part) => !/^[a-z0-9][a-z0-9-]*$/.test(part))) return null;
 
   return `/${clean.join('/')}`;
 }

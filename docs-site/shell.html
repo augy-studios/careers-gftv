@@ -73,8 +73,11 @@
         <!-- Search stays in the header at every width and never goes inside the
              hamburger: it is how people navigate documentation on a phone. -->
         <div class="docs-search">
-            <input type="search" id="docsSearch"
+            <input type="search" id="docsSearch" autocomplete="off" role="combobox"
+                aria-expanded="false" aria-controls="docsSearchResults" aria-autocomplete="list"
                 data-i18n-attr="placeholder:search.placeholder,aria-label:search.label">
+            <div class="docs-search-results" id="docsSearchResults" role="listbox" hidden
+                data-i18n-attr="aria-label:search.results"></div>
         </div>
 
         <div class="docs-header-actions">
@@ -104,6 +107,12 @@
             <details class="docs-toc-inline" id="docsTocInline" hidden></details>
 
             <article class="docs-article" id="docsArticle"></article>
+
+            <!-- 16e: every page carries a last updated date taken from git. It
+                 is outside the article because it is a fact about the file and
+                 not a line of it, and it is hidden until there is one: a page
+                 the build could not date says nothing rather than guessing. -->
+            <p class="docs-updated" id="docsUpdated" hidden></p>
 
             <nav class="docs-pager" id="docsPager" hidden></nav>
         </main>
