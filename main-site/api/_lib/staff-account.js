@@ -61,12 +61,31 @@ import { fail, ERR } from './respond.js';
  * the precedent this follows instead: one constant, two halves that are checked
  * against each other, and flipping it is a commit somebody reviews.
  *
- * **Turning it on is part 7's, after the walk in section 5 item 24**, and the
- * order is: apply migration `040`, deploy, sign in on the deployment, walk each
- * of the three once against a real account, confirm the gftv.asia sign in still
- * works, then flip this line. Nothing else in 5f waits on it -- every panel that
- * reads, lists, revokes or regenerates a `gftvjobs_` row is live from the first
+ * **Turned on 3 September 2026**, after the half of section 5 item 24's walk
+ * that could happen with it on. What had been proved by then, on both
+ * deployments: the staff sign in, the nine panels drawn from real rows, a
+ * passkey registered at `DOCS_URL` and verified under the portal's relying
+ * party id, both code sets, a danger zone action, and two of the three second
+ * factor forms. What could not be, because these routes refuse: the
+ * authenticator app, a password change, and 5g.
+ *
+ * **So the three below are still unproved at the moment this line changes**,
+ * and that is the point of the order rather than a gap in it -- they cannot be
+ * walked until this is true, and section 5 item 24 walks them immediately
+ * after, each followed by a gftv.asia sign in. **The phase does not read
+ * `shipped` until that has happened**, which is check 166.
+ *
+ * Nothing else in 5f ever waited on this -- every panel that reads, lists,
+ * revokes or regenerates a `gftvjobs_` row has been live since the first
  * deploy.
+ *
+ * **A fourth path reaches gftv.asia and this constant never covered it**,
+ * found the same day: regenerating the backup code set writes
+ * `gftvhello_backup_codes`, and `recovery-codes.js` calls no guard. It is a
+ * different table and the login flow already owns it, so it is arguably
+ * outside what a constant named for `gftvhello_users` should govern -- but
+ * "the three writes that reach gftv.asia" was the wrong count for a fortnight
+ * and nothing said so.
  *
  * **What a held route must not say is that it was not built.** Phase 11 settled
  * that a switched off feature says so and never that it does not exist, and the
@@ -77,7 +96,7 @@ import { fail, ERR } from './respond.js';
  *
  * @type {boolean}
  */
-export const HELLO_WRITES_ENABLED = false;
+export const HELLO_WRITES_ENABLED = true;
 
 /**
  * Refuse a route that would write gftvhello_users while the hold is on.
