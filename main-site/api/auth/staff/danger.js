@@ -245,18 +245,29 @@ export default async function handler(req, res) {
 
     // sign_out_everywhere
     //
-    // **The session this was pressed from survives**, which is the one place
-    // this route makes a choice 5f does not spell out. Somebody who has just
-    // typed their username and their password and a fresh code is in front of
-    // the page; throwing them out of it to prove the action worked would mean
-    // signing back in to see the result, and the thing they asked for was to
-    // end the *other* sessions. The page says which one is theirs.
-    await audit(AUDIT.SESSIONS_REVOKED_ALL, { kept: 'current', from_site: SITE });
+    // **Every session on both sites, this one included**, settled 3 September
+    // 2026 after somebody pressed the button and found themselves still signed
+    // in. This route used to keep the calling session, on the argument that
+    // throwing somebody out to prove the action worked costs them a sign in.
+    // 5f says "sign out everywhere" with no exception, and the person reaching
+    // for this in a danger zone has usually lost a laptop: for them the session
+    // that must end is one they cannot press a button from. A button that keeps
+    // one session is a button whose name is wrong.
+    //
+    // **What it still cannot reach is gftv.asia.** Those sessions live in
+    // gftvhello_sessions, which is that site's table and not among the four
+    // writes section 2 permits this project -- deviation 122 moved this build's
+    // staff sessions out of it for that reason. So the consequence line says
+    // gftv.asia is unaffected, in both languages, before anybody presses it.
+    await audit(AUDIT.SESSIONS_REVOKED_ALL, { kept: 'none', from_site: SITE });
 
-    const result = await revokeStaffSessions(userId, { keepSessionId: session.sessionId });
+    const result = await revokeStaffSessions(userId);
     if (!result.ok) return fail(res, ERR.SERVER_ERROR, 'That could not be done. Try again.');
 
-    return ok(res, { action, both_sites: true, kept_current: true });
+    // The client sends the reader to the sign in page on this flag. Their
+    // cookie now points at a row that is gone, so the alternative is a settings
+    // page whose next request 401s.
+    return ok(res, { action, both_sites: true, kept_current: false, signed_out: true });
   } catch (cause) {
     return failInternal(res, cause, 'staff danger zone');
   }

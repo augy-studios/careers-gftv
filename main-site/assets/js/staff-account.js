@@ -1021,6 +1021,15 @@ function wireDanger() {
           return;
         }
 
+        // **Signing out everywhere includes this browser**, so there is no page
+        // left to redraw: the session this request was made with is gone, and
+        // load() would answer 401 and leave the reader looking at a settings
+        // page that cannot read anything. The sign in page is where they are.
+        if (result.data?.signed_out === true) {
+          window.location.assign(links.signin);
+          return;
+        }
+
         await load();
       }, `staff danger zone: ${action}`);
     });
