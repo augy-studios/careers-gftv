@@ -2,13 +2,20 @@
 //
 //   node tests/phase13-test.mjs                  everything that can run
 //   node tests/phase13-test.mjs --only=index     one or more sections
+//   DOCS_BASE=https://... node tests/phase13-test.mjs --only=live
 //
-// **Everything in this file needs no deployment, no credentials and no
+// **Every section but `live` needs no deployment, no credentials and no
 // network**, like phase 10's and for a related reason: what phase 13 part 5
 // builds is a build, and a build is wrong before it is deployed or it is not
 // wrong at all. Phase 9's lesson is kept as well — nothing reads a credential
 // above a section, so `--only=` cannot be defeated by a `requireEnv` at module
 // level.
+//
+// **`live` is the section this phase most needed and did not have.** Parts 3 and
+// 4 shipped a content route that answered 404 to every request on the deployment
+// and looked perfect against a local stand in for two parts. It needs no
+// credential either — everything it asks, it asks as a stranger — so there is no
+// reason not to run it.
 //
 // It is the phase's file and not part 5's, so parts 6 and 7 add sections to it.
 // What is here is part 5: the two pipelines, the split search index, the gated
@@ -28,6 +35,7 @@
 //   render     the marks part 5 added to the renderer
 //   refusals   every way the build says no, each one fired on purpose
 //   shell      a browser over the built output and a stand in for the routes
+//   live       the same questions, asked of the deployment
 
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
@@ -698,13 +706,171 @@ define('shell', 'The shell, over the built output and the three routes', async (
   }
 });
 
+define('live', 'The same questions, asked of the deployment', async () => {
+  // Read here and not at the top of the file, which is phase 9's rule: a value
+  // a section flag is supposed to make optional has to be read after the flag.
+  const BASE = (process.env.DOCS_BASE ?? 'https://docs.careers.globalfurry.tv').replace(/\/+$/, '');
+  console.log(`      asking ${BASE}`);
+
+  const get = async (path) => {
+    const response = await fetch(`${BASE}${path}`, { redirect: 'follow' });
+    return { status: response.status, headers: response.headers, body: await response.text() };
+  };
+
+  try {
+    await fetch(BASE, { method: 'HEAD' });
+  } catch (cause) {
+    skip('the deployment', `${BASE} could not be reached: ${cause?.message ?? cause}`);
+    return;
+  }
+
+  const home = await get('/');
+  check(
+    '77. the home page is a file the build wrote',
+    home.status === 200 && home.body.includes('data-prerendered'),
+    `${home.status}, prerendered=${home.body.includes('data-prerendered')}`
+  );
+  check(
+    '78. and it carries its own title, not the shell\'s',
+    /<title>Careers@GFTV documentation \|/.test(home.body),
+    (/<title>([^<]*)/.exec(home.body) ?? [])[1] ?? ''
+  );
+
+  const page = await get('/portal/creating-an-account');
+  check(
+    '79. so does a page two levels down',
+    page.status === 200 && page.body.includes('data-prerendered') && page.body.includes('docsPageData')
+  );
+
+  // **The output directory is the whole public surface.** Before the build
+  // existed, this address served the file as text/markdown: a second address for
+  // every public page, and the shape that would have served a gated one if the
+  // trees had ever been arranged differently.
+  const raw = await get('/content/portal/index.md');
+  check(
+    '80. the content tree is not served as markdown',
+    !(raw.headers.get('content-type') ?? '').includes('markdown'),
+    `Content-Type: ${raw.headers.get('content-type')}`
+  );
+
+  const index = await get('/search-index.json');
+  let entries = [];
+  try {
+    entries = JSON.parse(index.body);
+  } catch {
+    entries = [];
+  }
+  check('81. the public search index is served', index.status === 200 && entries.length > 0);
+  check(
+    '82. and holds nothing from the staff half',
+    !index.body.includes('/staff'),
+    '16e, on the deployment this time'
+  );
+
+  const byParameter = await get('/api/content?path=/portal');
+  check(
+    '83. the content route answers a page',
+    byParameter.status === 200 && byParameter.body.includes('"path":"/portal"'),
+    `${byParameter.status}: ${byParameter.body.slice(0, 80)}`
+  );
+
+  // **The shape that never worked.** From part 3 until part 5 this was how the
+  // route was addressed, and every request to it answered 404 while the local
+  // stand in served it perfectly. It is checked here so that going back to it is
+  // a failing check and not a silent outage.
+  const byPath = await get('/api/content/portal');
+  check('84. and the path shaped address answers nothing', byPath.status === 404);
+
+  const homeRoute = await get('/api/content?path=');
+  check(
+    '85. the home page needs no alias',
+    homeRoute.status === 200 && homeRoute.body.includes('"path":"/"'),
+    'part 4 aliased it as /api/content/index, which cleanUrls redirected away'
+  );
+
+  const gated = await get('/api/content?path=/staff');
+  check('86. a gated page is 404 to a stranger, and never 401', gated.status === 404);
+  check(
+    '87. the content route is never cached anywhere shared',
+    (byParameter.headers.get('cache-control') ?? '').includes('no-store'),
+    `Cache-Control: ${byParameter.headers.get('cache-control')}`
+  );
+
+  // **This is the ordering assumption, and it is the whole reason to run this
+  // section.** The date comes from api/_generated/updated.json, which the build
+  // command wrote and which only reaches the function if Vercel packages the
+  // functions afterwards. A date here is that, proven.
+  let updated = null;
+  try {
+    updated = JSON.parse(byParameter.body).data.updated;
+  } catch {
+    updated = null;
+  }
+  check(
+    '88. what the build wrote reached the functions',
+    /^\d{4}-\d{2}-\d{2}$/.test(updated ?? ''),
+    `updated: ${JSON.stringify(updated)} — includeFiles covers api/_generated, and the build ran first`
+  );
+
+  const search = await get('/api/search-index');
+  check(
+    '89. the gated index endpoint answers a stranger with an empty list',
+    search.status === 200 && search.body.includes('"entries":[]'),
+    'a 401 would confirm the size of what they cannot see'
+  );
+
+  const nav = await get('/api/nav');
+  check(
+    '90. and the sidebar names no staff page to a stranger',
+    nav.status === 200 && !nav.body.includes('/staff'),
+    `${nav.status}`
+  );
+
+  // One browser over the real thing, because the checks above are all text. What
+  // it adds is the client against the live index: search is the only part of
+  // this phase whose data arrives as a second request the page makes itself.
+  const browser = await chromium.launch();
+  try {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const live = await context.newPage();
+    await live.goto(`${BASE}/`, { waitUntil: 'networkidle' });
+
+    check('91. the live home page draws its article', (await live.locator('#docsArticle h1').count()) === 1);
+    check('92. and its sidebar', (await live.locator('#docsSidebar a').count()) > 0);
+    check(
+      '93. and when it was last updated',
+      /Last updated \d+ \w+ \d{4}/.test((await live.locator('#docsUpdated').textContent()) ?? ''),
+      (await live.locator('#docsUpdated').textContent()) ?? ''
+    );
+
+    await live.fill('#docsSearch', 'telegram');
+    await live.waitForSelector('.docs-result', { timeout: 15000 });
+    check('94. and search answers over the live index', (await live.locator('.docs-result').count()) > 0);
+
+    await live.goto(`${BASE}/staff/developer/start-here`, { waitUntil: 'networkidle' });
+    check(
+      '95. a gated page reads as "there is no page here" to a stranger',
+      (await live.locator('.docs-state').count()) === 1,
+      'the same words a page nobody wrote gets'
+    );
+    check(
+      '96. and it asks a crawler not to index that',
+      (await live.locator('meta[name="robots"]').count()) === 1
+    );
+
+    await context.close();
+  } finally {
+    await browser.close();
+  }
+});
+
 /* -------------------------------------------------------------------------
  * Run
  * ---------------------------------------------------------------------- */
 
 async function main() {
   console.log('Phase 13 verification');
-  console.log('  every section here needs no deployment, no credentials, and no network');
+  console.log('  no section needs a credential; only `live` needs the network');
 
   // A mistyped --only= otherwise runs nothing and exits 0, which reads exactly
   // like a clean run.
