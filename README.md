@@ -8,7 +8,7 @@ collected in Google Forms: the portal's job is to gate access, hand the
 applicant over, log the handoff, and track what happened next. It is a GFTV
 HelloApp and follows the same conventions as the other GFTV PWAs.
 
-**Phases 1 to 12 of 15 have shipped.** The database
+**Phases 1 to 13 of 15 have shipped.** The database
 schema and the shared server side code, then signing in, then the job board,
 the postings themselves, applying to one, and the applicant's own account area.
 The public surface is the home page, `/search` with its filters and
@@ -26,9 +26,11 @@ kinds of notification an applicant can switch off one at a time. **Phase 12 is
 the sweep**: the responsive and accessibility passes, measured colours, the
 Chinese round trip, `robots.txt`, `sitemap.xml` and `llms.txt`, a seed script,
 and `/status` rebuilt as a service status page fed by a probe on the bot's VPS.
-Of the three that remain, phase 13 is being built: the documentation site at
-`docs.careers.globalfurry.tv`, its own Vercel project with its own staff sign in
-and the role gate that decides what a reader is allowed to see. Live status:
+**Phase 13 is the documentation site** at `docs.careers.globalfurry.tv`, its own
+Vercel project with its own staff sign in and the role gate that decides what a
+reader is allowed to see. Of the two that remain, phase 14 is being built: the
+guides themselves, for applicants, the Telegram bot, translation helpers and
+staff. Live status:
 [careers.globalfurry.tv/status](https://careers.globalfurry.tv/status).
 
 **The portal is open to search engines from phase 12 part 8**, on 31 August

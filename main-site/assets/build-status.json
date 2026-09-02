@@ -1,7 +1,7 @@
 {
   "$comment": "Single source of truth for the phased rollout, per section 0c of careers-gftv-spec.md. The site, the Telegram bot, and the docs site all read this one file, so the three stay in step. Flipping a phase to shipped is the only edit needed when it goes live. No copy anywhere hardcodes a phase number. Phase names and descriptions carry a translated variant per non default language, because three separate consumers render them and they are content, not interface strings; everything else the site says comes from assets/i18n.",
   "schema_version": 3,
-  "updated": "2026-09-01",
+  "updated": "2026-09-03",
   "locales": [
     "en",
     "zh"
@@ -131,17 +131,17 @@
       "number": 13,
       "name": "Docs site foundations",
       "name_zh": "文档站基础",
-      "status": "building",
+      "status": "shipped",
       "description": "The documentation site itself, with a staff sign in on it. What a reader sees depends on their role: applicants read the public guides, job posters also read the dashboard guide, and admins also read the admin and developer guides.",
       "description_zh": "文档网站本身，并附有员工登录功能。读者看到的内容取决于其身份：申请人可阅读公开指南，职位发布者另可阅读后台使用指南，管理员另可阅读管理与开发文档。",
-      "shipped_note": null,
-      "shipped_note_zh": null
+      "shipped_note": "There is a second website now: the documentation site, with the guides themselves still to come. What this phase built is everything underneath them. Anyone can read the public guides without signing in. The people running the portal sign in with the same account they use everywhere else, and what they can read follows what they do: someone who posts jobs also sees the dashboard guide, and an administrator also sees the administration and developer guides. A page somebody is not allowed to read does not announce itself as forbidden, because a list of things you cannot see is still a list; it reads as a page nobody has written. Search behaves the same way, covering only what the reader may open, and a picture inside a restricted guide is restricted with it. The whole site is in English and 华文, which was not the original plan: most of the wording turned out to be translated already for the portal, so the arithmetic answered a question that had been left open. It also carries the same account settings page as the portal, with passkeys, an authenticator app, recovery codes, trusted devices and a record of where the account is signed in, built once and shown on both sites so the two cannot drift apart. Next is the documentation itself: the guides for applicants, for the Telegram bot, for people helping with translations, and for staff, in every language this site speaks.",
+      "shipped_note_zh": "现在有了第二个网站：文档网站，指南内容本身还有待撰写，本阶段建成的是它底下的一切。任何人都可以阅读公开指南，无需登录。营运本平台的同仁使用平常那个账号登录，能读到什么取决于职务：负责发布职位的人另可看到后台使用指南，管理员另可看到管理与开发文档。读者无权阅读的页面不会声明自己是禁止进入的，因为一份你看不到的清单仍然是一份清单，它看起来就像一个还没有人撰写的页面。搜索也依循同样的做法，只涵盖该读者可以打开的内容，受限指南里的图片也一并受限。整个网站都提供英文和华文，这一点原本不在计划之内：后来发现大部分用语在求职门户里已经翻译过了，一道原本悬而未决的问题就这样由算术回答了。本网站也采用与求职门户相同的账号设置页面，包含通行密钥、验证器应用程序、恢复码、受信任的设备，以及账号在哪些地方登录的记录，一次建成、两边显示，两者就不会各走各的。下一阶段是文档内容本身：给申请人、电报机器人、翻译协助者和员工的各种指南，涵盖本网站支持的每一种语言。"
     },
     {
       "number": 14,
       "name": "Documentation",
       "name_zh": "文档内容",
-      "status": "planned",
+      "status": "building",
       "description": "The guides themselves: how to use the portal and the bot in every language, how to help with translations, and the staff guides. Written late so they describe what was built, not what was planned.",
       "description_zh": "指南内容本身：各语言版本的求职门户与电报机器人使用说明、如何协助翻译，以及员工指南。刻意安排在后期撰写，以便描述实际建成的功能而非当初的计划。",
       "shipped_note": null,

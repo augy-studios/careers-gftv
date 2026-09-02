@@ -1378,22 +1378,40 @@ define('live', 'The same questions, asked of the deployment', async () => {
       return { status: response.status, error: parsed?.error ?? null };
     };
 
-    // **The hold, asked of the deployment.** It is the one thing about part 6 a
-    // stranger can prove end to end, and it is worth proving: a constant that
-    // was meant to ship false and shipped true would be three credential paths
-    // live and unwalked, and nothing else would say so.
+    // **The hold, asked of the deployment, in whichever state the tree says.**
+    // Until 3 September 2026 these two asserted 503 and `held`: the one thing
+    // about part 6 a stranger could prove end to end, and worth proving, because
+    // a constant meant to ship false that shipped true would be three credential
+    // paths live and unwalked with nothing else to say so.
+    //
+    // **The lift made the assertion the wrong way round rather than unnecessary.**
+    // The deployment can now disagree with the tree in the other direction — a
+    // push that did not land, or one project deployed and not the other, which
+    // happened during item 24's walk and had the portal answering `held` while
+    // the docs site answered normally. So the expectation is read from the same
+    // constant check 166 reads, and these two ask the deployment to agree with
+    // it.
+    const heldInTree = /HELLO_WRITES_ENABLED\s*=\s*false/.test(
+      readFileSync(join(DOCS, 'api/_lib/staff-account.js'), 'utf8')
+    );
+    const isHeld = (answer) => answer.status === 503 && answer.error?.details?.reason === 'held';
+
     const forgot = await post('/api/auth/staff/forgot-password', { username: 'x', code: 'y' });
     check(
-      '127. 5g is held on the deployment, before any code is verified',
-      forgot.status === 503 && forgot.error?.details?.reason === 'held',
-      `got ${forgot.status} / ${forgot.error?.details?.reason ?? 'no reason'}`
+      `127. 5g on the deployment is ${heldInTree ? 'held, before any code is verified' : 'live, as the tree says'}`,
+      isHeld(forgot) === heldInTree,
+      `got ${forgot.status} / ${forgot.error?.details?.reason ?? 'no reason'} — the tree says ${
+        heldInTree ? 'held' : 'lifted'
+      }`
     );
 
     const reset = await post('/api/auth/staff/reset-password', { ticket: 'x' });
     check(
-      '128. and so is the half that writes the password',
-      reset.status === 503 && reset.error?.details?.reason === 'held',
-      `got ${reset.status} / ${reset.error?.details?.reason ?? 'no reason'}`
+      '128. and the half that writes the password agrees with it',
+      isHeld(reset) === heldInTree,
+      `got ${reset.status} / ${reset.error?.details?.reason ?? 'no reason'} — the tree says ${
+        heldInTree ? 'held' : 'lifted'
+      }`
     );
 
     // **The order of the two guards, which is not arbitrary.** requireStaff runs
