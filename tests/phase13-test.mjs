@@ -205,6 +205,85 @@ function walkJs(root) {
 }
 
 /* -------------------------------------------------------------------------
+ * The stand in server, and the browser it is opened in
+ *
+ * **Part 7 would have been the third and fourth copy of this**, so it is one
+ * function instead. The static half of every server in this file is the same
+ * three lines and always was: the filesystem, then the rewrite, in that order,
+ * which is Vercel's own and is the reason the built pages take over from the
+ * shell without anything being switched.
+ * ---------------------------------------------------------------------- */
+
+const TYPES = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.woff2': 'font/woff2',
+  '.png': 'image/png',
+};
+
+/** Answer from `dist/`, falling through to the shell the way the rewrite does. */
+function serveFromDist(res, pathname) {
+  const candidates = [
+    join(DIST, pathname.slice(1)),
+    join(DIST, `${pathname.slice(1)}.html`),
+    join(DIST, 'shell.html'),
+  ];
+  const file = candidates.find((candidate) => existsSync(candidate) && extname(candidate) !== '');
+  res.writeHead(200, { 'Content-Type': TYPES[extname(file)] ?? 'application/octet-stream' });
+  res.end(readFileSync(file));
+}
+
+/** Listen on a free port, and answer with the address to open. */
+async function listen(server) {
+  await new Promise((ready) => server.listen(0, '127.0.0.1', ready));
+  return `http://127.0.0.1:${server.address().port}`;
+}
+
+/**
+ * The settings payload every panel of 5f is drawn from.
+ *
+ * **Everything in it is a fixture**, and the awkward ones are the point: a
+ * count that could not be read, a session on each site, a passkey registered on
+ * the other one. Hoisted to here in part 7 because the responsive and
+ * accessibility passes measure `/account`, and a second copy of this would be a
+ * second thing to keep in step with the module it is a fixture for.
+ */
+const ACCOUNT_FIXTURE = Object.freeze({
+  site: 'docs',
+  profile: { username: 'staffer', display_name: 'A Staffer', email: 'a@example.invalid', available: true },
+  passkeys: [
+    {
+      id: 'p1',
+      label: 'Laptop',
+      registered_on: 'portal',
+      last_used_at: '2026-09-01T02:00:00.000Z',
+      created_at: '2026-08-01T02:00:00.000Z',
+    },
+  ],
+  relying_party: 'careers.globalfurry.tv',
+  totp_enabled: true,
+  // **The awkward one.** The recovery count could not be read; the backup set
+  // genuinely has none left. Drawing both as "0 left" is the defect this
+  // fixture exists to catch.
+  codes: { recovery: null, backup: 0 },
+  codes_low: { recovery: false, backup: false },
+  low_code_threshold: 3,
+  codes_per_set: 10,
+  devices: [{ id: 'd1', label: null, last_used_at: '2026-09-01T02:00:00.000Z', expires_at: null }],
+  sessions: [
+    { id: 's1', site: 'docs', created_at: '2026-09-02T01:00:00.000Z', expires_at: '2026-09-03T01:00:00.000Z', current: true },
+    { id: 's2', site: 'portal', created_at: '2026-09-01T01:00:00.000Z', expires_at: '2026-09-30T01:00:00.000Z', current: false },
+  ],
+  sessions_failed: false,
+  password_min_length: 10,
+  // The state this ships in. The panels are what the page draws while the three
+  // writes that reach gftv.asia are switched off.
+  hello_writes_enabled: false,
+});
+
+/* -------------------------------------------------------------------------
  * Sections
  * ---------------------------------------------------------------------- */
 
@@ -446,15 +525,6 @@ define('refusals', 'Every way the build says no', async () => {
 });
 
 define('shell', 'The shell, over the built output and the three routes', async () => {
-  const TYPES = {
-    '.html': 'text/html; charset=utf-8',
-    '.js': 'text/javascript; charset=utf-8',
-    '.css': 'text/css; charset=utf-8',
-    '.json': 'application/json; charset=utf-8',
-    '.woff2': 'font/woff2',
-    '.png': 'image/png',
-  };
-
   // The three routes, over the real modules. **The tier arrives in a header,
   // which is this file standing in for a session and nothing else**: on the site
   // it comes from reader.js, out of a session row, and never from anything a
@@ -529,21 +599,10 @@ define('shell', 'The shell, over the built output and the three routes', async (
       });
     }
 
-    // The filesystem, then the rewrite, in that order, which is Vercel's own and
-    // is the reason the built pages take over from the shell without anything
-    // being switched.
-    const candidates = [
-      join(DIST, url.pathname.slice(1)),
-      join(DIST, `${url.pathname.slice(1)}.html`),
-      join(DIST, 'shell.html'),
-    ];
-    const file = candidates.find((candidate) => existsSync(candidate) && extname(candidate) !== '');
-    res.writeHead(200, { 'Content-Type': TYPES[extname(file)] ?? 'application/octet-stream' });
-    res.end(readFileSync(file));
+    return serveFromDist(res, url.pathname);
   });
 
-  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const base = `http://127.0.0.1:${server.address().port}`;
+  const base = await listen(server);
   console.log(`      serving the built site at ${base}`);
 
   const browser = await chromium.launch();
@@ -885,54 +944,11 @@ define('account', "5f's settings suite, and the two pages with no article", asyn
 
   /* ---- The pages, in a browser -------------------------------------- */
 
-  // The stand in for the settings endpoints. **Everything it answers is a
-  // fixture**: the point of this section is what the one shared module draws
-  // from a payload, and the payloads that matter most are the awkward ones -- a
-  // count that could not be read, a session on each site, a passkey from the
-  // other one.
-  const account = {
-    site: 'docs',
-    profile: { username: 'staffer', display_name: 'A Staffer', email: 'a@example.invalid', available: true },
-    passkeys: [
-      {
-        id: 'p1',
-        label: 'Laptop',
-        registered_on: 'portal',
-        last_used_at: '2026-09-01T02:00:00.000Z',
-        created_at: '2026-08-01T02:00:00.000Z',
-      },
-    ],
-    relying_party: 'careers.globalfurry.tv',
-    totp_enabled: true,
-    // **The awkward one.** The recovery count could not be read; the backup set
-    // genuinely has none left. Drawing both as "0 left" is the defect this
-    // fixture exists to catch.
-    codes: { recovery: null, backup: 0 },
-    codes_low: { recovery: false, backup: false },
-    low_code_threshold: 3,
-    codes_per_set: 10,
-    devices: [{ id: 'd1', label: null, last_used_at: '2026-09-01T02:00:00.000Z', expires_at: null }],
-    sessions: [
-      { id: 's1', site: 'docs', created_at: '2026-09-02T01:00:00.000Z', expires_at: '2026-09-03T01:00:00.000Z', current: true },
-      { id: 's2', site: 'portal', created_at: '2026-09-01T01:00:00.000Z', expires_at: '2026-09-30T01:00:00.000Z', current: false },
-    ],
-    sessions_failed: false,
-    password_min_length: 10,
-    // The state this ships in. The panel checks below are what the page draws
-    // while the three writes that reach gftv.asia are switched off.
-    hello_writes_enabled: false,
-  };
+  // The stand in for the settings endpoints. Everything it answers is
+  // ACCOUNT_FIXTURE, whose awkward corners are the point of this section.
+  const account = ACCOUNT_FIXTURE;
 
   let signedIn = true;
-
-  const TYPES = {
-    '.html': 'text/html; charset=utf-8',
-    '.js': 'text/javascript; charset=utf-8',
-    '.css': 'text/css; charset=utf-8',
-    '.json': 'application/json; charset=utf-8',
-    '.woff2': 'font/woff2',
-    '.png': 'image/png',
-  };
 
   const server = createServer((req, res) => {
     const url = new URL(req.url, 'http://localhost');
@@ -967,18 +983,10 @@ define('account', "5f's settings suite, and the two pages with no article", asyn
 
     if (url.pathname === '/api/search-index') return json({ ok: true, data: { entries: [] } });
 
-    const candidates = [
-      join(DIST, url.pathname.slice(1)),
-      join(DIST, `${url.pathname.slice(1)}.html`),
-      join(DIST, 'shell.html'),
-    ];
-    const file = candidates.find((candidate) => existsSync(candidate) && extname(candidate) !== '');
-    res.writeHead(200, { 'Content-Type': TYPES[extname(file)] ?? 'application/octet-stream' });
-    res.end(readFileSync(file));
+    return serveFromDist(res, url.pathname);
   });
 
-  await new Promise((resolve_) => server.listen(0, '127.0.0.1', resolve_));
-  const base = `http://127.0.0.1:${server.address().port}`;
+  const base = await listen(server);
 
   const browser = await chromium.launch();
 
@@ -1403,6 +1411,1364 @@ define('live', 'The same questions, asked of the deployment', async () => {
   } finally {
     await browser.close();
   }
+});
+
+/* =========================================================================
+ * Part 7. The pass deviation 118 handed over, and the seam.
+ *
+ * **The numbering stops here on purpose.** Everything above is numbered so a
+ * check can be cited by number, and next-steps.md does cite them. The two
+ * sweeps below report once per page per language, so their count moves the day
+ * somebody adds a page — numbering them would renumber the file every time the
+ * site grows. They carry the page and the language in the label instead, which
+ * is what phase 12's own sweeps do. `contrast` and `seam` are a fixed list and
+ * number on from 129.
+ * ====================================================================== */
+
+// Section 3 of the specification: "no horizontal scrolling at any width down to
+// 320px". The same six phase 12 measured the portal at.
+const DOCS_WIDTHS = [320, 375, 414, 768, 1024, 1440];
+
+// 375 is where the sidebar is a panel behind the hamburger and 1024 is where
+// all three columns are on screen. As far as this sweep is concerned they are
+// two different documents.
+const DOCS_A11Y_WIDTHS = [375, 1024];
+
+// **Both languages, because part 6a made this site bilingual.** Decision 17
+// landed zh.json in phase 13 instead of 14, so a one language pass over this
+// site would now be a pass over half of it — and 华文 sets its own font stack
+// and does not wrap where English does, which is most of why the second pass
+// exists at all.
+const DOCS_LOCALES = ['en', 'zh'];
+
+// A table cell narrower than this is what makes a heading break after its first
+// letter. Inherited from phase 12, which found it by looking.
+const DOCS_CELL_FLOOR = 88;
+
+const DOCS_SCROLL_SLACK = 1;
+
+// The same list shell.js uses to decide what the sidebar panel's focus trap
+// contains.
+const DOCS_FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * The whole site, as a tier sees it.
+ *
+ * Every route is answered from the real modules but for the settings payload,
+ * which is ACCOUNT_FIXTURE. **The tier arrives in a header, which is this file
+ * standing in for a session and nothing else**: on the site it comes from
+ * reader.js out of a session row, and never from anything a client sent.
+ */
+function docsServer() {
+  return createServer((req, res) => {
+    const url = new URL(req.url, 'http://localhost');
+    const tier = req.headers['x-tier'] ?? 'public';
+    const signedIn = tier !== 'public';
+    const json = (body, status = 200) => {
+      res.writeHead(status, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(body));
+    };
+
+    if (url.pathname === '/api/nav') {
+      return json({
+        ok: true,
+        data: {
+          reader: {
+            signed_in: signedIn,
+            username: signedIn ? 'staffer' : null,
+            role: tier === 'developer' || tier === 'admin' ? 'admin' : signedIn ? 'job poster' : null,
+            tier,
+          },
+          nav: navFor(tier),
+        },
+      });
+    }
+
+    if (url.pathname === '/api/search-index') return json({ ok: true, data: { entries: gatedIndexFor(tier) } });
+
+    if (url.pathname === '/api/auth/staff/session') {
+      return signedIn
+        ? json({ ok: true, data: { user: { id: 'u1', username: 'staffer' } } })
+        : json({ ok: false, error: { code: 'unauthorised' } }, 401);
+    }
+
+    if (url.pathname === '/api/auth/staff/account') {
+      return signedIn
+        ? json({ ok: true, data: ACCOUNT_FIXTURE })
+        : json({ ok: false, error: { code: 'unauthorised' } }, 401);
+    }
+
+    if (url.pathname === '/api/content') {
+      const segments = (url.searchParams.get('path') ?? '').split('/').filter(Boolean);
+      const path = segments.length === 0 ? '/' : pagePathFromSegments(segments);
+      const found = path === null ? null : readablePage(path, tier);
+      if (!found) return json({ ok: false, error: { code: 'not_found' } }, 404);
+
+      return json({
+        ok: true,
+        data: {
+          page: found.page,
+          prev: found.prev,
+          next: found.next,
+          asset_base: found.assetBase,
+          updated: updatedFor(found.page.path),
+          markdown: frontMatter(readFileSync(found.file, 'utf8'))?.body ?? '',
+        },
+      });
+    }
+
+    return serveFromDist(res, url.pathname);
+  });
+}
+
+/**
+ * A context with the language, the theme and the tier already chosen.
+ *
+ * The locale is set before the first paint, because shell.html reads
+ * `gftv-careers.locale` in an inline script in its own head and holds the page
+ * blank until the dictionary applies for anything but English. Setting it after
+ * a load would measure the English page and call it 华文.
+ */
+async function docsContext(browser, base, locale, tier) {
+  const ctx = await browser.newContext({
+    baseURL: base,
+    serviceWorkers: 'block',
+    locale: locale === 'zh' ? 'zh-SG' : 'en-GB',
+    extraHTTPHeaders: tier === 'public' ? {} : { 'x-tier': tier },
+  });
+
+  await ctx.addInitScript(
+    ([key, value]) => {
+      try {
+        localStorage.setItem(`${key}.locale`, value);
+        localStorage.setItem(`${key}.mode`, 'light');
+        localStorage.setItem(`${key}.colorTheme`, 'classic');
+      } catch {
+        /* a context with storage blocked is a context this run cannot use */
+      }
+    },
+    ['gftv-careers', locale]
+  );
+
+  return ctx;
+}
+
+/** One page at one width, settled. */
+async function visit(page, base, path, width) {
+  await page.setViewportSize({ width, height: 800 });
+  await page.goto(`${base}${path}`, { waitUntil: 'domcontentloaded' });
+
+  // Every address here draws itself after at least one fetch, and a page
+  // measured before it has drawn is a page measured empty. The dictionary is
+  // the second wait: the shell holds the document blank behind
+  // data-i18n-pending until it applies, and a 华文 page measured inside that
+  // window is a page with nothing laid out in it.
+  await page.waitForLoadState('networkidle').catch(() => {});
+  await page
+    .waitForFunction(() => !document.documentElement.hasAttribute('data-i18n-pending'), null, { timeout: 3000 })
+    .catch(() => {});
+}
+
+/**
+ * Everything one docs page is asked about at one width, in the page's own
+ * context.
+ *
+ * Phase 12's three layout rules, plus the two 16d states in words: search and
+ * the account control keep their place in the header at every width and never
+ * go inside the hamburger.
+ */
+function measureDocs({ floorPx }) {
+  const describe = (el) => {
+    const cls = String(el.className || '').split(' ').filter(Boolean)[0];
+    return `${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''}${cls ? '.' + cls : ''}`;
+  };
+
+  const seen = (el) => Boolean(el) && el.checkVisibility({ checkVisibilityCSS: true });
+
+  const scrolled = document.documentElement.scrollWidth - document.documentElement.clientWidth;
+
+  // What is actually sticking out, named by its ancestry, because "the page
+  // scrolls sideways" is not a finding anybody can act on.
+  let widest = null;
+  if (scrolled > 1) {
+    const limit = document.documentElement.clientWidth;
+    for (const el of document.querySelectorAll('body *')) {
+      const box = el.getBoundingClientRect();
+      if (box.width === 0 || box.right <= limit + 1) continue;
+      const chain = [];
+      for (let node = el; node && chain.length < 4; node = node.parentElement) chain.push(describe(node));
+      widest = { right: Math.round(box.right), chain: chain.join(' < ') };
+      break;
+    }
+  }
+
+  // A table on a docs page lives inside .docs-scroller and scrolls in its own
+  // box, so a narrow cell there is the scroller doing its job. What this is
+  // looking for is a cell squeezed by the column it is in.
+  const tight = [];
+  for (const cell of document.querySelectorAll('th, td')) {
+    const box = cell.getBoundingClientRect();
+    const text = (cell.textContent ?? '').trim();
+    if (text === '' || box.width === 0) continue;
+    if (cell.closest('.docs-scroller')) continue;
+    if (box.width < floorPx) tight.push(`${cell.tagName.toLowerCase()} "${text.slice(0, 24)}" ${Math.round(box.width)}px`);
+  }
+
+  // A long label wrapping is a long label; a short one wrapping is a cramped
+  // control. Four Han characters count as about a word, because 华文 puts no
+  // spaces between them and every Chinese label would otherwise be one.
+  const cramped = [];
+  for (const button of document.querySelectorAll('button, .docs-btn')) {
+    const text = (button.textContent ?? '').trim();
+    if (text.length < 2) continue;
+    const box = button.getBoundingClientRect();
+    if (box.height === 0) continue;
+    const lineHeight = parseFloat(getComputedStyle(button).lineHeight) || 20;
+    const spaced = text.split(/\s+/).filter(Boolean).length;
+    const han = (text.match(/[㐀-鿿]/g) ?? []).length;
+    const words = han > 0 ? Math.ceil(han / 4) : spaced;
+    if (box.height > lineHeight * 2.2 && words <= 3) {
+      cramped.push(`"${text.slice(0, 24)}" ${Math.round(box.width)}x${Math.round(box.height)}`);
+    }
+  }
+
+  const onScreen = (el) => {
+    if (!seen(el)) return false;
+    const box = el.getBoundingClientRect();
+    return box.width > 0 && box.left >= -1 && box.right <= window.innerWidth + 1;
+  };
+
+  const sidebar = document.querySelector('#docsSidebar');
+
+  return {
+    scrolled,
+    widest,
+    tight: tight.slice(0, 6),
+    cramped: cramped.slice(0, 6),
+    // 16d, in the two sentences it gives the reason for: search is how people
+    // navigate documentation on a phone, and a reader who cannot find how to
+    // sign out assumes they have not.
+    search: onScreen(document.querySelector('#docsSearch')),
+    account: onScreen(document.querySelector('#docsAccount')),
+    layout: {
+      menu: seen(document.querySelector('#docsMenu')),
+      sidebar: seen(sidebar) && (sidebar?.getBoundingClientRect().left ?? -1) >= -1,
+      toc: seen(document.querySelector('#docsToc')),
+      tocInline: seen(document.querySelector('#docsTocInline')),
+    },
+  };
+}
+
+/** Every width for one page, reported once per rule: six near identical
+ *  failures say the same thing once. */
+function reportDocs(label, results) {
+  const lines = (pick) => results.filter(pick).map((r) => `${r.width}px`).join(', ');
+
+  const scrolls = results.filter((r) => r.scrolled > DOCS_SCROLL_SLACK);
+  check(
+    `${label} does not scroll sideways at any width`,
+    scrolls.length === 0,
+    scrolls.map((r) => `${r.width}px by ${r.scrolled}px: ${r.widest?.chain ?? 'unknown'}`).join('; ')
+  );
+
+  const tight = results.filter((r) => r.tight.length > 0);
+  check(
+    `${label} has no table cell under ${DOCS_CELL_FLOOR}px outside a scroller`,
+    tight.length === 0,
+    tight.map((r) => `${r.width}px: ${r.tight.join(', ')}`).join('; ')
+  );
+
+  const cramped = results.filter((r) => r.cramped.length > 0);
+  check(
+    `${label} has no short control label wrapping`,
+    cramped.length === 0,
+    cramped.map((r) => `${r.width}px: ${r.cramped.join(', ')}`).join('; ')
+  );
+
+  check(
+    `${label} keeps search and the account control on screen at every width`,
+    results.every((r) => r.search && r.account),
+    `search missing at ${lines((r) => !r.search) || 'nowhere'}; account missing at ${lines((r) => !r.account) || 'nowhere'}`
+  );
+}
+
+define('responsive', 'Every page at six widths, in both languages', async () => {
+  console.log(`      ${DOCS_WIDTHS.join(', ')} across both trees and the three form pages, en and 华文`);
+
+  const { pages } = loadPages({ fresh: true });
+  const publicPaths = [...pages.values()].filter((p) => p.pipeline === 'public').map((p) => p.path).sort();
+  const gatedPaths = [...pages.values()].filter((p) => p.pipeline === 'gated').map((p) => p.path).sort();
+
+  // Two readers, because they are two different documents. A signed out reader
+  // has a shorter sidebar, no account menu and the two pages that send a signed
+  // in reader away; a signed in one has everything and `/account`, which is the
+  // widest thing this site draws.
+  const READERS = [
+    { tier: 'public', paths: [...publicPaths, '/login', '/forgot-password'] },
+    { tier: 'developer', paths: [...publicPaths, ...gatedPaths, '/account'] },
+  ];
+
+  const server = docsServer();
+  const base = await listen(server);
+  const browser = await chromium.launch();
+
+  try {
+    for (const locale of DOCS_LOCALES) {
+      for (const { tier, paths } of READERS) {
+        const ctx = await docsContext(browser, base, locale, tier);
+        const page = await ctx.newPage();
+
+        // **The pass is proved to be the pass it claims to be, before it
+        // runs.** Nothing else here would notice a 华文 run that had quietly
+        // measured English: the widths are the same and it would report the
+        // same clean six. Phase 12 part 1's rule, and part 6a is what makes it
+        // apply to this site at all.
+        await visit(page, base, '/', 1440);
+        const applied = await page.evaluate(() => ({
+          locale: document.documentElement.getAttribute('data-locale'),
+          lang: document.documentElement.getAttribute('lang'),
+          brand: (document.querySelector('.docs-brand')?.textContent ?? '').trim(),
+        }));
+        check(
+          `the ${locale} pass as ${tier} is actually rendering ${locale}`,
+          applied.locale === locale &&
+            applied.lang === (locale === 'zh' ? 'zh-Hans-SG' : 'en') &&
+            /[一-鿿]/.test(applied.brand) === (locale === 'zh'),
+          `data-locale ${applied.locale}, lang ${applied.lang}, brand "${applied.brand}"`
+        );
+
+        // And that the sidebar arrived, for the same reason: a page with no
+        // navigation in it holds every width comfortably.
+        const entries = await page.locator('.docs-sidebar a').count();
+        check(
+          `the ${locale} sidebar as ${tier} is drawn from the page list`,
+          entries >= (tier === 'public' ? 4 : 8),
+          `${entries} entries`
+        );
+
+        for (const path of paths) {
+          const results = [];
+          for (const width of DOCS_WIDTHS) {
+            await visit(page, base, path, width);
+            results.push({ width, ...(await page.evaluate(measureDocs, { floorPx: DOCS_CELL_FLOOR })) });
+          }
+          reportDocs(`${path} in ${locale} as ${tier}`, results);
+        }
+
+        await ctx.close();
+      }
+    }
+
+    /* --- The three column arrangement, which is the README's own table --- */
+
+    // **Measured on the run's own fixture page, and that is not a convenience.**
+    // `.docs-toc:empty` collapses the contents column, which is right — a page
+    // with no headings under its title has no contents to draw — and every page
+    // in both trees is a phase 14 placeholder with exactly one heading in it. So
+    // the only page on this site that can answer "is the contents column there
+    // at 1024px" is one with a second heading, and the fixture this run writes
+    // has one. Probing a placeholder instead would have reported the column
+    // missing at every width and called it a finding.
+    const ctx = await docsContext(browser, base, 'en', 'developer');
+    const page = await ctx.newPage();
+    const layouts = [];
+    for (const width of DOCS_WIDTHS) {
+      await visit(page, base, FIXTURE_PATH, width);
+      layouts.push({
+        width,
+        columns: await page.evaluate(
+          () => getComputedStyle(document.querySelector('.docs-layout')).gridTemplateColumns.split(/\s+/).length
+        ),
+        ...(await page.evaluate(measureDocs, { floorPx: DOCS_CELL_FLOOR })),
+      });
+    }
+    await ctx.close();
+
+    const at = (width) => layouts.find((entry) => entry.width === width)?.layout ?? {};
+    const columnsAt = (width) => layouts.find((entry) => entry.width === width)?.columns ?? 0;
+
+    check(
+      '130. at 1024px and up all three columns are on screen',
+      [1024, 1440].every((width) => at(width).sidebar && at(width).toc && !at(width).tocInline),
+      [1024, 1440].map((w) => `${w}px: ${JSON.stringify(at(w))}`).join('; ')
+    );
+
+    check(
+      '131. between 640 and 1024px the contents become a block above the page',
+      at(768).sidebar && !at(768).toc && at(768).tocInline,
+      `768px: ${JSON.stringify(at(768))}`
+    );
+
+    check(
+      '132. below 640px the sidebar is behind the hamburger and off screen',
+      [320, 375, 414].every((width) => at(width).menu && !at(width).sidebar),
+      [320, 375, 414].map((w) => `${w}px: ${JSON.stringify(at(w))}`).join('; ')
+    );
+
+    check(
+      '133. and the hamburger is not there when the sidebar is',
+      [1024, 1440].every((width) => !at(width).menu),
+      [1024, 1440].map((w) => `${w}px menu: ${at(w).menu}`).join('; ')
+    );
+
+    // The grid underneath the three checks above, asked separately because
+    // `.docs-toc:empty` is allowed to collapse the column and the track is
+    // there either way. A page with nothing to put in its contents must not be
+    // the reason the layout reads as two columns.
+    check(
+      '133a. and the grid itself is one, two and three tracks at those widths',
+      [320, 375, 414].every((width) => columnsAt(width) === 1) &&
+        columnsAt(768) === 2 &&
+        [1024, 1440].every((width) => columnsAt(width) === 3),
+      layouts.map((entry) => `${entry.width}px: ${entry.columns}`).join(', ')
+    );
+  } finally {
+    await browser.close();
+    await new Promise((closed) => server.close(closed));
+  }
+});
+
+/**
+ * The eight accessibility rules, in the page's own context.
+ *
+ * Phase 12 part 2's audit, with this site's skip link. **None of them is a
+ * preference**: each is a thing a keyboard or a screen reader either can or
+ * cannot do, so each fails with the element that broke it and not with a count.
+ *
+ * The accessible name is an approximation of the real algorithm and is
+ * deliberately generous, which is the right direction for a check that fails a
+ * run: everything it reports is genuinely nameless, and the cost is a name it
+ * credits that a browser might compute differently.
+ */
+function auditDocsA11y({ focusable, skipSelector }) {
+  const seen = (el) => el.checkVisibility({ checkVisibilityCSS: true }) && el.closest('[inert]') === null;
+
+  const describe = (el) => {
+    const cls = String(el.className || '').split(' ').filter(Boolean)[0];
+    return `${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''}${cls ? '.' + cls : ''}`;
+  };
+
+  const textOf = (el) => (el?.textContent ?? '').trim();
+
+  function accessibleName(el) {
+    const label = el.getAttribute('aria-label');
+    if (label && label.trim()) return label.trim();
+
+    const labelledby = el.getAttribute('aria-labelledby');
+    if (labelledby) {
+      const joined = labelledby
+        .split(/\s+/)
+        .map((id) => textOf(document.getElementById(id)))
+        .filter(Boolean)
+        .join(' ');
+      if (joined) return joined;
+    }
+
+    if (/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) {
+      if (el.id) {
+        const forLabel = document.querySelector(`label[for="${CSS.escape(el.id)}"]`);
+        if (textOf(forLabel)) return textOf(forLabel);
+      }
+      const wrapping = el.closest('label');
+      if (textOf(wrapping)) return textOf(wrapping);
+      if (el.tagName === 'INPUT' && /^(submit|button|reset)$/.test(el.type) && el.value.trim()) {
+        return el.value.trim();
+      }
+      // **A placeholder is not a name**, and this is the one place the audit is
+      // strict instead of generous: some browsers fall back to it, which is
+      // exactly what makes an unlabelled field survive a hand test.
+      return '';
+    }
+
+    if (textOf(el)) return textOf(el);
+
+    const alt = el.querySelector('img[alt]')?.getAttribute('alt');
+    if (alt && alt.trim()) return alt.trim();
+
+    const title = el.getAttribute('title');
+    if (title && title.trim()) return title.trim();
+
+    return '';
+  }
+
+  // 1. Everything a reader can reach with Tab can be named out loud.
+  const unnamed = [];
+  const reachable = [...document.querySelectorAll(focusable)].filter(
+    (el) => seen(el) && el.getAttribute('tabindex') !== '-1'
+  );
+  for (const el of reachable) if (accessibleName(el) === '') unnamed.push(describe(el));
+
+  // 2. Nothing focusable inside aria-hidden. The one rule here that is a
+  //    contradiction and not an omission: the page has told a screen reader the
+  //    subtree does not exist and left the keyboard able to walk into it. A
+  //    sidebar that closes by moving off the edge is how this happens.
+  const hiddenFocusable = [];
+  for (const hidden of document.querySelectorAll('[aria-hidden="true"]')) {
+    for (const el of hidden.querySelectorAll(focusable)) {
+      if (!seen(el) || el.getAttribute('tabindex') === '-1') continue;
+      hiddenFocusable.push(`${describe(el)} inside ${describe(hidden)}`);
+    }
+  }
+
+  // 3. Every ARIA reference points at something on the page.
+  const IDREF = ['aria-controls', 'aria-labelledby', 'aria-describedby', 'aria-activedescendant', 'aria-owns'];
+  const dangling = [];
+  for (const attr of IDREF) {
+    for (const el of document.querySelectorAll(`[${attr}]`)) {
+      for (const id of el.getAttribute(attr).split(/\s+/).filter(Boolean)) {
+        if (!document.getElementById(id)) dangling.push(`${describe(el)} ${attr}="${id}"`);
+      }
+    }
+  }
+  for (const el of document.querySelectorAll('label[for]')) {
+    const id = el.getAttribute('for');
+    if (id && !document.getElementById(id)) dangling.push(`${describe(el)} for="${id}"`);
+  }
+
+  // 4. One id, one element. A duplicate makes every reference above a coin toss.
+  const counts = new Map();
+  for (const el of document.querySelectorAll('[id]')) counts.set(el.id, (counts.get(el.id) ?? 0) + 1);
+  const duplicates = [...counts].filter(([, n]) => n > 1).map(([id, n]) => `#${id} x${n}`);
+
+  // 5. One h1, and no level skipped on the way down. **This one is about the
+  //    renderer as much as the shell**: a guide's outline is whatever its
+  //    markdown wrote, and a page starting at ## under the shell's h1 is how a
+  //    skip arrives without anybody typing one.
+  const headings = [...document.querySelectorAll('h1, h2, h3, h4, h5, h6')].filter(seen);
+  const levels = headings.map((el) => Number(el.tagName[1]));
+  const h1 = headings.filter((el) => el.tagName === 'H1');
+  const skips = [];
+  for (let i = 1; i < levels.length; i += 1) {
+    if (levels[i] > levels[i - 1] + 1) {
+      skips.push(
+        `h${levels[i - 1]} "${textOf(headings[i - 1]).slice(0, 20)}" to h${levels[i]} "${textOf(headings[i]).slice(0, 20)}"`
+      );
+    }
+  }
+
+  // 6. Every image says what it is, or says it is decoration.
+  const images = [];
+  for (const img of document.querySelectorAll('img')) {
+    if (!seen(img)) continue;
+    if (img.hasAttribute('alt')) continue;
+    if (img.getAttribute('role') === 'presentation' || img.getAttribute('aria-hidden') === 'true') continue;
+    images.push(`${describe(img)} ${img.getAttribute('src')?.slice(-30) ?? ''}`);
+  }
+
+  // 7. No positive tabindex anywhere. One is enough to reorder the document
+  //    against the order it is written in.
+  const positive = [...document.querySelectorAll('[tabindex]')]
+    .filter((el) => Number(el.getAttribute('tabindex')) > 0)
+    .map((el) => `${describe(el)} tabindex="${el.getAttribute('tabindex')}"`);
+
+  // 8. The skip link is the first thing Tab reaches, and it lands somewhere.
+  const first = reachable[0] ?? null;
+  const skipLink = document.querySelector(skipSelector);
+  const target = skipLink ? document.getElementById((skipLink.getAttribute('href') ?? '').replace(/^#/, '')) : null;
+
+  return {
+    unnamed: [...new Set(unnamed)].slice(0, 8),
+    hiddenFocusable: [...new Set(hiddenFocusable)].slice(0, 8),
+    dangling: [...new Set(dangling)].slice(0, 8),
+    duplicates: duplicates.slice(0, 8),
+    h1Count: h1.length,
+    skips: skips.slice(0, 4),
+    images: images.slice(0, 6),
+    positive: positive.slice(0, 6),
+    skipLinkFirst: Boolean(skipLink) && first === skipLink,
+    skipLinkLands: Boolean(target),
+  };
+}
+
+/** The eight rules, reported once per page rather than once per width. */
+function reportDocsA11y(label, results) {
+  const gather = (key) => results.filter((r) => r[key].length > 0);
+  const lines = (key) => gather(key).map((r) => `${r.width}px: ${r[key].join(', ')}`).join('; ');
+
+  check(`${label}: everything reachable by Tab has a name`, gather('unnamed').length === 0, lines('unnamed'));
+  check(
+    `${label}: nothing focusable sits inside aria-hidden`,
+    gather('hiddenFocusable').length === 0,
+    lines('hiddenFocusable')
+  );
+  check(`${label}: every ARIA reference resolves`, gather('dangling').length === 0, lines('dangling'));
+  check(`${label}: no id is used twice`, gather('duplicates').length === 0, lines('duplicates'));
+  check(
+    `${label}: exactly one h1 at every width`,
+    results.every((r) => r.h1Count === 1),
+    results.map((r) => `${r.width}px: ${r.h1Count}`).join(', ')
+  );
+  check(`${label}: no heading level is skipped`, gather('skips').length === 0, lines('skips'));
+  check(`${label}: every image has an alt or is marked decorative`, gather('images').length === 0, lines('images'));
+  check(`${label}: no positive tabindex`, gather('positive').length === 0, lines('positive'));
+  check(
+    `${label}: the skip link is first and lands on something`,
+    results.every((r) => r.skipLinkFirst && r.skipLinkLands),
+    results.map((r) => `${r.width}px: first ${r.skipLinkFirst}, lands ${r.skipLinkLands}`).join('; ')
+  );
+}
+
+define('a11y', 'Every page against the accessibility rules, in both languages', async () => {
+  console.log(`      ${DOCS_A11Y_WIDTHS.join(', ')} across both trees and the three form pages, en and 华文`);
+
+  const { pages } = loadPages({ fresh: true });
+  const publicPaths = [...pages.values()].filter((p) => p.pipeline === 'public').map((p) => p.path).sort();
+  const gatedPaths = [...pages.values()].filter((p) => p.pipeline === 'gated').map((p) => p.path).sort();
+
+  const READERS = [
+    { tier: 'public', paths: [...publicPaths, '/login', '/forgot-password'] },
+    { tier: 'developer', paths: [...publicPaths, ...gatedPaths, '/account'] },
+  ];
+
+  const server = docsServer();
+  const base = await listen(server);
+  const browser = await chromium.launch();
+
+  try {
+    let proved = false;
+
+    for (const locale of DOCS_LOCALES) {
+      for (const { tier, paths } of READERS) {
+        const ctx = await docsContext(browser, base, locale, tier);
+        const page = await ctx.newPage();
+
+        // **Prove the audit can fail before trusting that it passed.** Phase 12
+        // part 1 learned this the expensive way: a clean first run is what a
+        // broken measurement looks like from the outside. Two defects go into a
+        // real page — a control with nothing to say, and a link left focusable
+        // inside an aria-hidden container — and both have to come back named.
+        if (!proved) {
+          proved = true;
+          await visit(page, base, '/', 1024);
+          await page.evaluate(() => {
+            const probe = document.createElement('div');
+            probe.id = 'a11yProbe';
+            probe.innerHTML =
+              '<button type="button" id="probeNameless"></button>' +
+              '<div aria-hidden="true"><a href="/portal" id="probeLink">Reachable</a></div>';
+            document.body.append(probe);
+          });
+          const caught = await page.evaluate(auditDocsA11y, {
+            focusable: DOCS_FOCUSABLE,
+            skipSelector: '.docs-skip',
+          });
+          await page.evaluate(() => document.querySelector('#a11yProbe')?.remove());
+          check(
+            'the audit reports a control with no accessible name',
+            caught.unnamed.some((entry) => entry.includes('probeNameless')),
+            caught.unnamed.join(', ') || 'nothing reported'
+          );
+          check(
+            'the audit reports a focusable element inside aria-hidden',
+            caught.hiddenFocusable.some((entry) => entry.includes('probeLink')),
+            caught.hiddenFocusable.join(', ') || 'nothing reported'
+          );
+        }
+
+        for (const path of paths) {
+          const results = [];
+          for (const width of DOCS_A11Y_WIDTHS) {
+            await visit(page, base, path, width);
+            results.push({
+              width,
+              ...(await page.evaluate(auditDocsA11y, {
+                focusable: DOCS_FOCUSABLE,
+                skipSelector: '.docs-skip',
+              })),
+            });
+          }
+          reportDocsA11y(`${path} in ${locale} as ${tier}`, results);
+        }
+
+        await ctx.close();
+      }
+    }
+
+    /* --- The two panels a keyboard has to be able to drive --------------- */
+
+    // The sweep above asks whether a page is *described* correctly. It cannot
+    // ask whether anything *works*, and the sidebar panel and the search
+    // combobox are both behaviours: a panel that closes by moving off the edge
+    // passes every static rule in the file and still holds the tab order.
+    const ctx = await docsContext(browser, base, 'en', 'public');
+    const page = await ctx.newPage();
+
+    await visit(page, base, '/', 375);
+    await page.locator('#docsMenu').click();
+    await page.waitForTimeout(120);
+
+    check(
+      '134. the sidebar panel says it is open, and the keyboard is inside it',
+      (await page.locator('#docsMenu').getAttribute('aria-expanded')) === 'true' &&
+        (await page.evaluate(() => document.activeElement?.closest('#docsSidebar') !== null)),
+      `expanded ${await page.locator('#docsMenu').getAttribute('aria-expanded')}`
+    );
+
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(120);
+
+    check(
+      '135. escape shuts it and gives the button back the focus',
+      (await page.locator('#docsMenu').getAttribute('aria-expanded')) === 'false' &&
+        (await page.evaluate(() => document.activeElement?.id === 'docsMenu')),
+      `expanded ${await page.locator('#docsMenu').getAttribute('aria-expanded')}, focus on ${await page.evaluate(() => document.activeElement?.id)}`
+    );
+
+    check(
+      '136. and nothing in the shut panel is in the tab order',
+      await page.evaluate(() => {
+        const sidebar = document.querySelector('#docsSidebar');
+        if (!sidebar) return false;
+        return [...sidebar.querySelectorAll('a[href], button:not([disabled])')].every(
+          (el) => !el.checkVisibility({ checkVisibilityCSS: true }) || el.closest('[inert]') !== null
+        );
+      }),
+      'a panel moved off the edge is a panel a keyboard can still walk into'
+    );
+
+    await ctx.close();
+  } finally {
+    await browser.close();
+    await new Promise((closed) => server.close(closed));
+  }
+});
+
+/**
+ * The docs components, measured where they are drawn.
+ *
+ * **Phase 12 part 3 measured the tokens and this measures what was built from
+ * them**, which is that part's own lesson: a ratio cannot tell you a state is
+ * drawn only in hue, and a token passing AA says nothing about a component that
+ * puts one token on another. Every pair below is a colour on the colour it
+ * actually sits on, composited first, at the threshold its own size and weight
+ * earn it.
+ */
+function measureDocsContrast() {
+  const parse = (css) => {
+    if (!css || css === 'transparent' || css === 'none') return null;
+    const nums = css.match(/-?[\d.]+(?:e-?\d+)?/g);
+    if (!nums || nums.length < 3) return null;
+    // Chromium answers "rgb(r, g, b)" for an ordinary colour and
+    // "color(srgb r g b / a)" with 0..1 channels for anything that came out of
+    // a color-mix. Both forms are in this palette — every --callout-*-bg is a
+    // color-mix — so a parser that handled one would read half of what it
+    // measured as very nearly black and pass everything.
+    const scale = css.startsWith('color(') ? 255 : 1;
+    const value = nums.map(Number);
+    return { r: value[0] * scale, g: value[1] * scale, b: value[2] * scale, a: nums.length > 3 ? value[3] : 1 };
+  };
+
+  const over = (src, dst) => ({
+    r: src.r * src.a + dst.r * (1 - src.a),
+    g: src.g * src.a + dst.g * (1 - src.a),
+    b: src.b * src.a + dst.b * (1 - src.a),
+    a: 1,
+  });
+
+  // What is really behind a pixel: up the ancestor chain collecting every
+  // background until one is opaque, then composited back down. The step that
+  // cannot be skipped, because --surface carries an alpha in all four
+  // combinations and an element on a card never sits on the colour its own
+  // token names.
+  const backdropOf = (start) => {
+    const layers = [];
+    for (let node = start; node; node = node.parentElement) {
+      const bg = parse(getComputedStyle(node).backgroundColor);
+      if (!bg || bg.a === 0) continue;
+      layers.push(bg);
+      if (bg.a >= 1) break;
+    }
+    let out = { r: 255, g: 255, b: 255, a: 1 };
+    for (let i = layers.length - 1; i >= 0; i -= 1) out = over(layers[i], out);
+    return out;
+  };
+
+  const channel = (v) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  const lum = (c) => 0.2126 * channel(c.r) + 0.7152 * channel(c.g) + 0.0722 * channel(c.b);
+  const ratio = (a, b) => {
+    const one = lum(a);
+    const two = lum(b);
+    return (Math.max(one, two) + 0.05) / (Math.min(one, two) + 0.05);
+  };
+
+  // 1.4.3's own definition of large, read off the element and not guessed:
+  // 24px, or 18.66px at weight 700 or heavier. The callout labels are 12px bold
+  // and the captions 13.6px regular, and neither is a size anybody would have
+  // got right from memory.
+  const isLarge = (cs) => {
+    const size = parseFloat(cs.fontSize);
+    const weight = Number(cs.fontWeight) || 400;
+    return size >= 24 || (size >= 18.66 && weight >= 700);
+  };
+
+  const found = [];
+
+  const add = (label, fg, bg, need, advisory = false) => {
+    if (!fg || !bg) {
+      found.push({ label, ratio: 0, need, advisory, unreadable: true });
+      return;
+    }
+    const composited = fg.a < 1 ? over(fg, bg) : fg;
+    found.push({ label, ratio: Math.round(ratio(composited, bg) * 100) / 100, need, advisory });
+  };
+
+  /** Text against whatever it is really sitting on. */
+  const text = (label, selector) => {
+    const el = document.querySelector(selector);
+    if (!el) {
+      found.push({ label, ratio: 0, need: 4.5, missing: true });
+      return;
+    }
+    const cs = getComputedStyle(el);
+    add(label, parse(cs.color), backdropOf(el), isLarge(cs) ? 3 : 4.5);
+  };
+
+  /**
+   * A boundary against what is *outside* it, which is the parent's backdrop and
+   * never the fill it encloses. Measuring a callout's rule against the tint it
+   * draws is the mistake that makes every callout pass.
+   *
+   * **`advisory` is 1.4.11's own scope and not a way round it.** That criterion
+   * is about "visual information required to identify user interface components
+   * and states". A rule that only divides one region of a document from the
+   * next identifies nothing, and holding a 1px `--border` separator to 3:1
+   * would mean drawing a heavier line across every page on the site to satisfy
+   * a rule that was never about it. Every advisory here is a line whose meaning
+   * is carried by something else as well, and `statesInHue` below is what says
+   * so instead of this comment.
+   */
+  const boundary = (label, selector, property, advisory = false) => {
+    const el = document.querySelector(selector);
+    if (!el) {
+      found.push({ label, ratio: 0, need: 3, advisory, missing: true });
+      return;
+    }
+    add(label, parse(getComputedStyle(el)[property]), backdropOf(el.parentElement), 3, advisory);
+  };
+
+  /* --- The chrome ------------------------------------------------------- */
+
+  text('brand', '.docs-brand');
+  text('header button', '#docsMode');
+  text('portal link', '.docs-portal-link');
+  text('skip link', '.docs-skip');
+  text('sidebar heading', '.docs-sidebar-heading');
+  text('sidebar link', '.docs-sidebar a:not(.docs-sidebar-heading)');
+  text('sidebar current entry', '.docs-sidebar a[aria-current="page"]');
+  text('breadcrumb link', '.docs-breadcrumbs a');
+  text('contents link', '.docs-toc a');
+  // The pager is a <small> for the direction and the page's own title beside
+  // it, which is the anchor's own colour and not a span of its own.
+  text('pager label', '.docs-pager a small');
+  text('pager title', '.docs-pager a');
+  text('last updated', '#docsUpdated');
+  // Advisory: it separates the header from the page and identifies nothing.
+  boundary('header rule', '.docs-header', 'borderBottomColor', true);
+
+  /* --- What the renderer draws ------------------------------------------ */
+
+  text('body text', '.docs-article p');
+  text('body link', '.docs-article a:not(.docs-anchor)');
+  text('heading anchor', '.docs-anchor');
+  text('inline code', '.docs-article :not(pre) > code');
+  text('code block', '.docs-code pre code');
+  text('code language', '.docs-code-lang');
+  text('copy button', '.docs-copy');
+  text('table heading', '.docs-scroller th');
+  text('table cell', '.docs-scroller td');
+  text('details summary', '.docs-details summary');
+  text('figure caption', '.docs-figure figcaption');
+  text('pending slot label', '.docs-pending-label');
+  text('pending slot alt', '.docs-pending-alt');
+  boundary('pending slot edge', '.docs-pending', 'borderTopColor');
+  text('tab, unselected', '.docs-tabs button[aria-selected="false"]');
+  text('tab, selected', '.docs-tabs button[aria-selected="true"]');
+  text('tab panel', '.docs-tabpanel p');
+  // Advisory: the strip's baseline. Which tab is selected is carried by the
+  // fill, the weight and the text colour, and statesInHue is what proves it.
+  boundary('tab strip rule', '.docs-tabs', 'borderBottomColor', true);
+
+  // The four callouts. **Each is told apart by a word as well as a tint**,
+  // which is docs.css's own rule: three of the four tints are 14% of a status
+  // colour and would be four shades of pale to a reader who cannot separate
+  // them. So the label is measured as text, the rule is advisory, and the word
+  // being there at all is checked below.
+  for (const kind of ['note', 'tip', 'warning', 'danger']) {
+    const selector = `.docs-callout[data-callout="${kind}"]`;
+    text(`${kind} callout label`, `${selector} .docs-callout-label`);
+    text(`${kind} callout text`, `${selector} p:last-child`);
+    boundary(`${kind} callout rule`, selector, 'borderLeftColor', true);
+  }
+
+  /* --- Search, which is drawn over the page ------------------------------ */
+
+  text('search field', '#docsSearch');
+  text('result title', '.docs-result-title');
+  text('result heading', '.docs-result-heading');
+  text('result snippet', '.docs-result-snippet');
+  text('result match', '.docs-result-snippet mark');
+  text('active result', '.docs-result[aria-selected="true"] .docs-result-title');
+
+  /* --- What a ratio cannot say ------------------------------------------ */
+
+  // **Phase 12 part 3's finding, asked of this site's own components.**
+  // Arithmetic cannot tell you a state is drawn only in hue: every pair above
+  // can clear AA while the only thing separating "this tab is selected" from
+  // "this one is not" is a colour. Both states here have to differ by something
+  // a reader who cannot separate the two hues still perceives.
+  const tabs = [...document.querySelectorAll('.docs-tabs button')];
+  const selected = tabs.find((tab) => tab.getAttribute('aria-selected') === 'true');
+  const unselected = tabs.find((tab) => tab.getAttribute('aria-selected') === 'false');
+
+  const statesInHue = { tabs: null, callouts: [] };
+
+  if (selected && unselected) {
+    const a = getComputedStyle(selected);
+    const b = getComputedStyle(unselected);
+    statesInHue.tabs = {
+      weight: a.fontWeight !== b.fontWeight,
+      fill: a.backgroundColor !== b.backgroundColor,
+      border: a.borderTopColor !== b.borderTopColor,
+    };
+  }
+
+  // Every callout carries its kind as a word. Without it the four are a tint
+  // apiece, and three of the tints are the same 14% of a status colour.
+  for (const kind of ['note', 'tip', 'warning', 'danger']) {
+    const label = document.querySelector(`.docs-callout[data-callout="${kind}"] .docs-callout-label`);
+    statesInHue.callouts.push({ kind, word: (label?.textContent ?? '').trim() });
+  }
+
+  return {
+    found,
+    statesInHue,
+    bodyBackground: getComputedStyle(document.body).backgroundColor,
+    // The arithmetic, proved on two values whose answers are known, so a
+    // section that reported all green would have to have measured something.
+    selfCheck: {
+      extremes: Math.round(ratio({ r: 0, g: 0, b: 0 }, { r: 255, g: 255, b: 255 }) * 100) / 100,
+      boundary: Math.round(ratio({ r: 118, g: 118, b: 118 }, { r: 255, g: 255, b: 255 }) * 100) / 100,
+      translucent:
+        Math.round(
+          ratio(over({ r: 0, g: 0, b: 0, a: 0.3 }, { r: 255, g: 255, b: 255 }), { r: 255, g: 255, b: 255 }) * 100
+        ) / 100,
+    },
+  };
+}
+
+// All four, because theme.css is generated into this site whole and every
+// colour block in it selects on both attributes. **The chrome offers only the
+// mode**, per 16d and section 5 item 27, so classic light and classic dark are
+// what a reader can actually reach — the other two are measured because the
+// palette is a control away if it is ever wanted, and finding out then would be
+// finding out with thirty guides already written.
+const DOCS_THEMES = [
+  ['classic', 'light'],
+  ['classic', 'dark'],
+  ['hello', 'light'],
+  ['hello', 'dark'],
+];
+
+// Everything the renderer can draw, on one page, so what is measured is the
+// markup markdown.js actually emits and not a hand written imitation of it.
+const CONTRAST_FIXTURE = [
+  '# The components, drawn once',
+  '',
+  'A paragraph with [a link](/portal) and some `inline code` in it.',
+  '',
+  '> [!NOTE]',
+  '> Something worth knowing.',
+  '',
+  '> [!TIP]',
+  '> Something worth trying.',
+  '',
+  '> [!WARNING]',
+  '> Something worth care.',
+  '',
+  '> [!DANGER]',
+  '> Something that cannot be undone.',
+  '',
+  '```sh',
+  'node scripts/build.js',
+  '```',
+  '',
+  '| Column | What it holds |',
+  '|---|---|',
+  '| One | A cell. |',
+  '',
+  ':::details More about it',
+  'The body of the collapsible block.',
+  ':::',
+  '',
+  ':::tabs',
+  '::tab On a desktop',
+  'What a desktop does.',
+  '::tab On a phone',
+  'What a phone does.',
+  ':::',
+  '',
+  '![The overview](pending:overview "A caption for the shot that is coming.")',
+  '',
+].join('\n');
+
+define('contrast', 'The docs components, in all four theme combinations', async () => {
+  console.log(`      ${DOCS_THEMES.map(([t, m]) => `${t} ${m}`).join(', ')}`);
+
+  const server = docsServer();
+  const base = await listen(server);
+  const browser = await chromium.launch();
+
+  try {
+    // **The run's own fixture page, as a reader who can see everything.** It is
+    // the one address on this site with a second heading under its title, so it
+    // is the only one that draws a contents column, a pager with something on
+    // both sides, and a search result whose heading is not just the page name.
+    // Every other page is a phase 14 placeholder, and probing one would have
+    // reported four components missing and measured the rest.
+    const ctx = await docsContext(browser, base, 'en', 'developer');
+    const page = await ctx.newPage();
+    await visit(page, base, FIXTURE_PATH, 1440);
+
+    // The renderer's own output, put where the renderer puts it. Rendered in
+    // node by the same module the browser imports, so nothing here is a second
+    // implementation of the markup.
+    const { html } = render(CONTRAST_FIXTURE, {});
+    await page.evaluate((markup) => {
+      document.querySelector('#docsArticle').innerHTML = markup;
+      const details = document.querySelector('.docs-details');
+      if (details) details.open = true;
+    }, html);
+
+    // The search panel is drawn over the page and its colours are its own.
+    // **"admin" is the query that draws every part of a result**: it matches
+    // one page's own title, which is a result with no heading line, and another
+    // page's second heading, which is a result that carries one — and both of
+    // them match inside the text, which is where the highlight is drawn. A
+    // query matching only a heading returns a result with an empty snippet and
+    // no highlight in it at all.
+    await page.fill('#docsSearch', 'admin');
+    await page.waitForSelector('.docs-result');
+    await page.keyboard.press('ArrowDown');
+
+    // **A theme change is animated and this section measures resting
+    // colours.** A custom property is not animatable and flips on the instant
+    // while a background eases over --transition, so for the length of that
+    // transition the page really is one mode's text on the other's background
+    // and getComputedStyle says so. Suppressed instead of waited out: a wait
+    // tuned to a duration is a check that breaks the day somebody edits a
+    // token, and WCAG asks what a reader sees once the page has settled.
+    await page.addStyleTag({
+      content: '*, *::before, *::after { transition: none !important; animation: none !important; }',
+    });
+
+    const backgrounds = new Map();
+    let number = 137;
+
+    for (const [theme, mode] of DOCS_THEMES) {
+      const label = `${theme} ${mode}`;
+
+      // Setting the two attributes is exactly what the mode toggle does, and
+      // every colour block selects on both, so nothing has to be reloaded.
+      // Two frames: the first is where the style recalculation lands and the
+      // second is where it has been painted from.
+      await page.evaluate(
+        ([t, m]) => {
+          document.documentElement.dataset.colorTheme = t;
+          document.documentElement.dataset.mode = m;
+          return new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
+        },
+        [theme, mode]
+      );
+
+      const result = await page.evaluate(measureDocsContrast);
+
+      if (theme === 'classic' && mode === 'light') {
+        check('the ratio is 21:1 for black on white', result.selfCheck.extremes === 21, `${result.selfCheck.extremes}:1`);
+        check(
+          'the ratio is 4.54:1 for #767676 on white',
+          result.selfCheck.boundary === 4.54,
+          `${result.selfCheck.boundary}:1`
+        );
+        // Black at 30% over white composites to rgb(178.5), which is 2.11:1
+        // against white. Compared without compositing it would be 21:1, which
+        // is the shape of the mistake: half the colours here carry an alpha of
+        // their own — every --callout-*-bg is a color-mix and --border is an
+        // rgba — so a comparison that skipped this step would give a
+        // comfortable pass to a rule a reader can barely see.
+        check(
+          'a translucent foreground is composited before it is compared',
+          result.selfCheck.translucent === 2.11,
+          `${result.selfCheck.translucent}:1, expected 2.11:1`
+        );
+      }
+
+      backgrounds.set(label, result.bodyBackground);
+
+      // **A component that was not on the page is a gap and not a pass.** The
+      // commonest way this section could go quietly wrong is a renamed class:
+      // every pair would come back missing and nothing would fail.
+      const missing = result.found.filter((entry) => entry.missing).map((entry) => entry.label);
+      check(
+        `${number}. ${label}: every component this section names is on the page`,
+        missing.length === 0,
+        `not drawn: ${missing.join(', ')}`
+      );
+      number += 1;
+
+      const failing = result.found.filter((entry) => !entry.missing && !entry.advisory && entry.ratio < entry.need);
+      check(
+        `${number}. ${label}: every docs component clears its threshold`,
+        failing.length === 0,
+        failing.map((entry) => `${entry.label} ${entry.ratio}:1, needs ${entry.need}:1`).join('; ')
+      );
+      number += 1;
+
+      // **The state, which the arithmetic above cannot see.** Every pair can
+      // clear AA while the only thing telling a reader which tab is selected is
+      // a hue. This is the check the advisory boundaries lean on, so it runs in
+      // every combination and not in the one somebody looked at.
+      const tabs = result.statesInHue.tabs;
+      const wordless = result.statesInHue.callouts.filter((entry) => entry.word === '');
+      check(
+        `${number}. ${label}: no state here is drawn in colour alone`,
+        Boolean(tabs) && (tabs.weight || tabs.fill) && wordless.length === 0,
+        `${JSON.stringify(tabs)}; callouts with no word: ${wordless.map((e) => e.kind).join(', ') || 'none'}`
+      );
+      number += 1;
+
+      const rank = (entries) =>
+        [...entries].sort((a, b) => a.ratio - b.ratio).slice(0, 3).map((e) => `${e.label} ${e.ratio}:1`).join(', ');
+      const measured = result.found.filter((entry) => !entry.missing);
+      console.log(`      ${label}: closest three — ${rank(measured.filter((e) => !e.advisory))}`);
+      // The advisory lines are printed rather than skipped, each with what it
+      // is: a number nobody is acting on is still a number somebody can read.
+      console.log(`      ${label}: advisory separators — ${rank(measured.filter((e) => e.advisory))}`);
+    }
+
+    check(
+      '149. the four combinations paint four different backgrounds',
+      new Set(backgrounds.values()).size === 4,
+      [...backgrounds].map(([k, v]) => `${k} ${v}`).join('; ')
+    );
+
+    // The plumbing, not the arithmetic: a colour that genuinely fails has to
+    // come back named. Injected into a real callout on the real page, so what
+    // is proved is the whole path from getComputedStyle to the reported line.
+    // **A group that has only ever passed is a group nobody has seen work.**
+    await page.evaluate(() => {
+      document.documentElement.dataset.colorTheme = 'classic';
+      document.documentElement.dataset.mode = 'light';
+      const style = document.createElement('style');
+      style.id = 'docsContrastProbe';
+      style.textContent = '.docs-callout[data-callout="note"] p:last-child { color: #f4f4f4 }';
+      document.head.append(style);
+      return new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
+    });
+    const broken = await page.evaluate(measureDocsContrast);
+    await page.evaluate(() => document.querySelector('#docsContrastProbe')?.remove());
+    const caught = broken.found.find((entry) => entry.label === 'note callout text');
+    check(
+      '150. a failing pair is reported rather than passed over',
+      Boolean(caught) && caught.ratio < caught.need,
+      caught ? `${caught.ratio}:1 against ${caught.need}:1` : 'nothing reported'
+    );
+
+    await ctx.close();
+  } finally {
+    await browser.close();
+    await new Promise((closed) => server.close(closed));
+  }
+});
+
+/* =========================================================================
+ * The seam
+ * ====================================================================== */
+
+// Section 2 names the READMEs this repository has. Phase 12's seam checks the
+// portal's half; what is new here is that a second project has a second
+// variable list, and a list somebody wrote is a list with something missing
+// from it.
+const PRE_DEPLOY = [
+  ['node gen-docs-lib.js --check', /gen-docs-lib\.js --check/],
+  ['node scripts/build.js', /scripts\/build\.js/],
+  ['node docs-site/scripts/embed-tests.mjs --check', /embed-tests\.mjs --check/],
+];
+
+define('seam', 'The second project: its variables, its README, and its deployment', async () => {
+  const REPO = resolve(DOCS, '..');
+  const read = (file) => readFileSync(join(REPO, file), 'utf8');
+
+  /* --- Every variable this project reads is documented twice ------------ */
+
+  // env.js refuses a name that is not on its own list, so a variable in
+  // .env.example that it has never heard of would throw on the first request
+  // that read it. Both directions, because each catches the other's silence.
+  const envModule = read('docs-site/api/_lib/env.js');
+  const known = [...envModule.matchAll(/^\s{2}'([A-Z0-9_]+)',$/gm)].map((match) => match[1]);
+  const example = read('docs-site/.env.example');
+  const rootReadme = read('README.md');
+  const docsReadme = read('docs-site/README.md');
+
+  check('151. the docs project reads four variables', known.length === 4, known.join(', '));
+
+  const undocumented = [...example.matchAll(/^([A-Z0-9_]+)=/gm)]
+    .map((match) => match[1])
+    .filter((name) => !known.includes(name));
+  check(
+    '152. .env.example carries nothing env.js has never heard of',
+    undocumented.length === 0,
+    `${undocumented.join(', ')} — requireEnv throws on a name that is not on its list`
+  );
+
+  const uncommented = known.filter(
+    (name) => !new RegExp(`^#[^\\n]*\\n(?:#[^\\n]*\\n)*${name}=`, 'm').test(example)
+  );
+  check(
+    '153. and every one of them has a comment above it saying where to get it',
+    uncommented.length === 0,
+    `${uncommented.join(', ')} — section 2 asks for the comment, not just the name`
+  );
+
+  const unlisted = known.filter((name) => !rootReadme.includes(`\`${name}\``));
+  check(
+    '154. all four are in the root README’s table as well',
+    unlisted.length === 0,
+    `${unlisted.join(', ')} — section 17 asks for both sets in one place`
+  );
+
+  // **The one that is worth a check of its own**, per 5e: SITE_URL on this site
+  // is the portal. Every document that names it has to say so, because setting
+  // it to this site is the change that breaks every passkey registered on the
+  // portal and breaks it silently.
+  check(
+    '155. .env.example says SITE_URL is the portal and not this site',
+    /SITE_URL[\s\S]{0,400}$/.test(example) &&
+      /#[^\n]*\*\*Not this site\.\*\*/.test(example) &&
+      /relying party id/i.test(example),
+    '5e: the pair is the one thing on this site that is not a copy'
+  );
+
+  check(
+    '156. and the root README says which project each variable belongs to',
+    /\| Project \| Root directory \| Domain \| From phase \|/.test(rootReadme) &&
+      rootReadme.includes('`docs-site`') &&
+      rootReadme.includes('docs.careers.globalfurry.tv'),
+    'two Vercel projects on one repository is the thing a reader gets wrong'
+  );
+
+  /* --- The project settings live in the file, not in a form ------------- */
+
+  const vercel = JSON.parse(read('docs-site/vercel.json'));
+
+  check(
+    '157. the build command and the output directory are in vercel.json',
+    vercel.buildCommand === 'node scripts/build.js' && vercel.outputDirectory === 'dist',
+    `${vercel.buildCommand} into ${vercel.outputDirectory}`
+  );
+
+  // A function that cannot find content/ throws at its first request. Both
+  // trees, because api/nav.js reads the whole page list to build a sidebar for
+  // a signed out reader too, and api/_generated/, which the build writes and
+  // the functions read.
+  const included = JSON.stringify(vercel.functions ?? {});
+  check(
+    '158. includeFiles carries both content trees and what the build wrote',
+    ['content', '_content', '_generated'].every((dir) => included.includes(dir)),
+    included.slice(0, 200)
+  );
+
+  // `/shell` and not `/shell.html`, because cleanUrls is on: the destination is
+  // written the way the platform will resolve it, and the extension here would
+  // be an address that does not exist.
+  check(
+    '159. every address that is not a file or an API route rewrites to the shell',
+    vercel.cleanUrls === true &&
+      (vercel.rewrites ?? []).some(
+        (rule) => rule.destination === '/shell' && /\(\?!api\/|assets\//.test(rule.source)
+      ),
+    JSON.stringify(vercel.rewrites ?? [])
+  );
+
+  /* --- The README describes the site that is actually here -------------- */
+
+  // Phase 8's rule turned on the document instead of the code: a README naming
+  // a part that has not happened is the stale README failure, and this one has
+  // said "what is not here yet" since part 5.
+  check(
+    '160. the README does not still describe a part that has shipped',
+    !/is not here yet is parts? 6/i.test(docsReadme) && !/The project itself, its domain and its variables are part 7/.test(docsReadme),
+    'part 6 shipped on 2 September 2026 and the project has existed since before part 3'
+  );
+
+  check(
+    '161. it says the site is bilingual, which 16f said it was not',
+    /bilingual|both languages|华文/.test(docsReadme) && /zh\.json/.test(docsReadme),
+    'decision 15 overruled 16f on 3 September 2026, and this file is where a reader finds that out'
+  );
+
+  const preDeploy = PRE_DEPLOY.filter(([, pattern]) => !pattern.test(docsReadme)).map(([name]) => name);
+  check(
+    '162. and it names every command that belongs before a docs deploy',
+    preDeploy.length === 0,
+    `${preDeploy.join(', ')} — a check nobody can find is a check nobody runs`
+  );
+
+  /* --- The generator's four directories, in both directions ------------- */
+
+  // gen-docs-lib.js --check is the command that fails when a change lands in
+  // main-site/api/_lib/ and stops there. What it cannot say is whether anybody
+  // is told to run it, which is what this pair is for.
+  for (const [where, file] of [
+    ['the root README', 'README.md'],
+    ['the docs README', 'docs-site/README.md'],
+  ]) {
+    check(
+      `163${where === 'the root README' ? '' : 'a'}. ${where} names gen-docs-lib.js --check`,
+      /gen-docs-lib\.js --check/.test(read(file)),
+      '5h keeps the two copies identical only if somebody runs the thing that says so'
+    );
+  }
+
+  /* --- The service worker rule, for a site that has no worker ----------- */
+
+  // Decision 3: no worker in this phase. The rule is written for if one ever
+  // exists, and check-precache.js stays about the portal — so what is checked
+  // is that the two halves still agree that there is not one.
+  check(
+    '164. this site still has no service worker, and its README says the rule for when it does',
+    !existsSync(join(DOCS, 'sw.js')) && /bump its `VERSION` on every\s*\n?\s*change to this site/.test(docsReadme),
+    'decision 3: a stale gated page is a worse failure than a missing one'
+  );
+
+  /* --- What the phase says about itself --------------------------------- */
+
+  const buildStatus = JSON.parse(readFileSync(join(REPO, 'main-site/assets/build-status.json'), 'utf8'));
+  const phase13 = (buildStatus.phases ?? []).find((phase) => phase.number === 13);
+
+  check(
+    '165. build-status.json knows what phase 13 is doing',
+    phase13 !== undefined && ['building', 'shipped'].includes(phase13.status),
+    `phase 13 reads ${phase13?.status ?? 'nothing'}`
+  );
+
+  // **The order is walk, lift, then flip**, settled 2 September 2026 and
+  // recorded in section 5 item 24. A phase reading `shipped` on /status while
+  // three panels read "switched off" is a strange thing to advertise, so the
+  // two are checked against each other in the one direction that matters.
+  const staffAccount = readFileSync(join(DOCS, 'api/_lib/staff-account.js'), 'utf8');
+  const held = /HELLO_WRITES_ENABLED\s*=\s*false/.test(staffAccount);
+
+  console.log(`      the hold on the gftv.asia writes is ${held ? 'on' : 'lifted'}`);
+
+  check(
+    '166. the phase does not read shipped while the gftv.asia writes are still held',
+    !(held && phase13?.status === 'shipped'),
+    'section 5 item 24: walk, lift, then flip, and this is the half a file can check'
+  );
 });
 
 /* -------------------------------------------------------------------------

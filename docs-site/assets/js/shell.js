@@ -310,6 +310,10 @@ function drawSidebar(nav, currentPath) {
   });
 }
 
+/** Below 640px the sidebar is a panel over the page. Above it, it is a column
+ *  and there is no panel to open at all. */
+const PANEL_WIDTH = window.matchMedia('(max-width: 639.98px)');
+
 /** The off canvas panel, below 640px. */
 function wireMenu() {
   const button = el('docsMenu');
@@ -321,12 +325,33 @@ function wireMenu() {
 
   let scrim = null;
 
+  const isOpen = () => sidebar.getAttribute('data-open') === 'true';
+
+  /**
+   * Off canvas and shut still means out of reach.
+   *
+   * **The panel closes by being moved off the edge**, which is a transform and
+   * nothing else: it is still displayed, still in the tab order, and still in
+   * the accessibility tree. Without this a reader on a phone tabs out of the
+   * header into a list of links nobody can see, and a screen reader reads the
+   * whole navigation before the page. It is the portal's own answer in
+   * `admin-shell.js`, arriving here because the panel is built the same way.
+   *
+   * Above 640px the sidebar is a column and nothing is ever made inert.
+   */
+  const syncReach = () => {
+    const out = PANEL_WIDTH.matches && !isOpen();
+    sidebar.inert = out;
+    sidebar.setAttribute('aria-hidden', out ? 'true' : 'false');
+  };
+
   const close = () => {
     sidebar.removeAttribute('data-open');
     button.setAttribute('aria-expanded', 'false');
     button.setAttribute('aria-label', t('header.menu'));
     scrim?.remove();
     scrim = null;
+    syncReach();
   };
 
   const open = () => {
@@ -337,16 +362,22 @@ function wireMenu() {
     scrim.className = 'docs-scrim';
     scrim.addEventListener('click', close);
     document.body.appendChild(scrim);
+    // Before the focus is moved, so the browser is never asked to put focus
+    // into something that is still inert.
+    syncReach();
     sidebar.querySelector('a, button')?.focus();
   };
 
   button.addEventListener('click', () => {
-    if (sidebar.getAttribute('data-open') === 'true') close();
+    if (isOpen()) close();
     else open();
   });
 
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && sidebar.getAttribute('data-open') === 'true') {
+    if (event.key === 'Escape' && isOpen()) {
+      // The panel is made reachable again before the button is focused, which
+      // is the order that matters: focus moving out of a subtree that is about
+      // to become inert is the one the browser gets to decide about.
       close();
       button.focus();
     }
@@ -357,6 +388,11 @@ function wireMenu() {
   sidebar.addEventListener('click', (event) => {
     if (event.target.closest('a')) close();
   });
+
+  // Turning a phone sideways crosses the breakpoint, and a sidebar left inert
+  // as it becomes a column is a column nobody can use.
+  PANEL_WIDTH.addEventListener('change', syncReach);
+  syncReach();
 }
 
 /* -------------------------------------------------------------------------
@@ -1128,9 +1164,10 @@ async function start() {
   }
 
   // Anything that renders its own content redraws when the language changes.
-  // Nothing switches language on this site yet -- there is no control for it,
-  // per 16d -- and the listener is here from the start so that phase 14 adds a
-  // dictionary and not a bug.
+  // The header's language control is what fires it, from part 6a. **The guide
+  // itself is not redrawn here**, and that is not an omission: the markdown is
+  // English in the files until phase 14 puts the translations in
+  // gftvjobs_docs_translations, so there is nothing yet for a redraw to fetch.
   document.addEventListener('gftv:localechange', () => {
     drawMode();
     drawLocale();

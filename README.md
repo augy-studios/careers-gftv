@@ -161,15 +161,22 @@ for that reason. The accounts stay shared.
 ## Environment variables
 
 Every variable is documented in [`main-site/.env.example`](main-site/.env.example)
-with a comment saying exactly where to get it, and the bot has its own
+with a comment saying exactly where to get it, and the docs site and the bot
+each have their own: [`docs-site/.env.example`](docs-site/.env.example) and
 [`telegram-bot/.env.example`](telegram-bot/.env.example). Real values live in
 `.env.local` and in the Vercel project settings, both gitignored.
 
+**Each Vercel project reads only the variables set on itself.** Setting a value
+on the portal's project sets it on the portal's project, so the docs project's
+four are entered again there. The "Used by" column below says which of the three
+wants each one.
+
 | Variable | Used by | Where it comes from |
 |---|---|---|
-| `SUPABASE_URL` | site, bot | Supabase dashboard, Project Settings, Data API, Project URL. |
-| `SUPABASE_SERVICE_KEY` | site, bot | Supabase dashboard, Project Settings, API Keys, `service_role`. Treat it like a database password. |
-| `SITE_URL` | site, bot | The portal's own origin, no trailing slash. |
+| `SUPABASE_URL` | site, docs, bot | Supabase dashboard, Project Settings, Data API, Project URL. The same project for all three: the docs site signs in the same accounts the portal does. |
+| `SUPABASE_SERVICE_KEY` | site, docs, bot | Supabase dashboard, Project Settings, API Keys, `service_role`. Treat it like a database password. |
+| `SITE_URL` | site, docs, bot | The portal's own origin, no trailing slash. **On the docs project it is still the portal**, per 5e: it is the WebAuthn relying party id, and pointing it at the docs site breaks every passkey registered on the portal. |
+| `DOCS_URL` | docs | The documentation site's own origin, no trailing slash. It scopes that site's cookies and is the origin a passkey response is checked against. |
 | `FORM_WEBHOOK_SECRET` | site | Generate with `openssl rand -hex 32`. |
 | `CRON_SECRET` | site | Generate with `openssl rand -hex 32`. |
 | `TELEGRAM_BOT_USERNAME` | site | **Optional.** The bot the linking deep link and QR point at, without the `@`. Defaults to `careersgftv_bot`, which section 15 fixes. Set it only to point a preview deployment at a test bot. Public: it is in the link itself. |
@@ -333,7 +340,7 @@ project and is documented in its own README.
 | `check-i18n.js` | Every `t()` key in the source against both dictionaries. Reports missing keys, unused ones, and the sixty built at runtime that it cannot resolve. **Run it before shipping**: a missing key renders as the raw key. |
 | `check-copy.js` | Every English string a reader can see, against the house style above. Reads the dictionary, the pages with their comments stripped out, the phase list, `llms.txt`, every quoted string in the bot's Python and its About and Description text — 3,536 strings today — and exits non-zero on a banned phrase, naming the key and the sentence around it. `--list` prints what it reads and what is banned. |
 | `check-precache.js` | Every entry in `sw.js`'s precache list resolved the way `cleanUrls` does, and non-zero on one that is not on disk. The precache list is the most dangerous object in the site: a bad entry costs one file at runtime and this is what stops it reaching production at all. |
-| `gen-docs-lib.js` | The docs site's copies of the portal's shared modules, written from `main-site/api/_lib/` and `api/auth/staff/`. Vercel builds each project from its own root and cannot reach outside it, so 5h says duplicate them and keep the two copies identical; this is what makes that true rather than remembered. Every place the two sites genuinely differ is a rule in the file with its reason beside it, and a rule whose text no longer appears stops the run instead of quietly dropping the difference. `--check` fails on a stale copy and **belongs beside the other three before a push**: a change to `main-site/api/_lib/` is half a change until this has run. |
+| `gen-docs-lib.js` | The docs site's copies of the portal's shared modules, written from `main-site/api/_lib/` and `api/auth/staff/`. Vercel builds each project from its own root and cannot reach outside it, so 5h says duplicate them and keep the two copies identical; this is what makes that true rather than remembered. Every place the two sites genuinely differ is a rule in the file with its reason beside it, and a rule whose text no longer appears stops the run instead of quietly dropping the difference. `node gen-docs-lib.js --check` fails on a stale copy and **belongs beside the other three before a push**: a change to `main-site/api/_lib/` is half a change until this has run. Since part 6 it covers `assets/js/` too, so a change to `api.js`, `danger-confirm.js` or the account page is half a change as well. |
 | `gen-icons.js` | Every icon under `main-site/`, from `HLC-source.png` at this level. The source is deliberately not one of the outputs. See [`main-site/README.md`](main-site/README.md). |
 | `gen-screenshots.js` | The two install screenshots in the manifest, captured from `/search` on the deployment. Rerun after clearing the seed. |
 | `seed.mjs` | Section 17's seed script, phase 12 part 8. Sample postings, one ready Chinese translation, and two sample accounts for the docs screenshots, all marked SAMPLE and all removable again. `node seed.mjs` says what it would do and writes nothing; `--yes` does it; `--clear --yes` removes it **and the phase 3 dev seed with it**. There is one database, so it refuses to write while `INDEXING` is true rather than putting a sample posting where a crawler can find it. |

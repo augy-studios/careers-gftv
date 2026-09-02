@@ -8,19 +8,28 @@ content in phase 14, so that it documents what was actually built, not
 what was planned. See
 [the build status page](https://careers.globalfurry.tv/status).
 
-What is here as of phase 13 part 5: the whole staff sign in, the gate, the
-shell, and both content pipelines. `api/_lib/` and the six routes under
-`api/auth/staff/` are generated copies of the portal's, per
-[the pair rule](#the-modules-shared-with-the-portal) below. They cover signing in
-and out, reading the session, the second factor in all three of its forms — a
-passkey, the authenticator code, a backup code — registering and removing a
-passkey, and the trusted devices. Beside them, [the gate](#the-gate) decides what
-a reader may open, [the shell](#the-shell) draws it, and
-[the build](#the-build-and-the-two-pipelines) turns the public tree into static
-HTML with a search index beside it.
+**Everything phase 13 owes is here as of part 7**, and every page in both trees
+is a placeholder until phase 14 writes it. The whole staff sign in, the gate,
+the shell, both content pipelines, and
+[the account settings suite](#account-settings-and-the-two-pages-with-no-article).
+`api/_lib/` and the routes under `api/auth/staff/` are generated copies of the
+portal's, per [the pair rule](#the-modules-shared-with-the-portal) below. They
+cover signing in and out, reading the session, the second factor in all three of
+its forms — a passkey, the authenticator code, a backup code — registering and
+removing a passkey, and the trusted devices. Beside them,
+[the gate](#the-gate) decides what a reader may open, [the shell](#the-shell)
+draws it, and [the build](#the-build-and-the-two-pipelines) turns the public tree
+into static HTML with a search index beside it.
 
-What is not here yet is parts 6 and 7: the account settings suite, and the Vercel
-project itself.
+**The whole site is bilingual**, staff half included. Section 16f said the staff
+half would be English only and phase 13 part 6a overruled it on 3 September
+2026: a job poster is staff, the poster guide has the widest staff audience of
+anything here, and it is the audience least likely to read English by
+preference. The cost is accepted instead of argued away — a guide that changes
+with a phase is re-translated with that phase, and the phase is not done until
+it is. The chrome's dictionary is [`assets/i18n/`](assets/i18n/); the guides'
+own translations live in `gftvjobs_docs_translations` and land with the guides
+in phase 14.
 
 **Two things about the second factor that are this site's and not the portal's.**
 A passkey registered on either site works on both, because 5e has both claim the
@@ -291,15 +300,23 @@ serving it this way.
 | `assets/css/theme.css` | The tokens. **Generated** from the portal's, so the AA work is not repeated. |
 | `assets/js/theme.js` | The two axis switcher. **Generated.** |
 | `assets/js/i18n.js` | The dictionary machinery. **Generated**, less the portal's locale write. |
-| `assets/i18n/en.json` | The chrome's strings. English only until phase 14, per decision 5. |
+| `assets/i18n/en.json`, `zh.json` | The chrome's strings, both languages. 242 keys, 175 of which are the portal's own. |
 
-**A reader's theme does not follow them here from the portal.** The two sites use
-the same `localStorage` key names and storage is scoped per origin, so this site
-reads its own values and starts everybody at classic light. That is a
-consequence of being a second host and not a bug to hunt. The colour axis has no
-switcher here either, because 16d's header list does not carry one: both
-attributes are still set on `<html>` and every colour block still selects on
-both, so the second palette is a control away if it is ever wanted.
+**A reader's theme does not follow them here from the portal, and neither does
+their language.** The two sites use the same `localStorage` key names and
+storage is scoped per origin, so this site reads its own values and starts
+everybody at classic light in English. That is a consequence of being a second
+host and not a bug to hunt: the only thing that would cross is a cookie on
+`.globalfurry.tv`, which 5h forbids outright because the parent domain carries
+other GFTV apps. Somebody who chose 华文 on the portal picks it again here,
+once.
+
+The colour axis has no switcher here, because 16d's header list does not carry
+one: both attributes are still set on `<html>` and every colour block still
+selects on both, so the second palette is a control away if it is ever wanted.
+**It is measured all the same** — `tests/phase13-test.mjs --only=contrast` walks
+every component in all four combinations, so adding that control later is adding
+a control and not discovering a palette.
 
 **Nothing in the shell decides what a reader may see.** The sidebar is whatever
 `/api/nav` returned, and that endpoint filtered it against the session on the
@@ -748,7 +765,34 @@ so the reasoning lives in `api/_lib/pages.js` beside the code that depends on it
 control it: if a deploy ever answers `/api/search-index` with the missing file
 message, this is the assumption that broke.
 
-The project itself, its domain and its variables are part 7.
+**The project, the domain and the four variables have existed since before part
+3**, which nobody knew until part 5 asked the deployment a question. Every push
+to `main` has been deploying this site the whole time, and for two parts every
+request to the content route answered 404 while the local stand in looked
+perfect. Phase 3's rule for the fourth time: **a route answering locally is not
+evidence that the platform routes it**, and the answer is
+[`tests/phase13-test.mjs --only=live`](../tests/phase13-test.mjs), which asks
+the deployment everything a stranger can ask and takes no credential to run.
+Run it after every docs deploy.
+
+### Before a docs deploy
+
+All four from the repository root but the second, which runs from here. None
+needs a credential or a network.
+
+```sh
+node gen-docs-lib.js --check       # a change that landed in one copy only
+node docs-site/scripts/build.js    # and every refusal it makes
+node check-i18n.js                 # both sites, both dictionaries
+node tests/phase13-test.mjs        # 675 checks, 27 of them against the deployment
+```
+
+**And `node docs-site/scripts/embed-tests.mjs --check
+api/_content/developer/test-scripts.json` once that file exists**, which is
+phase 14's: the pipeline that serves it is here and the page that reads it is
+not, and a committed data file nothing reads for a phase is a diff nobody can
+review. [The section above](#the-test-scripts-in-the-developer-guide) has the
+whole of it.
 
 `robots.txt`, `sitemap.xml`, and `llms.txt` are generated from the page list
 and cover public pages only. A gated page must never appear in any of the

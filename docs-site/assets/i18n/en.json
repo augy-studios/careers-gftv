@@ -1,5 +1,5 @@
 {
-  "_comment": "The docs site's interface strings. Phase 13 part 4, decision 5: the shell is written with keys and this dictionary now, so that no file is retrofitted when 华文 arrives in phase 14 beside the pages it belongs to. These are the chrome only. Everything a reader comes here to read is a markdown page in content/ or api/_content/, and no page string ever appears in this file.",
+  "_comment": "The docs site's interface strings. Written with keys in part 4 so that no file would be retrofitted later, and decision 5 put the Chinese in phase 14 — part 6a revised that by arithmetic on 3 September 2026: 175 of these 242 keys were already the portal's own strings, so only 67 were this site's to write and zh.json landed here instead. These are the chrome only. Everything a reader comes here to read is a markdown page in content/ or api/_content/, and no page string ever appears in this file.",
   "shell.title": "Careers@GFTV documentation",
   "shell.siteName": "Careers@GFTV docs",
   "shell.skipToContent": "Skip to the content",
