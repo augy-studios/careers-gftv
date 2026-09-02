@@ -748,7 +748,7 @@ define('account', "5f's settings suite, and the two pages with no article", asyn
   }
 
   check(
-    '97. exactly two files write gftvhello_users, and both are staff-account.js',
+    '77. exactly two files write gftvhello_users, and both are staff-account.js',
     writers.length === 2 && writers.every((file) => file.endsWith('api/_lib/staff-account.js')),
     `wrote: ${writers.join(', ') || 'nothing'}`
   );
@@ -757,7 +757,7 @@ define('account', "5f's settings suite, and the two pages with no article", asyn
   const updated = [...staffAccountLib.matchAll(/\.update\(\{\s*([a-z_]+)/g)].map((m) => m[1]);
 
   check(
-    '98. and the only columns it writes are the two section 2 names',
+    '78. and the only columns it writes are the two section 2 names',
     updated.length === 2 &&
       updated.includes('password_hash') &&
       updated.includes('totp_secret'),
@@ -781,13 +781,13 @@ define('account', "5f's settings suite, and the two pages with no article", asyn
     );
 
   check(
-    '99. every route that writes gftvhello_users is behind the hold',
+    '79. every route that writes gftvhello_users is behind the hold',
     guarded.length === 5,
     `guarded: ${guarded.join(', ')}`
   );
 
   check(
-    '100. and the two writers refuse on their own as well',
+    '80. and the two writers refuse on their own as well',
     staffAccountLib.split('if (!HELLO_WRITES_ENABLED) return false;').length - 1 === 2,
     'a route added later without the guard has to fail closed'
   );
@@ -795,7 +795,7 @@ define('account', "5f's settings suite, and the two pages with no article", asyn
   const accountPage = readFileSync(join(REPO, 'main-site/assets/js/staff-account.js'), 'utf8');
 
   check(
-    `101. the hold is ${held ? 'on' : 'OFF'}, and the page draws it either way`,
+    `81. the hold is ${held ? 'on' : 'OFF'}, and the page draws it either way`,
     accountPage.includes('hello_writes_enabled') && accountPage.includes('heldNote()'),
     'lifting it is one line in staff-account.js and part 7 is where that happens'
   );
@@ -806,7 +806,7 @@ define('account', "5f's settings suite, and the two pages with no article", asyn
   const forgot = readFileSync(join(REPO, 'main-site/api/auth/staff/forgot-password.js'), 'utf8');
 
   check(
-    '102. and 5g is held before a recovery code is ever verified',
+    '82. and 5g is held before a recovery code is ever verified',
     forgot.indexOf('held(res)') < forgot.indexOf('verifyCode('),
     'refusing at the end would take a code off somebody already locked out'
   );
@@ -827,7 +827,7 @@ define('account', "5f's settings suite, and the two pages with no article", asyn
   const pageActions = [...dangerPage.matchAll(/\{ action: '([a-z_]+)', reaches:/g)].map((m) => m[1]);
 
   check(
-    '103. the danger zone route and the page agree on all six actions',
+    '83. the danger zone route and the page agree on all six actions',
     routeActions.length === 6 &&
       pageActions.length === 6 &&
       routeActions.every((action) => pageActions.includes(action)),
@@ -837,7 +837,7 @@ define('account', "5f's settings suite, and the two pages with no article", asyn
   // 5f: "There is no delete account." It is a sentence on the page and an
   // action nowhere, and this is the half a later edit is most likely to undo.
   check(
-    '104. and none of them deletes the account',
+    '84. and none of them deletes the account',
     !routeActions.some((action) => action.includes('delete')) &&
       dangerRoute.includes('There is no delete account'),
     'the gftvhello account is not this project’s to delete'
@@ -865,7 +865,7 @@ define('account', "5f's settings suite, and the two pages with no article", asyn
   );
 
   check(
-    '105. every class the shared page writes is defined on the docs site',
+    '85. every class the shared page writes is defined on the docs site',
     undefined_.length === 0,
     `undefined here: ${undefined_.join(', ')}`
   );
@@ -878,7 +878,7 @@ define('account', "5f's settings suite, and the two pages with no article", asyn
   const tables = [...setsFile.matchAll(/table: (T\.[a-zA-Z]+),/g)].map((m) => m[1]);
 
   check(
-    '106. the two code sets are four distinct tables across the two realms',
+    '86. the two code sets are four distinct tables across the two realms',
     tables.length === 4 && new Set(tables).size === 4,
     tables.join(', ')
   );
@@ -993,7 +993,7 @@ define('account', "5f's settings suite, and the two pages with no article", asyn
     const { context, page } = await open('/account');
 
     check(
-      '107. /account draws the settings suite inside the documentation shell',
+      '87. /account draws the settings suite inside the documentation shell',
       (await page.locator('#staffAccount .card').count()) >= 9 &&
         (await page.locator('.docs-sidebar').count()) === 1,
       '16d: the two pages with no article render inside the same shell'
@@ -1002,7 +1002,7 @@ define('account', "5f's settings suite, and the two pages with no article", asyn
     const text = await page.locator('#staffAccount').innerText();
 
     check(
-      '108. the password panel says the change reaches gftv.asia',
+      '88. the password panel says the change reaches gftv.asia',
       /gftv\.asia/.test(text) && /one account/i.test(text),
       '5g requires that sentence in those words'
     );
@@ -1012,38 +1012,38 @@ define('account', "5f's settings suite, and the two pages with no article", asyn
     const backup = await page.locator('[data-count-for="backup"]').innerText();
 
     check(
-      '109. a count that could not be read is drawn as unknown, not as zero',
+      '89. a count that could not be read is drawn as unknown, not as zero',
       /could not be read/i.test(recovery) && /0/.test(backup),
       `recovery: ${recovery} / backup: ${backup}`
     );
 
     check(
-      '110. a passkey says which site it was registered from',
+      '90. a passkey says which site it was registered from',
       /jobs portal/i.test(text),
       '5f, and migration 039 is what makes it answerable'
     );
 
     check(
-      '111. the trusted device list says it is the account’s and not this site’s',
+      '91. the trusted device list says it is the account’s and not this site’s',
       /including any trusted on the other/i.test(text) &&
         /earned per site/i.test(text),
       'deviation 125, and both halves or neither'
     );
 
     check(
-      '112. the sessions panel labels both sites and marks this browser',
+      '92. the sessions panel labels both sites and marks this browser',
       /Documentation site/.test(text) && /Jobs portal/.test(text) && /This browser/.test(text),
       '5f: where the account is signed in, on both sites'
     );
 
     check(
-      '113. and says plainly that it cannot name a device',
+      '93. and says plainly that it cannot name a device',
       /nothing about the device/i.test(text),
       'decision 10: what a row can say is what migration 038 put in it'
     );
 
     check(
-      '114. the danger zone shows the five that are not held, and no delete account',
+      '94. the danger zone shows the five that are not held, and no delete account',
       (await page.locator('[data-danger]').count()) === 5 &&
         /no delete account/i.test(text) &&
         /switched off until it has been checked/i.test(text),
@@ -1065,7 +1065,7 @@ define('account', "5f's settings suite, and the two pages with no article", asyn
     await signedInPage.waitForURL((url) => new URL(url).pathname === '/', { timeout: 5000 }).catch(() => {});
 
     check(
-      '115. a signed in reader at /login is sent on rather than shown the form',
+      '95. a signed in reader at /login is sent on rather than shown the form',
       new URL(signedInPage.url()).pathname === '/',
       `landed on ${signedInPage.url()}`
     );
@@ -1080,21 +1080,21 @@ define('account', "5f's settings suite, and the two pages with no article", asyn
     const text = await page.locator('#docsLogin').innerText();
 
     check(
-      '116. /login draws the sign in form in the same shell',
+      '96. /login draws the sign in form in the same shell',
       (await page.locator('#docsUsername').count()) === 1 &&
         (await page.locator('.docs-sidebar').count()) === 1,
       '16b, and the header has linked here since part 4'
     );
 
     check(
-      '117. "trust this device" is not on the password panel',
+      '97. "trust this device" is not on the password panel',
       (await page.locator('#docsTrustDevice').count()) === 0 &&
         (await page.locator('#docsStaySignedIn').count()) === 1,
       '5d: only offer it once the second factor has been satisfied'
     );
 
     check(
-      '118. and the form links to the reset flow',
+      '98. and the form links to the reset flow',
       /forgotten your password/i.test(text),
       '5g, and a recovery flow nobody can find is one nobody uses'
     );
@@ -1107,20 +1107,20 @@ define('account', "5f's settings suite, and the two pages with no article", asyn
     const text = await page.locator('#staffForgotPassword').innerText();
 
     check(
-      '119. /forgot-password asks for a username and a recovery code',
+      '99. /forgot-password asks for a username and a recovery code',
       (await page.locator('#staffResetUsername').count()) === 1 &&
         (await page.locator('#staffResetCode').count()) === 1,
       "5g's flow mirrors 5c step for step"
     );
 
     check(
-      '120. and says on its first panel that the reset reaches gftv.asia',
+      '100. and says on its first panel that the reset reaches gftv.asia',
       /gftv\.asia/.test(text),
       'somebody who reads it at step 3 has already spent a recovery code'
     );
 
     check(
-      '121. and that a recovery code is not a backup code',
+      '101. and that a recovery code is not a backup code',
       /not a two step backup code/i.test(text),
       '5g: a code lying in a chat log must not be able to do both'
     );
@@ -1138,7 +1138,7 @@ define('account', "5f's settings suite, and the two pages with no article", asyn
     await page.waitForURL(/\/login$/, { timeout: 5000 }).catch(() => {});
 
     check(
-      '122. a signed out reader at /account is sent to sign in',
+      '102. a signed out reader at /account is sent to sign in',
       new URL(page.url()).pathname === '/login',
       `landed on ${page.url()}`
     );
@@ -1171,19 +1171,19 @@ define('live', 'The same questions, asked of the deployment', async () => {
 
   const home = await get('/');
   check(
-    '77. the home page is a file the build wrote',
+    '103. the home page is a file the build wrote',
     home.status === 200 && home.body.includes('data-prerendered'),
     `${home.status}, prerendered=${home.body.includes('data-prerendered')}`
   );
   check(
-    '78. and it carries its own title, not the shell\'s',
+    '104. and it carries its own title, not the shell\'s',
     /<title>Careers@GFTV documentation \|/.test(home.body),
     (/<title>([^<]*)/.exec(home.body) ?? [])[1] ?? ''
   );
 
   const page = await get('/portal/creating-an-account');
   check(
-    '79. so does a page two levels down',
+    '105. so does a page two levels down',
     page.status === 200 && page.body.includes('data-prerendered') && page.body.includes('docsPageData')
   );
 
@@ -1193,7 +1193,7 @@ define('live', 'The same questions, asked of the deployment', async () => {
   // trees had ever been arranged differently.
   const raw = await get('/content/portal/index.md');
   check(
-    '80. the content tree is not served as markdown',
+    '106. the content tree is not served as markdown',
     !(raw.headers.get('content-type') ?? '').includes('markdown'),
     `Content-Type: ${raw.headers.get('content-type')}`
   );
@@ -1205,16 +1205,16 @@ define('live', 'The same questions, asked of the deployment', async () => {
   } catch {
     entries = [];
   }
-  check('81. the public search index is served', index.status === 200 && entries.length > 0);
+  check('107. the public search index is served', index.status === 200 && entries.length > 0);
   check(
-    '82. and holds nothing from the staff half',
+    '108. and holds nothing from the staff half',
     !index.body.includes('/staff'),
     '16e, on the deployment this time'
   );
 
   const byParameter = await get('/api/content?path=/portal');
   check(
-    '83. the content route answers a page',
+    '109. the content route answers a page',
     byParameter.status === 200 && byParameter.body.includes('"path":"/portal"'),
     `${byParameter.status}: ${byParameter.body.slice(0, 80)}`
   );
@@ -1224,19 +1224,19 @@ define('live', 'The same questions, asked of the deployment', async () => {
   // stand in served it perfectly. It is checked here so that going back to it is
   // a failing check and not a silent outage.
   const byPath = await get('/api/content/portal');
-  check('84. and the path shaped address answers nothing', byPath.status === 404);
+  check('110. and the path shaped address answers nothing', byPath.status === 404);
 
   const homeRoute = await get('/api/content?path=');
   check(
-    '85. the home page needs no alias',
+    '111. the home page needs no alias',
     homeRoute.status === 200 && homeRoute.body.includes('"path":"/"'),
     'part 4 aliased it as /api/content/index, which cleanUrls redirected away'
   );
 
   const gated = await get('/api/content?path=/staff');
-  check('86. a gated page is 404 to a stranger, and never 401', gated.status === 404);
+  check('112. a gated page is 404 to a stranger, and never 401', gated.status === 404);
   check(
-    '87. the content route is never cached anywhere shared',
+    '113. the content route is never cached anywhere shared',
     (byParameter.headers.get('cache-control') ?? '').includes('no-store'),
     `Cache-Control: ${byParameter.headers.get('cache-control')}`
   );
@@ -1252,21 +1252,21 @@ define('live', 'The same questions, asked of the deployment', async () => {
     updated = null;
   }
   check(
-    '88. what the build wrote reached the functions',
+    '114. what the build wrote reached the functions',
     /^\d{4}-\d{2}-\d{2}$/.test(updated ?? ''),
     `updated: ${JSON.stringify(updated)} — includeFiles covers api/_generated, and the build ran first`
   );
 
   const search = await get('/api/search-index');
   check(
-    '89. the gated index endpoint answers a stranger with an empty list',
+    '115. the gated index endpoint answers a stranger with an empty list',
     search.status === 200 && search.body.includes('"entries":[]'),
     'a 401 would confirm the size of what they cannot see'
   );
 
   const nav = await get('/api/nav');
   check(
-    '90. and the sidebar names no staff page to a stranger',
+    '116. and the sidebar names no staff page to a stranger',
     nav.status === 200 && !nav.body.includes('/staff'),
     `${nav.status}`
   );
@@ -1280,30 +1280,126 @@ define('live', 'The same questions, asked of the deployment', async () => {
     const live = await context.newPage();
     await live.goto(`${BASE}/`, { waitUntil: 'networkidle' });
 
-    check('91. the live home page draws its article', (await live.locator('#docsArticle h1').count()) === 1);
-    check('92. and its sidebar', (await live.locator('#docsSidebar a').count()) > 0);
+    check('117. the live home page draws its article', (await live.locator('#docsArticle h1').count()) === 1);
+    check('118. and its sidebar', (await live.locator('#docsSidebar a').count()) > 0);
     check(
-      '93. and when it was last updated',
+      '119. and when it was last updated',
       /Last updated \d+ \w+ \d{4}/.test((await live.locator('#docsUpdated').textContent()) ?? ''),
       (await live.locator('#docsUpdated').textContent()) ?? ''
     );
 
     await live.fill('#docsSearch', 'telegram');
     await live.waitForSelector('.docs-result', { timeout: 15000 });
-    check('94. and search answers over the live index', (await live.locator('.docs-result').count()) > 0);
+    check('120. and search answers over the live index', (await live.locator('.docs-result').count()) > 0);
 
     await live.goto(`${BASE}/staff/developer/start-here`, { waitUntil: 'networkidle' });
     check(
-      '95. a gated page reads as "there is no page here" to a stranger',
+      '121. a gated page reads as "there is no page here" to a stranger',
       (await live.locator('.docs-state').count()) === 1,
       'the same words a page nobody wrote gets'
     );
     check(
-      '96. and it asks a crawler not to index that',
+      '122. and it asks a crawler not to index that',
       (await live.locator('meta[name="robots"]').count()) === 1
     );
 
     await context.close();
+
+    /* ---- Part 6, on the deployment ---------------------------------- */
+
+    // **Everything here was an afternoon of curl before it was a section**, the
+    // same way part 5's twenty checks were, and for the same reason: three new
+    // addresses and eleven new modules reached the docs site through a catch-all
+    // rewrite and a build that has to copy them into dist/. A stranger can ask
+    // all of it, so there is no reason not to.
+    for (const [number, path] of [
+      ['123', '/login'],
+      ['124', '/account'],
+      ['125', '/forgot-password'],
+    ]) {
+      const page = await get(path);
+      check(
+        `${number}. ${path} is served, and by the shell`,
+        page.status === 200 && page.body.includes('docsArticle'),
+        `16d: the pages with no article render inside the same shell. Got ${page.status}`
+      );
+    }
+
+    // The eight generated modules and the two this site owns. A page that is
+    // served and whose module the build did not copy is a blank content column
+    // and an error only the console sees, which is exactly what part 6's own
+    // breadcrumbs defect looked like.
+    const modules = [
+      'docs-login.js',
+      'staff-account.js',
+      'staff-forgot-password.js',
+      'api.js',
+      'danger-confirm.js',
+      'recovery-codes.js',
+      'icons.js',
+      'format.js',
+      'run-action.js',
+      'passkeys.js',
+    ];
+
+    const missing = [];
+    for (const name of modules) {
+      const asset = await get(`/assets/js/${name}`);
+      if (asset.status !== 200 || asset.body.length === 0) missing.push(name);
+    }
+
+    check(
+      '126. and every module those three pages import is in the output',
+      missing.length === 0,
+      `missing from dist/: ${missing.join(', ')}`
+    );
+
+    const post = async (path, body) => {
+      const response = await fetch(`${BASE}${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const text = await response.text();
+      let parsed = null;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        // A non JSON body is itself the finding, and the status carries it.
+      }
+      return { status: response.status, error: parsed?.error ?? null };
+    };
+
+    // **The hold, asked of the deployment.** It is the one thing about part 6 a
+    // stranger can prove end to end, and it is worth proving: a constant that
+    // was meant to ship false and shipped true would be three credential paths
+    // live and unwalked, and nothing else would say so.
+    const forgot = await post('/api/auth/staff/forgot-password', { username: 'x', code: 'y' });
+    check(
+      '127. 5g is held on the deployment, before any code is verified',
+      forgot.status === 503 && forgot.error?.details?.reason === 'held',
+      `got ${forgot.status} / ${forgot.error?.details?.reason ?? 'no reason'}`
+    );
+
+    const reset = await post('/api/auth/staff/reset-password', { ticket: 'x' });
+    check(
+      '128. and so is the half that writes the password',
+      reset.status === 503 && reset.error?.details?.reason === 'held',
+      `got ${reset.status} / ${reset.error?.details?.reason ?? 'no reason'}`
+    );
+
+    // **The order of the two guards, which is not arbitrary.** requireStaff runs
+    // before held() on the settings routes, so a stranger is told to sign in and
+    // never told which features are switched off. A held route answering 503 to
+    // somebody with no session would be this site describing its own internals
+    // to anybody who asked.
+    const account = await post('/api/auth/staff/account', {});
+    check(
+      '129. a stranger is refused before the hold is ever mentioned',
+      account.status === 401,
+      `got ${account.status}: a signed out caller must not learn what is held`
+    );
+
   } finally {
     await browser.close();
   }

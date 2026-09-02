@@ -38,13 +38,19 @@
 // Comments are stripped before scanning, or this file would flag the worked
 // examples in i18n.js as missing keys, which it did on the first run.
 //
-// **Two sites, as of phase 13 part 4.** The docs site's shell is written with
-// data-i18n keys and an English dictionary now, per decision 5, so that no file
-// is retrofitted when 华文 lands beside the pages in phase 14. Each site is
+// **Two sites, and both are bilingual as of phase 13 part 6a.** The docs site's
+// shell was keyed with an English dictionary in part 4, per decision 5, so that
+// no file would need retrofitting when 华文 landed; `zh.json` arrived earlier
+// than that decision expected, because 175 of its 242 keys were already the
+// portal's own strings and only 67 were this site's to write. Each site is
 // scanned against its own dictionaries and its own runtime families: they share
 // no keys, and a key from one appearing in the other would be a copy nobody
-// asked for. The docs site has no zh.json yet, and every check that needs one is
-// skipped for it by saying so instead of by passing.
+// asked for.
+//
+// **What that turned on is the comparison across languages for the second
+// site.** Until part 6a this file said, in as many words, that it had compared
+// nothing there — which is the honest way to report a gap and is not the same
+// as covering it. A key added to one dictionary and not the other now fails.
 
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, dirname } from 'node:path';
@@ -125,12 +131,13 @@ const DOCS_FAMILIES = ['callout.'];
  *
  * `locales` is the dictionaries that exist, in fallback order: the first is the
  * one every key must be in, and the rest read in that language or fall back to
- * it. The docs site has one, which is decision 5 and not an oversight -- the
- * shell is keyed now and translated in phase 14 beside the pages it wraps.
+ * it. **Both sites carry both languages as of phase 13 part 6a**, and phase 15
+ * adds Malay and Tamil to this list rather than to anything else: nothing here
+ * assumes two.
  */
 const SITES = [
   { name: 'main-site', locales: ['en', 'zh'], families: PORTAL_FAMILIES },
-  { name: 'docs-site', locales: ['en'], families: DOCS_FAMILIES },
+  { name: 'docs-site', locales: ['en', 'zh'], families: DOCS_FAMILIES },
 ];
 
 // A dictionary key: dotted, no interpolation. Anything with a ${ in it came

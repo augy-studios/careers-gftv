@@ -1294,3 +1294,39 @@ section.card {
 .tabular {
   font-variant-numeric: tabular-nums;
 }
+
+/* -------------------------------------------------------------------------
+ * The language control, phase 13 part 6a
+ *
+ * 16d's header did not have one, because 16f gave this site's staff half
+ * English only. Both were revised on 3 September 2026 and the whole site is
+ * bilingual now, so the header needs a way to say which language — and it keeps
+ * its place at every width for the reason 16d gives about search and the
+ * account control: a reader who cannot find how to change the language
+ * concludes there is nothing to change.
+ * ---------------------------------------------------------------------- */
+
+.docs-lang {
+  display: inline-flex;
+  align-items: center;
+}
+
+.docs-lang select {
+  font: inherit;
+  font-size: 0.875rem;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-sm);
+  padding: 0.3rem 0.45rem;
+  cursor: pointer;
+}
+
+.docs-lang select:hover {
+  background: var(--surface-hover);
+}
+
+.docs-lang select:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}

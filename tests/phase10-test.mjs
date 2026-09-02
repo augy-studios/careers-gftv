@@ -1228,6 +1228,63 @@ define('account', "The applicant's own pages with no connection", async () => {
       bounced,
       `${page.url()} — only a failure to ask falls back, never an answer`
     );
+
+    /* A code count that could not be read ---------------------------------- */
+
+    // **Added by phase 13 part 6, and it belongs here rather than there.** That
+    // part made codeCounts answer `null` for a table it could not read, which is
+    // this build's oldest rule — a count that could not be read is null and
+    // never 0 — meeting the language it is written in: `null < 3` is `true`, so
+    // the six places deriving "running low" from a `<` would have told somebody
+    // they were nearly out of the only way back into their account at the exact
+    // moment nothing could be read at all. `codesLow()` is the fix.
+    //
+    // The applicant's own page had the second half of it and was drawing
+    // `?? 0`, which is worse than the warning: **zero is a claim about the
+    // account, and this is a claim about the request.** It says "could not be
+    // read" now, and this is what keeps it saying that. The staff page's
+    // equivalent is check 89 in phase 13's file; this is the realm that has a
+    // live page and real users on it.
+    await ctx.unroute('**/api/auth/applicant/session*');
+    await ctx.route('**/api/auth/applicant/session*', (route) =>
+      route.fulfill(
+        json({
+          user: USER,
+          // What the server sends when neither code table could be counted.
+          codes: { recovery: null, backup: null },
+          low_code_threshold: 3,
+        })
+      )
+    );
+
+    await page.goto('/account/security', { waitUntil: 'domcontentloaded' });
+
+    const drawnCounts = await until(
+      page,
+      () => {
+        const node = document.querySelector('[data-count-for="recovery"]');
+        return Boolean(node && node.textContent.trim() !== '');
+      },
+      { timeout: 15000 }
+    );
+
+    const recovery = await page.textContent('[data-count-for="recovery"]');
+    const warning = await page
+      .locator('[data-warning-for="recovery"]')
+      .isVisible()
+      .catch(() => false);
+
+    check(
+      '75. a code count that could not be read is drawn as unknown, never as zero',
+      drawnCounts && !/0/.test(recovery ?? ''),
+      `drew: ${recovery}`
+    );
+
+    check(
+      '76. and it raises no warning, because there is nothing it can honestly say',
+      warning === false,
+      'null < 3 is true, which is the whole reason codesLow() exists'
+    );
   } finally {
     await browser.close();
     server.close();

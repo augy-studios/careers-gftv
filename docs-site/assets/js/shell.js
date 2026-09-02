@@ -21,7 +21,7 @@
 // banner for an application; this draws a manual.
 
 import { initTheme, applyMode } from './theme.js';
-import { initI18n, t, translateDom, getLocale } from './i18n.js';
+import { initI18n, t, translateDom, getLocale, applyLocale, LOCALES } from './i18n.js';
 import { render } from './markdown.js';
 
 const CHEVRON =
@@ -105,11 +105,67 @@ function wireMode() {
 
   button.addEventListener('click', () => {
     // Two states here, and three in the portal's switcher. 16d asks this header
-    // for a light and dark toggle, so the time based preference is reachable on
-    // the portal and not here; a reader who has chosen it there keeps it, and
-    // pressing this once replaces it with an explicit choice.
+    // for a light and dark toggle, so the time based preference is set on the
+    // portal and not here.
+    //
+    // **This site starts at its own defaults, and cannot do otherwise.** An
+    // earlier version of this comment said a reader who chose a theme on the
+    // portal keeps it here, which is wrong: localStorage is per origin and
+    // docs.careers.globalfurry.tv is not careers.globalfurry.tv, so nothing
+    // crosses. The only mechanism that would is a cookie on
+    // .globalfurry.tv, and 5h forbids exactly that -- "the parent domain
+    // carries other GFTV apps that have no business seeing this cookie".
+    //
+    // So the palette here is always classic and the mode always starts light,
+    // and pressing this once replaces that with an explicit choice stored
+    // against this origin. The hello palette is generated in, measured, and
+    // unreachable from this site's own chrome, which is 16d's header having no
+    // colour control and not an oversight.
     applyMode(document.documentElement.getAttribute('data-mode') === 'dark' ? 'light' : 'dark');
     drawMode();
+  });
+}
+
+/**
+ * The language control. Phase 13 part 6a, when the whole site became bilingual.
+ *
+ * **A reader arriving from the portal is in English whatever they chose there,
+ * and this is the only way out of that.** localStorage is per origin and
+ * docs.careers.globalfurry.tv is not careers.globalfurry.tv; the one mechanism
+ * that would carry the choice is a cookie on .globalfurry.tv, which 5h forbids
+ * because the parent domain carries other GFTV apps. So the first page is
+ * English and this is how somebody says otherwise, once, against this origin.
+ * Section 5 item 27 is the account of it.
+ *
+ * Every language in LOCALES, so phase 15's Malay and Tamil appear here by
+ * being added there and nothing in this file moves.
+ */
+function drawLocale() {
+  const select = el('docsLocale');
+  if (!select) return;
+
+  const current = getLocale();
+
+  // The native name and not the English one. Somebody looking for their own
+  // language is looking for the word they call it, which is why LOCALES carries
+  // both and this reads the second.
+  select.innerHTML = LOCALES.map(
+    (locale) =>
+      `<option value="${escapeHtml(locale.id)}"${locale.id === current ? ' selected' : ''}>` +
+      `${escapeHtml(locale.native)}</option>`
+  ).join('');
+}
+
+function wireLocale() {
+  const select = el('docsLocale');
+  if (!select) return;
+
+  select.addEventListener('change', async (event) => {
+    // applyLocale fetches the dictionary, stores the choice, sets lang and
+    // data-locale on the document, and dispatches gftv:localechange. Everything
+    // that draws its own content listens for that, which is why nothing here
+    // redraws the page itself.
+    await applyLocale(event.currentTarget.value);
   });
 }
 
@@ -1041,6 +1097,8 @@ async function start() {
   translateDom(document);
   drawMode();
   wireMode();
+  drawLocale();
+  wireLocale();
   wireMenu();
   wireArticle();
 
@@ -1075,6 +1133,7 @@ async function start() {
   // dictionary and not a bug.
   document.addEventListener('gftv:localechange', () => {
     drawMode();
+    drawLocale();
     drawAccount(data?.reader ?? null);
   });
 }

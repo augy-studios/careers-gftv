@@ -62,6 +62,10 @@ const read = (relative) => fs.readFileSync(path.join(repo, relative), 'utf8');
 const SOURCES = {
   'main-site/assets/i18n/en.json': 'The English dictionary, which is the source column.',
   'main-site/assets/i18n/zh.json': 'The interface in 华文, every key.',
+  'docs-site/assets/i18n/en.json':
+    "The documentation site's own chrome in English, which is the source column for it.",
+  'docs-site/assets/i18n/zh.json':
+    "The same chrome in 华文. **175 of its 242 keys are lifted from the portal's dictionary unchanged** and are already on this page under their own reference; only the 67 this site owns are new, and they are the ones grouped under docs. below.",
   'main-site/assets/build-status.json': 'The fifteen phases, their descriptions, and the note each shipped one carries.',
   'migrations/013_seed_reference_data.sql': 'The English names and descriptions of the departments and tags.',
   'migrations/014_locales_and_translations.sql': 'Those same departments and tags in 华文.',
@@ -148,6 +152,8 @@ const EXEMPT = {
   // because it carries the same file: an exemption for a source and not for its
   // copy would fail on every run of gen-docs-lib.js.
   'docs-site/assets/js/format.js': "The same comment, in the docs site's generated copy.",
+  'docs-site/shell.html':
+    'A comment about what a 华文 reader would otherwise see before the dictionary arrives. Every string that site shows is in its two dictionaries, which are on this page.',
   'main-site/about/index.html':
     'The organisation name inside an English sentence, and a heading whose text comes from the dictionary.',
   'main-site/assets/i18n/en.json':
@@ -391,6 +397,23 @@ function collect() {
     const name = key.split('.')[0];
     if (!groups.has(name)) groups.set(name, []);
     groups.get(name).push({ key, en: en[key], zh: zh[key] });
+  }
+
+  // **The docs site's own chrome, phase 13 part 6a.** Its dictionary is 242
+  // keys and 175 of them are the portal's own strings lifted unchanged -- the
+  // same sentence in the same words, so putting them on this page twice would
+  // ask a reviewer to read and possibly correct one of two copies. Only the
+  // keys the portal has never had are added, and they are grouped under a
+  // `docs.` prefix because the family names collide: both sites have an
+  // `account.`, a `nav.` and a `page.`, and they mean different things.
+  const docsEn = JSON.parse(read('docs-site/assets/i18n/en.json'));
+  const docsZh = JSON.parse(read('docs-site/assets/i18n/zh.json'));
+
+  for (const key of Object.keys(docsEn)) {
+    if (key === '_comment' || key in en) continue;
+    const name = `docs.${key.split('.')[0]}`;
+    if (!groups.has(name)) groups.set(name, []);
+    groups.get(name).push({ key, en: docsEn[key], zh: docsZh[key] });
   }
 
   // Every group, in ORDER's order, then whatever ORDER has never heard of.

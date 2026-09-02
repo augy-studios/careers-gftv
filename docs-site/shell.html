@@ -53,7 +53,26 @@
                 "data-color-theme",
                 localStorage.getItem(k + ".colorTheme") || "classic"
             );
-            document.documentElement.setAttribute("data-locale", "en");
+
+            // **This read the string "en" until phase 13 part 6a**, which was
+            // right while the site had one dictionary and is not any more.
+            // Without it a 华文 reader gets a page tagged as English and a
+            // flash of English copy before i18n.js has fetched anything.
+            var l = localStorage.getItem(k + ".locale") || "en";
+            document.documentElement.setAttribute("data-locale", l);
+            document.documentElement.setAttribute("lang", l === "zh" ? "zh-Hans-SG" : "en");
+
+            // The page is held blank until the dictionary applies, which is the
+            // portal's rule from the multilingual change set and exists because
+            // the alternative is every reader watching the English redraw. The
+            // timeout is the release valve: a dictionary that never arrives
+            // must not leave somebody looking at nothing.
+            if (l !== "en") {
+                document.documentElement.setAttribute("data-i18n-pending", "true");
+                setTimeout(function () {
+                    document.documentElement.removeAttribute("data-i18n-pending");
+                }, 1200);
+            }
         })();
     </script>
 
@@ -87,6 +106,22 @@
                 data-i18n="header.portal" data-i18n-attr="title:header.portalLabel">The portal</a>
 
             <button type="button" class="docs-btn docs-btn-quiet" id="docsMode"></button>
+
+            <!-- The language control, phase 13 part 6a. 16d's header did not
+                 have one and 16f gave this site English only for its staff
+                 half; both were revised on 3 September 2026, so the whole site
+                 is bilingual and needs a way to say which.
+
+                 **It keeps its place at every width**, like search and the
+                 account control and for the same reason 16d gives about those:
+                 a reader who cannot find how to change the language concludes
+                 there is nothing to change. It is a select and not the portal's
+                 modal, because the portal's carries two axes of theme with it
+                 and this carries one thing. -->
+            <label class="docs-lang">
+                <span class="visually-hidden" data-i18n="header.language">Language</span>
+                <select id="docsLocale" data-i18n-attr="title:header.language"></select>
+            </label>
 
             <!-- The account control keeps its place at every width too, for the
                  reason 16d gives: a reader who cannot find how to sign out

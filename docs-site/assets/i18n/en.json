@@ -6,6 +6,7 @@
   "shell.description": "Guides to the Careers@GFTV job portal and its Telegram bot.",
   "header.menu": "Menu",
   "header.menuClose": "Close the menu",
+  "header.language": "Language",
   "header.portal": "The portal",
   "header.portalLabel": "Open the Careers@GFTV portal",
   "header.modeLight": "Light",
