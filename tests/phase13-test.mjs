@@ -2769,6 +2769,37 @@ define('seam', 'The second project: its variables, its README, and its deploymen
     !(held && phase13?.status === 'shipped'),
     'section 5 item 24: walk, lift, then flip, and this is the half a file can check'
   );
+
+  /* --- The one link on this page that leaves both sites ------------------ */
+
+  // **A 200 is not a page here.** gftv.asia is a one page app with a catch all,
+  // so https://gftv.asia/account answered 200 while serving the same shell as
+  // everything else -- a reader sent to the wrong view, and no status code, no
+  // fetch and no link checker able to say so. It shipped on both sites from
+  // part 6 and was found on 3 September 2026 by somebody pressing the button
+  // during item 24's walk, which is the whole argument for that walk existing.
+  //
+  // Both halves, because 5f asks for this link on both sites and they are set
+  // in two different files: the portal's in its own markup, the docs site's in
+  // shell.js's route table. One fixed and one missed is the failure this pair
+  // exists to make loud.
+  const accountUrls = [
+    ['the portal', readFileSync(join(REPO, 'main-site/admin/security/index.html'), 'utf8')],
+    ['the docs site', readFileSync(join(DOCS, 'assets/js/shell.js'), 'utf8')],
+  ];
+
+  // **The attribute, not the file.** Both of these carry a comment explaining
+  // why the root is right, and a comment has to be free to name the address it
+  // is warning about -- a check that greps the whole source forbids its own
+  // explanation, which is what the first version of this did.
+  for (const [where, source] of accountUrls) {
+    const values = [...source.matchAll(/data-account-url="([^"]*)"/g)].map((match) => match[1]);
+    check(
+      `167${where === 'the portal' ? '' : 'a'}. ${where} sends staff to gftv.asia's root and not to a path under it`,
+      values.length > 0 && values.every((value) => value === 'https://gftv.asia'),
+      `${JSON.stringify(values)} — a client routed catch all answers 200 for a path it does not have`
+    );
+  }
 });
 
 /* -------------------------------------------------------------------------

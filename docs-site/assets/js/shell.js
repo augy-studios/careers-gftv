@@ -1080,8 +1080,12 @@ const FORM_PAGES = Object.freeze({
     module: '/assets/js/staff-account.js',
     titleKey: 'staffAccount.pageTitle',
     container:
+      // The root and not a path, and the portal's copy of this attribute says
+      // it at length: gftv.asia is a one page app whose catch all answers 200
+      // for /account, so a deep link there is a reader on the wrong view and a
+      // check that passes.
       '<div id="staffAccount" data-signin="/login" data-back="/" ' +
-      'data-account-url="https://gftv.asia/account"></div>',
+      'data-account-url="https://gftv.asia"></div>',
   },
   '/forgot-password': {
     module: '/assets/js/staff-forgot-password.js',

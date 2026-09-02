@@ -71,11 +71,20 @@
              there is no second markup to fall out of step.
 
              The three attributes are the whole of what this site tells it,
-             because they are the only things a stylesheet cannot say. -->
+             because they are the only things a stylesheet cannot say.
+
+             **The account URL is the root and not a path.** gftv.asia is a
+             one page app with a catch all, so https://gftv.asia/account
+             answers 200 and serves the same shell as everything else: a
+             reader sent there lands on the wrong view and no check here
+             could see it, because the status code is fine. The root is the
+             only address in that site's own markup, and a deep link into a
+             client routed app is the shape that rots quietly. Found by
+             somebody clicking the button, 3 September 2026. -->
         <div id="staffAccount"
              data-signin="/admin/login"
              data-back="/admin"
-             data-account-url="https://gftv.asia/account">
+             data-account-url="https://gftv.asia">
             <div class="loading-row">
                 <span class="spinner delayed"></span>
                 <span data-i18n="common.loading">Loading</span>
