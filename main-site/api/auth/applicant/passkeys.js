@@ -66,7 +66,7 @@ export default async function handler(req, res) {
         relying_party: relyingParty().id,
         // 5c: the backup codes are what gets past this factor when the
         // authenticator is not to hand, so the count belongs beside it.
-        codes: await codeCounts(userId),
+        codes: await codeCounts('applicant', userId),
       });
     }
 
@@ -154,7 +154,7 @@ export default async function handler(req, res) {
 
       return ok(res, {
         passkey: result.passkey,
-        codes: await codeCounts(userId),
+        codes: await codeCounts('applicant', userId),
       });
     }
 

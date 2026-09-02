@@ -25,9 +25,10 @@ import {
   generateCodeSet,
   codeCounts,
   verifyRealmPassword,
-  CODE_SET,
+  isCodeSet,
   CODES_PER_SET,
   LOW_CODE_WARNING,
+  codesLow,
 } from '../../_lib/accounts.js';
 import {
   LIMITS,
@@ -45,10 +46,10 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
-      const counts = await codeCounts(session.user.id);
+      const counts = await codeCounts('applicant', session.user.id);
       return ok(res, {
         codes: counts,
-        codes_low: counts.recovery < LOW_CODE_WARNING,
+        codes_low: codesLow(counts.recovery),
         low_code_threshold: LOW_CODE_WARNING,
         codes_per_set: CODES_PER_SET,
       });
@@ -58,7 +59,7 @@ export default async function handler(req, res) {
     if (!body) return;
 
     const which = String(body.set ?? 'recovery');
-    if (!Object.prototype.hasOwnProperty.call(CODE_SET, which)) {
+    if (!isCodeSet('applicant', which)) {
       return fail(res, ERR.BAD_REQUEST, 'That is not a set of codes this site has.', {
         details: { set: FIELD.INVALID },
       });
@@ -75,14 +76,14 @@ export default async function handler(req, res) {
       });
     }
 
-    const codes = await generateCodeSet(session.user.id, which);
+    const codes = await generateCodeSet('applicant', session.user.id, which);
 
     await auditApplicant(session.user, AUDIT.RECOVERY_CODES_GENERATED, { set: which });
 
     return ok(res, {
       set: which,
       codes,
-      counts: await codeCounts(session.user.id),
+      counts: await codeCounts('applicant', session.user.id),
       // Repeated in the response as well as on screen, per 5c: there is no
       // email in this build, so these are the only self serve way back in.
       shown_once: true,

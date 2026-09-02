@@ -565,14 +565,78 @@ api/_content/admin/overview.png  ->  /api/content?path=/staff/admin/overview.png
   documentation that happens to need a session, not an admin panel with pages
   in it, and it must not start looking like one.
 
-## Account settings
+## Account settings, and the two pages with no article
 
-Staff account settings live here at `/account`, with the same suite the portal
-mounts at `/admin/security`: passkeys, authenticator app, backup codes, account
-recovery codes, trusted devices, sessions, and a danger zone.
+Built in phase 13 part 6. Staff account settings live here at `/account`, with
+the same suite the portal mounts at `/admin/security`: profile read only,
+password, passkeys, authenticator app, backup codes, account recovery codes,
+trusted devices, sessions, and a danger zone.
 
-One implementation, mounted twice. Change it in one place and both sites move
-together.
+**One implementation, mounted twice, and the implementation is a module and not
+a page.** 5f asks for "the same markup, the same copy, and the same endpoint
+shapes", and 16d wants this page GitBook shaped where the portal's is a
+dashboard, so the markup cannot be one file copied into two shells. Each site
+provides an empty container and `assets/js/staff-account.js` builds every panel
+into it. There is no second markup here to fall out of step.
+
+**What the two sites differ by is a stylesheet.** That module writes the
+portal's class names; `assets/css/docs.css` defines the same names in this
+site's own language, at the foot of the file. That is the whole adapter.
+`tests/phase13-test.mjs --only=account` fails on a class the module writes that
+neither stylesheet here defines, which is the failure that would otherwise ship
+as a panel rendering unstyled on one site and nowhere saying so.
+
+Three data attributes on the container are what a stylesheet cannot say: where
+a signed out reader goes, where back goes, and the gftv.asia account page 5f
+links to for the fields this project may not edit.
+
+**`/login` and `/forgot-password` are the same arrangement**, per 16d: "the two
+pages with no article to hold, sign in and account settings, render inside the
+same shell all the same, with the content column carrying a form where the prose
+would be." `shell.js` holds the three in `FORM_PAGES` and imports the module for
+whichever address was asked for. The reset flow is the portal's module, from
+5g; the sign in form is this site's own, because the portal's staff login is
+marked up inside its own page and predates all of this.
+
+### Two things this page says that a reader would otherwise get wrong
+
+**Trusted devices are the account's, not this site's.** `gftvhello_trusted_devices`
+has no site column and section 2 forbids adding one, so the list includes rows
+the portal created and a revoke here revokes there. Trust itself is still earned
+per site, because the device cookie is host scoped. The panel says both halves,
+in that order; deviation 125 in `next-steps.md` is the full account.
+
+**Sessions are the opposite, and the panel says so instead.** 5h gives each site
+its own table, so signing out here leaves the portal signed in. What a session
+row cannot say is which device it is on: migration `038` gave it an id, an
+account, a token and two dates and nothing else, so the panel names the site and
+the dates and states plainly that it cannot name a device.
+
+### What reaches gftv.asia, and where it says so
+
+A staff account is one account, and three things here change it at gftv.asia
+too. Each is said on the panel that offers it, before the button:
+
+| Change | Why it reaches |
+|---|---|
+| The password | `gftvhello_users.password_hash`, section 2's first named exception, per 5g. |
+| The authenticator app | `gftvhello_users.totp_secret`, its second, settled as phase 13 decision 7. |
+| The two step backup codes | `gftvhello_backup_codes` is gftv.asia's table, and one of the four things section 2 already permits the login flow to write. |
+
+**`api/_lib/staff-account.js` is the only file in either project that writes
+`gftvhello_users`**, which is what makes a third exception a diff somebody
+reviews instead of a line somebody adds. The `account` test section fails if a
+second file ever does, or if that one writes a third column.
+
+Nothing notifies anybody, because this project has no email, so every one of
+these writes an audit row before it executes and that row is the only trace.
+
+**All three are switched off on the commit that introduced them**, behind
+`HELLO_WRITES_ENABLED` in `api/_lib/staff-account.js`, until each has been run
+once against a real account. The panels draw a sentence where their button
+would be, and the danger zone shows five actions instead of six. Everything else
+here is live from the first deploy. The portal's README carries the argument for
+why that is a constant and not a maintenance switch.
 
 There is no delete account. The gftv.asia account is not this project's to
 delete, and the page says so and links across.

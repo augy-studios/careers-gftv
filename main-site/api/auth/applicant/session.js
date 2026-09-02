@@ -11,7 +11,7 @@
 
 import { ok, methodNotAllowed, failInternal } from '../../_lib/respond.js';
 import { getApplicantSession, publicApplicant } from '../../_lib/session.js';
-import { codeCounts, LOW_CODE_WARNING } from '../../_lib/accounts.js';
+import { codeCounts, codesLow, LOW_CODE_WARNING } from '../../_lib/accounts.js';
 import { hasPasskeys } from '../../_lib/webauthn.js';
 
 export default async function handler(req, res) {
@@ -25,7 +25,7 @@ export default async function handler(req, res) {
     }
 
     const [codes, secondFactor] = await Promise.all([
-      codeCounts(session.user.id),
+      codeCounts('applicant', session.user.id),
       hasPasskeys('applicant', session.user.id),
     ]);
 
@@ -38,7 +38,7 @@ export default async function handler(req, res) {
       codes,
       // 5c: "a warning below three and a prompt to regenerate". The threshold
       // travels with the counts so the client does not hardcode it.
-      codes_low: codes.recovery < LOW_CODE_WARNING,
+      codes_low: codesLow(codes.recovery),
       low_code_threshold: LOW_CODE_WARNING,
     });
   } catch (cause) {

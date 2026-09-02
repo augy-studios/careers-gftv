@@ -101,7 +101,7 @@ async function recoveryCodeStep(req, res, body) {
       return fail(res, ERR.UNAUTHORISED, GENERIC);
     }
 
-    const codeId = await verifyCode(user.id, 'recovery', code);
+    const codeId = await verifyCode('applicant', user.id, 'recovery', code);
     if (!codeId) {
       await recordFailures('recovery_code', subjects, LIMITS.recoveryCode);
       return fail(res, ERR.UNAUTHORISED, GENERIC);
@@ -212,7 +212,7 @@ async function secondFactorStep(req, res, body) {
       // getting this far and must not also satisfy the second factor: that
       // would collapse the two sets into one, which is the exact thing 5c
       // separates them to prevent.
-      verified = await consumeCode(reset.user_id, 'backup', body.code);
+      verified = await consumeCode('applicant', reset.user_id, 'backup', body.code);
     } else {
       await verifyAgainstNothing('');
     }

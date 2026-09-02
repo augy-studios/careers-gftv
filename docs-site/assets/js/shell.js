@@ -311,6 +311,17 @@ function drawBreadcrumbs(page, nav) {
   const mount = el('docsBreadcrumbs');
   if (!mount) return;
 
+  // **A page with no page.** The two form pages in 16d -- sign in and account
+  // settings -- are not in the page list and have no section, so they pass null
+  // and get the home crumb alone. Added in phase 13 part 6, and found by
+  // opening /account: this threw on page.section and the article stayed empty,
+  // which is the shape phase 12 kept naming -- a helper that assumed the one
+  // caller it had.
+  if (!page) {
+    mount.innerHTML = '';
+    return;
+  }
+
   const trail = [{ path: '/', title: t('nav.breadcrumbHome') }];
 
   if (page.section) {
@@ -943,6 +954,83 @@ function selectTab(tab) {
 }
 
 /* -------------------------------------------------------------------------
+ * The two pages with no article, 16d
+ * ---------------------------------------------------------------------- */
+
+/**
+ * 16d: "The two pages with no article to hold, sign in and account settings,
+ * render inside the same shell all the same, header and sidebar included, with
+ * the content column carrying a form where the prose would be. Keep the
+ * callouts, the spacing, and the type scale there too, so signing in feels like
+ * part of the same site instead of a detour through a different one."
+ *
+ * So they are not a second layout. Each one puts its container into the article
+ * this file already drew and hands over to a module, and everything around it --
+ * the header, the sidebar, the theme, the search -- is untouched.
+ *
+ * **Two of the three modules are the portal's, generated.** 5f asks for the
+ * settings suite to be specified once and mounted twice and 5g's reset flow got
+ * the same treatment in phase 13 part 6; the sign in form is this site's own,
+ * because the portal's staff login is marked up in its own page and predates
+ * any of this.
+ *
+ * The container attributes are where this site says what a stylesheet cannot:
+ * where a signed out reader goes, and where back goes.
+ */
+const FORM_PAGES = Object.freeze({
+  '/login': {
+    module: '/assets/js/docs-login.js',
+    titleKey: 'login.pageTitle',
+    container:
+      '<div id="docsLogin" data-account="/account" data-forgot="/forgot-password"></div>',
+  },
+  '/account': {
+    module: '/assets/js/staff-account.js',
+    titleKey: 'staffAccount.pageTitle',
+    container:
+      '<div id="staffAccount" data-signin="/login" data-back="/" ' +
+      'data-account-url="https://gftv.asia/account"></div>',
+  },
+  '/forgot-password': {
+    module: '/assets/js/staff-forgot-password.js',
+    titleKey: 'staffReset.pageTitle',
+    container: '<div id="staffForgotPassword" data-signin="/login" data-back="/"></div>',
+  },
+});
+
+/**
+ * Draw one of them, if this address is one.
+ *
+ * **They are never indexed.** A sign in form and somebody's account settings
+ * have nothing for a crawler, and part 4's rule applies: the catch-all rewrite
+ * means an address resolves with a 200 whatever it is, so the meta tag is the
+ * only honest signal available here.
+ *
+ * @returns {Promise<boolean>} whether this page was one of them
+ */
+async function drawFormPage(path) {
+  const page = FORM_PAGES[path];
+  if (!page) return false;
+
+  const article = el('docsArticle');
+  if (!article) return false;
+
+  article.innerHTML = page.container;
+  setRobots(true);
+  document.title = tabTitle(t(page.titleKey));
+
+  drawBreadcrumbs(null, null);
+  drawPager(null, null);
+  drawUpdated(null);
+
+  // Imported rather than loaded by the page, because the shell is one document
+  // serving every address: a script tag in it would run the account page's
+  // module on every guide anybody opens.
+  await import(page.module);
+  return true;
+}
+
+/* -------------------------------------------------------------------------
  * Start
  * ---------------------------------------------------------------------- */
 
@@ -969,8 +1057,17 @@ async function start() {
   drawAccount(data?.reader ?? null);
   drawSidebar(nav, window.location.pathname.replace(/\/+$/, '') || '/');
 
-  const { headings } = await drawPage(nav);
-  drawContents(headings);
+  // A form page takes the article instead of a guide. Checked before
+  // drawPage, so /account never asks the content route for a page that is not
+  // there and never draws "there is no page here" on its way to a form.
+  const path = window.location.pathname.replace(/\/+$/, '') || '/';
+
+  if (await drawFormPage(path)) {
+    drawContents([]);
+  } else {
+    const { headings } = await drawPage(nav);
+    drawContents(headings);
+  }
 
   // Anything that renders its own content redraws when the language changes.
   // Nothing switches language on this site yet -- there is no control for it,

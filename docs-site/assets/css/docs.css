@@ -1004,3 +1004,293 @@ body {
     animation-delay: 0ms;
   }
 }
+
+/* -------------------------------------------------------------------------
+ * The account pages, phase 13 part 6
+ *
+ * **This block is the adapter, and it is the whole of what makes 5f's "one
+ * implementation, mounted twice" true.** assets/js/staff-account.js and
+ * staff-forgot-password.js are generated copies of the portal's and write the
+ * portal's class names; theme.css, which is also generated, already carries
+ * .btn, .callout, .glass-card, .modal and the spinner. What is left is
+ * everything app.css defines and this site has never had, and it is defined
+ * here in this site's own language instead of by copying app.css across.
+ *
+ * 16d is the brief and it is emphatic: "The staff guides, the developer guide,
+ * the login form, and the account settings page in 16c are all GitBook shaped
+ * ... The staff half is documentation that happens to need a session, not an
+ * admin panel with pages in it, and it must not start looking like one." So
+ * these are hairlines and whitespace, and the portal's cards and shadows stay
+ * on the portal.
+ * ---------------------------------------------------------------------- */
+
+.page-header {
+  margin-bottom: 1.5rem;
+}
+
+.page-header h1 {
+  margin: 0 0 0.35rem;
+}
+
+.page-header .lede {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.lede {
+  color: var(--text-muted);
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+/* A panel. The portal draws a glass card; this draws a hairline and lets the
+   whitespace do the work, which is the whole difference between the two sites
+   expressed in four declarations. */
+.glass-card.card,
+section.card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  box-shadow: none;
+  backdrop-filter: none;
+  padding: 1.5rem;
+  margin: 0 0 1.5rem;
+}
+
+.stack > * + * {
+  margin-top: 1rem;
+}
+
+.card h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+/* ---- Fields ----------------------------------------------------------- */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.field label {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.field input,
+.field textarea {
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 0.7rem;
+  width: 100%;
+}
+
+.field input:focus-visible,
+.field textarea:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.field-hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.field-error {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--danger);
+}
+
+.checkbox,
+.check-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  font-size: 0.92rem;
+}
+
+.checkbox input,
+.check-row input {
+  margin-top: 0.2rem;
+  flex: none;
+}
+
+/* ---- Lists of things you can revoke ----------------------------------- */
+
+.device-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--border);
+}
+
+.device-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.8rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.device-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.device-label {
+  font-weight: 600;
+}
+
+.device-main .muted {
+  font-size: 0.85rem;
+}
+
+.device-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.account-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.account-row-label {
+  color: var(--text-muted);
+}
+
+.account-row-value {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.1rem 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  vertical-align: middle;
+}
+
+/* ---- The authenticator app enrolment ---------------------------------- */
+
+.totp-qr {
+  /* The white plate is the QR's own, from the SVG, and this frames it so the
+     symbol has somewhere to sit in dark mode without the page behind it
+     bleeding into the quiet zone. */
+  max-width: 220px;
+  padding: 0.75rem;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.totp-secret {
+  margin: 0;
+}
+
+.totp-secret code {
+  display: inline-block;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  overflow-wrap: anywhere;
+}
+
+/* ---- The danger zone --------------------------------------------------- */
+
+.danger-zone {
+  border-color: var(--danger);
+}
+
+.danger-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.danger-consequences {
+  margin: 0;
+  padding-left: 1.15rem;
+}
+
+.danger-consequences li + li {
+  margin-top: 0.4rem;
+}
+
+.danger-step {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.danger-dialog {
+  max-width: 32rem;
+}
+
+.modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+/* ---- The recovery code dialog ------------------------------------------ */
+
+.code-dialog {
+  max-width: 30rem;
+}
+
+.code-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-alt);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem 1rem;
+}
+
+.code-list li {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 0.04em;
+}
+
+.code-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.code-action-note {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}

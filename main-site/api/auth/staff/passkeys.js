@@ -1,5 +1,5 @@
 // GET  /api/auth/staff/passkeys   list them
-// POST /api/auth/staff/passkeys   { action } start, finish, or remove
+// POST /api/auth/staff/passkeys   { action } start, finish, rename, or remove
 //
 // The staff half of passkeys. Same two step ceremony as the applicant side,
 // against gftvjobs_staff_passkeys.
@@ -20,7 +20,7 @@
 // A staff account can therefore have three second factors: its existing TOTP
 // app, a passkey registered here, and the backup codes that get past either.
 //
-// Adding and removing both ask for the current password, so a session alone
+// Adding, renaming and removing all ask for the current password, so a session alone
 // cannot change what it takes to get a session. Verifying that password is a
 // read of gftvhello_users.password_hash, which section 2 permits: the
 // prohibition is on writing.
@@ -39,6 +39,7 @@ import {
   startRegistration,
   finishRegistration,
   deletePasskey,
+  renamePasskey,
   passkeyLabel,
   relyingParty,
 } from '../../_lib/webauthn.js';
@@ -104,6 +105,40 @@ export default async function handler(req, res) {
         second_factor_off:
           remaining.length === 0 && !hasTotp(session.user.totp_secret),
       });
+    }
+
+    if (body.action === 'rename') {
+      const id = typeof body.id === 'string' ? body.id : '';
+      if (!id) return fail(res, ERR.BAD_REQUEST, 'Say which passkey to rename.');
+
+      const label = validateText(body.label, 60, { required: true });
+      if (!label.ok) {
+        return fail(res, ERR.BAD_REQUEST, 'That name could not be used.', {
+          details: { label: label.code },
+        });
+      }
+
+      // **The password is asked for here as well**, which 5f says for all three
+      // actions: "Add, rename, and remove, each requiring the current password."
+      // Renaming looks harmless beside the other two and is not: the label is
+      // how somebody decides which passkey to revoke, so relabelling one is a
+      // way of pointing the account holder at the wrong device.
+      const correct = await verifyRealmPassword('staff', userId, body.current_password);
+      if (!correct) {
+        await recordFailures('passkey', subjects, LIMITS.passkey);
+        return fail(res, ERR.UNAUTHORISED, 'That password was not right.', {
+          details: { current_password: FIELD.INVALID },
+        });
+      }
+
+      const passkey = await renamePasskey('staff', userId, id, label.value);
+      if (!passkey) return fail(res, ERR.NOT_FOUND, 'That passkey is not on the list.');
+
+      await auditStaff(session.user, AUDIT.PASSKEY_RENAMED, {
+        label: passkey.label,
+      }, { targetTable: 'gftvjobs_staff_passkeys', targetId: id });
+
+      return ok(res, { passkey });
     }
 
     if (body.action === 'start') {

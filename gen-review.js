@@ -144,6 +144,10 @@ const EXEMPT = {
   'main-site/assets/js/job-card.js': 'The same regex as job-page.js.',
   'main-site/assets/js/account-row.js': 'The same regex again.',
   'main-site/assets/js/format.js': 'A comment about what survives a language switch.',
+  // The generated copy, from phase 13 part 6. It carries the same comment
+  // because it carries the same file: an exemption for a source and not for its
+  // copy would fail on every run of gen-docs-lib.js.
+  'docs-site/assets/js/format.js': "The same comment, in the docs site's generated copy.",
   'main-site/about/index.html':
     'The organisation name inside an English sentence, and a heading whose text comes from the dictionary.',
   'main-site/assets/i18n/en.json':

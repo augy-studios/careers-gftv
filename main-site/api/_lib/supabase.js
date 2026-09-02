@@ -146,6 +146,32 @@ export const T = Object.freeze({
   // for exactly this reason. Deviation 122.
   staffSessions: 'gftvjobs_staff_sessions',
 
+  // **The same two tables again, named for which they are rather than for whose
+  // they are**, and the only thing that reads them is 5f's sessions panel.
+  //
+  // staffSessions above is "this site's own", and the generator points it at the
+  // docs table in the docs copy, so a reader of it never has to know which site
+  // it is running on. The panel is the one place that has to know: 5f asks for
+  // "where the account is signed in, on both sites", so it lists both and labels
+  // each. Identical in both copies, and no rule in gen-docs-lib.js, because
+  // which table holds which site's sessions is a fact about the database and not
+  // about the build reading it.
+  portalSessions: 'gftvjobs_staff_sessions',
+  docsSessions: 'gftvjobs_docs_sessions',
+
+  // Staff account recovery codes, per 5g, from migration 038. **Not a second
+  // factor**: gftvhello_backup_codes gets past the second factor and this gets
+  // past the password, and 5g is explicit that a code lying in a chat log must
+  // not be able to do both. Two tables rather than one with a purpose column,
+  // for the same reason the applicant realm has two.
+  staffRecoveryCodes: 'gftvjobs_staff_recovery_codes',
+
+  // The staff forgot password flow's tickets, per 5g and migration 040. The
+  // applicant realm's equivalent is passwordResets above; they are two tables
+  // because each carries a real foreign key to its own realm's user table, and
+  // gftvjobs_password_resets points at gftvjobs_users.
+  staffPasswordResets: 'gftvjobs_staff_password_resets',
+
   // Staff realm. Read only, apart from the challenge, trusted device, and
   // backup code rows the login flow legitimately owns. Never insert, update, or
   // delete anything else here. **The session row used to be a fourth**, and is

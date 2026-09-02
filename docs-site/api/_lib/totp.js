@@ -24,10 +24,30 @@
 // Written by hand rather than pulled from npm. It is forty lines of HMAC and
 // one dependency fewer in a serverless function.
 //
-// Nothing here enrols a secret. The portal never writes to gftvhello_users,
-// per section 2, so enrolment stays where it already happens.
+// **This file gained an enrolment half in phase 13 part 6, and the sentence it
+// replaces said the opposite.** It read: "Nothing here enrols a secret. The
+// portal never writes to gftvhello_users, per section 2, so enrolment stays
+// where it already happens." That was true of every phase up to this one.
+//
+// What changed is 5f, which asks the staff account settings suite for the
+// authenticator app "enrolment status and last used, enrol and remove, per 5a",
+// and asks its danger zone for removal a second time. A TOTP secret lives in
+// exactly one column in this database, gftvhello_users.totp_secret, so there is
+// no way to build what 5f asks for without writing it. Phase 13 decision 7
+// settled that with the conflict on the table: **totp_secret is section 2's
+// second named exception, beside password_hash from 5g, and there is no third.**
+//
+// The consequence is the one 5g states about the first exception, in the same
+// shape: it is one account, so enrolling or removing here changes the second
+// factor at gftv.asia too. Every page offering either action says that in words
+// before it offers it, and every one writes an audit row before it executes.
+//
+// **What this file still does not do is choose the parameters.** The secret it
+// generates has to be one the existing gftv.asia sign in can verify, so the
+// three constants below are unchanged and are still read as that
+// implementation's rather than as this one's.
 
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 
 const DIGITS = 6;
 const STEP_SECONDS = 30;
@@ -139,6 +159,78 @@ export function verifyTotp(code, secret, options = {}) {
  */
 export function hasTotp(secret) {
   return typeof secret === 'string' && secret.trim() !== '';
+}
+
+/* -------------------------------------------------------------------------
+ * Enrolment, phase 13 part 6
+ * ---------------------------------------------------------------------- */
+
+/** Bytes of entropy in a generated secret. RFC 4226 says at least 128 bits. */
+const SECRET_BYTES = 20;
+
+const BASE32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+
+/**
+ * A fresh base32 secret for an authenticator app.
+ *
+ * 160 bits, which is what RFC 4226 recommends for SHA-1 and what every
+ * authenticator app expects to be handed. Unpadded: the `=` an encoder would
+ * add is legal base32 and several apps refuse a secret carrying it, and
+ * decodeBase32 above strips it anyway.
+ *
+ * @returns {string}
+ */
+export function generateTotpSecret() {
+  const bytes = randomBytes(SECRET_BYTES);
+
+  let bits = 0;
+  let value = 0;
+  let out = '';
+
+  for (const byte of bytes) {
+    value = (value << 8) | byte;
+    bits += 8;
+
+    while (bits >= 5) {
+      out += BASE32[(value >>> (bits - 5)) & 31];
+      bits -= 5;
+    }
+  }
+
+  if (bits > 0) out += BASE32[(value << (5 - bits)) & 31];
+
+  return out;
+}
+
+/**
+ * The `otpauth://` URI an authenticator app scans.
+ *
+ * The three parameters are written out rather than left to the app's defaults.
+ * They are already the defaults everywhere, which is exactly why an app that
+ * quietly assumed something else would be a code rejected with no visible
+ * cause — and this is the one place the three constants leave this file, so a
+ * change to them travels to the app instead of silently disagreeing with it.
+ *
+ * **The label carries the username and never the display name.** An
+ * authenticator lists dozens of entries with no room to disambiguate, so what
+ * goes in it has to be the thing that identifies the account when somebody is
+ * signing in, and a display name is neither unique nor stable.
+ *
+ * @param {{ username: string, issuer: string, secret: string }} account
+ * @returns {string}
+ */
+export function otpauthUri({ username, issuer, secret }) {
+  const label = `${encodeURIComponent(issuer)}:${encodeURIComponent(username)}`;
+
+  const parameters = new URLSearchParams({
+    secret,
+    issuer,
+    algorithm: ALGORITHM.toUpperCase(),
+    digits: String(DIGITS),
+    period: String(STEP_SECONDS),
+  });
+
+  return `otpauth://totp/${label}?${parameters.toString()}`;
 }
 
 function constantTimeEqual(a, b) {

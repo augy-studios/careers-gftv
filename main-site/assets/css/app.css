@@ -5926,3 +5926,58 @@ a.status-day:focus-visible {
 .status-incidents p {
   margin-top: 0.25rem;
 }
+
+/* -------------------------------------------------------------------------
+ * The staff account settings page, phase 13 part 6
+ *
+ * Five classes assets/js/staff-account.js writes that nothing here had. The
+ * rest of that page is built from components this file already carries, which
+ * is why there is so little of it: 5f's suite is the same panels, the same
+ * fields and the same lists the applicant's /account/security has had since
+ * phase 6.
+ * ---------------------------------------------------------------------- */
+
+.account-row-label {
+  color: var(--text-muted);
+}
+
+.account-row-value {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.device-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.device-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+/* The authenticator app's setup code, drawn from the matrix api/_lib/qr.js
+   answered. **The white plate is not decoration**: a QR needs the contrast, and
+   phase 11 part 6 found the same symbol unscannable in both themes when the
+   page colour was allowed through the quiet zone. */
+.totp-qr {
+  max-width: 220px;
+  padding: 0.75rem;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.totp-secret {
+  margin: 0;
+}
+
+.totp-secret code {
+  display: inline-block;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  overflow-wrap: anywhere;
+}

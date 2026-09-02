@@ -205,6 +205,37 @@ export const AUDIT = Object.freeze({
   // reads as submitted and their reapply cooldown starts. If it is ever wrong,
   // this row is the only record of who decided it and on what evidence.
   SUBMISSION_LINKED: 'submission_linked',
+  // Phase 13 part 6, 5f's staff account settings suite. Every one of these is
+  // written from both sites, and the `site` this file stamps into every row is
+  // what tells them apart — which is the whole reason 5f and 5g asked for it.
+  //
+  // **Three of them reach gftv.asia**, because a staff account is one account.
+  // STAFF_PASSWORD_CHANGED and STAFF_PASSWORD_RESET write
+  // gftvhello_users.password_hash, section 2's first named exception; TOTP_*
+  // writes gftvhello_users.totp_secret, its second, settled as phase 13
+  // decision 7. A row here is the only trace any of the three leaves, since
+  // this project has no email and nothing notifies anybody.
+  //
+  // **STAFF_PASSWORD_RESET is separate from PASSWORD_CHANGED and from the
+  // applicant realm's PASSWORD_RESET**, for the reason APPLICANT_PASSWORD_SET
+  // is separate: what makes an event worth its own action is not which column
+  // moved but what it cost. This one was performed by somebody holding a
+  // recovery code and nothing else, and it changed the password at gftv.asia.
+  STAFF_PASSWORD_CHANGED: 'staff_password_changed',
+  STAFF_PASSWORD_RESET: 'staff_password_reset',
+  TOTP_ENROLLED: 'totp_enrolled',
+  TOTP_REMOVED: 'totp_removed',
+  // 5f asks for rename beside add and remove. Logged because the name is how a
+  // reader decides which passkey to revoke, so quietly relabelling one is a way
+  // of pointing somebody at the wrong device.
+  PASSKEY_RENAMED: 'passkey_renamed',
+  // The danger zone's wholesale actions. Each is its own action rather than a
+  // variant with a count in the metadata, because "every passkey was removed"
+  // and "a passkey was removed" are different sentences and the log is read by
+  // somebody scanning the left column.
+  PASSKEYS_REMOVED_ALL: 'passkeys_removed_all',
+  CODES_INVALIDATED: 'codes_invalidated',
+  SESSIONS_REVOKED_ALL: 'sessions_revoked_all',
 });
 
 /**

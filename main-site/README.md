@@ -140,7 +140,7 @@ main-site/
     js/forms.js       field errors, busy states, password reveal
     js/recovery-codes.js  the shown once code dialog
     js/login-page.js, register-page.js, forgot-password-page.js,
-    js/admin-login-page.js, security-page.js, staff-security-page.js
+    js/admin-login-page.js, security-page.js, staff-account.js
     js/admin-shell.js the dashboard's session guard, sidebar, and top bar
     js/admin-page.js, admin-jobs-page.js, admin-job-editor.js,
     js/admin-applications-page.js, admin-departments-page.js,
@@ -156,7 +156,9 @@ main-site/
     fonts/            self hosted Proxima Nova, see below
   api/
     _lib/             shared server side helpers
-    auth/staff/       login, verify-2fa, logout, session, trusted-devices
+    auth/staff/       login, verify-2fa, logout, session, trusted-devices,
+                      passkeys, account, totp, recovery-codes, danger,
+                      forgot-password, reset-password
     auth/applicant/   register, login, logout, session, profile,
                       change-password, forgot-password, reset-password,
                       recovery-codes, trusted-devices, locale
@@ -295,6 +297,41 @@ challenge, trusted device, and backup code rows the login flow legitimately
 owns. Granting or revoking portal access writes to `gftvjobs_admin_access`
 instead, never to `gftvhello_users`.
 
+**Two columns on `gftvhello_users` are the exception, and there is no third.**
+Both were asked for deliberately with the conflict on the table, and both are
+written from one file, `api/_lib/staff-account.js`:
+
+| Column | Asked for by | What it costs |
+|---|---|---|
+| `password_hash` | 5g, and section 2 carries the sentence itself | A staff password set here is the gftv.asia password. 8.8 says reset belongs there, and this is the named exception to that. |
+| `totp_secret` | 5f, settled as phase 13 decision 7 on 2 September 2026 | Setting up or removing an authenticator app here does the same at gftv.asia. Without it, 5f's authenticator panel and its danger zone action could not exist at all. |
+
+Collecting both in one file is what makes a third a diff somebody reviews.
+`node tests/phase13-test.mjs --only=account` fails if a second file ever writes
+that table, or if that one writes a third column. Every write of either goes in
+behind an audit row, because this project has no email and nothing notifies
+anybody.
+
+**And all three of them are switched off on the commit that introduced them.**
+`HELLO_WRITES_ENABLED` in `api/_lib/staff-account.js` is `false`: the password
+change, the reset flow and the authenticator app are deployed, work, and refuse
+until each has been run once against a real account. Everything else in 5f — the
+lists, the revokes, the two code sets, five of the six danger zone actions — is
+live from the first deploy.
+
+It is a constant and not a maintenance switch, and that is not a preference. An
+override in `gftvjobs_settings` records only that an admin turned something
+*off*, so a switch is on until somebody flips it, and `featureOverrides` ignores
+any feature whose phase has not shipped. A switch would have been inert for the
+whole window it was meant to cover and default on at the moment phase 13 ships.
+`INDEXING` in `api/_lib/discovery.js` is the shape this follows instead.
+
+**Lifting it is one line and it is part 7's**, after the walk in
+`next-steps.md` section 5 item 24. A held route answers 503 with
+`details.reason: "held"`, which `api.js` translates into its own sentence:
+neither "an admin switched this off" nor "this is not built yet", because it is
+neither.
+
 **A staff session row was a fourth of those writes until migration `038`, and
 is not one any more.** 5a puts the portal's staff sessions in
 `gftvhello_sessions`, and the consequence was one set of rows serving two
@@ -335,6 +372,12 @@ markup as delivered and does not run JavaScript.
 | Group | Routes | Phase |
 |---|---|---|
 | `api/auth/staff/*` | login, verify-2fa, logout, session, trusted-devices, passkeys | 2 |
+| `api/auth/staff/account` | GET the whole of 5f's settings page in one call; POST changes the password | 13.6 |
+| `api/auth/staff/totp` | start, confirm, remove. **The one route that writes `gftvhello_users.totp_secret`** | 13.6 |
+| `api/auth/staff/recovery-codes` | 5g's two sets, counted and regenerated | 13.6 |
+| `api/auth/staff/danger` | 5f's six danger zone actions, each behind the typed username, the password and a fresh code | 13.6 |
+| `api/auth/staff/forgot-password` | 5g steps 1 and 2: a recovery code, then the second factor | 13.6 |
+| `api/auth/staff/reset-password` | 5g step 3, and where `password_hash` is written | 13.6 |
 | | Listing is GET. Revoking a device and removing a passkey are POST with an `action`, not DELETE: the password travels in the body, and a body on DELETE is legal but is known to be dropped by proxies, which would fail silently. | |
 | `api/auth/applicant/*` | register, login, logout, session, verify-2fa, profile, change-password, forgot-password, reset-password, recovery-codes, trusted-devices, passkeys, locale | 2 |
 | `api/public/*` | search, suggest, facets | 3 |
@@ -912,6 +955,22 @@ by applying again, so there is nothing for a password to protect, and asking for
 one anyway teaches people to type their password into any panel that asks.
 Nothing in the danger zone proper may pass it, and the endpoints behind those
 actions verify the password server side regardless of what this component did.
+
+**Phase 11 part 3 added the fourth panel and phase 13 part 6 gave it a second
+caller.** `requireCode` asks for a fresh second factor alongside the password,
+per 7g step 3 and 5f's danger zone. The two callers differ in one way that is
+worth knowing: the applicant's version passes an `onCodeStep` that asks the bot
+to push a code at somebody's phone, and the staff account settings page passes
+one that sends nothing and only replaces the note under the field, because a
+TOTP code is already on the phone.
+
+**The staff danger zone accepts the authenticator code and nothing else**, and
+both refusals are deliberate. A passkey is not offered because what makes an
+assertion fresh is a challenge, and the challenge tables here are keyed to a
+login; wiring a second ceremony through them to save one typed code would be a
+login shaped hole beside the danger zone. A backup code is not accepted because
+it gets past the second factor at sign in, which is exactly why: a code lying in
+a chat log alongside a password should not also remove the passkeys.
 
 ## Language
 

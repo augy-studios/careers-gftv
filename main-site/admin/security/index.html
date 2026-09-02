@@ -5,8 +5,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <title data-i18n="staffSecurity.pageTitle">Staff sign in and security | Careers@GFTV</title>
-    <meta name="description" content="Passkeys and trusted devices for your Careers@GFTV staff account.">
+    <title data-i18n="staffAccount.pageTitle">Account settings | Careers@GFTV</title>
+    <meta name="description" content="Your password, passkeys, authenticator app, codes, devices and sessions for your Careers@GFTV staff account.">
     <meta name="robots" content="noindex">
 
     <meta name="theme-color" content="#ffffff">
@@ -52,7 +52,7 @@
     <link rel="shortcut icon" href="/favicon.ico">
 
     <script type="module" src="/assets/js/shell.js"></script>
-    <script type="module" src="/assets/js/staff-security-page.js"></script>
+    <script type="module" src="/assets/js/staff-account.js"></script>
 </head>
 
 <body>
@@ -62,116 +62,24 @@
     <a class="skip-link" href="#main" data-i18n="common.skipToContent">Skip to content</a>
 
     <main class="page page-narrow" id="main">
-        <div class="loading-row" id="loadingStaffSecurity">
-            <span class="spinner delayed"></span>
-            <span data-i18n="common.loading">Loading</span>
-        </div>
+        <!-- **This page is a container and nothing else.** 5f asks for the
+             staff account settings suite to be specified once and mounted
+             twice, at /admin/security here and at /account on the docs site,
+             "from the same markup, the same copy, and the same endpoint
+             shapes". Phase 13 decision 8 settled how: assets/js/staff-account.js
+             builds every panel, both sites load a generated copy of it, and
+             there is no second markup to fall out of step.
 
-        <div id="staffSecurityPage" hidden>
-            <div class="page-header">
-                <h1 data-i18n="staffSecurity.heading">Sign in and security</h1>
-                <p class="lede">
-                    <strong id="staffName"></strong>
-                    <span class="muted" data-i18n="staffSecurity.staffAccount">staff account</span>
-                </p>
+             The three attributes are the whole of what this site tells it,
+             because they are the only things a stylesheet cannot say. -->
+        <div id="staffAccount"
+             data-signin="/admin/login"
+             data-back="/admin"
+             data-account-url="https://gftv.asia/account">
+            <div class="loading-row">
+                <span class="spinner delayed"></span>
+                <span data-i18n="common.loading">Loading</span>
             </div>
-
-            <!-- This page is narrow on purpose. Section 2 forbids writing to
-                 gftvhello_users, so the password, the authenticator app, and
-                 the backup codes that go with them are not ours to change and
-                 are not shown here pretending otherwise. -->
-            <div class="callout note">
-                <p data-i18n="staffSecurity.elsewhere">
-                    Your password, your authenticator app, and your backup codes
-                    belong to your gftv.asia account and are changed there. This
-                    page covers only what is specific to Careers@GFTV.
-                </p>
-            </div>
-
-            <section class="glass-card card stack">
-                <h2>
-                    <span data-icon="shield" data-icon-size="18"></span>
-                    <span data-i18n="security.passkeyHeading">Passkeys</span>
-                </h2>
-                <p data-i18n="security.passkeyBody">
-                    A passkey is your fingerprint, your face, or a security key,
-                    used as the second step of signing in. There is no code to
-                    type and nothing to copy, and a passkey cannot be phished:
-                    your device will only use it on this site.
-                </p>
-                <p data-i18n="staffSecurity.passkeyScope">
-                    A passkey belongs to the site that created it, so one added
-                    here works on Careers@GFTV and not at gftv.asia. Your
-                    authenticator app still works on both.
-                </p>
-
-                <ul class="device-list" id="staffPasskeyList" aria-busy="true"></ul>
-                <p class="muted" id="staffPasskeyEmpty" hidden></p>
-
-                <div class="callout note" id="staffPasskeyUnsupported" hidden>
-                    <p data-i18n="security.passkeyUnsupported">
-                        This browser cannot use passkeys. Try a current version
-                        of Chrome, Safari, Edge, or Firefox.
-                    </p>
-                </div>
-
-                <p class="callout danger" id="staffPasskeyError" role="alert" hidden></p>
-
-                <div class="field">
-                    <label for="staffPasskeyPassword" data-i18n="security.currentPasswordLabel">
-                        Current password
-                    </label>
-                    <input id="staffPasskeyPassword" type="password" autocomplete="current-password">
-                    <p class="field-hint" data-i18n="security.passwordForChanges">
-                        Asked for because this changes how signing in works. A
-                        session on its own is not enough.
-                    </p>
-                </div>
-
-                <button type="button" class="btn btn-secondary" id="staffAddPasskey">
-                    <span data-icon="key" data-icon-size="18"></span>
-                    <span data-i18n="security.addPasskey">Add a passkey</span>
-                </button>
-            </section>
-
-            <section class="glass-card card stack">
-                <h2>
-                    <span data-icon="laptop" data-icon-size="18"></span>
-                    <span data-i18n="security.devicesHeading">Trusted devices</span>
-                </h2>
-                <p data-i18n="security.devicesBody">
-                    A trusted device skips the second step of signing in for 30
-                    days. It never skips your password, and it never gets past
-                    anything in the danger zone.
-                </p>
-
-                <ul class="device-list" id="staffDeviceList" aria-busy="true"></ul>
-                <p class="muted" id="staffDeviceEmpty" hidden></p>
-
-                <p class="callout danger" id="staffDeviceError" role="alert" hidden></p>
-
-                <div class="field">
-                    <label for="staffDevicePassword" data-i18n="security.currentPasswordLabel">
-                        Current password
-                    </label>
-                    <input id="staffDevicePassword" type="password" autocomplete="current-password">
-                    <p class="field-hint" data-i18n="security.passwordForChanges">
-                        Asked for because this changes how signing in works. A
-                        session on its own is not enough.
-                    </p>
-                </div>
-
-                <button type="button" class="btn btn-quiet" id="staffRevokeAll" hidden
-                        data-i18n="devices.revokeAll">
-                    Revoke every device
-                </button>
-            </section>
-
-            <p class="muted">
-                <a href="/admin" data-i18n="staffSecurity.backToDashboard">
-                    Back to the dashboard
-                </a>
-            </p>
         </div>
 
         <noscript>

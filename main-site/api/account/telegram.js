@@ -166,7 +166,7 @@ async function twofa(res, user, body, subjects) {
   }
 
   if (enabled) {
-    const counts = await codeCounts(user.id);
+    const counts = await codeCounts('applicant', user.id);
     if (counts.backup === 0) {
       return fail(
         res,

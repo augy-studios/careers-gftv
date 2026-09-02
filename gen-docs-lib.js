@@ -265,6 +265,16 @@ const FILES = [
         replace: text("  staffSession: 'gftv_docs_session',", "  staffDevice: 'gftv_docs_device',"),
       },
       {
+        // Phase 13 part 6. The staff forgot password flow in 5g runs on both
+        // sites and binds its ticket to one browser with a nonce cookie, so the
+        // name follows the session and device cookies above for the same
+        // reason: a reset started on one site must not have its nonce
+        // overwritten by a reset started on the other.
+        why: "the reset nonce is this host's own, gftv_docs_reset_nonce",
+        find: "  staffResetNonce: 'gftv_staff_reset_nonce',",
+        replace: "  staffResetNonce: 'gftv_docs_reset_nonce',",
+      },
+      {
         why: "local development is judged by this site's origin, not the portal's",
         find: "  const site = process.env.SITE_URL ?? '';",
         replace: text(
@@ -410,6 +420,89 @@ const FILES = [
       'that, and it is the same account on both copies.'
     ),
   },
+
+  /* ---------------------------------------------------------------------
+   * Phase 13 part 6. 5f's account settings suite, and 5g's recovery flow.
+   *
+   * **Every one of these is identical, and that is the finding of the part.**
+   * Part 2 said the same thing about the second factor and gave the reason:
+   * the cookie is settled in cookies.js, the table in supabase.js, the relying
+   * party pair in webauthn.js and which site this is in site.js, so by the time
+   * a route or a page module is reached there is nothing left for it to know.
+   * Fourteen more files and no new rule.
+   * ------------------------------------------------------------------- */
+
+  {
+    path: 'api/_lib/staff-account.js',
+    note: text(
+      'Identical. **The only file in either project that writes gftvhello_users**,',
+      "which is why it is one file: section 2's two named exceptions are",
+      'password_hash per 5g and totp_secret per phase 13 decision 7, and collecting',
+      'both here makes a third one a diff somebody reviews. The sessions half',
+      'reads both staff session tables by name, on both sites, because 5f asks',
+      'where the account is signed in and the answer spans the two.'
+    ),
+  },
+  {
+    path: 'api/_lib/qr.js',
+    note: text(
+      "Identical. The TOTP enrolment QR is drawn from this site's own function",
+      'and never fetched, which is phase 11 part 4\'s rule about a credential',
+      'never leaving this build to be rendered, arriving at a sharper case: the',
+      'otpauth URI carries the shared secret in the clear.'
+    ),
+  },
+  {
+    path: 'api/auth/staff/account.js',
+    note: text(
+      "Identical. It answers the whole settings page in one call and stamps SITE",
+      'into the response, so the page says which site it is on without working it',
+      'out from its own hostname.'
+    ),
+  },
+  {
+    path: 'api/auth/staff/totp.js',
+    note: text(
+      'Identical, and it is the one route that writes gftvhello_users.totp_secret.',
+      'The issuer in the otpauth URI is the portal\'s name on both sites',
+      'deliberately: there is one secret on one account, and two entries in',
+      "somebody's authenticator would be two names for one credential."
+    ),
+  },
+  {
+    path: 'api/auth/staff/recovery-codes.js',
+    note: text(
+      "Identical. Both code sets, per 5g: the recovery set is this build's own",
+      'table and the backup set is gftv.asia\'s, which is why only one of the two',
+      'answers reaches_gftv_asia.'
+    ),
+  },
+  {
+    path: 'api/auth/staff/danger.js',
+    note: text(
+      "Identical. 5f's six actions, and two of them cross both sites by the same",
+      'facts the panels above describe: one relying party id for passkeys, one',
+      'shared trusted device table. Signing out everywhere names both session',
+      'tables, which is the only place 5h has to be spelled out twice.'
+    ),
+  },
+  {
+    path: 'api/auth/staff/forgot-password.js',
+    note: text(
+      "Identical. 5g's flow runs on both sites against the same accounts and the",
+      'same codes, and the ticket it issues is bound to the browser by the nonce',
+      'cookie cookies.js renames.'
+    ),
+  },
+  {
+    path: 'api/auth/staff/reset-password.js',
+    note: text(
+      'Identical, and it is where the flow above writes password_hash. The audit',
+      'row it puts in first carries the site stamp from audit.js, which is how',
+      '5g\'s "which site it came from" is answered without this file knowing.'
+    ),
+  },
+
   {
     // Phase 13 part 4. **The tokens are not copied by hand at any price.**
     // Phase 12 part 3 measured every colour in this file against 1.4.3 and
@@ -514,6 +607,104 @@ const FILES = [
       },
     ],
   },
+/* ---------------------------------------------------------------------
+   * Phase 13 part 6, the browser half. **The page is these modules and an
+   * empty container**, per 5f's "specify it once and mount it twice" and
+   * decision 8: staff-account.js builds every panel, so there is no second
+   * markup on this site to fall out of step with the portal's.
+   *
+   * The class names it writes are the portal's, and docs.css defines the same
+   * names in this site's own language. **That stylesheet is the adapter**, and
+   * it is why not one of these eight files needs a rule: a transform that
+   * rewrote class names in generated JavaScript would be a second thing to keep
+   * in step, and the thing it would keep in step is already a stylesheet.
+   * ------------------------------------------------------------------- */
+
+  {
+    path: 'assets/js/api.js',
+    comment: 'js',
+    note: text(
+      'Identical. One fetch wrapper, the same JSON shape respond.js answers in,',
+      'and the same connection events. Its applicant helpers are carried across',
+      'unused, for the reason cookies.js carries the applicant cookie names: a',
+      'copy that quietly drops things is a copy nobody can compare.'
+    ),
+  },
+  {
+    path: 'assets/js/icons.js',
+    comment: 'js',
+    note: 'Identical. Inline SVG, no imports, and no network.',
+  },
+  {
+    path: 'assets/js/format.js',
+    comment: 'js',
+    note: text(
+      'Identical. Dates in Singapore order, which is the same answer shell.js',
+      'reaches with its own two line map -- that one stays separate because it',
+      'predates this file being generated and needs nothing else in here.'
+    ),
+  },
+  {
+    path: 'assets/js/run-action.js',
+    comment: 'js',
+    note: text(
+      'Identical, and it is a load bearing forty lines: never call an async',
+      'handler bare from a listener. Four places in this build now use it.'
+    ),
+  },
+  {
+    path: 'assets/js/passkeys.js',
+    comment: 'js',
+    note: text(
+      'Identical. The WebAuthn ceremony in the browser, which needs no imports',
+      'and nothing site specific: 5e settles the relying party pair on the',
+      'server, and this file only carries what the API answered to the platform',
+      'and back.'
+    ),
+  },
+  {
+    path: 'assets/js/danger-confirm.js',
+    comment: 'js',
+    note: text(
+      "Identical. 7g's three steps, which 5f's danger zone adopts unchanged, plus",
+      'the fourth panel for a fresh second factor. The staff page passes an',
+      'onCodeStep that sends nothing and only replaces the note under the field:',
+      'a TOTP code is already on the phone, where a Telegram one has to be asked',
+      'for.'
+    ),
+  },
+  {
+    path: 'assets/js/recovery-codes.js',
+    comment: 'js',
+    note: text(
+      "Identical. 5c's shown once dialog with its copy, download, and saved",
+      'checkbox, and 5g asks for the staff sets to work "exactly as 5c describes".',
+      'Its endpoint became an argument in part 6 for that reason; the applicant',
+      'default is never used here and is left in place rather than transformed',
+      'away.'
+    ),
+  },
+  {
+    path: 'assets/js/staff-forgot-password.js',
+    comment: 'js',
+    note: text(
+      "Identical. 5g's flow, at /admin/forgot-password on the portal and at",
+      '/forgot-password here, from one module for the reason 5f gives about the',
+      'settings page: two copies of a screen that sets a password is how one of',
+      'them ends up asking for less than the other.'
+    ),
+  },
+  {
+    path: 'assets/js/staff-account.js',
+    comment: 'js',
+    note: text(
+      "Identical, and it is the whole of 16c: the page at /account on this site",
+      'and at /admin/security on the portal, built from one file. What the two',
+      'sites tell it is three data attributes on the container -- where to send a',
+      'signed out reader, where back goes, and the gftv.asia account page 5f',
+      'links to for the fields this project may not edit.'
+    ),
+  },
 ];
 
 /**
@@ -579,6 +770,15 @@ const OWN = [
   'assets/css/docs.css',
   'assets/js/shell.js',
   'assets/js/markdown.js',
+  // The sign in form, phase 13 part 6. **Not generated, and the reason it is
+  // not is the one thing worth saying about it.** 5f asks for the account
+  // settings suite to be one implementation mounted twice, and 5g's reset flow
+  // follows it, so both of those are the portal's modules generated in. Nothing
+  // says the same about a sign in form, and the portal's staff login is marked
+  // up inside admin/login/index.html: sharing it would have meant rewriting a
+  // working sign in on a live site to serve a page that had never had one. The
+  // endpoints are shared, which is where 5h says the two are meant to agree.
+  'assets/js/docs-login.js',
 ];
 
 /* -------------------------------------------------------------------------

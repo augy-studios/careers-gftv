@@ -29,7 +29,7 @@
 import { ok, fail, ERR, methodNotAllowed, readJson, failInternal } from '../../_lib/respond.js';
 import { hashSecret, checkPasswordStrength } from '../../_lib/password.js';
 import { FIELD } from '../../_lib/validate.js';
-import { deleteCode, codeCounts, LOW_CODE_WARNING } from '../../_lib/accounts.js';
+import { deleteCode, codeCounts, codesLow, LOW_CODE_WARNING } from '../../_lib/accounts.js';
 import { sha256, timingSafeEqualStr } from '../../_lib/tokens.js';
 import { COOKIE, readCookie, clearCookie } from '../../_lib/cookies.js';
 import { supabase, T } from '../../_lib/supabase.js';
@@ -127,7 +127,7 @@ export default async function handler(req, res) {
       .update({ used_at: new Date().toISOString() })
       .eq('id', reset.id);
 
-    if (reset.recovery_code_id) await deleteCode('recovery', reset.recovery_code_id);
+    if (reset.recovery_code_id) await deleteCode('applicant', 'recovery', reset.recovery_code_id);
 
     await invalidateAllSessions('applicant', reset.user_id);
     await revokeAllTrustedDevices('applicant', reset.user_id);
@@ -143,7 +143,7 @@ export default async function handler(req, res) {
 
     clearCookie(res, COOKIE.resetNonce);
 
-    const counts = await codeCounts(reset.user_id);
+    const counts = await codeCounts('applicant', reset.user_id);
 
     // Deactivated accounts do not get signed in. The password is still reset,
     // since an admin may be about to reactivate them.
@@ -158,7 +158,7 @@ export default async function handler(req, res) {
       signed_in: true,
       user: publicApplicant(user),
       codes: counts,
-      codes_low: counts.recovery < LOW_CODE_WARNING,
+      codes_low: codesLow(counts.recovery),
       low_code_threshold: LOW_CODE_WARNING,
     });
   } catch (cause) {

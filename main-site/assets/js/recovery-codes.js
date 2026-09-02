@@ -157,12 +157,20 @@ export function showRecoveryCodes({ codes, set = 'recovery' }) {
  * Generate a set and show it. The password is the one 5c requires for either
  * set, and is never stored anywhere by this function.
  *
+ * **The endpoint is an argument as of phase 13 part 6**, because 5g gives the
+ * staff realm the same two sets against different tables and the dialog that
+ * shows them is the same dialog. A second copy of this function with one string
+ * changed is how the copy button, the download, and the "I have saved these"
+ * checkbox end up differing between two realms that 5c and 5g describe in the
+ * same words.
+ *
  * @param {'recovery'|'backup'} set
  * @param {string} currentPassword
+ * @param {{ endpoint?: string }} [options]
  * @returns {Promise<{ ok: boolean, error: any }>}
  */
-export async function generateAndShow(set, currentPassword) {
-  const result = await api('/api/auth/applicant/recovery-codes', {
+export async function generateAndShow(set, currentPassword, options = {}) {
+  const result = await api(options.endpoint ?? '/api/auth/applicant/recovery-codes', {
     method: 'POST',
     locale: false,
     body: { set, current_password: currentPassword },

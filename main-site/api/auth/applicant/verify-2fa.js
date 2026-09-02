@@ -30,7 +30,7 @@
 
 import { ok, fail, ERR, methodNotAllowed, readJson, failInternal } from '../../_lib/respond.js';
 import { supabase, T } from '../../_lib/supabase.js';
-import { consumeCode, codeCounts } from '../../_lib/accounts.js';
+import { consumeCode, codeCounts, codesLow } from '../../_lib/accounts.js';
 import { verifyAgainstNothing } from '../../_lib/password.js';
 import { verifyLoginCode, spendOutstandingCodes } from '../../_lib/telegram.js';
 import { clearCookie, COOKIE } from '../../_lib/cookies.js';
@@ -133,7 +133,7 @@ export default async function handler(req, res) {
       verified = await verifyLoginCode(user.id, body.code);
 
       if (!verified) {
-        verified = await consumeCode(user.id, 'backup', body.code);
+        verified = await consumeCode('applicant', user.id, 'backup', body.code);
         usedBackupCode = verified;
       }
     } else {
@@ -179,7 +179,7 @@ export default async function handler(req, res) {
 
     await createApplicantSession(res, user.id, challenge.stay_signed_in === true);
 
-    const counts = await codeCounts(user.id);
+    const counts = await codeCounts('applicant', user.id);
 
     return ok(res, {
       user: publicApplicant(user),
@@ -187,7 +187,7 @@ export default async function handler(req, res) {
       device_trusted: deviceTrusted,
       device_label: trustedLabel,
       codes: counts,
-      codes_low: counts.backup < 3,
+      codes_low: codesLow(counts.backup),
     });
   } catch (cause) {
     return failInternal(res, cause, 'applicant verify-2fa');

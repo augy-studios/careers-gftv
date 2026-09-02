@@ -26,6 +26,12 @@ export const COOKIE = Object.freeze({
   // Set when a recovery code is verified and checked when the new password is
   // submitted, so the reset ticket is bound to one browser. See 5c.
   resetNonce: 'gftv_reset_nonce',
+  // The same thing for the staff flow in 5g, and a second name rather than a
+  // shared one. The two realms sign in on one host, so a staff member who is
+  // also an applicant -- which every member of this team is -- would otherwise
+  // have one flow's nonce overwrite the other's mid reset. Everything else here
+  // is already named per realm for the same reason.
+  staffResetNonce: 'gftv_staff_reset_nonce',
 });
 
 /**

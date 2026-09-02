@@ -393,8 +393,8 @@ They take the same `BASE`, `STAFF_USER`, and `STAFF_PASS` as the harness.
 `node tests/phase13-test.mjs`, same `--only=` habit. **No section needs a
 credential, and only `live` needs the network.** The rest is like phase 10's and
 for a related reason: what phase 13 part 5 adds is a build, and a build is wrong
-before it is deployed or it is not wrong at all. It is the phase's file, so parts
-6 and 7 add to it; what is in it today is part 5.
+before it is deployed or it is not wrong at all. It is the phase's file, so part 7
+adds to it; what is in it today is parts 5 and 6.
 
 **Run `live` after every docs deploy.** Parts 3 and 4 shipped a content route
 that answered 404 to every request on the deployment and looked perfect against a
@@ -407,6 +407,7 @@ local stand in for two parts, which is what that section exists for.
 | `render` | The marks part 5 added: images, figures with captions, 16g's pending slots, a bare file name resolved against the page it is on, an unsafe src rendering as text, and the outline the build splits pages by. |
 | `refusals` | Every way the build says no, each fired on purpose and checked for the message it names: a page with no `access` key, a misspelled one, a gated page pointing at a public image, an image with no file behind it, a picture in the public tree, an asset of a type this site will not serve, and one outside every section. |
 | `shell` | A browser over the built output, with a local server standing in for the three routes. The static pipeline drawing its own chrome without fetching anything, search in both halves, the keyboard on the results, a gated page and its image through the authenticated route, and two widths with the results panel open. |
+| `account` | **5f's settings suite and the two pages with no article.** Ten rules read out of the source, because they are about the whole of both projects and not about one file: which files write `gftvhello_users` and which columns they write, that the danger zone route and the page agree on all six actions and that none of them deletes the account, that every class the shared module writes is defined on the docs site, that the two code sets are four distinct tables, and that every route writing `gftvhello_users` sits behind `HELLO_WRITES_ENABLED` with 5g held before a recovery code is ever verified. **Its output names whether the hold is on**, so a tree with it lifted and the walk not done is visible. Then a browser over `/account`, `/login` and `/forgot-password`, with fixtures chosen for the awkward cases: a code count that could not be read, a passkey registered on the other site, a session on each. |
 | `live` | **The same questions, asked of the deployment**, and the only section here that touches the network. It needs no credential, because everything it asks it asks as a stranger: the built pages are files, the content tree is not served as markdown, the route answers by parameter and not by path, a gated page is 404 and never 401, the public index holds nothing from the staff half, and the payload carries a date — which is the proof that `includeFiles` reached `api/_generated/` and that the build ran before the functions were packaged. `DOCS_BASE=` points it somewhere else. |
 
 **It writes two fixtures into the gated content tree and removes them again**: a

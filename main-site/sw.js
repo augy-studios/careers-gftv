@@ -71,7 +71,7 @@
 //                     because a kill switch that forgets itself on the deploy
 //                     that broke something is not a kill switch.
 
-const VERSION = 'careers-gftv-phase13-v120';
+const VERSION = 'careers-gftv-phase13-v122';
 
 const SHELL = `careers-gftv-shell-${VERSION}`;
 const PUBLIC_DATA = 'careers-gftv-public';
@@ -181,6 +181,10 @@ const PRECACHE = [
   '/admin/login',
   '/admin/maintenance',
   '/admin/security',
+  // 5g, phase 13 part 6. Precached for the same reason /forgot-password is:
+  // somebody who cannot sign in is the one person most likely to be looking at
+  // a page that will not load.
+  '/admin/forgot-password',
   '/admin/settings',
   '/admin/tags',
   '/admin/translations',
@@ -266,7 +270,8 @@ const PRECACHE = [
   '/assets/js/shell.js',
   '/assets/js/signin-prompt.js',
   '/assets/js/site-settings.js',
-  '/assets/js/staff-security-page.js',
+  '/assets/js/staff-account.js',
+  '/assets/js/staff-forgot-password.js',
   '/assets/js/status-page.js',
   '/assets/js/tabs.js',
   '/assets/js/tasks-page.js',

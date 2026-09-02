@@ -144,6 +144,64 @@ export async function hasPasskeys(realm, userId) {
 }
 
 /**
+ * Rename one passkey, scoped to its owner. 5f asks for it beside add and
+ * remove, and the reason it is worth having is that the name is how somebody
+ * decides which one to revoke: a list of four entries all called "Chrome on
+ * Windows" is a list nobody can act on.
+ *
+ * @param {'staff'|'applicant'} realm
+ * @param {string} userId
+ * @param {string} passkeyId
+ * @param {string} label already validated
+ * @returns {Promise<object|null>} the updated row, or null if it is not theirs
+ */
+export async function renamePasskey(realm, userId, passkeyId, label) {
+  const { table, userColumn } = realmConfig(realm);
+
+  const { data, error } = await supabase
+    .from(table)
+    .update({ label })
+    .eq(userColumn, userId)
+    .eq('id', passkeyId)
+    .select(PASSKEY_COLUMNS);
+
+  if (error) {
+    console.error('[careers-gftv] renamePasskey:', error);
+    return null;
+  }
+
+  return (data ?? [])[0] ?? null;
+}
+
+/**
+ * Remove every passkey on an account, for 5f's danger zone.
+ *
+ * One statement and not a loop over deletePasskey: the promise on screen is
+ * "remove every passkey", and a loop that fails halfway leaves an account in a
+ * state nobody asked for and no message on the page describes.
+ *
+ * @param {'staff'|'applicant'} realm
+ * @param {string} userId
+ * @returns {Promise<{ ok: boolean, removed: number }>}
+ */
+export async function deleteAllPasskeys(realm, userId) {
+  const { table, userColumn } = realmConfig(realm);
+
+  const { data, error } = await supabase
+    .from(table)
+    .delete()
+    .eq(userColumn, userId)
+    .select('id');
+
+  if (error) {
+    console.error('[careers-gftv] deleteAllPasskeys:', error);
+    return { ok: false, removed: 0 };
+  }
+
+  return { ok: true, removed: (data ?? []).length };
+}
+
+/**
  * Remove one passkey, scoped to its owner.
  * @param {'staff'|'applicant'} realm
  * @param {string} userId

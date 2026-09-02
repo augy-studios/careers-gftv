@@ -58,7 +58,10 @@ async function boot() {
   document.querySelector('#accountName').textContent = user.display_name;
   document.querySelector('#accountUsername').textContent = user.username;
 
-  renderCodeCounts(session.codes ?? { recovery: 0, backup: 0 }, session.low_code_threshold ?? 3);
+  renderCodeCounts(
+    session.codes ?? { recovery: null, backup: null },
+    session.low_code_threshold ?? 3
+  );
   wireCodeForms();
   wirePasswordForm();
   await loadPasskeys();
@@ -80,13 +83,28 @@ async function boot() {
  * ---------------------------------------------------------------------- */
 
 function renderCodeCounts(counts, threshold) {
-  setCount('recovery', counts.recovery ?? 0, threshold);
-  setCount('backup', counts.backup ?? 0, threshold);
+  setCount('recovery', counts.recovery, threshold);
+  setCount('backup', counts.backup, threshold);
 }
 
 function setCount(set, remaining, threshold) {
   const holder = document.querySelector(`[data-count-for="${set}"]`);
   if (!holder) return;
+
+  // **A count that could not be read is null and is drawn as unknown.** It used
+  // to arrive here as `?? 0`, which is the one wrong answer available: zero is
+  // this page telling somebody they have no way back into their account, and
+  // the sentence it draws under that heading tells them to spend the ten codes
+  // they may well still have. The server sends null for a table it could not
+  // read, per accounts.js, and the third state is drawn as a third state.
+  if (remaining === null || remaining === undefined) {
+    holder.textContent = t('codes.remainingUnknown');
+    holder.setAttribute('data-low', 'false');
+
+    const unknown = document.querySelector(`[data-warning-for="${set}"]`);
+    if (unknown) unknown.hidden = true;
+    return;
+  }
 
   holder.textContent = t('codes.remaining', { count: remaining });
   holder.setAttribute('data-low', String(remaining < threshold));

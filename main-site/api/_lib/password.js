@@ -134,14 +134,23 @@ export async function findMatchingCode(typed, rows) {
 
 /**
  * Hash a freshly generated set of codes for storage.
+ *
+ * The column the account id goes in is an argument because the four code tables
+ * do not agree on it: three call it `user_id` and
+ * `gftvjobs_staff_recovery_codes` calls it `staff_user_id`, matching the two
+ * session tables migration `038` created beside it. accounts.js is the only
+ * caller and it reads the name out of CODE_SET, so the disagreement is recorded
+ * in one table there instead of being remembered here.
+ *
  * @param {string[]} codes as shown to the person, with the hyphen
  * @param {string} userId
- * @returns {Promise<{ user_id: string, code_hash: string }[]>}
+ * @param {string} [column] which column holds the account id
+ * @returns {Promise<Record<string, string>[]>}
  */
-export async function hashCodeSet(codes, userId) {
+export async function hashCodeSet(codes, userId, column = 'user_id') {
   return Promise.all(
     codes.map(async (code) => ({
-      user_id: userId,
+      [column]: userId,
       code_hash: await hashSecret(normaliseCode(code)),
     }))
   );

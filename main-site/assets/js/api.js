@@ -150,6 +150,18 @@ function translateError(error) {
     return note ? `${sentence} ${note}` : sentence;
   }
 
+  // **A third sentence under the same code**, from phase 13 part 6, and it is
+  // separated from the other two for the same reason they are separated from
+  // each other. `maintenance` means an admin flipped a switch; the bare code
+  // means a phase has not shipped; `held` means the code is deployed, works,
+  // and is deliberately not offered until somebody has run it once against a
+  // real account. Telling a reader either of the other two would be wrong about
+  // which of the three it is, and this is the one they can do nothing about.
+  if (error.details?.reason === 'held') {
+    const sentence = t('staffAccount.held');
+    if (sentence !== 'staffAccount.held') return sentence;
+  }
+
   const key = `error.${error.code}`;
   const translated = t(key);
   if (translated !== key) return translated;

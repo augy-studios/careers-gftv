@@ -41,7 +41,7 @@ import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, rmSync } from 'node:fs';
-import { join, extname, dirname } from 'node:path';
+import { join, extname, dirname, resolve, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -185,6 +185,24 @@ const {
 } = pagesModule;
 const { gatedIndexFor, updatedFor } = generatedModule;
 const { render } = markdown;
+
+/**
+ * Every .js file under a directory. Phase 13 part 6 uses it for two rules that
+ * are about the whole of both projects instead of about one file: which files
+ * write gftvhello_users, and which columns they write.
+ */
+function walkJs(root) {
+  const out = [];
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) walk(path);
+      else if (entry.name.endsWith('.js')) out.push(path);
+    }
+  };
+  if (existsSync(root)) walk(root);
+  return out;
+}
 
 /* -------------------------------------------------------------------------
  * Sections
@@ -704,6 +722,433 @@ define('shell', 'The shell, over the built output and the three routes', async (
     await browser.close();
     server.close();
   }
+});
+
+define('account', "5f's settings suite, and the two pages with no article", async () => {
+  const REPO = resolve(DOCS, '..');
+
+  /* ---- What no browser is needed for -------------------------------- */
+
+  // **Section 2's rule, made checkable.** It permits this project to write the
+  // challenge, trusted device and backup code rows the login flow owns, and
+  // names two exceptions on gftvhello_users itself: password_hash per 5g, and
+  // totp_secret per phase 13 decision 7. Both live in one file so that a third
+  // is a diff somebody reviews, and this is what says so: any other file
+  // updating that table is a rule broken silently.
+  const writers = [];
+  for (const site of ['main-site', 'docs-site']) {
+    for (const file of walkJs(join(REPO, site, 'api'))) {
+      const src = readFileSync(file, 'utf8');
+      // .from(T.staffUsers) followed by .update or .insert or .delete, on the
+      // same statement. Reads are everywhere and are permitted.
+      if (/\.from\(T\.staffUsers\)[\s\S]{0,200}?\.(update|insert|delete)\(/.test(src)) {
+        writers.push(relative(REPO, file).split(sep).join('/'));
+      }
+    }
+  }
+
+  check(
+    '97. exactly two files write gftvhello_users, and both are staff-account.js',
+    writers.length === 2 && writers.every((file) => file.endsWith('api/_lib/staff-account.js')),
+    `wrote: ${writers.join(', ') || 'nothing'}`
+  );
+
+  const staffAccountLib = readFileSync(join(REPO, 'main-site/api/_lib/staff-account.js'), 'utf8');
+  const updated = [...staffAccountLib.matchAll(/\.update\(\{\s*([a-z_]+)/g)].map((m) => m[1]);
+
+  check(
+    '98. and the only columns it writes are the two section 2 names',
+    updated.length === 2 &&
+      updated.includes('password_hash') &&
+      updated.includes('totp_secret'),
+    `wrote: ${updated.join(', ')}`
+  );
+
+  // **The hold, and both of its halves.** The three things that reach gftv.asia
+  // are deployed and switched off until each has been run once against a real
+  // account, per the answer settled 2 September 2026. It is a constant and not
+  // a maintenance switch because `featureOverrides` records only what an admin
+  // has turned off and ignores any feature whose phase has not shipped, so a
+  // switch would have been inert now and on at the moment part 7 ships the
+  // phase. `INDEXING` is the precedent, and so is the shape of its check: the
+  // two halves are asserted against each other, so lifting it in one place and
+  // not the other cannot ship quietly.
+  const held = staffAccountLib.includes('export const HELLO_WRITES_ENABLED = false;');
+
+  const guarded = ['account.js', 'totp.js', 'danger.js', 'forgot-password.js', 'reset-password.js']
+    .filter((name) =>
+      readFileSync(join(REPO, 'main-site/api/auth/staff', name), 'utf8').includes('held(res)')
+    );
+
+  check(
+    '99. every route that writes gftvhello_users is behind the hold',
+    guarded.length === 5,
+    `guarded: ${guarded.join(', ')}`
+  );
+
+  check(
+    '100. and the two writers refuse on their own as well',
+    staffAccountLib.split('if (!HELLO_WRITES_ENABLED) return false;').length - 1 === 2,
+    'a route added later without the guard has to fail closed'
+  );
+
+  const accountPage = readFileSync(join(REPO, 'main-site/assets/js/staff-account.js'), 'utf8');
+
+  check(
+    `101. the hold is ${held ? 'on' : 'OFF'}, and the page draws it either way`,
+    accountPage.includes('hello_writes_enabled') && accountPage.includes('heldNote()'),
+    'lifting it is one line in staff-account.js and part 7 is where that happens'
+  );
+
+  // 5g's flow is refused at its first step and not at its last, which is the
+  // one placement decision in the hold that costs somebody something if it is
+  // wrong: this endpoint verifies a recovery code and reset-password spends it.
+  const forgot = readFileSync(join(REPO, 'main-site/api/auth/staff/forgot-password.js'), 'utf8');
+
+  check(
+    '102. and 5g is held before a recovery code is ever verified',
+    forgot.indexOf('held(res)') < forgot.indexOf('verifyCode('),
+    'refusing at the end would take a code off somebody already locked out'
+  );
+
+  // **The two lists that have to agree**, and phase 12's habit of comparing a
+  // list against the thing it is a list of. The route refuses an action that is
+  // not in ACTIONS; the page draws a button per entry in DANGER. A button with
+  // no route behind it is a danger zone that does nothing, and a route with no
+  // button is an action nobody can reach.
+  const dangerRoute = readFileSync(join(REPO, 'main-site/api/auth/staff/danger.js'), 'utf8');
+  const dangerPage = accountPage;
+
+  const routeActions = [
+    ...dangerRoute.slice(dangerRoute.indexOf('const ACTIONS')).matchAll(/'([a-z_]+)',/g),
+  ]
+    .map((m) => m[1])
+    .slice(0, 6);
+  const pageActions = [...dangerPage.matchAll(/\{ action: '([a-z_]+)', reaches:/g)].map((m) => m[1]);
+
+  check(
+    '103. the danger zone route and the page agree on all six actions',
+    routeActions.length === 6 &&
+      pageActions.length === 6 &&
+      routeActions.every((action) => pageActions.includes(action)),
+    `route: ${routeActions.join(', ')} / page: ${pageActions.join(', ')}`
+  );
+
+  // 5f: "There is no delete account." It is a sentence on the page and an
+  // action nowhere, and this is the half a later edit is most likely to undo.
+  check(
+    '104. and none of them deletes the account',
+    !routeActions.some((action) => action.includes('delete')) &&
+      dangerRoute.includes('There is no delete account'),
+    'the gftvhello account is not this project’s to delete'
+  );
+
+  // **The adapter, checked rather than trusted.** Decision 8 settled that the
+  // two sites differ by a stylesheet: the module writes the portal's class
+  // names and docs.css defines the same names in this site's language. A class
+  // the docs stylesheets have never heard of is a panel that renders unstyled
+  // on one site and nowhere says so.
+  const classes = new Set();
+  for (const file of ['staff-account.js', 'staff-forgot-password.js']) {
+    const src = readFileSync(join(REPO, 'main-site/assets/js', file), 'utf8');
+    for (const m of src.matchAll(/class="([^"$`]+)"/g)) {
+      for (const name of m[1].split(/\s+/)) if (name) classes.add(name);
+    }
+  }
+
+  const docsCss =
+    readFileSync(join(DOCS, 'assets/css/docs.css'), 'utf8') +
+    readFileSync(join(DOCS, 'assets/css/theme.css'), 'utf8');
+
+  const undefined_ = [...classes].filter(
+    (name) => !new RegExp(`\\.${name.replace(/-/g, '\\-')}(?![\\w-])`).test(docsCss)
+  );
+
+  check(
+    '105. every class the shared page writes is defined on the docs site',
+    undefined_.length === 0,
+    `undefined here: ${undefined_.join(', ')}`
+  );
+
+  // 5g's two sets, in both realms, over four distinct tables. 5c and 5g both
+  // turn on them never being interchangeable, and two of the four belong to
+  // gftv.asia, so a mapping that collapsed any pair would be a code from one
+  // set satisfying the other's check.
+  const setsFile = readFileSync(join(REPO, 'main-site/api/_lib/accounts.js'), 'utf8');
+  const tables = [...setsFile.matchAll(/table: (T\.[a-zA-Z]+),/g)].map((m) => m[1]);
+
+  check(
+    '106. the two code sets are four distinct tables across the two realms',
+    tables.length === 4 && new Set(tables).size === 4,
+    tables.join(', ')
+  );
+
+  /* ---- The pages, in a browser -------------------------------------- */
+
+  // The stand in for the settings endpoints. **Everything it answers is a
+  // fixture**: the point of this section is what the one shared module draws
+  // from a payload, and the payloads that matter most are the awkward ones -- a
+  // count that could not be read, a session on each site, a passkey from the
+  // other one.
+  const account = {
+    site: 'docs',
+    profile: { username: 'staffer', display_name: 'A Staffer', email: 'a@example.invalid', available: true },
+    passkeys: [
+      {
+        id: 'p1',
+        label: 'Laptop',
+        registered_on: 'portal',
+        last_used_at: '2026-09-01T02:00:00.000Z',
+        created_at: '2026-08-01T02:00:00.000Z',
+      },
+    ],
+    relying_party: 'careers.globalfurry.tv',
+    totp_enabled: true,
+    // **The awkward one.** The recovery count could not be read; the backup set
+    // genuinely has none left. Drawing both as "0 left" is the defect this
+    // fixture exists to catch.
+    codes: { recovery: null, backup: 0 },
+    codes_low: { recovery: false, backup: false },
+    low_code_threshold: 3,
+    codes_per_set: 10,
+    devices: [{ id: 'd1', label: null, last_used_at: '2026-09-01T02:00:00.000Z', expires_at: null }],
+    sessions: [
+      { id: 's1', site: 'docs', created_at: '2026-09-02T01:00:00.000Z', expires_at: '2026-09-03T01:00:00.000Z', current: true },
+      { id: 's2', site: 'portal', created_at: '2026-09-01T01:00:00.000Z', expires_at: '2026-09-30T01:00:00.000Z', current: false },
+    ],
+    sessions_failed: false,
+    password_min_length: 10,
+    // The state this ships in. The panel checks below are what the page draws
+    // while the three writes that reach gftv.asia are switched off.
+    hello_writes_enabled: false,
+  };
+
+  let signedIn = true;
+
+  const TYPES = {
+    '.html': 'text/html; charset=utf-8',
+    '.js': 'text/javascript; charset=utf-8',
+    '.css': 'text/css; charset=utf-8',
+    '.json': 'application/json; charset=utf-8',
+    '.woff2': 'font/woff2',
+    '.png': 'image/png',
+  };
+
+  const server = createServer((req, res) => {
+    const url = new URL(req.url, 'http://localhost');
+    const json = (body, status = 200) => {
+      res.writeHead(status, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(body));
+    };
+
+    if (url.pathname === '/api/nav') {
+      return json({
+        ok: true,
+        data: {
+          reader: signedIn
+            ? { signed_in: true, username: 'staffer', role: 'admin', tier: 'developer' }
+            : { signed_in: false, username: null, role: null, tier: 'public' },
+          nav: { home: '/', staff_home: null, sections: [] },
+        },
+      });
+    }
+
+    if (url.pathname === '/api/auth/staff/session') {
+      return signedIn
+        ? json({ ok: true, data: { user: { id: 'u1', username: 'staffer' } } })
+        : json({ ok: false, error: { code: 'unauthorised' } }, 401);
+    }
+
+    if (url.pathname === '/api/auth/staff/account') {
+      return signedIn
+        ? json({ ok: true, data: account })
+        : json({ ok: false, error: { code: 'unauthorised' } }, 401);
+    }
+
+    if (url.pathname === '/api/search-index') return json({ ok: true, data: { entries: [] } });
+
+    const candidates = [
+      join(DIST, url.pathname.slice(1)),
+      join(DIST, `${url.pathname.slice(1)}.html`),
+      join(DIST, 'shell.html'),
+    ];
+    const file = candidates.find((candidate) => existsSync(candidate) && extname(candidate) !== '');
+    res.writeHead(200, { 'Content-Type': TYPES[extname(file)] ?? 'application/octet-stream' });
+    res.end(readFileSync(file));
+  });
+
+  await new Promise((resolve_) => server.listen(0, '127.0.0.1', resolve_));
+  const base = `http://127.0.0.1:${server.address().port}`;
+
+  const browser = await chromium.launch();
+
+  const open = async (path) => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const page = await context.newPage();
+    await page.goto(`${base}${path}`, { waitUntil: 'networkidle' });
+    return { context, page };
+  };
+
+  try {
+    const { context, page } = await open('/account');
+
+    check(
+      '107. /account draws the settings suite inside the documentation shell',
+      (await page.locator('#staffAccount .card').count()) >= 9 &&
+        (await page.locator('.docs-sidebar').count()) === 1,
+      '16d: the two pages with no article render inside the same shell'
+    );
+
+    const text = await page.locator('#staffAccount').innerText();
+
+    check(
+      '108. the password panel says the change reaches gftv.asia',
+      /gftv\.asia/.test(text) && /one account/i.test(text),
+      '5g requires that sentence in those words'
+    );
+
+    // The fixture's whole reason for existing.
+    const recovery = await page.locator('[data-count-for="recovery"]').innerText();
+    const backup = await page.locator('[data-count-for="backup"]').innerText();
+
+    check(
+      '109. a count that could not be read is drawn as unknown, not as zero',
+      /could not be read/i.test(recovery) && /0/.test(backup),
+      `recovery: ${recovery} / backup: ${backup}`
+    );
+
+    check(
+      '110. a passkey says which site it was registered from',
+      /jobs portal/i.test(text),
+      '5f, and migration 039 is what makes it answerable'
+    );
+
+    check(
+      '111. the trusted device list says it is the account’s and not this site’s',
+      /including any trusted on the other/i.test(text) &&
+        /earned per site/i.test(text),
+      'deviation 125, and both halves or neither'
+    );
+
+    check(
+      '112. the sessions panel labels both sites and marks this browser',
+      /Documentation site/.test(text) && /Jobs portal/.test(text) && /This browser/.test(text),
+      '5f: where the account is signed in, on both sites'
+    );
+
+    check(
+      '113. and says plainly that it cannot name a device',
+      /nothing about the device/i.test(text),
+      'decision 10: what a row can say is what migration 038 put in it'
+    );
+
+    check(
+      '114. the danger zone shows the five that are not held, and no delete account',
+      (await page.locator('[data-danger]').count()) === 5 &&
+        /no delete account/i.test(text) &&
+        /switched off until it has been checked/i.test(text),
+      '5f names six; remove_totp writes gftvhello_users and is held, and the panel says so where its button was'
+    );
+
+    await context.close();
+  } finally {
+    // Nothing here shares state with the rest of the file, so a failure above
+    // must still put the browser and the server down.
+  }
+
+  {
+    // **A signed in reader never sees the form**, which is the first thing the
+    // module does and is worth its own check: arriving here signed in usually
+    // means a stale tab, and drawing a sign in form to somebody who is already
+    // signed in is how they end up typing a password they did not need to.
+    const { context: signedInContext, page: signedInPage } = await open('/login');
+    await signedInPage.waitForURL((url) => new URL(url).pathname === '/', { timeout: 5000 }).catch(() => {});
+
+    check(
+      '115. a signed in reader at /login is sent on rather than shown the form',
+      new URL(signedInPage.url()).pathname === '/',
+      `landed on ${signedInPage.url()}`
+    );
+
+    await signedInContext.close();
+  }
+
+  signedIn = false;
+
+  {
+    const { context, page } = await open('/login');
+    const text = await page.locator('#docsLogin').innerText();
+
+    check(
+      '116. /login draws the sign in form in the same shell',
+      (await page.locator('#docsUsername').count()) === 1 &&
+        (await page.locator('.docs-sidebar').count()) === 1,
+      '16b, and the header has linked here since part 4'
+    );
+
+    check(
+      '117. "trust this device" is not on the password panel',
+      (await page.locator('#docsTrustDevice').count()) === 0 &&
+        (await page.locator('#docsStaySignedIn').count()) === 1,
+      '5d: only offer it once the second factor has been satisfied'
+    );
+
+    check(
+      '118. and the form links to the reset flow',
+      /forgotten your password/i.test(text),
+      '5g, and a recovery flow nobody can find is one nobody uses'
+    );
+
+    await context.close();
+  }
+
+  {
+    const { context, page } = await open('/forgot-password');
+    const text = await page.locator('#staffForgotPassword').innerText();
+
+    check(
+      '119. /forgot-password asks for a username and a recovery code',
+      (await page.locator('#staffResetUsername').count()) === 1 &&
+        (await page.locator('#staffResetCode').count()) === 1,
+      "5g's flow mirrors 5c step for step"
+    );
+
+    check(
+      '120. and says on its first panel that the reset reaches gftv.asia',
+      /gftv\.asia/.test(text),
+      'somebody who reads it at step 3 has already spent a recovery code'
+    );
+
+    check(
+      '121. and that a recovery code is not a backup code',
+      /not a two step backup code/i.test(text),
+      '5g: a code lying in a chat log must not be able to do both'
+    );
+
+    await context.close();
+  }
+
+  {
+    // **A signed out reader is sent to sign in, and never shown a page drawn
+    // from nothing.** The module redirects before it draws, which is the same
+    // ordering both dashboards got wrong in phase 10.
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    await page.goto(`${base}/account`, { waitUntil: 'networkidle' });
+    await page.waitForURL(/\/login$/, { timeout: 5000 }).catch(() => {});
+
+    check(
+      '122. a signed out reader at /account is sent to sign in',
+      new URL(page.url()).pathname === '/login',
+      `landed on ${page.url()}`
+    );
+
+    await context.close();
+    signedIn = true;
+  }
+
+  await browser.close();
+  await new Promise((resolve_) => server.close(resolve_));
 });
 
 define('live', 'The same questions, asked of the deployment', async () => {

@@ -154,7 +154,7 @@ export default async function handler(req, res) {
         user: publicApplicant(user),
         // 5c: the settings page warns below three, and so does the sign in
         // that put them there.
-        codes: await codeCounts(user.id),
+        codes: await codeCounts('applicant', user.id),
       });
     }
 

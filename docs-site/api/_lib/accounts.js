@@ -221,25 +221,87 @@ export function uniqueViolationDetails(error) {
  * ---------------------------------------------------------------------- */
 
 /**
- * Which set. The two are separate tables rather than one with a purpose
- * column, and this is the only place that maps a name to a table, so nothing
- * downstream can accidentally query the wrong one.
+ * Which set, in which realm. Four tables, and this is the only place that maps
+ * a realm and a name onto one, so nothing downstream can query the wrong one.
+ *
+ * **The two sets never do each other's job, in either realm**, per 5c and 5g:
+ *
+ *   recovery  gets past the password, on the forgot password flow. A full
+ *             account credential.
+ *   backup    gets past the second factor only.
+ *
+ * They are separate tables rather than one with a purpose column so the
+ * boundary is enforced by the schema and not by remembering a filter. 5g says
+ * the same thing about the staff pair in almost the same words: "a code lying
+ * in a chat log must not be able to do both."
+ *
+ * **The staff recovery set is this build's own table and the staff backup set
+ * is not.** `gftvjobs_staff_recovery_codes` came with migration `038`;
+ * `gftvhello_backup_codes` belongs to gftv.asia and is one of the four things
+ * section 2 permits this project to write, because the login flow owns it. So a
+ * staff member regenerating their backup codes here changes what gets them past
+ * the second factor at gftv.asia too, and 5f's page says so.
+ *
+ * The account id column is here for the same reason the table is: three of the
+ * four call it `user_id` and the fourth calls it `staff_user_id`, matching the
+ * session tables `038` created in the same file.
  */
 export const CODE_SET = Object.freeze({
-  recovery: T.recoveryCodes,
-  backup: T.backupCodes,
+  applicant: Object.freeze({
+    recovery: Object.freeze({ table: T.recoveryCodes, column: 'user_id' }),
+    backup: Object.freeze({ table: T.backupCodes, column: 'user_id' }),
+  }),
+  staff: Object.freeze({
+    recovery: Object.freeze({ table: T.staffRecoveryCodes, column: 'staff_user_id' }),
+    backup: Object.freeze({ table: T.staffBackupCodes, column: 'user_id' }),
+  }),
 });
 
-/** Codes per set. 5c says ten. */
+/** The set names, in the order a settings page shows them. */
+export const CODE_SETS = Object.freeze(['recovery', 'backup']);
+
+/** Codes per set. 5c says ten, and 5g says the staff set works exactly as 5c does. */
 export const CODES_PER_SET = 10;
 
 /** Below this, the settings page warns and offers to regenerate. 5c says three. */
 export const LOW_CODE_WARNING = 3;
 
-function tableFor(which) {
-  const table = CODE_SET[which];
-  if (!table) throw new Error(`unknown code set: ${which}`);
-  return table;
+/**
+ * Whether a count is low enough to warn about.
+ *
+ * A function and not a `<` at six call sites, because codeCounts answers `null`
+ * for a count it could not read and `null < 3` is `true` in JavaScript. That
+ * comparison would turn a database blip into a page telling somebody they are
+ * nearly out of the only way back into their account, at the exact moment it
+ * cannot tell them anything of the kind.
+ *
+ * @param {number|null} count
+ */
+export function codesLow(count) {
+  return typeof count === 'number' && count < LOW_CODE_WARNING;
+}
+
+/**
+ * @param {'staff'|'applicant'} realm
+ * @param {'recovery'|'backup'} which
+ * @returns {{ table: string, column: string }}
+ */
+function setFor(realm, which) {
+  const entry = CODE_SET[realm]?.[which];
+  if (!entry) throw new Error(`unknown code set: ${realm}/${which}`);
+  return entry;
+}
+
+/**
+ * Whether a realm and a set name a real pair, for a route validating what
+ * somebody posted. Kept beside setFor so a caller never has to reach into
+ * CODE_SET and get the nesting order the wrong way round.
+ *
+ * @param {string} realm
+ * @param {string} which
+ */
+export function isCodeSet(realm, which) {
+  return Boolean(CODE_SET[realm]?.[which]);
 }
 
 /**
@@ -249,17 +311,18 @@ function tableFor(which) {
  * and only that set." The delete is therefore scoped to one table, and the two
  * tables are never touched in the same call.
  *
+ * @param {'staff'|'applicant'} realm
  * @param {string} userId
  * @param {'recovery'|'backup'} which
  * @returns {Promise<string[]>} the codes in the clear, to be shown once
  */
-export async function generateCodeSet(userId, which) {
-  const table = tableFor(which);
+export async function generateCodeSet(realm, userId, which) {
+  const { table, column } = setFor(realm, which);
 
   const codes = Array.from({ length: CODES_PER_SET }, () => randomRecoveryCode());
-  const rows = await hashCodeSet(codes, userId);
+  const rows = await hashCodeSet(codes, userId, column);
 
-  const { error: deleteError } = await supabase.from(table).delete().eq('user_id', userId);
+  const { error: deleteError } = await supabase.from(table).delete().eq(column, userId);
   if (deleteError) throw new Error(`could not clear the old codes: ${deleteError.message}`);
 
   const { error: insertError } = await supabase.from(table).insert(rows);
@@ -272,20 +335,30 @@ export async function generateCodeSet(userId, which) {
 
 /**
  * How many codes are left in each set.
+ * @param {'staff'|'applicant'} realm
  * @param {string} userId
- * @returns {Promise<{ recovery: number, backup: number }>}
+ * @returns {Promise<{ recovery: number|null, backup: number|null }>} a count
+ *          that could not be read is null, never 0
  */
-export async function codeCounts(userId) {
+export async function codeCounts(realm, userId) {
   const counts = await Promise.all(
-    ['recovery', 'backup'].map(async (which) => {
+    CODE_SETS.map(async (which) => {
+      const { table, column } = setFor(realm, which);
+
       const { count, error } = await supabase
-        .from(tableFor(which))
+        .from(table)
         .select('id', { count: 'exact', head: true })
-        .eq('user_id', userId);
+        .eq(column, userId);
 
       if (error) {
-        console.error(`[careers-gftv-docs] codeCounts ${which}:`, error);
-        return 0;
+        console.error(`[careers-gftv-docs] codeCounts ${realm}/${which}:`, error);
+        // **Null and not zero.** The rule api/admin/me set and the cron panel
+        // extended: "the table could not be read" and "there are none left" are
+        // different claims, and only one of them is ours to make. It matters
+        // more here than anywhere it has mattered before, because zero is what
+        // makes a settings page tell somebody they have no way back into their
+        // account and push them to spend the ten codes they still have.
+        return null;
       }
       return count ?? 0;
     })
@@ -304,16 +377,19 @@ export async function codeCounts(userId) {
  * The returned id is what the ticket records, since the code is not sent again
  * at step 3 and a bcrypt hash cannot be searched for.
  *
+ * @param {'staff'|'applicant'} realm
  * @param {string} userId
  * @param {'recovery'|'backup'} which
  * @param {string} typed
  * @returns {Promise<string|null>} the matching row id
  */
-export async function verifyCode(userId, which, typed) {
+export async function verifyCode(realm, userId, which, typed) {
+  const { table, column } = setFor(realm, which);
+
   const { data, error } = await supabase
-    .from(tableFor(which))
+    .from(table)
     .select('id, code_hash')
-    .eq('user_id', userId);
+    .eq(column, userId);
 
   if (error) {
     console.error('[careers-gftv-docs] verifyCode:', error);
@@ -333,12 +409,14 @@ export async function verifyCode(userId, which, typed) {
 
 /**
  * Delete one code by id. The other half of verifyCode.
+ * @param {'staff'|'applicant'} realm
  * @param {'recovery'|'backup'} which
  * @param {string} codeId
  * @returns {Promise<boolean>}
  */
-export async function deleteCode(which, codeId) {
-  const { error } = await supabase.from(tableFor(which)).delete().eq('id', codeId);
+export async function deleteCode(realm, which, codeId) {
+  const { table } = setFor(realm, which);
+  const { error } = await supabase.from(table).delete().eq('id', codeId);
   if (error) {
     console.error('[careers-gftv-docs] deleteCode:', error);
     return false;
@@ -353,18 +431,19 @@ export async function deleteCode(which, codeId) {
  * what makes it single use, so a caller must treat a true here as the code
  * having been spent whatever happens next.
  *
+ * @param {'staff'|'applicant'} realm
  * @param {string} userId
  * @param {'recovery'|'backup'} which
  * @param {string} typed
  * @returns {Promise<boolean>}
  */
-export async function consumeCode(userId, which, typed) {
-  const table = tableFor(which);
+export async function consumeCode(realm, userId, which, typed) {
+  const { table, column } = setFor(realm, which);
 
   const { data, error } = await supabase
     .from(table)
     .select('id, code_hash')
-    .eq('user_id', userId);
+    .eq(column, userId);
 
   if (error) {
     console.error('[careers-gftv-docs] consumeCode read:', error);
