@@ -745,11 +745,45 @@ const FILES = [
  * put a comment. Everything else about them is the FILES rule: the copy is
  * written by this generator, `--check` fails when it drifts, and it is never
  * edited in place.
+ *
+ * `to` is where the copy goes when that is not the source's own path. Only the
+ * brand images need it: the portal serves them from its root because it has no
+ * build step, and this site's root is `dist/`, which is emptied and rebuilt.
+ * `public/` is the directory the build copies into the root of it.
  */
 const ASSETS = [
   {
     path: 'assets/fonts/ProximaNova-Regular.woff2',
     note: 'The one font file this repository carries. theme.css names it by path.',
+  },
+  // The brand images, phase 14 part 2b. **Copied rather than linked across.**
+  // Two Vercel projects means two origins, and a docs site whose tab icon is
+  // fetched from the portal is a docs site with a blank tab whenever the portal
+  // is renamed, moved, or having a bad afternoon. Copying puts them under the
+  // same rule as every other shared file: this generator writes them and
+  // `--check` fails when the portal's change has not reached here.
+  //
+  // Three of the seven, and the four left behind are the manifest's. `HLC-192`,
+  // `HLC-512` and the two maskable variants exist for an installed application
+  // icon; this site has no manifest and no worker, per phase 13 decision 3, so
+  // copying them would be four files nothing on this site names.
+  {
+    path: 'favicon.ico',
+    to: 'public/favicon.ico',
+    note: 'The tab icon. One GFTV, so one icon in both tabs.',
+  },
+  {
+    path: 'HLC-180.png',
+    to: 'public/HLC-180.png',
+    note: 'apple-touch-icon, for a page saved to an iOS home screen.',
+  },
+  {
+    path: 'HLC-main.png',
+    to: 'public/HLC-main.png',
+    note: text(
+      'The image on a link card. Every page of this site shares one, which is what',
+      'the portal does: a per page image would be 76 captures to keep current.'
+    ),
   },
 ];
 
@@ -767,10 +801,15 @@ const OWNED_DIRECTORIES = [
   'assets/css',
   'assets/js',
   'assets/fonts',
+  // Phase 14 part 2b. The build copies everything here into the root of
+  // `dist/`, so a file that appears in it becomes a public address with no
+  // review. The scan reads one level, so 16g's `public/screenshots/` is out of
+  // its way and stays this site's own.
+  'public',
 ];
 
 /** What counts as a file in one of those directories. */
-const OWNED_EXTENSIONS = ['.js', '.css', '.woff2'];
+const OWNED_EXTENSIONS = ['.js', '.css', '.woff2', '.png', '.ico'];
 
 /**
  * The gate, from phase 13 part 3, and the only three files in either directory
@@ -905,14 +944,18 @@ async function read(site, path) {
   return source.replace(/\r\n/g, '\n');
 }
 
+/** Where an asset's copy goes, which is its own path unless it says otherwise. */
+const assetTarget = (entry) => entry.to ?? entry.path;
+
 /** The byte for byte copies. Same three properties, no transform to get wrong. */
 async function copyAssets(written, stale, missing) {
   for (const entry of ASSETS) {
     const source = await readFile(join(HERE, 'main-site', entry.path));
+    const path = assetTarget(entry);
 
     let existing = null;
     try {
-      existing = await readFile(join(HERE, 'docs-site', entry.path));
+      existing = await readFile(join(HERE, 'docs-site', path));
     } catch {
       existing = null;
     }
@@ -920,14 +963,14 @@ async function copyAssets(written, stale, missing) {
     if (existing !== null && existing.equals(source)) continue;
 
     if (CHECK) {
-      (existing === null ? missing : stale).push(entry.path);
+      (existing === null ? missing : stale).push(path);
       continue;
     }
 
-    const target = join(HERE, 'docs-site', entry.path);
+    const target = join(HERE, 'docs-site', path);
     await mkdir(dirname(target), { recursive: true });
     await writeFile(target, source);
-    written.push(entry.path);
+    written.push(path);
   }
 }
 
@@ -978,7 +1021,7 @@ async function generate() {
 async function strays() {
   const expected = new Set([
     ...FILES.map((entry) => entry.path),
-    ...ASSETS.map((entry) => entry.path),
+    ...ASSETS.map(assetTarget),
     ...OWN,
   ]);
   const found = [];

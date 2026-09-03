@@ -130,6 +130,28 @@ const tabTitle = (title) =>
     .replace('{title}', title)
     .replace('{site}', dictionary['shell.siteName']);
 
+/**
+ * This site's own origin, read off the shell's canonical link.
+ *
+ * **Read rather than written down here**, which is the same instinct as every
+ * other marker below: the head has to carry the origin anyway, because a card
+ * scraper never runs the page and cannot be handed one at runtime. Writing it a
+ * second time in this file would be two copies of an address that changes once
+ * and has to change in both, and the failure would be silent -- every card
+ * pointing at a hostname the site no longer answers on.
+ */
+const ORIGIN = (() => {
+  const found = shell.match(/<link rel="canonical" href="(https?:\/\/[^"]+)"/);
+  if (!found) {
+    fail(
+      'shell.html: no canonical link to read the origin from. Every page\'s ' +
+        'og:url and canonical are built from it, so it cannot be removed there alone.'
+    );
+    return '';
+  }
+  return found[1].replace(/\/$/, '');
+})();
+
 const escapeHtml = (value) =>
   String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -183,6 +205,40 @@ function pageDocument(page, html, data) {
       /<meta name="description"[\s\S]*?>/,
       `<meta name="description" content="${escapeHtml(page.summary)}">`,
       'description meta'
+    );
+  }
+
+  // The link card, per page. **Only a static page gets one**, and the shell's
+  // own defaults are what a gated address keeps: the card is read by something
+  // that is not signed in and never will be, so a gated page advertising its own
+  // title and summary in a preview would be 16e's leak arriving through a meta
+  // tag instead of through the sitemap.
+  const url = `${ORIGIN}${page.path === '/' ? '/' : page.path}`;
+
+  out = replaceOnce(
+    out,
+    /<link rel="canonical"[\s\S]*?>/,
+    `<link rel="canonical" href="${escapeHtml(url)}">`,
+    'canonical link'
+  );
+  out = replaceOnce(
+    out,
+    /<meta property="og:url"[\s\S]*?>/,
+    `<meta property="og:url" content="${escapeHtml(url)}">`,
+    'og:url meta'
+  );
+  out = replaceOnce(
+    out,
+    /<meta property="og:title"[\s\S]*?>/,
+    `<meta property="og:title" content="${escapeHtml(page.title)}">`,
+    'og:title meta'
+  );
+  if (page.summary) {
+    out = replaceOnce(
+      out,
+      /<meta property="og:description"[\s\S]*?>/,
+      `<meta property="og:description" content="${escapeHtml(page.summary)}">`,
+      'og:description meta'
     );
   }
 

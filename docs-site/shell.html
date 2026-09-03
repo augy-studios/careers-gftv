@@ -79,6 +79,39 @@
 
     <link rel="stylesheet" href="/assets/css/theme.css">
     <link rel="stylesheet" href="/assets/css/docs.css">
+
+    <!-- The icons and the link card, phase 14 part 2b. Until then this site had
+         neither, so a tab showed the browser's blank page icon and a link to a
+         guide previewed as a title and nothing else, while the portal's card
+         carried the GFTV mark.
+
+         **None of it is translated, and that is not an oversight.** Nothing that
+         reads these runs the page: a scraper takes the markup as it was served,
+         so a `data-i18n-attr` here would leave every card in the fallback
+         language whatever the reader had chosen. The description above is
+         translated because a browser does read that one, and the two saying the
+         same thing twice is the price of the two being read by different things.
+
+         The origin is written out rather than assembled, exactly as the portal's
+         head writes its own. **The canonical link is the one copy of it**: the
+         build reads the origin back off this line to write each page's own
+         address, so a move needs this line changed and nothing else. -->
+    <link rel="canonical" href="https://docs.careers.globalfurry.tv/">
+
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Careers@GFTV docs">
+    <meta property="og:title" content="Careers@GFTV documentation">
+    <meta property="og:description" content="Guides to the Careers@GFTV job portal and its Telegram bot.">
+    <meta property="og:url" content="https://docs.careers.globalfurry.tv/">
+    <meta property="og:image" content="/HLC-main.png">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:image:src" content="/HLC-main.png">
+
+    <!-- Generated into public/ by gen-docs-lib.js from the portal's own copies,
+         so one GFTV has one mark on both tabs. -->
+    <link rel="apple-touch-icon" href="/HLC-180.png">
+    <link rel="icon" href="/favicon.ico">
+    <link rel="shortcut icon" href="/favicon.ico">
 </head>
 
 <body class="docs-shell">

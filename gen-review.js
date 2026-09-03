@@ -182,6 +182,25 @@ const EXEMPT = {
     "The language's own name in a heading about the language control, matching the portal's about page.",
   'docs-site/content/portal/account-settings.md':
     "The language's own name, as the label a reader sees on the control in the header.",
+  // Phase 14 part 3. The same judgement again for three of them, and a different
+  // one for the fourth.
+  'docs-site/content/bot/index.md':
+    "The language's own name, saying which two languages the bot answers in.",
+  'docs-site/content/translations/index.md':
+    "The language's own name, in a sentence about which languages the site publishes in.",
+  'docs-site/content/translations/what-a-helper-can-do.md':
+    "The language's own name, in an example about a translation being a different shape.",
+  // **The exception, and the one page in either tree where the Chinese is the
+  // subject.** 3a's vocabulary table names six words to use and six not to, so
+  // the words a translator must avoid are on it on purpose. Rendering them into
+  // the review page would put 志愿者 in front of a reviewer as copy to approve,
+  // which is the opposite of what the page is for. check-copy.js reads the same
+  // table as a rule over both zh.json files, which is where that rule is
+  // enforced.
+  'docs-site/content/translations/singapore-mandarin.md':
+    '3a\'s vocabulary table, reproduced for the people it is written for. Half of it is words this build refuses, so it is a rule about Chinese and not Chinese copy.',
+  'docs-site/content/translations/becoming-a-helper.md':
+    "The language's own name, in an example about being granted one language and not another.",
   // Outside SCAN_ROOTS, since the repo root holds this file, the specification
   // and the memo and is not scanned at all. Written down anyway: the judgement
   // is the one dev-seed-jobs.sql gets, and if the root is ever scanned it is

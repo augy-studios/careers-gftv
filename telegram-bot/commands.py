@@ -177,8 +177,19 @@ _TABLE_HEADING = "## Commands"
 _TABLE_ROW = re.compile(r"^\|\s*`(/?[a-z][a-z_]*)`\s*\|", re.MULTILINE)
 _BLOCK_LINE = re.compile(rf"^{COMMANDS[0].name} - ", re.MULTILINE)
 
-# What `--check` looks at when it is given no paths of its own.
-DOCUMENTS: tuple[str, ...] = ("setup.md", "README.md")
+# What `--check` looks at when it is given no paths of its own. Relative to this
+# directory, which is where the script is run from.
+#
+# **The third one is on another site and is the reason this check was written.**
+# Phase 14's applicant guide carries the same table README.md does, for a reader
+# who will never open this directory, and the docstring above named it as a
+# consumer of this file six parts before it existed. A copy nothing compares is
+# the copy that goes stale, and that one goes stale in public.
+DOCUMENTS: tuple[str, ...] = (
+    "setup.md",
+    "README.md",
+    "../docs-site/content/bot/commands.md",
+)
 
 
 def _check_blocks(path: str, document: str) -> list[str]:
