@@ -35,18 +35,21 @@
 //   only offers published postings, and the saved list is filtered again on the
 //   way in, because a posting can be unpublished after it was chosen.
 //
-// Not admins only, per 8.10 and the same reasoning as deviation 40: the
-// specification marks 8.8 and 8.9 as admins only and marks nothing else, and a
-// job poster editing the hero line is the person the page is for. Both
-// directions of the applications toggle are audited with the actor, so a change
-// nobody expected has a name on it.
+// **Admins only, since phase 14 part 5.** This file used to say the opposite,
+// citing 8.10 and deviation 40 on the grounds that the specification marks 8.8
+// and 8.9 as admins only and marks nothing else. It does mark something else:
+// 10 item 2 names "the portal settings in 8.10" in its list of what only an
+// admin may do, and this route had guarded with requireStaff since phase 8. A
+// job poster could close applications across the whole board. Deviation 130.
+//
+// Both directions of the applications toggle are still audited with the actor,
+// so a change nobody expected has a name on it.
 
 import { ok, fail, ERR, methodNotAllowed, failInternal, readJson } from '../_lib/respond.js';
 import { supabase, T } from '../_lib/supabase.js';
-import { requireStaff } from '../_lib/session.js';
 import { AUDIT, auditStaff } from '../_lib/audit.js';
 import { FIELD, validateText } from '../_lib/validate.js';
-import { isUuid, params, activeLocales, defaultLocale } from '../_lib/admin.js';
+import { requireAdmin, isUuid, params, activeLocales, defaultLocale } from '../_lib/admin.js';
 import { allSettings, putSetting, DEFAULT_REAPPLY_COOLDOWN_DAYS } from '../_lib/settings.js';
 import { unavailable } from '../_lib/maintenance.js';
 import { LIMITS, limited, recordFailures, subjectForUser } from '../_lib/rate-limit.js';
@@ -84,7 +87,11 @@ const PICKER_LIMIT = 100;
 export default async function handler(req, res) {
   if (methodNotAllowed(req, res, ['GET', 'HEAD', 'POST'])) return;
 
-  const session = await requireStaff(req, res);
+  // Not requireStaff. 10 item 2 names the portal settings as admins only, and
+  // the whole endpoint is that page: reading it is how a poster would learn the
+  // board is closed and writing it is how they would close it. Phase 14 part 5,
+  // deviation 130.
+  const session = await requireAdmin(req, res);
   if (!session) return;
 
   // Off means off, including the API, per 0c. The dashboard greys the section

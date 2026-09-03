@@ -4,7 +4,9 @@
 //   node gen-review.js            write the page, and report what it cannot see
 //
 // Reads the interface dictionaries, the seeded departments and tags from
-// migration 014, the hero copy from 018, the phase list and its shipped notes
+// migration 014, the hero copy from 018 and the portal's Mandarin name from
+// 041 -- 018 wrote that one and has run, so it is a record of phase 5 and not
+// of the database -- the phase list and its shipped notes
 // from build-status.json, and the Telegram bot's own strings and command menu
 // from the two Python files that hold them, then writes a single self contained
 // page to the repo root.
@@ -204,6 +206,15 @@ const EXEMPT = {
     '3a\'s vocabulary table, reproduced for the people it is written for. Half of it is words this build refuses, so it is a rule about Chinese and not Chinese copy.',
   'docs-site/content/translations/becoming-a-helper.md':
     "The language's own name, in an example about being granted one language and not another.",
+  // Phase 14 part 5, the job poster guide, and the same judgement a third time.
+  // A staff guide's Chinese is in Supabase like every other guide's, per 16f, so
+  // these files are the English ones.
+  'docs-site/api/_content/poster/sections.md':
+    "The language's own name, in an example about a translation needing fewer sections than its original.",
+  'docs-site/api/_content/poster/teams.md':
+    "The language's own name, in the argument for why an active team needs a name in every language.",
+  'docs-site/api/_content/poster/asking-for-more-information.md':
+    "The language's own name, saying which reader gets the English question when a translation is left blank.",
   // Outside SCAN_ROOTS, since the repo root holds this file, the specification
   // and the memo and is not scanned at all. Written down anyway: the judgement
   // is the one dev-seed-jobs.sql gets, and if the root is ever scanned it is
@@ -225,7 +236,19 @@ const SCAN_ROOTS = ['main-site', 'telegram-bot', 'migrations', 'docs-site'];
 // scan already reads at their source, plus one HTML page per public markdown
 // page. Reading it would report the same comment twice and ask for an exemption
 // on a file nobody wrote.
-const SCAN_SKIP_DIRS = new Set(['node_modules', '.git', '.vercel', '__pycache__', 'dist']);
+// `_generated` is the same argument as `dist`, and it arrived with phase 14
+// part 5: `scripts/build.js` writes one search index per tier into
+// docs-site/api/_generated/, built from the gated pages this scan already reads
+// in api/_content/. A guide page carrying 华文 is reported once, at its source,
+// instead of once more inside a JSON blob nobody wrote by hand.
+const SCAN_SKIP_DIRS = new Set([
+  'node_modules',
+  '.git',
+  '.vercel',
+  '__pycache__',
+  'dist',
+  '_generated',
+]);
 const SCAN_SKIP_EXT = new Set([
   '.png', '.jpg', '.jpeg', '.webp', '.gif', '.ico', '.svg',
   '.woff', '.woff2', '.ttf', '.pdf', '.zip', '.map',

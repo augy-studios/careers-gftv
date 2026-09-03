@@ -15,4 +15,8 @@ account.
 in phase 14, this half of the site included. A job poster is staff, and the
 poster guide has the widest staff audience of anything here.
 
-**Not written yet.** These guides are phase 14's.
+- **[The job poster guide](/staff/poster)** is written and covers the whole
+  dashboard: writing and publishing a posting, connecting its form, and working
+  through applications.
+- **The admin guide** and **the developer documentation** are not written yet.
+  Both are phase 14's.

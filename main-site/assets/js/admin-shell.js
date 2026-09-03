@@ -51,7 +51,11 @@ import {
  * phase number, per 0c.
  *
  * adminOnly follows 10 item 2: who else can reach the dashboard is not a job
- * poster's business, and neither is an applicant's account.
+ * poster's business, and neither is an applicant's account. Settings and
+ * maintenance joined them in phase 14 part 5 -- the same list names both, and
+ * the sidebar had been offering a poster the portal title, the reapply
+ * cooldown, the board wide applications toggle and every feature switch since
+ * phase 8. Deviation 130.
  */
 const ADMIN_NAV = [
   { href: '/admin', key: 'admin.navOverview', icon: 'grid', feature: 'admin_dashboard' },
@@ -86,7 +90,13 @@ const ADMIN_NAV = [
     feature: 'admin_applicants',
     adminOnly: true,
   },
-  { href: '/admin/settings', key: 'admin.navSettings', icon: 'settings', feature: 'admin_settings' },
+  {
+    href: '/admin/settings',
+    key: 'admin.navSettings',
+    icon: 'settings',
+    feature: 'admin_settings',
+    adminOnly: true,
+  },
   {
     href: '/admin/translations',
     key: 'admin.navTranslations',
@@ -101,6 +111,7 @@ const ADMIN_NAV = [
     key: 'admin.navMaintenance',
     icon: 'build',
     feature: 'admin_maintenance',
+    adminOnly: true,
   },
   { href: '/admin/security', key: 'admin.navSecurity', icon: 'key', feature: 'staff_login' },
 ];
@@ -544,9 +555,14 @@ function renderMaintenanceBanner() {
   const bar = document.createElement('div');
   bar.className = 'callout warn admin-maintenance-banner';
   bar.setAttribute('role', 'status');
-  bar.innerHTML = `<p>${escapeHtml(
-    t('admin.maintenanceBanner', { count: off.length })
-  )} <a href="/admin/maintenance">${escapeHtml(t('admin.maintenanceBannerLink'))}</a></p>`;
+  // The sentence for everybody, the link for an admin. A poster still needs to
+  // know something is off, because it explains what an applicant is telling
+  // them; the page it is switched back on from is not theirs to open.
+  bar.innerHTML = `<p>${escapeHtml(t('admin.maintenanceBanner', { count: off.length }))}${
+    isAdminUser()
+      ? ` <a href="/admin/maintenance">${escapeHtml(t('admin.maintenanceBannerLink'))}</a>`
+      : ''
+  }</p>`;
 
   document.querySelector('#adminPage')?.prepend(bar);
 }

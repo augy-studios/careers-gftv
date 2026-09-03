@@ -21,7 +21,7 @@
 
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, extname, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -1539,6 +1539,184 @@ define('install', 'Part 4: the worker installed, then the network pulled out', a
     await browser.close();
     server.close();
   }
+});
+
+define('boundary', "Part 5: what a job poster may reach, and what is an admin's", () => {
+  const shell = read(join(MAIN, 'assets/js/admin-shell.js'));
+
+  /* --- The sidebar ------------------------------------------------------ */
+
+  // One entry per line is not how the file is written, so each item is read as
+  // the block between its href and the next closing brace. A regex over the
+  // whole file would call an adminOnly on the item above the right answer.
+  const navItem = (href) => {
+    const at = shell.indexOf(`href: '${href}'`);
+    if (at === -1) return null;
+    return shell.slice(at, shell.indexOf('},', at));
+  };
+
+  // 10 item 2's list, from the side that says what only an admin may do. The
+  // first two have been here since phase 8; the second two arrived with this
+  // part, and deviation 130 is the account of why they were not.
+  for (const [href, what] of [
+    ['/admin/admins', 'staff access'],
+    ['/admin/applicants', 'applicant accounts'],
+    ['/admin/settings', 'the portal settings'],
+    ['/admin/maintenance', 'the maintenance switches'],
+  ]) {
+    const item = navItem(href);
+    check(
+      `49. ${what} is adminOnly in the sidebar`,
+      item !== null && /adminOnly:\s*true/.test(item),
+      item === null ? `no nav item for ${href}` : `${href} carries no adminOnly`
+    );
+  }
+
+  check(
+    '50. and a poster still has the sections that are theirs',
+    ['/admin/jobs', '/admin/applications', '/admin/analytics', '/admin/invites', '/admin/tags']
+      .map((href) => navItem(href))
+      .every((item) => item !== null && !/adminOnly/.test(item)),
+    'a poster with no postings page would be a poster with nothing to do'
+  );
+
+  check(
+    '51. the maintenance banner keeps its sentence for a poster and drops its link',
+    /admin\.maintenanceBanner'[\s\S]{0,200}isAdminUser\(\)[\s\S]{0,200}\/admin\/maintenance/.test(
+      shell
+    ),
+    'a poster needs to know a feature is off. The page it is switched back on from is not theirs.'
+  );
+
+  /* --- The routes ------------------------------------------------------- */
+
+  // **The sidebar is not the check.** Hiding a link stops nobody: 8.2's rule is
+  // that the route checks the role again, and phase 7's suite proves that half
+  // against a real poster session. This half is the source, so it fails on the
+  // commit that removes the guard instead of on the next run with a credential.
+  for (const [file, what] of [
+    ['api/admin/settings.js', 'the portal settings'],
+    ['api/admin/maintenance.js', 'the maintenance switches'],
+    ['api/admin/admins.js', 'staff access'],
+    ['api/admin/applicants.js', 'applicant accounts'],
+    ['api/admin/submissions.js', 'unmatched submissions'],
+  ]) {
+    const source = read(join(MAIN, file));
+    check(
+      `52. ${what} guards with requireAdmin`,
+      /await requireAdmin\(req, res\)/.test(source),
+      `${file} does not call requireAdmin`
+    );
+    check(
+      `52. and ${what} does not also let requireStaff through`,
+      !/await requireStaff\(req, res\)/.test(source),
+      `${file} still has a requireStaff door beside the admin one`
+    );
+  }
+
+  check(
+    '53. deleting a posting is still admins only, per 8.2',
+    /if \(!isAdmin\(session\.user\)\)/.test(read(join(MAIN, 'api/admin/jobs.js'))),
+    'the delete branch is the one admin check inside a route a poster may otherwise use'
+  );
+});
+
+define('guide', 'Part 5: the job poster guide, and the copy it holds twice', () => {
+  const dir = join(DOCS, 'api/_content/poster');
+  const files = readdirSync(dir).filter((name) => name.endsWith('.md'));
+
+  check('54. the guide is twenty pages', files.length === 20, `${files.length} files in ${dir}`);
+
+  /* --- Front matter ----------------------------------------------------- */
+
+  const pages = files.map((name) => {
+    const source = read(join(dir, name));
+    const block = source.startsWith('---\n') ? source.slice(4, source.indexOf('\n---', 3)) : '';
+    const value = (key) => new RegExp(`^${key}:\\s*(.+)$`, 'm').exec(block)?.[1]?.trim() ?? null;
+    return { name, source, title: value('title'), access: value('access'), order: value('order') };
+  });
+
+  check(
+    '55. every page is gated at the poster tier',
+    pages.every((page) => page.access === 'poster'),
+    pages.filter((page) => page.access !== 'poster').map((page) => page.name).join(', ')
+  );
+
+  const orders = pages.map((page) => Number(page.order)).sort((a, b) => a - b);
+  check(
+    '56. the twenty orders are 1 to 20 with none repeated',
+    orders.every((value, index) => value === index + 1),
+    orders.join(', ')
+  );
+
+  check(
+    '57. every page has a title and a summary',
+    pages.every((page) => page.title && /^summary:\s*\S/m.test(page.source)),
+    'the title is the sidebar entry and the summary is the search result'
+  );
+
+  /* --- The screenshot slots --------------------------------------------- */
+
+  // 16g: until the capture run, a slot reads as pending instead of broken. Part
+  // 8 captures exactly these, so the names are the manifest it will be written
+  // from, and a typo here is a shot nobody takes.
+  const slots = pages
+    .flatMap((page) => [...page.source.matchAll(/!\[[^\]]*\]\(pending:([^)\s]+)/g)])
+    .map((match) => match[1]);
+
+  check('58. ten screenshot slots are named for part 8', slots.length === 10, slots.join(', '));
+  check(
+    "58. and each one is named the way 16g asks, subject first and theme last",
+    slots.every((name) => /^poster-[a-z-]+-(desktop|phone)-(light|dark)$/.test(name)),
+    slots.filter((name) => !/^poster-[a-z-]+-(desktop|phone)-(light|dark)$/.test(name)).join(', ')
+  );
+  check('58. and no slot is named twice', new Set(slots).size === slots.length, slots.join(', '));
+
+  /* --- The Apps Script steps, which are a second copy ------------------- */
+
+  // **The check the part was asked for.** The dashboard's four step strings are
+  // the ones a poster reads beside the form field, and the guide quotes them so
+  // that the fiddliest procedure on the site is in front of whoever is doing
+  // it. That makes the guide the third copy, after the root README, and a copy
+  // nothing compares is the copy that goes stale in public. `commands.py
+  // --check` is the same argument for the command table.
+  //
+  // Normalised because the page wraps at 80 columns and quotes each step as a
+  // blockquote: what is compared is the sentence, not its line breaks.
+  const flat = read(join(dir, 'confirmed-submissions.md'))
+    .replace(/^>\s?/gm, '')
+    .replace(/\s+/g, ' ');
+
+  const dictionary = JSON.parse(read(join(MAIN, 'assets/i18n/en.json')));
+
+  for (const number of [1, 2, 3, 4]) {
+    const step = dictionary[`admin.webhookStep${number}`];
+    check(
+      `59. step ${number} is quoted from the dashboard word for word`,
+      typeof step === 'string' && flat.includes(step.replace(/\s+/g, ' ')),
+      `admin.webhookStep${number} is not on the page: "${step}"`
+    );
+  }
+
+  /* --- The links -------------------------------------------------------- */
+
+  // Every /staff/poster/... link on these pages, against the files that exist.
+  // A guide of twenty cross referenced pages is where a dead internal link
+  // hides, and the gated pipeline has no build step to catch one.
+  const names = new Set(files.map((name) => name.replace(/\.md$/, '')));
+  const dead = pages.flatMap((page) =>
+    [...page.source.matchAll(/\]\(\/staff\/poster\/([a-z0-9-]+)\)/g)]
+      .map((match) => match[1])
+      .filter((slug) => !names.has(slug))
+      .map((slug) => `${page.name} -> ${slug}`)
+  );
+  check('60. every link between these pages points at a page that exists', dead.length === 0, dead.join(', '));
+
+  check(
+    '61. the staff index no longer says the poster guide is unwritten',
+    !/Not written yet[\s\S]*poster/i.test(read(join(DOCS, 'api/_content/index.md'))),
+    'the index is what a reader lands on, and it outranks the guide it describes'
+  );
 });
 
 /* -------------------------------------------------------------------------

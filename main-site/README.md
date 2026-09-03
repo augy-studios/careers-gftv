@@ -56,13 +56,14 @@ main-site/
     applications/     8.3's applicant tracking, with the task composer
     departments/      8.6's teams
     tags/             8.7's tags, with the merge
-    maintenance/      8.12's switches
+    maintenance/      8.12's switches. Admins only, end to end
     analytics/        8.4's funnel per posting, with the daily chart. Phase 8.
                       The one dashboard page with no POST
     invites/          8.5's invites and shortlists, one posting at a time
     admins/           8.8's staff access. Admins only, end to end
     applicants/       8.9's applicant accounts. Admins only, end to end
-    settings/         8.10's portal settings, and the applications toggle
+    settings/         8.10's portal settings, and the applications toggle.
+                      Admins only, end to end
     translations/     8.11's queue, its needs-translation audit, and 7i's
                       helper roster. Three tabs, one route
     login/            staff sign in, with the second factor step
@@ -427,14 +428,14 @@ markup as delivered and does not run JavaScript.
 | `api/admin/tasks` | raising a task on one applicant or on fifty, with or without a question set, and resolving one. The set is written once and never updated | 7 |
 | `api/admin/departments` | 8.6, and the rule that an active team needs a name in every active language | 7 |
 | `api/admin/tags` | 8.7, including the merge, which moves the join rows and lets the triggers in `007` do the counting | 7 |
-| `api/admin/maintenance` | read and flip the feature overrides in 8.12, so a shipped feature can be turned off while it is broken | 7 |
+| `api/admin/maintenance` | read and flip the feature overrides in 8.12, so a shipped feature can be turned off while it is broken. **Admins only**, since phase 14 part 5: turning one off reaches every visitor of both sites and nothing turns it back on by itself | 7 |
 | `api/public/feature-status` | which shipped features are currently off, and the public note on each. Short cache. The phase list stays in `build-status.json` and is not duplicated here | 7 |
 | `api/admin/analytics` | 8.4's funnel: views, apply clicks, confirmed applications, and the daily series, from the two views in `033`. **GET only**, the one admin route with no POST, because nothing on that page changes anything | 8 |
 | `api/admin/invites` | 8.5, whole: the shortlist, the invite, the send, the withdrawal, and the applicant picker. An invite writes its `gftvjobs_invites` row and a task beside it, because Telegram is phase 11 and the task is the record either way | 8 |
 | `api/admin/admins` | 8.8's staff access. **Admins only end to end**, including the list. Three access states, not two: granted, denied, and absent, and absent means the gftv.asia role decides | 8 |
 | `api/admin/applicants` | 8.9's applicant accounts. Admins only, all of it. Deactivate, reactivate, edit details, force a reset, unlink Telegram, set a password, delete | 8 |
 | | **`update_details` is not in 8.9** and was added on 31 August 2026: username, email, display name, phone and language, each validated with the same functions the applicant's own edit uses. **Two of the five are login identifiers**, so changing a username or an email revokes every session and trusted device and the other three do not — the response says which happened so the page can tell the admin. A required reason and an audit row carrying both sides of every field that moved, and no notification to the applicant, which is what every other action on this page already does. | |
-| `api/admin/settings` | 8.10's portal settings, through `putSetting`. The second caller of a helper written in phase 7 for 8.12 | 8 |
+| `api/admin/settings` | 8.10's portal settings, through `putSetting`. The second caller of a helper written in phase 7 for 8.12. **Admins only**, since phase 14 part 5: reading this page is how somebody would learn the board is closed, and writing it is how they would close it | 8 |
 | `api/public/site-settings` | the public half of 8.10: the portal title, the hero copy, and the featured roles. Short cache, session free | 8 |
 | `api/public/view` | one `view` analytics row per session per posting, never for a preview and never for a draft. **The one write in the build a caller with no account can make**, so the posting is re-checked server side and it has a rate limit bucket of its own | 8 |
 | | A view row is `response_state: 'answered'`, not `'pending'`. `007`'s pending partial index exists to make the outstanding prompt lookup and phase 9's sweep cheap, and a row in it for every posting anybody opens would make it the largest index in the database and the one thing it must never hold. | |

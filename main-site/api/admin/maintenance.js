@@ -10,20 +10,26 @@
 // The reasoning behind all of it is in api/_lib/maintenance.js. What is decided
 // here rather than there:
 //
-//   **Any staff member with dashboard access may flip a feature.** Not admins
-//   only. 8.12 puts this page in the dashboard and does not restrict it, and the
-//   reason not to add a restriction is the point of the page: it exists for the
-//   person who is looking at a broken feature at the time, which is as likely to
-//   be the job poster who noticed as the admin who is asleep. Everything it can
-//   do is reversible by anybody else with the same access, and both directions
-//   are audited.
+//   **Admins only, since phase 14 part 5.** 8.12 puts this page in the dashboard
+//   and does not restrict it, but 10 item 2 names "the maintenance switches in
+//   8.12" in its list of what only an admin may do, and this route had guarded
+//   with requireStaff since phase 7. Deviation 130.
+//
+//   This file used to argue the other way, and the argument is worth keeping
+//   because it is not a bad one: the page exists for the person looking at a
+//   broken feature at the time, which is as likely to be the job poster who
+//   noticed as the admin who is asleep. What settled it is that switching a
+//   feature off reaches every visitor of both sites, nothing turns it back on by
+//   itself, and the specification had already decided. A poster who notices
+//   still sees the banner saying something is off; the page it is switched back
+//   on from is an admin's.
 //
 //   **The note is optional and is never prefilled.** 8.12: "Prefill nothing and
 //   suggest nothing: an admin who has just broken something writes a better
 //   sentence than a dropdown does."
 
 import { ok, fail, ERR, methodNotAllowed, failInternal, readJson } from '../_lib/respond.js';
-import { requireStaff } from '../_lib/session.js';
+import { requireAdmin } from '../_lib/admin.js';
 import { AUDIT, auditStaff } from '../_lib/audit.js';
 import { FIELD, validateText } from '../_lib/validate.js';
 import {
@@ -40,7 +46,11 @@ import { LIMITS, limited, recordFailures, subjectForUser } from '../_lib/rate-li
 export default async function handler(req, res) {
   if (methodNotAllowed(req, res, ['GET', 'HEAD', 'POST'])) return;
 
-  const session = await requireStaff(req, res);
+  // Not requireStaff. 10 item 2 names the maintenance switches as admins only.
+  // Turning a shipped feature off reaches every visitor of both sites and
+  // nothing turns it back on by itself, which is not a job poster's decision to
+  // take alone. Phase 14 part 5, deviation 130.
+  const session = await requireAdmin(req, res);
   if (!session) return;
 
   res.setHeader('Cache-Control', 'no-store');

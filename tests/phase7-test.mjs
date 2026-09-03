@@ -661,19 +661,33 @@ async function runRoleChecks(state) {
   );
 
   // And the rest of the dashboard still works, because two roles is not a
-  // permission system: a job poster does everything except delete a posting and
-  // see the two admin-only sections.
+  // permission system: a job poster does everything except delete a posting,
+  // the two admin-only sections, and the two this list used to include.
   const stillAllowed = await Promise.all([
     get(page, '/api/admin/stats'),
     get(page, '/api/admin/applications'),
     get(page, '/api/admin/departments?counts=false'),
     get(page, '/api/admin/tags'),
-    get(page, '/api/admin/maintenance'),
   ]);
   check(
-    '4. a job poster still reaches postings, tracking, teams, tags and maintenance',
+    '4. a job poster still reaches postings, tracking, teams and tags',
     stillAllowed.every((result) => result.ok),
     stillAllowed.map((result) => result.status).join(', ')
+  );
+
+  // **Maintenance was in that list until phase 14 part 5**, and reading it back
+  // against 10 item 2 is what found deviation 130: the settings page and the
+  // maintenance switches are admins only, and neither route said so. Reading
+  // either is refused as well as writing, because reading the settings page is
+  // how a poster would find out the board is closed.
+  const refusedNow = await Promise.all([
+    get(page, '/api/admin/maintenance'),
+    get(page, '/api/admin/settings'),
+  ]);
+  check(
+    '4. a job poster is refused the maintenance switches and the portal settings',
+    refusedNow.every((result) => result.status === 403),
+    refusedNow.map((result) => result.status).join(', ')
   );
 }
 

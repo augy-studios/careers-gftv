@@ -56,7 +56,11 @@ export function roleFor(staffUser) {
   return staffUser?.is_admin === true ? ROLE.ADMIN : ROLE.POSTER;
 }
 
-/** Whether the caller may do the admins only things in 8.2, 8.8, and 8.9. */
+/**
+ * Whether the caller may do the admins only things in 10 item 2: 8.2's
+ * permanent delete, 8.8, 8.9, and, since phase 14 part 5, 8.10's settings and
+ * 8.12's maintenance switches. Deviation 130.
+ */
 export function isAdmin(staffUser) {
   return roleFor(staffUser) === ROLE.ADMIN;
 }

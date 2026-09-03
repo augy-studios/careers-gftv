@@ -357,14 +357,44 @@ define('index', 'The split search index, and the dates', async () => {
   // purpose, per 16a's one exception to the silence, so "Staff documentation"
   // appears in the public index correctly. What must never appear is a sentence
   // out of a gated page.
+  //
+  // **A shared opening is not a leak, and phase 14 part 5 is where that stopped
+  // being theoretical.** Twenty poster pages quote the same interface strings
+  // the public guides quote -- "Will be available in Phase 5", "Temporarily
+  // unavailable while we fix something" -- and one of them opens with the same
+  // sentence about the site being released in phases. Three prefixes then
+  // appeared in both indexes, and none of them came from a gated page.
+  //
+  // So a hit is traced instead of counted: find the public entry carrying it,
+  // and read that entry's own source file. If the words are in the file the
+  // entry was built from, the public index is reporting a public page. A leak
+  // is a public entry carrying words its own source does not have, which is
+  // what this now fails on.
+  // The index holds a block's words with the marks taken out, so the source is
+  // read the same way before the two are compared. Without this, a page that
+  // bolds the sentence it quotes reads as a page that never said it.
+  const plain = (text) =>
+    text
+      .replace(/[*_`#|]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  const sourceOf = new Map(
+    publicPages.map((page) => [page.path, plain(readFileSync(page.file, 'utf8'))])
+  );
   const gatedSentences = gatedIndexFor('developer')
     .flatMap((entry) => entry.blocks.map((entry) => entry.text))
     .filter((text) => text.length >= 30)
     .map((text) => text.slice(0, 30));
+  const leaked = gatedSentences.filter((text) => {
+    const carriers = publicIndex.filter((entry) => JSON.stringify(entry).includes(text));
+    if (carriers.length === 0) return false;
+    return carriers.some((entry) => !(sourceOf.get(entry.path) ?? '').includes(text));
+  });
   check(
     '17. the public index holds no sentence from a gated page',
-    gatedSentences.length > 0 && gatedSentences.every((text) => !publicText.includes(text)),
-    `${gatedSentences.length} gated sentences compared`
+    gatedSentences.length > 0 && leaked.length === 0,
+    `${gatedSentences.length} gated sentences compared, ${leaked.length} in a public entry ` +
+      `whose own page does not say it: ${leaked.join(' | ')}`
   );
 
   const poster = gatedIndexFor('poster');
