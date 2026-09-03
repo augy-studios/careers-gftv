@@ -88,7 +88,11 @@ main-site/
     css/app.css       shell layout, header, footer, notice bar, the board
     js/theme.js       the two axis theme module
     js/icons.js       inline SVG icons
-    js/shell.js       header, nav, footer, theme modal, the single entry point
+    js/shell.js       header, nav, footer, the single entry point
+    js/chrome-modals.js  the theme and language modals the header opens. Their
+                      own file since phase 14 part 1, because gftv-theme.md
+                      prescribes that control's markup and the docs site needs
+                      the same one: gen-docs-lib.js copies it across unchanged
     js/build-status.js the notice bar, the disabled control pattern, placeholders
     js/top-bars.js    the order of the three things that insert themselves at
                       the top of the body, and the rule that all of them go
@@ -108,7 +112,8 @@ main-site/
                       inlined. There is no fetch on that page.
     js/markdown.js    the small markdown subset a posting body is written in.
                       Escapes first, then formats, so no tag ever reaches it
-    js/dialog.js      a modal in a function, for the two below
+    js/dialog.js      a modal in a function, for the two below and for
+                      chrome-modals.js above
     js/signin-prompt.js  section 4's prompt for a logged out visitor, and the
                       intent that survives the round trip
     js/translation-report.js  7h's report form

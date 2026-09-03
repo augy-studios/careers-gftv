@@ -1296,37 +1296,17 @@ section.card {
 }
 
 /* -------------------------------------------------------------------------
- * The language control, phase 13 part 6a
+ * The language and theme controls, phase 14 part 1
  *
- * 16d's header did not have one, because 16f gave this site's staff half
- * English only. Both were revised on 3 September 2026 and the whole site is
- * bilingual now, so the header needs a way to say which language — and it keeps
- * its place at every width for the reason 16d gives about search and the
- * account control: a reader who cannot find how to change the language
- * concludes there is nothing to change.
+ * **There is deliberately nothing here.** A `.docs-lang` block styled the bare
+ * <select> this header carried from part 6a, and a `.docs-btn` styled the word
+ * "Light" beside it. Both are gone: the two controls are `.icon-btn`s opening
+ * the modals gftv-theme.md prescribes, and `.icon-btn`, `.modal`,
+ * `.modal-backdrop`, `.modal-head`, `.modal-section-label`, `.mode-toggle`,
+ * `.mode-btn`, `.mode-note`, `.swatch-grid`, `.swatch`, `.locale-list`,
+ * `.locale-btn` and `.locale-note` are all defined in theme.css — which has been
+ * generated into this site since part 4.
+ *
+ * That is the whole finding of the part, seen from the stylesheet's end: this
+ * site had been shipping the styles for controls it had never built.
  * ---------------------------------------------------------------------- */
-
-.docs-lang {
-  display: inline-flex;
-  align-items: center;
-}
-
-.docs-lang select {
-  font: inherit;
-  font-size: 0.875rem;
-  color: var(--text);
-  background: transparent;
-  border: 1px solid var(--border-control);
-  border-radius: var(--radius-sm);
-  padding: 0.3rem 0.45rem;
-  cursor: pointer;
-}
-
-.docs-lang select:hover {
-  background: var(--surface-hover);
-}
-
-.docs-lang select:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 1px;
-}

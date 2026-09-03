@@ -636,6 +636,39 @@ const FILES = [
     note: 'Identical. Inline SVG, no imports, and no network.',
   },
   {
+    // Phase 14 part 1. It came across for chrome-modals.js below and for
+    // nothing else, which is why the docs site got this far without it:
+    // danger-confirm.js builds its own <dialog> element and never asked.
+    path: 'assets/js/dialog.js',
+    comment: 'js',
+    note: text(
+      'Identical. One modal shell for the whole build -- a native <dialog>, so the',
+      'inert page behind it, the focus trap and Escape are the browser\'s and not a',
+      'copy of somebody\'s. It imports i18n.js and icons.js and nothing else, both',
+      'of which were already here.'
+    ),
+  },
+  {
+    path: 'assets/js/chrome-modals.js',
+    comment: 'js',
+    note: text(
+      'Identical, and the reason it is a file at all. gftv-theme.md section 3 is',
+      'markup: it prescribes this modal, its two sections, and the .icon-btn that',
+      'opens it. This site had the tokens generated in and none of the chrome, so',
+      'part 1 moved the four functions out of the portal\'s shell.js -- which draws',
+      'a navigation drawer, a footer and a build status notice this site wants none',
+      'of -- and copies them here whole.',
+      '',
+      '**No rule, because the two headers use the same two ids.** Both functions',
+      'find their opener with document.querySelector("#themeButton") and',
+      '"#languageButton", so the docs header carries those ids and this file needs',
+      'to know nothing about which site it is on. theme.css, generated in since',
+      'part 4, already defined .icon-btn, .modal, .swatch, .mode-toggle and',
+      '.locale-btn -- this site had been shipping the styles of controls it had',
+      'never built.'
+    ),
+  },
+  {
     path: 'assets/js/format.js',
     comment: 'js',
     note: text(

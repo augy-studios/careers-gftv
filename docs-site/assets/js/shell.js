@@ -1,7 +1,7 @@
 // THIS SITE'S OWN FILE. Not generated, and named in gen-docs-lib.js under OWN.
 //
 // The documentation shell: the sidebar, the on-page contents, the account
-// control, the mode toggle, and the page itself.
+// control, the theme and language controls, and the page itself.
 //
 // **One shell, both pipelines.** 16e: "a reader must not be able to tell which
 // pipeline a page came from." A gated page arrives here as markdown from
@@ -17,11 +17,21 @@
 // places is a gate that can disagree with itself.
 //
 // The portal's shell.js is not the ancestor of this one. That file draws a
-// navigation bar, a footer, a theme modal, a notice bar and a build status
-// banner for an application; this draws a manual.
+// navigation bar, a footer, a notice bar and a build status banner for an
+// application; this draws a manual. **The two modals in the header are the one
+// thing the two share**, since phase 14 part 1: gftv-theme.md prescribes that
+// control's markup, so it is generated in as chrome-modals.js and not written
+// a second time here.
 
-import { initTheme, applyMode } from './theme.js';
-import { initI18n, t, translateDom, getLocale, applyLocale, LOCALES } from './i18n.js';
+import { initTheme } from './theme.js';
+import { initI18n, t, translateDom, getLocale } from './i18n.js';
+import { hydrateIcons } from './icons.js';
+import {
+  renderThemeModal,
+  renderLanguageModal,
+  wireThemeModal,
+  wireLanguageModal,
+} from './chrome-modals.js';
 import { render } from './markdown.js';
 
 const CHEVRON =
@@ -90,83 +100,43 @@ async function get(path) {
  * The header
  * ---------------------------------------------------------------------- */
 
-function drawMode() {
-  const button = el('docsMode');
-  if (!button) return;
-
-  const dark = document.documentElement.getAttribute('data-mode') === 'dark';
-  button.textContent = t(dark ? 'header.modeDark' : 'header.modeLight');
-  button.setAttribute('aria-label', t(dark ? 'header.modeLabelDark' : 'header.modeLabel'));
-}
-
-function wireMode() {
-  const button = el('docsMode');
-  if (!button) return;
-
-  button.addEventListener('click', () => {
-    // Two states here, and three in the portal's switcher. 16d asks this header
-    // for a light and dark toggle, so the time based preference is set on the
-    // portal and not here.
-    //
-    // **This site starts at its own defaults, and cannot do otherwise.** An
-    // earlier version of this comment said a reader who chose a theme on the
-    // portal keeps it here, which is wrong: localStorage is per origin and
-    // docs.careers.globalfurry.tv is not careers.globalfurry.tv, so nothing
-    // crosses. The only mechanism that would is a cookie on
-    // .globalfurry.tv, and 5h forbids exactly that -- "the parent domain
-    // carries other GFTV apps that have no business seeing this cookie".
-    //
-    // So the palette here is always classic and the mode always starts light,
-    // and pressing this once replaces that with an explicit choice stored
-    // against this origin. The hello palette is generated in, measured, and
-    // unreachable from this site's own chrome, which is 16d's header having no
-    // colour control and not an oversight.
-    applyMode(document.documentElement.getAttribute('data-mode') === 'dark' ? 'light' : 'dark');
-    drawMode();
-  });
-}
-
 /**
- * The language control. Phase 13 part 6a, when the whole site became bilingual.
+ * The theme and language controls. Phase 14 part 1.
  *
- * **A reader arriving from the portal is in English whatever they chose there,
- * and this is the only way out of that.** localStorage is per origin and
- * docs.careers.globalfurry.tv is not careers.globalfurry.tv; the one mechanism
- * that would carry the choice is a cookie on .globalfurry.tv, which 5h forbids
- * because the parent domain carries other GFTV apps. So the first page is
- * English and this is how somebody says otherwise, once, against this origin.
- * Section 5 item 27 is the account of it.
+ * **Neither of these is drawn here, and that is the point of the part.** Both
+ * modals are chrome-modals.js, the portal's own module generated in, and both
+ * find their opener in this header by the ids the portal uses. So all this
+ * function does is put them on the page and hand each one its wiring.
  *
- * Every language in LOCALES, so phase 15's Malay and Tamil appear here by
- * being added there and nothing in this file moves.
+ * What the reader gets out of it, and it is three things this header did not
+ * have: the mode as an explicit choice in a dialog instead of a button that
+ * flips it, the time based preference gftv-theme.md describes, and the hello
+ * palette — which has been generated into this site since part 4 and measured
+ * in all four combinations by part 7, and until now could not be reached from
+ * anything on screen. 16d gave this header "the light and dark toggle" and no
+ * colour control; that is overruled, per part 1's second decision.
+ *
+ * **A reader arriving from the portal still starts at this site's defaults.**
+ * localStorage is per origin and docs.careers.globalfurry.tv is not
+ * careers.globalfurry.tv, so neither their language nor their theme crosses.
+ * The one mechanism that would is a cookie on .globalfurry.tv, which 5h forbids
+ * because the parent domain carries other GFTV apps. These two controls are how
+ * somebody says otherwise, once, against this origin.
  */
-function drawLocale() {
-  const select = el('docsLocale');
-  if (!select) return;
+function drawChromeModals() {
+  wireThemeModal(renderThemeModal());
+  wireLanguageModal(renderLanguageModal());
 
-  const current = getLocale();
-
-  // The native name and not the English one. Somebody looking for their own
-  // language is looking for the word they call it, which is why LOCALES carries
-  // both and this reads the second.
-  select.innerHTML = LOCALES.map(
-    (locale) =>
-      `<option value="${escapeHtml(locale.id)}"${locale.id === current ? ' selected' : ''}>` +
-      `${escapeHtml(locale.native)}</option>`
-  ).join('');
-}
-
-function wireLocale() {
-  const select = el('docsLocale');
-  if (!select) return;
-
-  select.addEventListener('change', async (event) => {
-    // applyLocale fetches the dictionary, stores the choice, sets lang and
-    // data-locale on the document, and dispatches gftv:localechange. Everything
-    // that draws its own content listens for that, which is why nothing here
-    // redraws the page itself.
-    await applyLocale(event.currentTarget.value);
-  });
+  // **One pass over the swatch labels, and it is not redundant.** createDialog
+  // translates the body it was handed, but wireThemeModal builds the colour
+  // swatches afterwards and each carries data-i18n="theme.<id>" over an English
+  // fallback. On the portal the dictionary is applied after the modals are
+  // built, so those labels are caught on the way past; here the order is the
+  // other way round on purpose — initI18n runs first, so t() has a dictionary
+  // by the time the theme button's own label is written — and without this a
+  // reader who had already chosen the other language would open the modal to
+  // two palettes named in English.
+  translateDom(document);
 }
 
 /**
@@ -1135,10 +1105,15 @@ async function start() {
   await initI18n();
 
   translateDom(document);
-  drawMode();
-  wireMode();
-  drawLocale();
-  wireLocale();
+
+  // **The first call to hydrateIcons this site has ever made.** icons.js has
+  // been generated in since part 4 and used zero times: the header's two
+  // controls were a word and a <select>, and the hamburger carries its own
+  // inline SVG. The two icon buttons in shell.html are the first data-icon
+  // slots in this document, and the modals below add their own.
+  hydrateIcons(document);
+
+  drawChromeModals();
   wireMenu();
   wireArticle();
 
@@ -1168,13 +1143,15 @@ async function start() {
   }
 
   // Anything that renders its own content redraws when the language changes.
-  // The header's language control is what fires it, from part 6a. **The guide
-  // itself is not redrawn here**, and that is not an omission: the markdown is
-  // English in the files until phase 14 puts the translations in
-  // gftvjobs_docs_translations, so there is nothing yet for a redraw to fetch.
+  // The header's language modal is what fires it. **The guide itself is not
+  // redrawn here**, and that is not an omission: the markdown is English in the
+  // files until phase 14 puts the translations in gftvjobs_docs_translations,
+  // so there is nothing yet for a redraw to fetch.
+  //
+  // The two modals are not in this list. Each one listens for the event itself,
+  // in chrome-modals.js, which is what lets that file be the portal's copy
+  // unchanged.
   document.addEventListener('gftv:localechange', () => {
-    drawMode();
-    drawLocale();
     drawAccount(data?.reader ?? null);
   });
 }

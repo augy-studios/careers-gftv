@@ -1060,6 +1060,18 @@ dialog.modal-backdrop:not([open]) .modal {
   gap: 0.5rem;
 }
 
+/* **--border-control and not --border**, phase 14 part 1. The token above says
+   what it is for in as many words -- "the edge of a control, where a reader has
+   to be able to find the control at all. 3:1 in all four combinations" -- and
+   these three controls were still on the faint separator token when phase 12
+   part 3 created it. That pass measured the switch track, the language pills
+   and the stars; the two modals were not in its fixture, so nothing reported
+   them and the miss travelled to a second site.
+
+   Measured at 1.23:1 to 1.70:1 on --border, against 3:1. The unselected state
+   of all three is a translucent --surface fill with a hairline round it, so the
+   line is the whole of what says a control is there.
+   tests/phase14-test.mjs --only=contrast is what says so now, in all four. */
 .mode-btn {
   display: inline-flex;
   align-items: center;
@@ -1067,7 +1079,7 @@ dialog.modal-backdrop:not([open]) .modal {
   gap: 0.5rem;
   min-height: 44px;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-control);
   background: var(--surface);
   color: var(--text);
   font-weight: 500;
@@ -1104,6 +1116,7 @@ dialog.modal-backdrop:not([open]) .modal {
   gap: 0.5rem;
 }
 
+/* --border-control, for the reason .mode-btn above carries. */
 .swatch {
   display: flex;
   align-items: center;
@@ -1112,7 +1125,7 @@ dialog.modal-backdrop:not([open]) .modal {
   padding: 0.5rem 0.75rem;
   border-radius: var(--radius-sm);
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-control);
   color: var(--text);
   font-weight: 500;
 }
@@ -1150,7 +1163,8 @@ dialog.modal-backdrop:not([open]) .modal {
   padding: 0.5rem 0.875rem;
   border-radius: var(--radius-sm);
   background: var(--surface);
-  border: 1px solid var(--border);
+  /* --border-control, for the reason .mode-btn carries. */
+  border: 1px solid var(--border-control);
   color: var(--text);
   font-size: 1rem;
   font-weight: 500;

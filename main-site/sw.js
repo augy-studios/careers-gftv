@@ -71,7 +71,7 @@
 //                     because a kill switch that forgets itself on the deploy
 //                     that broke something is not a kill switch.
 
-const VERSION = 'careers-gftv-phase13-v126';
+const VERSION = 'careers-gftv-phase14-v127';
 
 const SHELL = `careers-gftv-shell-${VERSION}`;
 const PUBLIC_DATA = 'careers-gftv-public';
@@ -242,6 +242,11 @@ const PRECACHE = [
   '/assets/js/apply.js',
   '/assets/js/avatar.js',
   '/assets/js/build-status.js',
+  // Phase 14 part 1. shell.js imports it on every page, so it belongs here for
+  // the reason dialog.js does: a precached shell whose import is not precached
+  // is a header with no theme or language control the moment somebody is
+  // offline.
+  '/assets/js/chrome-modals.js',
   '/assets/js/danger-confirm.js',
   '/assets/js/dialog.js',
   '/assets/js/forgot-password-page.js',

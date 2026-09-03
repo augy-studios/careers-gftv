@@ -394,7 +394,7 @@ They take the same `BASE`, `STAFF_USER`, and `STAFF_PASS` as the harness.
 credential, and only `live` needs the network.** The rest is like phase 10's and
 for a related reason: what phase 13 part 5 adds is a build, and a build is wrong
 before it is deployed or it is not wrong at all. It is the phase's file and it is
-complete as of part 7: **675 checks, 27 of them against the deployment.**
+complete as of part 7: **677 checks, 27 of them against the deployment.**
 
 **The numbered checks stop at the end of `seam`.** Everything numbered can be
 cited by number, and `next-steps.md` does cite them, so the two sweeps below are
@@ -426,6 +426,19 @@ Both paths are checked for absence first, so a run cannot overwrite something
 somebody wrote, and the `finally` removes them and rebuilds the output. **A run
 leaves the tree as it found it**, and it does rebuild `dist/`, so run the build
 again yourself only if you had one in flight.
+
+### Phase 14's sections
+
+`node tests/phase14-test.mjs`, same `--only=` habit. **Nothing here needs a
+credential, a database, a deployment or the network**, and unlike phase 13's it
+writes nothing at all: it reads `docs-site/dist/` and never touches either
+content tree, so it can be run beside anything. Run the docs build first — the
+`browser` section skips with a sentence saying so if `dist/` is not there.
+
+| Section | Covers |
+|---|---|
+| `chrome` | **Part 1: `gftv-theme.md`'s chrome, on both sites.** The docs header carrying `#themeButton` and `#languageButton` as icon buttons that say they open a dialog — the ids matter, because `chrome-modals.js` finds its own opener with `document.querySelector` and a header naming them anything else would carry two controls that opened nothing and threw nothing. Then that nothing is left of what they replaced, in the markup, the shell, the stylesheet and both dictionaries, because a control replaced in one of those four and left in another is the half-application the part is about. Then that every palette in `theme.js` has a name in both dictionaries, which `check-i18n.js` cannot ask: the swatch labels are built as `` theme.${id} `` and are declared there as a runtime family. Then that both shared modules are generated and differ from the portal's by their banner alone. And **the portal's half**: that its two buttons still carry the `data-feature` keys 8.12 switches them off by, and that `sw.js` precaches the new import. |
+| `browser` | The same header over `dist/`, opened and pressed. Both buttons hydrated to an icon, the theme modal offering the three mode preferences and a swatch per palette, **the `hello` palette actually selected from the chrome for the first time**, the modal staying open on a choice, Escape closing it and focus returning to its opener, and both choices surviving a reload — which is the pre-paint script in `shell.html` doing its job. Then the language modal naming each language in its own script, 华文 setting `lang` as well as `data-locale`, and the page behind an open modal being inert instead of merely covered. It ends by reloading **as a reader who arrives already in 华文**, which is the one case a language change cannot prove: the swatch labels are built after `createDialog` translated the body it was handed, so on this site they need a pass of their own. |
 
 ## These scripts on the docs site
 

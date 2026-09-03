@@ -119,12 +119,16 @@ const PORTAL_FAMILIES = [
 ];
 
 /**
- * The docs site's runtime families, phase 13 part 4. One, so far.
+ * The docs site's runtime families, phase 13 part 4. Two, since phase 14 part 1.
  *
  * `callout.<kind>` is built by the markdown renderer from the four flavours 16d
  * names, so no literal in the source names any of them.
+ *
+ * `theme.<colour theme id>` arrived with the header's theme modal, which is the
+ * portal's own module generated in and builds its swatch labels from
+ * COLOR_THEMES. It is the same family, for the same reason, on the second site.
  */
-const DOCS_FAMILIES = ['callout.'];
+const DOCS_FAMILIES = ['callout.', 'theme.'];
 
 /**
  * The two sites, each with its own dictionaries.

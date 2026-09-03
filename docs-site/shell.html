@@ -106,23 +106,42 @@
             <a class="docs-btn docs-btn-quiet docs-portal-link" href="https://careers.globalfurry.tv"
                 data-i18n="header.portal" data-i18n-attr="title:header.portalLabel">The portal</a>
 
-            <button type="button" class="docs-btn docs-btn-quiet" id="docsMode"></button>
+            <!-- The language and theme controls, phase 14 part 1.
 
-            <!-- The language control, phase 13 part 6a. 16d's header did not
-                 have one and 16f gave this site English only for its staff
-                 half; both were revised on 3 September 2026, so the whole site
-                 is bilingual and needs a way to say which.
+                 **They were a bare <select> and a button reading "Light" until
+                 then**, which was this site applying gftv-theme.md as a token
+                 contract and not as the chrome it also specifies. That file's
+                 section 3 is markup: it prescribes the modal, the two sections
+                 inside it, and an .icon-btn to open it, and its acceptance
+                 checklist asks about the theme button's icon. So both controls
+                 are now the portal's own modals, generated in by gen-docs-lib.js
+                 as assets/js/chrome-modals.js -- one implementation of a control
+                 the theme file writes out exactly, and not a second one in this
+                 site's dialect.
 
-                 **It keeps its place at every width**, like search and the
-                 account control and for the same reason 16d gives about those:
-                 a reader who cannot find how to change the language concludes
-                 there is nothing to change. It is a select and not the portal's
-                 modal, because the portal's carries two axes of theme with it
-                 and this carries one thing. -->
-            <label class="docs-lang">
-                <span class="visually-hidden" data-i18n="header.language">Language</span>
-                <select id="docsLocale" data-i18n-attr="title:header.language"></select>
-            </label>
+                 **The ids are the portal's**, which is what lets that module
+                 come across with no transform rule: it finds its own opener with
+                 document.querySelector('#themeButton').
+
+                 **Both keep their place at every width**, like search and the
+                 account control and for the reason 16d gives about those: a
+                 reader who cannot find how to change the language concludes
+                 there is nothing to change.
+
+                 The theme control carries both axes, which overrules 16d's "the
+                 light and dark toggle". The hello palette has been generated
+                 into this site since part 4 and measured in all four
+                 combinations by part 7; it was paid for and unreachable, and
+                 this is the control that reaches it. -->
+            <button type="button" class="icon-btn" id="languageButton"
+                aria-haspopup="dialog" data-i18n-attr="aria-label:common.language">
+                <span data-icon="globe" data-icon-size="22"></span>
+            </button>
+
+            <button type="button" class="icon-btn" id="themeButton"
+                aria-haspopup="dialog" data-i18n-attr="aria-label:common.appearance">
+                <span data-icon="palette" data-icon-size="22"></span>
+            </button>
 
             <!-- The account control keeps its place at every width too, for the
                  reason 16d gives: a reader who cannot find how to sign out

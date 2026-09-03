@@ -295,12 +295,14 @@ serving it this way.
 |---|---|
 | `shell.html` | The document. The header, the three columns, and the mount points. |
 | `assets/css/docs.css` | The layout and every component. This site's own. |
-| `assets/js/shell.js` | The behaviour: sidebar, contents, account control, mode, tabs, copy buttons. |
+| `assets/js/shell.js` | The behaviour: sidebar, contents, account control, tabs, copy buttons. |
 | `assets/js/markdown.js` | The renderer, called by the browser and by part 5's build script. |
 | `assets/css/theme.css` | The tokens. **Generated** from the portal's, so the AA work is not repeated. |
 | `assets/js/theme.js` | The two axis switcher. **Generated.** |
+| `assets/js/chrome-modals.js` | The header's theme and language modals. **Generated.** `gftv-theme.md` prescribes this control's markup, so there is one implementation of it. |
+| `assets/js/dialog.js` | The modal shell the two are built on, a native `<dialog>`. **Generated.** |
 | `assets/js/i18n.js` | The dictionary machinery. **Generated**, less the portal's locale write. |
-| `assets/i18n/en.json`, `zh.json` | The chrome's strings, both languages. 242 keys, 175 of which are the portal's own. |
+| `assets/i18n/en.json`, `zh.json` | The chrome's strings, both languages. 254 keys, most of which are the portal's own. |
 
 **A reader's theme does not follow them here from the portal, and neither does
 their language.** The two sites use the same `localStorage` key names and
@@ -311,12 +313,22 @@ host and not a bug to hunt: the only thing that would cross is a cookie on
 other GFTV apps. Somebody who chose 华文 on the portal picks it again here,
 once.
 
-The colour axis has no switcher here, because 16d's header list does not carry
-one: both attributes are still set on `<html>` and every colour block still
-selects on both, so the second palette is a control away if it is ever wanted.
-**It is measured all the same** — `tests/phase13-test.mjs --only=contrast` walks
-every component in all four combinations, so adding that control later is adding
-a control and not discovering a palette.
+**Both axes have a control here as of phase 14 part 1**, which overrules 16d's
+"the light and dark toggle" — the third edit this build has made to the
+specification. The argument is that nothing about it was unproven: the `hello`
+palette has been generated into this site since phase 13 part 4 and
+`tests/phase13-test.mjs --only=contrast` had already walked every component in
+all four combinations, so it was a palette paid for and unreachable. What
+changed is the header, and not what it selects.
+
+The two controls are the portal's own modals, generated in. `gftv-theme.md` does
+not only settle colour: its section 3 is markup, prescribing the modal, its two
+sections and the `.icon-btn` that opens it, and its acceptance checklist asks
+about the theme button's icon. This site had that file applied as a token
+contract and not as the chrome it also specifies — `theme.css` was shipping
+`.icon-btn`, `.mode-toggle`, `.swatch` and `.locale-btn` to a header that had
+never built any of them. `tests/phase14-test.mjs --only=chrome,browser` is what
+says so now.
 
 **Nothing in the shell decides what a reader may see.** The sidebar is whatever
 `/api/nav` returned, and that endpoint filtered it against the session on the
@@ -777,14 +789,16 @@ Run it after every docs deploy.
 
 ### Before a docs deploy
 
-All four from the repository root but the second, which runs from here. None
-needs a credential or a network.
+All five from the repository root but the second, which runs from here. None
+needs a credential or a network, and the second needs the database as of part
+6a.
 
 ```sh
 node gen-docs-lib.js --check       # a change that landed in one copy only
 node docs-site/scripts/build.js    # and every refusal it makes
 node check-i18n.js                 # both sites, both dictionaries
-node tests/phase13-test.mjs        # 675 checks, 27 of them against the deployment
+node tests/phase13-test.mjs        # 677 checks, 27 of them against the deployment
+node tests/phase14-test.mjs        # the header's two controls, on both sites
 ```
 
 **And `node docs-site/scripts/embed-tests.mjs --check

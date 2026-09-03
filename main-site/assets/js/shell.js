@@ -1,5 +1,5 @@
-// The shared shell: header, navigation, footer, theme modal, and the phase
-// notice. Imported by every page as the single entry point.
+// The shared shell: header, navigation, footer, and the phase notice. Imported
+// by every page as the single entry point.
 //
 //   <script type="module" src="/assets/js/shell.js"></script>
 //
@@ -11,22 +11,25 @@
 // from the left, traps focus while open, closes on Escape, on backdrop tap, and
 // on navigating away, has an obvious close control, is reachable by keyboard,
 // sets aria-expanded on the trigger and aria-hidden on the panel, and locks
-// body scroll while open. The theme modal follows the same rules, and gets
-// them from dialog.js rather than from a second copy here since part 6.
+// body scroll while open. The two modals this header opens follow the same
+// rules and get them from dialog.js instead of from a second copy; they live in
+// chrome-modals.js since phase 14 part 1, because the docs site's header needs
+// the same two and cannot import anything from this project.
 
-import {
-  initTheme,
-  applyColorTheme,
-  applyMode,
-  getStoredColorTheme,
-  getStoredMode,
-  getModePreference,
-  COLOR_THEMES,
-} from './theme.js';
-import { initI18n, applyLocale, getLocale, t, LOCALES } from './i18n.js';
+import { initTheme } from './theme.js';
+import { initI18n, t } from './i18n.js';
 import { hydrateIcons } from './icons.js';
 import { insertTopBar } from './top-bars.js';
-import { createDialog } from './dialog.js';
+// The two modals this header opens. Their own file since phase 14 part 1, so
+// that gen-docs-lib.js can put the same implementation in the docs site's
+// header: gftv-theme.md prescribes that control's markup, and a second copy of
+// it written over there is exactly the duplication decision 1 exists to stop.
+import {
+  renderThemeModal,
+  renderLanguageModal,
+  wireThemeModal,
+  wireLanguageModal,
+} from './chrome-modals.js';
 import {
   loadBuildStatus,
   loadFeatureOverrides,
@@ -241,66 +244,6 @@ function renderFooter() {
   return footer;
 }
 
-// **Both modals are built by dialog.js since phase 12 part 6.** They were the
-// two hand-rolled ones — each with its own copy of the focus trap, the Escape
-// handler, the backdrop click and the scroll lock, all of which now come from a
-// native <dialog> and from one shell. What is left here is what is actually
-// particular to them: the markup inside and the wiring for it.
-function renderThemeModal() {
-  return createDialog({
-    id: 'themeModal',
-    titleKey: 'theme.title',
-    bodyHtml: `
-      <p class="modal-section-label" data-i18n="theme.mode"></p>
-      <!-- Three options, not two. The third is a preference and not a
-           mode: it resolves to light or dark from the device clock, and
-           data-mode is still only ever one of those two. Part of
-           gftv-theme.md, and optional for an app that wants the two button
-           toggle instead. -->
-      <div class="mode-toggle" id="modeToggle">
-        <button class="mode-btn" type="button" data-mode="light" aria-pressed="false">
-          <span data-icon="sun" data-icon-size="18"></span><span data-i18n="theme.light"></span>
-        </button>
-        <button class="mode-btn" type="button" data-mode="dark" aria-pressed="false">
-          <span data-icon="moon" data-icon-size="18"></span><span data-i18n="theme.dark"></span>
-        </button>
-        <button class="mode-btn mode-btn-wide" type="button" data-mode="time" aria-pressed="false">
-          <span data-icon="clock" data-icon-size="18"></span><span data-i18n="theme.timeBased"></span>
-        </button>
-      </div>
-      <p class="mode-note" id="modeNote" hidden></p>
-      <p class="modal-section-label" data-i18n="theme.colourTheme"></p>
-      <div class="swatch-grid" id="swatchGrid"></div>
-    `,
-  });
-}
-
-// Same structure and same behaviour as the theme modal, deliberately.
-//
-// Each language is named in its own script, never translated. A reader looking
-// for Chinese looks for the characters, not for the English word "Chinese",
-// so both options read the same whichever language the interface is currently
-// in. That is why these two labels are hardcoded instead of dictionary keys.
-function renderLanguageModal() {
-  return createDialog({
-    id: 'languageModal',
-    titleKey: 'language.title',
-    bodyHtml: `
-      <div class="locale-list" id="localeList">
-        ${LOCALES.map(
-          (locale) => `
-          <button class="locale-btn" type="button" data-locale="${locale.id}"
-                  lang="${locale.htmlLang}" aria-pressed="false">
-            <span class="locale-native">${locale.native}</span>
-            <span class="locale-check" data-icon="check" data-icon-size="18"></span>
-          </button>`
-        ).join('')}
-      </div>
-      <p class="locale-note" data-i18n="language.description"></p>
-    `,
-  });
-}
-
 /* -------------------------------------------------------------------------
  * Focus trapping, for the navigation panel
  *
@@ -420,132 +363,6 @@ function wireNav(header, backdrop) {
 
   desktop.addEventListener('change', syncBreakpoint);
   syncBreakpoint();
-}
-
-function wireThemeModal(dialog) {
-  const modal = dialog.element;
-  const button = document.querySelector('#themeButton');
-  const grid = modal.querySelector('#swatchGrid');
-  const modeButtons = [...modal.querySelectorAll('.mode-btn')];
-
-  // The label is a dictionary key and not theme.label, so the swatch names
-  // follow the language. translateDom refills them on every change, which is
-  // why the grid is built once here and never rebuilt.
-  grid.innerHTML = COLOR_THEMES.map(
-    (theme) => `
-      <button type="button" class="swatch" data-color-theme="${theme.id}"
-              style="--swatch-color: ${theme.hex}" aria-pressed="false">
-        <span class="swatch-dot" aria-hidden="true"></span>
-        <span data-i18n="theme.${theme.id}">${theme.label}</span>
-      </button>`
-  ).join('');
-
-  function sync() {
-    const colour = getStoredColorTheme();
-    // The preference decides which button is pressed; the resolved mode
-    // decides what the label says the page is currently in. On "time" those
-    // two are different, which is the whole point of the option.
-    const preference = getModePreference();
-    const mode = getStoredMode();
-
-    grid.querySelectorAll('.swatch').forEach((el) => {
-      const active = el.getAttribute('data-color-theme') === colour;
-      el.classList.toggle('active', active);
-      el.setAttribute('aria-pressed', String(active));
-    });
-
-    modeButtons.forEach((el) => {
-      const active = el.getAttribute('data-mode') === preference;
-      el.classList.toggle('active', active);
-      el.setAttribute('aria-pressed', String(active));
-    });
-
-    const note = modal.querySelector('#modeNote');
-    if (note) {
-      note.hidden = preference !== 'time';
-      if (preference === 'time') {
-        note.textContent = t('theme.timeBasedNote', {
-          mode: t(mode === 'dark' ? 'common.modeDark' : 'common.modeLight'),
-        });
-      }
-    }
-
-    if (button) {
-      button.setAttribute(
-        'aria-label',
-        t('common.appearanceWithMode', {
-          mode: t(mode === 'dark' ? 'common.modeDark' : 'common.modeLight'),
-        })
-      );
-    }
-  }
-
-  button?.addEventListener('click', dialog.open);
-
-  // Selecting a swatch or a mode updates the modal in place and never closes
-  // it. Closing is a separate explicit action.
-  grid.addEventListener('click', (event) => {
-    const swatch = event.target.closest('[data-color-theme]');
-    if (!swatch) return;
-    applyColorTheme(swatch.getAttribute('data-color-theme'));
-    sync();
-  });
-
-  modeButtons.forEach((el) => {
-    el.addEventListener('click', () => {
-      applyMode(el.getAttribute('data-mode'));
-      sync();
-    });
-  });
-
-  sync();
-
-  // The clock can move the mode under a tab that is just sitting open. When it
-  // does, theme.js says so and the modal redraws instead of showing yesterday
-  // evening's answer.
-  document.addEventListener('gftv:modechange', sync);
-
-  // And again once the dictionary has loaded.
-  //
-  // sync() writes two strings that are not in the markup and so carry no
-  // data-i18n attribute: the mode note and the theme button's label. It first
-  // runs from boot(), which is before initI18n(), so at that point t() has no
-  // dictionary and returns the key itself. translateDom() cannot rescue them
-  // afterwards precisely because they are not attributes on an element, which
-  // is how "theme.timeBasedNote" ended up on screen.
-  //
-  // The language modal already listened for this. The theme modal did not,
-  // and did not visibly need to until it gained a string of its own.
-  document.addEventListener('gftv:localechange', sync);
-}
-
-function wireLanguageModal(dialog) {
-  const modal = dialog.element;
-  const button = document.querySelector('#languageButton');
-  const list = modal.querySelector('#localeList');
-
-  function sync() {
-    const current = getLocale();
-    list.querySelectorAll('.locale-btn').forEach((el) => {
-      const active = el.getAttribute('data-locale') === current;
-      el.classList.toggle('active', active);
-      el.setAttribute('aria-pressed', String(active));
-    });
-  }
-
-  button?.addEventListener('click', dialog.open);
-
-  // Choosing a language updates the modal in place and leaves it open, exactly
-  // as the theme modal does. Closing stays a separate, explicit action, so
-  // somebody who picked the wrong one can correct it without reopening.
-  list.addEventListener('click', (event) => {
-    const choice = event.target.closest('[data-locale]');
-    if (!choice) return;
-    applyLocale(choice.getAttribute('data-locale')).then(sync);
-  });
-
-  document.addEventListener('gftv:localechange', sync);
-  sync();
 }
 
 /* -------------------------------------------------------------------------

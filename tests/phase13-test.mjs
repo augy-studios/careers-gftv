@@ -2271,7 +2271,11 @@ function measureDocsContrast() {
   /* --- The chrome ------------------------------------------------------- */
 
   text('brand', '.docs-brand');
-  text('header button', '#docsMode');
+  // The header's two icon buttons, which were a word and a <select> until phase
+  // 14 part 1 put gftv-theme.md's own controls here. Their glyph is
+  // currentColor, so measuring the button's colour measures the icon.
+  text('language button', '#languageButton');
+  text('theme button', '#themeButton');
   text('portal link', '.docs-portal-link');
   text('skip link', '.docs-skip');
   text('sidebar heading', '.docs-sidebar-heading');
@@ -2379,11 +2383,14 @@ function measureDocsContrast() {
 }
 
 // All four, because theme.css is generated into this site whole and every
-// colour block in it selects on both attributes. **The chrome offers only the
-// mode**, per 16d and section 5 item 27, so classic light and classic dark are
-// what a reader can actually reach — the other two are measured because the
-// palette is a control away if it is ever wanted, and finding out then would be
-// finding out with thirty guides already written.
+// colour block in it selects on both attributes.
+//
+// **All four are now reachable from the chrome**, as of phase 14 part 1. This
+// comment used to say the palette was "a control away if it is ever wanted" and
+// that measuring it early beat finding out with thirty guides already written;
+// the control landed before the guides did, and it landed on a palette these
+// checks had already been measuring for a phase. That is the argument for
+// measuring a combination nobody can reach, kept here because it was paid off.
 const DOCS_THEMES = [
   ['classic', 'light'],
   ['classic', 'dark'],
