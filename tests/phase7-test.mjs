@@ -534,6 +534,9 @@ async function runRoleChecks(state) {
     return {
       admins: count('admin_admins', '/admin/admins'),
       applicants: count('admin_applicants', '/admin/applicants'),
+      // The two that joined them in phase 14 part 5, deviation 130.
+      settings: count('admin_settings', '/admin/settings'),
+      maintenance: count('admin_maintenance', '/admin/maintenance'),
       disabled: document.querySelectorAll(
         '#adminNav span[data-feature="admin_admins"], #adminNav span[data-feature="admin_applicants"]'
       ).length,
@@ -589,6 +592,11 @@ async function runRoleChecks(state) {
     'the /admin/applicants item is in the sidebar for an account without is_admin'
   );
   check(
+    '4. a job poster has no Settings item and no Maintenance item',
+    sidebar.settings === 0 && sidebar.maintenance === 0,
+    `settings=${sidebar.settings} maintenance=${sidebar.maintenance}. Deviation 130`
+  );
+  check(
     '4. those items are absent, not drawn disabled',
     sidebar.disabled === 0,
     'an admin-only item is drawn with the phase sentence, which makes a permission look like a build status'
@@ -602,6 +610,41 @@ async function runRoleChecks(state) {
     '4. the postings list offers no Delete',
     deleteButtons === 0,
     `${deleteButtons} delete controls across ${rows} rows`
+  );
+
+  // **The routes, before anything that can end this function early.** The delete
+  // half below returns when there is no posting to aim at, and with the board
+  // empty — decision 25 — that is the ordinary state, which is how the first run
+  // of this pair after phase 14 part 5 reported nothing at all.
+
+  // Two roles is not a permission system: a job poster does everything except
+  // delete a posting, the two admin-only sections, and the two this list used to
+  // include.
+  const stillAllowed = await Promise.all([
+    get(page, '/api/admin/stats'),
+    get(page, '/api/admin/applications'),
+    get(page, '/api/admin/departments?counts=false'),
+    get(page, '/api/admin/tags'),
+  ]);
+  check(
+    '4. a job poster still reaches postings, tracking, teams and tags',
+    stillAllowed.every((result) => result.ok),
+    stillAllowed.map((result) => result.status).join(', ')
+  );
+
+  // **Maintenance was in that list until phase 14 part 5**, and reading it back
+  // against 10 item 2 is what found deviation 130: the settings page and the
+  // maintenance switches are admins only, and neither route said so. Reading
+  // either is refused as well as writing, because reading the settings page is
+  // how a poster would find out the board is closed.
+  const refusedNow = await Promise.all([
+    get(page, '/api/admin/maintenance'),
+    get(page, '/api/admin/settings'),
+  ]);
+  check(
+    '4. a job poster is refused the maintenance switches and the portal settings',
+    refusedNow.every((result) => result.status === 403),
+    refusedNow.map((result) => result.status).join(', ')
   );
 
   // 5. A hidden control stops nobody. This is a request that would succeed for
@@ -660,35 +703,6 @@ async function runRoleChecks(state) {
     'the posting was deleted by an account without is_admin'
   );
 
-  // And the rest of the dashboard still works, because two roles is not a
-  // permission system: a job poster does everything except delete a posting,
-  // the two admin-only sections, and the two this list used to include.
-  const stillAllowed = await Promise.all([
-    get(page, '/api/admin/stats'),
-    get(page, '/api/admin/applications'),
-    get(page, '/api/admin/departments?counts=false'),
-    get(page, '/api/admin/tags'),
-  ]);
-  check(
-    '4. a job poster still reaches postings, tracking, teams and tags',
-    stillAllowed.every((result) => result.ok),
-    stillAllowed.map((result) => result.status).join(', ')
-  );
-
-  // **Maintenance was in that list until phase 14 part 5**, and reading it back
-  // against 10 item 2 is what found deviation 130: the settings page and the
-  // maintenance switches are admins only, and neither route said so. Reading
-  // either is refused as well as writing, because reading the settings page is
-  // how a poster would find out the board is closed.
-  const refusedNow = await Promise.all([
-    get(page, '/api/admin/maintenance'),
-    get(page, '/api/admin/settings'),
-  ]);
-  check(
-    '4. a job poster is refused the maintenance switches and the portal settings',
-    refusedNow.every((result) => result.status === 403),
-    refusedNow.map((result) => result.status).join(', ')
-  );
 }
 
 const GUARDED = [
@@ -704,12 +718,37 @@ const GUARDED = [
 define('access', 'Access, items 1 to 6b', async (state) => {
   const page = state.staffPage;
 
-  // 1. The phase 8 sections must still draw as disabled items with the phase
-  //    sentence, and clicking one opens the explainer rather than navigating.
+  // 1. A section belonging to a later phase must draw as a disabled item with
+  //    the phase sentence, and clicking one opens the explainer rather than
+  //    navigating.
   await page.goto(`${BASE}/admin`, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#adminNav a[href="/admin/jobs"]', { timeout: 20000 });
 
-  const unbuilt = ['admin_analytics', 'admin_invites', 'admin_settings'];
+  // **Read off the page instead of written down here**, since phase 14 part 5.
+  // This was the list `['admin_analytics', 'admin_invites', 'admin_settings']`,
+  // true on the day phase 7 shipped and false from phase 8 onwards: all three
+  // have shipped, and the third is not in a job poster's sidebar at all now.
+  // Three checks then reported a build that had moved on as a defect, and the
+  // click below threw on an element that no longer exists, which took the whole
+  // section down before the role half of it ran.
+  //
+  // 0c's own rule is that nothing hardcodes a phase number. A test naming which
+  // features are unbuilt is the same mistake wearing a different hat: the
+  // disabled item is the state, whichever key happens to be in it today.
+  const unbuilt = await page.evaluate(() =>
+    [...document.querySelectorAll('#adminNav span[data-feature]')].map((node) =>
+      node.getAttribute('data-feature')
+    )
+  );
+
+  if (unbuilt.length === 0) {
+    skip(
+      '1. an unbuilt section draws disabled with the phase sentence',
+      'every section in this sidebar has shipped, so there is no disabled item to read. ' +
+        'That is the end state 0c is walking towards and not a failure'
+    );
+  }
+
   for (const key of unbuilt) {
     const el = page.locator(`#adminNav [data-feature="${key}"]`);
     const count = await el.count();
@@ -737,15 +776,22 @@ define('access', 'Access, items 1 to 6b', async (state) => {
     'admin_jobs should be a link now the phase is shipped'
   );
 
-  const before = page.url();
-  await page.locator('#adminNav [data-feature="admin_analytics"]').click({ force: true });
-  const explainer = page.locator('.feature-explainer');
-  await explainer.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
-  check(
-    '1. clicking an unbuilt section opens the explainer, not a navigation',
-    (await explainer.count()) > 0 && page.url() === before,
-    `url=${page.url()}`
-  );
+  if (unbuilt.length === 0) {
+    skip(
+      '1. clicking an unbuilt section opens the explainer, not a navigation',
+      'no disabled item in this sidebar to click'
+    );
+  } else {
+    const before = page.url();
+    await page.locator(`#adminNav [data-feature="${unbuilt[0]}"]`).click({ force: true });
+    const explainer = page.locator('.feature-explainer');
+    await explainer.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+    check(
+      '1. clicking an unbuilt section opens the explainer, not a navigation',
+      (await explainer.count()) > 0 && page.url() === before,
+      `url=${page.url()}`
+    );
+  }
 
   // 2. Signed out, each of the seven pages redirects to /admin/login?redirect=
   const anonPage = await state.anon.newPage();
