@@ -18,5 +18,7 @@ poster guide has the widest staff audience of anything here.
 - **[The job poster guide](/staff/poster)** is written and covers the whole
   dashboard: writing and publishing a posting, connecting its form, and working
   through applications.
-- **The admin guide** and **the developer documentation** are not written yet.
-  Both are phase 14's.
+- **[The admin guide](/staff/admin)** is written and sits on top of it. Staff
+  access, applicant accounts, the translations queue, the settings, and the
+  maintenance switches.
+- **The developer documentation** is not written yet. It is phase 14's.

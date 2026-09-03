@@ -14,10 +14,15 @@
 //
 // The sections, and what each one is about:
 //
-//   chrome     part 1: the docs header's two controls, and the portal's
-//   browser    the same header, opened, pressed, and reloaded
-//   contrast   both modals against WCAG AA, in all four theme combinations
-//   a11y       both modals against the accessibility rules, open
+//   chrome       part 1: the docs header's two controls, and the portal's
+//   browser      the same header, opened, pressed, and reloaded
+//   contrast     both modals against WCAG AA, in all four theme combinations
+//   a11y         both modals against the accessibility rules, open
+//   worker       part 4: the docs service worker, read as source
+//   install      the same worker installed in a real Chromium, then offline
+//   boundary     part 5: what a job poster may reach, and what is an admin's
+//   guide        part 5: the poster guide, and the procedure it copies
+//   admin-guide  part 6: the admin guide, and the access rule it states
 
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
@@ -1715,6 +1720,174 @@ define('guide', 'Part 5: the job poster guide, and the copy it holds twice', () 
   check(
     '61. the staff index no longer says the poster guide is unwritten',
     !/Not written yet[\s\S]*poster/i.test(read(join(DOCS, 'api/_content/index.md'))),
+    'the index is what a reader lands on, and it outranks the guide it describes'
+  );
+});
+
+define('admin-guide', 'Part 6: the admin guide, and the access rule it states', async () => {
+  const dir = join(DOCS, 'api/_content/admin');
+
+  // **`tests/phase13-test.mjs` plants two files in this very directory.**
+  // `example-shot.md` and `example.png`, to exercise the gated image path,
+  // deleted when it finishes. A phase 14 run overlapping one of its runs read
+  // fifteen pages and a ninth screenshot slot before this line existed, which
+  // is a suite failing because another suite was running. They are skipped by
+  // name so the two are independent again, and the names are listed here
+  // because a reader of this directory deserves to know why those two are not
+  // pages.
+  const FIXTURES = new Set(['example-shot.md', 'example.png']);
+  const files = readdirSync(dir).filter((name) => name.endsWith('.md') && !FIXTURES.has(name));
+
+  check('62. the guide is fourteen pages', files.length === 14, `${files.length} files in ${dir}`);
+
+  /* --- Front matter ----------------------------------------------------- */
+
+  const pages = files.map((name) => {
+    const source = read(join(dir, name));
+    const block = source.startsWith('---\n') ? source.slice(4, source.indexOf('\n---', 3)) : '';
+    const value = (key) => new RegExp(`^${key}:\\s*(.+)$`, 'm').exec(block)?.[1]?.trim() ?? null;
+    return { name, source, title: value('title'), access: value('access'), order: value('order') };
+  });
+
+  check(
+    '63. every page is gated at the admin tier',
+    pages.every((page) => page.access === 'admin'),
+    pages.filter((page) => page.access !== 'admin').map((page) => page.name).join(', ')
+  );
+
+  // **The index's order means something different from every other page's.**
+  // pages.js: "On a section's index.md it orders the sections; on any other page
+  // it orders that page within its section." So the index is 2 because the admin
+  // guide is the second gated section, and the thirteen below it number
+  // themselves. The index is drawn first whatever it carries, which is why this
+  // is two checks and not one.
+  const index = pages.find((page) => page.name === 'index.md');
+  check('64. the index carries order 2, which is what orders the sections', index?.order === '2');
+
+  const orders = pages
+    .filter((page) => page.name !== 'index.md')
+    .map((page) => Number(page.order))
+    .sort((a, b) => a - b);
+  check(
+    '64. and the thirteen pages under it are 1 to 13 with none repeated',
+    orders.length === 13 && orders.every((value, at) => value === at + 1),
+    orders.join(', ')
+  );
+
+  check(
+    '65. every page has a title and a summary',
+    pages.every((page) => page.title && /^summary:\s*\S/m.test(page.source)),
+    'the title is the sidebar entry and the summary is the search result'
+  );
+
+  /* --- The screenshot slots --------------------------------------------- */
+
+  const slots = pages
+    .flatMap((page) => [...page.source.matchAll(/!\[[^\]]*\]\(pending:([^)\s]+)/g)])
+    .map((match) => match[1]);
+
+  const shape = /^admin-[a-z-]+-(desktop|phone)-(light|dark)$/;
+  check('66. eight screenshot slots are named for part 8', slots.length === 8, slots.join(', '));
+  check(
+    '66. and each one is named the way 16g asks, subject first and theme last',
+    slots.every((name) => shape.test(name)),
+    slots.filter((name) => !shape.test(name)).join(', ')
+  );
+  check('66. and no slot is named twice', new Set(slots).size === slots.length, slots.join(', '));
+
+  /* --- The access rule, which this guide states for the third time ------ */
+
+  // **The check this part was asked for.** 16h wants the access page to say how
+  // `is_approved`, the override, `is_admin` and `is_editor` combine, and what
+  // each role opens on this site. That rule is already implemented twice:
+  // hasPortalAccess decides who comes in, and tiers.js decides what opens. A
+  // page describing both is the third copy, and a copy nothing compares is the
+  // copy that goes stale in front of whoever is granting somebody access.
+  const flat = read(join(dir, 'access-and-roles.md')).replace(/\s+/g, ' ');
+  const dictionary = JSON.parse(read(join(MAIN, 'assets/i18n/en.json')));
+
+  // The five sentences the dashboard itself shows beside an account, quoted on
+  // the page word for word. Normalised the way the poster guide's steps are:
+  // what is compared is the sentence and not where the page wrapped it.
+  for (const key of [
+    'admin.accessState_granted',
+    'admin.accessState_denied',
+    'admin.accessState_default',
+    'admin.roleAdminOpens',
+    'admin.rolePosterOpens',
+  ]) {
+    const sentence = dictionary[key];
+    check(
+      `67. ${key} is quoted from the dashboard word for word`,
+      typeof sentence === 'string' && flat.includes(sentence.replace(/\s+/g, ' ')),
+      `not on the page: "${sentence}"`
+    );
+  }
+
+  // The four tiers, imported from the file that defines them instead of typed
+  // out here. A fifth tier, or a rename, fails this without anybody thinking to
+  // come back to a markdown file.
+  const { ACCESS_VALUES } = await import(
+    new URL('../docs-site/api/_lib/tiers.js', import.meta.url).href
+  );
+  const named = ACCESS_VALUES.filter((tier) => new RegExp(`\\| ${tier} \\|`).test(flat));
+  check(
+    '68. the page names all four tiers and no others',
+    named.length === ACCESS_VALUES.length &&
+      named.join() === ACCESS_VALUES.join(),
+    `page has ${named.join(', ')} for ${ACCESS_VALUES.join(', ')}`
+  );
+
+  // **The order of the three steps is the rule.** Stating them in any other
+  // order describes a different rule that happens to use the same words: an
+  // override that beat is_approved, or a role that beat an override.
+  const order = (haystack, ...patterns) => patterns.map((p) => haystack.search(p));
+  const rising = (values) => values.every((v, at) => v >= 0 && (at === 0 || v > values[at - 1]));
+
+  check(
+    '69. the page states the three steps in the order the site runs them',
+    rising(order(flat, /is_approved/, /override row decides/, /is_admin` or `is_editor/)),
+    'is_approved, then the override, then the gftv.asia role'
+  );
+
+  const rule = (() => {
+    const source = read(join(MAIN, 'api/_lib/session.js'));
+    const at = source.indexOf('export async function hasPortalAccess');
+    return at === -1 ? '' : source.slice(at, source.indexOf('\n}', at));
+  })();
+  check(
+    '69. and hasPortalAccess still runs them in that order',
+    rising(order(rule, /is_approved/, /granted/, /is_admin/)),
+    'the page above is a description of this function. If it moved, the page is wrong.'
+  );
+
+  /* --- The links -------------------------------------------------------- */
+
+  // Both directions: within this guide, and out into the poster guide, which
+  // this one sits on top of and links to on nine pages.
+  const here = new Set(files.map((name) => name.replace(/\.md$/, '')));
+  const there = new Set(
+    readdirSync(join(DOCS, 'api/_content/poster'))
+      .filter((name) => name.endsWith('.md'))
+      .map((name) => name.replace(/\.md$/, ''))
+  );
+
+  const dead = pages.flatMap((page) => [
+    ...[...page.source.matchAll(/\]\(\/staff\/admin\/([a-z0-9-]+)\)/g)]
+      .map((match) => match[1])
+      .filter((slug) => !here.has(slug))
+      .map((slug) => `${page.name} -> /staff/admin/${slug}`),
+    ...[...page.source.matchAll(/\]\(\/staff\/poster\/([a-z0-9-]+)\)/g)]
+      .map((match) => match[1])
+      .filter((slug) => !there.has(slug))
+      .map((slug) => `${page.name} -> /staff/poster/${slug}`),
+  ]);
+  check('70. every link out of these pages points at a page that exists', dead.length === 0, dead.join(', '));
+
+  check(
+    '71. the staff index no longer says the admin guide is unwritten',
+    !/Not written yet[\s\S]*admin/i.test(read(join(DOCS, 'api/_content/index.md'))) &&
+      /\/staff\/admin/.test(read(join(DOCS, 'api/_content/index.md'))),
     'the index is what a reader lands on, and it outranks the guide it describes'
   );
 });

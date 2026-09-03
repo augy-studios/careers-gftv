@@ -71,7 +71,7 @@
 //                     because a kill switch that forgets itself on the deploy
 //                     that broke something is not a kill switch.
 
-const VERSION = 'careers-gftv-phase14-v130';
+const VERSION = 'careers-gftv-phase14-v131';
 
 const SHELL = `careers-gftv-shell-${VERSION}`;
 const PUBLIC_DATA = 'careers-gftv-public';
