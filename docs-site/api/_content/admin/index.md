@@ -7,8 +7,9 @@ summary: What an admin can do that a job poster cannot.
 
 # Admin guide
 
-What an admin can do that a job poster cannot: managing staff access and
+What an admin can do that a job poster cannot. Managing staff access and
 applicant accounts, the translations queue, the annotation layer, portal
-settings, unmatched form submissions, and helping somebody who cannot sign in.
+settings, and unmatched form submissions. Also helping somebody who cannot sign
+in.
 
 **Not written yet.** This guide is phase 14's.

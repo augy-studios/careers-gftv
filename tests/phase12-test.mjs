@@ -4695,7 +4695,11 @@ define('polish-live', 'The removed rewrites, and the pages that answer without t
     { path: '/faq', marker: 'faq.heading' },
     { path: '/search', marker: 'searchInput' },
     { path: '/admin/login', marker: 'staffLoginForm' },
-    { path: '/admin/security', marker: 'staffSecurityPage' },
+    // `staffAccount` and not `staffSecurityPage`, which is the id this line
+    // asked for from the day phase 13 added it and which the page has never
+    // carried. The deployment and the working tree agree on `staffAccount`, so
+    // the page was right and the check was looking for the wrong word.
+    { path: '/admin/security', marker: 'staffAccount' },
     { path: '/account', marker: 'accountPage' },
   ];
 

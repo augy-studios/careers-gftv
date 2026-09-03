@@ -16,8 +16,12 @@
 //   override is a row in gftvjobs_settings, which is also the only place an
 //   admin can write to from a dashboard.
 //
-//   **Off means off, including the API.** requireFeature below is the shared
-//   guard every flippable route calls, and it answers 503. A disabled button
+//   **Off means off, including the API.** `unavailable` below is the shared
+//   guard every flippable route calls, and it answers 503. It was called
+//   requireFeature while this comment was written and this line kept the old
+//   name for a fortnight, which is how a grep for the guard came back empty on
+//   3 September 2026 and briefly looked like a missing one. Twenty three route
+//   files import it. A disabled button
 //   stops nobody with the endpoint, a stale tab, or a phase 10 queued action,
 //   and if a feature is off because it is broken then the endpoint is the
 //   broken thing.
@@ -109,6 +113,28 @@ export const DENYLIST = Object.freeze({
   // admin looking for one is that sentence rather than a switch that does
   // nothing. What removes seeded data is `node seed.mjs --clear --yes`.
   seed: 'A script run from a developer machine, not a part of the site. There is nothing here to switch off.',
+  // Phase 14, 3 September 2026, and the same argument as `seed` arriving from a
+  // second direction: a switch here reaches nothing.
+  //
+  // **The docs site is a separate Vercel project and reads no switch from this
+  // one.** Nothing in `docs-site/` fetches `/api/public/feature-status`, so
+  // flipping `docs_site` off would leave the site it names running exactly as
+  // before while this dashboard said otherwise. The five keys became visible on
+  // the maintenance page the day phase 13 read `shipped`, and the check that
+  // every visible feature owes a "where is it" sentence has failed since.
+  //
+  // Making the docs site read the switch was offered and was not taken: the
+  // control that lies is the problem, and a sentence saying why there is no
+  // switch is the honest half of it. Whoever wires it up later deletes the four
+  // docs entries here and writes their sentences instead.
+  docs_site: 'A separate deployment that reads no switch from here, so this would change nothing on the site it names.',
+  docs_staff_login: 'Sign in, on a site that reads no switch from here. It would lock staff out of the guides if it worked.',
+  admin_docs_content: 'The staff guides are pages on the docs site, which reads no switch from here.',
+  translation_helper_guide: 'A page on the docs site, which reads no switch from here.',
+  admin_docs: 'A redirect in vercel.json to the docs site. A redirect consults nothing, so there is no switch to flip.',
+  // Not a docs site key, and here on its own merits: the reason the applicant
+  // set above is on this list is the reason the staff set is.
+  staff_recovery_codes: 'Part of getting a staff account back, exactly as the applicant codes above are.',
 });
 
 /** Whether a feature key may be flipped at all. */

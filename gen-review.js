@@ -173,6 +173,15 @@ const EXEMPT = {
     'A character range in a regular expression, so a Chinese heading gets an id made of its own words instead of one made of dashes. Not words.',
   'docs-site/assets/i18n/en.json':
     'One 华文 in the file comment, saying when the Chinese dictionary arrives. The strings themselves are English and this site has no Chinese one until phase 14.',
+  // Phase 14 part 2, and the same judgement main-site/about/index.html gets: the
+  // language's own name inside an English sentence, because that is the word on
+  // the control the page is describing. **A guide's own Chinese is not in these
+  // files**: 16f puts guide content translations in Supabase, so a page in
+  // docs-site/content/ is the English one whatever else ships beside it.
+  'docs-site/content/portal/index.md':
+    "The language's own name in a heading about the language control, matching the portal's about page.",
+  'docs-site/content/portal/account-settings.md':
+    "The language's own name, as the label a reader sees on the control in the header.",
   // Outside SCAN_ROOTS, since the repo root holds this file, the specification
   // and the memo and is not scanned at all. Written down anyway: the judgement
   // is the one dev-seed-jobs.sql gets, and if the root is ever scanned it is

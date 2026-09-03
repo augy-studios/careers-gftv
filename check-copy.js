@@ -1,8 +1,22 @@
-// House style, checked. Runs over every English string a reader can see and
-// fails on a phrase this project has decided not to use.
+// House style, checked. Runs over every string a reader can see and fails on a
+// phrase this project has decided not to use, a sentence too long to read
+// easily, and a Chinese word that is Mainland and not Singapore.
 //
 //   node check-copy.js            report and exit non-zero on a finding
 //   node check-copy.js --list     print what it scans, and stop
+//
+// **The plain language rule, from 3 September 2026.** Both sites are written
+// for somebody with no technical knowledge who wants to find a role and apply
+// for it. That decision produced three checkable things, and they are the three
+// rule sets below: no banned phrase, no sentence over 25 words, and Singapore
+// Mandarin vocabulary in the Chinese. Everything else about writing plainly --
+// naming a technical term and then explaining it, one idea to a sentence, the
+// active voice -- is a judgement no script can make, and it is written down in
+// the specification instead.
+//
+// **25 words is the cap and not the target.** The portal's own average is under
+// seven. The cap exists to catch the sentence that grew three clauses while
+// somebody was being careful, which is the shape this project's copy fails in.
 //
 // **Why this is a script and not a note in a README.** The rule arrived on
 // 1 September 2026 as "all user-facing pages, current and future", and the
@@ -21,8 +35,10 @@
 // an explanation of a decision, and banning it there would only teach people to
 // write worse comments.
 //
-// **English only, because the rule is about an English phrase.** zh.json and
-// the bot's Chinese strings carry no equivalent and are not scanned.
+// **The phrase and sentence rules are English only.** zh.json and the bot's
+// Chinese strings carry no equivalent phrase, and Chinese has no spaces to
+// count words with. What they do get is the vocabulary rule below, which is
+// 3a's table turned into a check.
 //
 // **What it cannot see.** A sentence built in JavaScript out of two dictionary
 // keys, and copy typed by an admin into a maintenance note or a posting. The
@@ -58,6 +74,32 @@ const BANNED = [
       'and not',
     ],
   },
+];
+
+/** The longest sentence a reader should meet, in words.
+ *
+ *  Chosen by measuring: at the moment the rule arrived, the whole portal
+ *  dictionary held seven sentences over 25 words and the documentation held 36.
+ *  A cap that fails on nothing teaches nothing, and one that fails on a hundred
+ *  strings gets switched off in a week.
+ */
+const MAX_SENTENCE_WORDS = 25;
+
+/** 3a's Singapore Mandarin table, as a check.
+ *
+ *  **The lookbehind on 中文 is the only fiddly part.** 选中文字 -- "select text"
+ *  -- contains those two characters by accident, and a check that reported it
+ *  would be a check somebody learns to ignore. Naming the language is what the
+ *  rule is about, so the pattern refuses the accidental pairs and nothing else.
+ */
+const MANDARIN = [
+  { pattern: /志愿者/g, word: '志愿者', instead: '义工' },
+  { pattern: /电子邮件/g, word: '电子邮件', instead: '电邮' },
+  { pattern: /(?<!营)运营/g, word: '运营', instead: '营运' },
+  { pattern: /录影棚/g, word: '录影棚', instead: '摄影棚' },
+  { pattern: /文档/g, word: '文档', instead: '文件, or 说明文件 for a manual' },
+  { pattern: /简体中文/g, word: '简体中文', instead: '华文' },
+  { pattern: /(?<![选其集看命])中文(?!字)/g, word: '中文', instead: '华文' },
 ];
 
 /* -------------------------------------------------------------------------
@@ -255,15 +297,98 @@ function botProfileStrings() {
   }));
 }
 
+/** Every Chinese string either site ships, for the vocabulary rule.
+ *
+ *  The two dictionaries and nothing else. Guide content translations live in
+ *  Supabase per 16f, so there is no third file here to read, and the day there
+ *  is, this is where it goes.
+ */
+function chineseStrings() {
+  const out = [];
+
+  for (const site of ['main-site', 'docs-site']) {
+    const file = `${site}/assets/i18n/zh.json`;
+    if (!fs.existsSync(path.join(repo, file))) continue;
+    const dict = JSON.parse(read(file));
+    for (const [key, value] of Object.entries(dict)) {
+      if (typeof value === 'string') out.push({ where: `${site} zh.json ${key}`, text: value });
+    }
+  }
+
+  return out;
+}
+
+/** What each source is scanned for.
+ *
+ *  `sentences` is off for the two sources where counting words would be
+ *  nonsense: the pages themselves are read as raw markup, where a "sentence"
+ *  runs from one full stop through six tags to the next, and llms.txt is a list
+ *  of lines and not prose.
+ */
 const SOURCES = [
-  ['the interface dictionary', dictionaryStrings],
-  ['the phase list on /status', buildStatusStrings],
-  ['llms.txt', llmsStrings],
-  ['the pages themselves', pageStrings],
-  ['the documentation pages', docsPageStrings],
-  ["the Telegram bot's own strings", botStrings],
-  ["the bot's profile text", botProfileStrings],
+  ['the interface dictionary', dictionaryStrings, { sentences: true }],
+  ['the phase list on /status', buildStatusStrings, { sentences: true }],
+  ['llms.txt', llmsStrings, {}],
+  ['the pages themselves', pageStrings, {}],
+  ['the documentation pages', docsPageStrings, { sentences: true, markdown: true }],
+  ["the Telegram bot's own strings", botStrings, { sentences: true }],
+  ["the bot's profile text", botProfileStrings, { sentences: true }],
+  ['the Chinese dictionaries', chineseStrings, { mandarin: true }],
 ];
+
+/* -------------------------------------------------------------------------
+ * The sentence rule
+ * ---------------------------------------------------------------------- */
+
+/** A page or a string, split into the sentences a reader meets.
+ *
+ *  Markdown is stripped first, because a table row and a fenced command are not
+ *  sentences and a link's address is not words. What is left is the prose.
+ */
+function sentencesOf(text, { markdown = false } = {}) {
+  const blocks = [];
+
+  if (markdown) {
+    // **A bullet is its own unit, and this is the whole reason this is not one
+    // regular expression.** List items rarely end in a full stop, so joining
+    // the file into one string reads eight bullets as one 60 word sentence and
+    // reports a page that is fine. A line opening with a mark ends the block
+    // before it and starts its own.
+    const stripped = text
+      .replace(/^---[\s\S]*?\n---\n/, '\n')
+      .replace(/```[\s\S]*?```/g, '\n');
+
+    let current = [];
+    const flush = () => {
+      if (current.length > 0) blocks.push(current.join(' '));
+      current = [];
+    };
+
+    for (const raw of stripped.split('\n')) {
+      const line = raw.trim();
+      const isMark = /^(?:[-*+]|\d+[.)])\s+/.test(line);
+      const skip = line === '' || line.startsWith('|') || line.startsWith('#') || line.startsWith(':::') || line.startsWith('::tab');
+      if (skip || isMark) flush();
+      if (skip) continue;
+      current.push(line.replace(/^(?:[-*+]|\d+[.)])\s+/, ''));
+    }
+    flush();
+  } else {
+    blocks.push(text);
+  }
+
+  return blocks
+    .flatMap((block) =>
+      block
+        .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+        .replace(/[*_`>]/g, ' ')
+        .split(/(?<=[.!?])\s+|\n{2,}/)
+    )
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+}
+
+const wordsIn = (sentence) => sentence.split(/\s+/).filter(Boolean).length;
 
 /* -------------------------------------------------------------------------
  * Running it
@@ -271,20 +396,31 @@ const SOURCES = [
 
 if (process.argv.includes('--list')) {
   console.log('check-copy.js reads:\n');
-  for (const [label, load] of SOURCES) {
-    console.log(`  ${label.padEnd(30)} ${load().length} strings`);
+  for (const [label, load, rules] of SOURCES) {
+    const applied = ['banned', rules.sentences && 'sentences', rules.mandarin && 'mandarin']
+      .filter(Boolean)
+      .join(', ');
+    console.log(`  ${label.padEnd(30)} ${String(load().length).padStart(5)} strings   ${applied}`);
   }
   console.log('\nBanned phrases:');
   for (const rule of BANNED) console.log(`  "${rule.phrase}" — use ${rule.instead.join(', ')}`);
+  console.log(`\nLongest sentence: ${MAX_SENTENCE_WORDS} words.`);
+  console.log('\nSingapore Mandarin, per 3a:');
+  for (const rule of MANDARIN) console.log(`  "${rule.word}" — use ${rule.instead}`);
   process.exit(0);
 }
 
 const findings = [];
 let scanned = 0;
 
-for (const [, load] of SOURCES) {
+for (const [, load, rules] of SOURCES) {
   for (const entry of load()) {
     scanned += 1;
+
+    // **The file's own note is not copy.** Both dictionaries open with a
+    // `_comment` explaining what the file is, which nobody meets on a screen.
+    const isNote = / _comment$/.test(entry.where);
+
     for (const rule of BANNED) {
       rule.pattern.lastIndex = 0;
       if (!rule.pattern.test(entry.text)) continue;
@@ -294,7 +430,40 @@ for (const [, load] of SOURCES) {
       const at = entry.text.toLowerCase().indexOf(rule.phrase);
       const from = Math.max(0, at - 60);
       const excerpt = entry.text.slice(from, at + rule.phrase.length + 60).replace(/\s+/g, ' ');
-      findings.push({ where: entry.where, phrase: rule.phrase, excerpt, instead: rule.instead });
+      findings.push({
+        where: entry.where,
+        what: `the phrase "${rule.phrase}"`,
+        excerpt,
+        instead: rule.instead.join(', '),
+      });
+    }
+
+    if (rules.sentences && !isNote) {
+      for (const sentence of sentencesOf(entry.text, rules)) {
+        const words = wordsIn(sentence);
+        if (words <= MAX_SENTENCE_WORDS) continue;
+        findings.push({
+          where: entry.where,
+          what: `a sentence of ${words} words`,
+          excerpt: sentence.replace(/\s+/g, ' ').slice(0, 160),
+          instead: `split it. The cap is ${MAX_SENTENCE_WORDS}`,
+        });
+      }
+    }
+
+    if (rules.mandarin && !isNote) {
+      for (const rule of MANDARIN) {
+        rule.pattern.lastIndex = 0;
+        const match = rule.pattern.exec(entry.text);
+        if (!match) continue;
+        const from = Math.max(0, match.index - 20);
+        findings.push({
+          where: entry.where,
+          what: `the word "${rule.word}"`,
+          excerpt: entry.text.slice(from, match.index + rule.word.length + 20),
+          instead: rule.instead,
+        });
+      }
     }
   }
 }
@@ -302,15 +471,15 @@ for (const [, load] of SOURCES) {
 console.log(`${scanned} strings read from ${SOURCES.length} sources.`);
 
 if (findings.length === 0) {
-  console.log('No banned phrasing in anything a reader sees.');
+  console.log('Nothing a reader sees breaks the house style.');
   process.exit(0);
 }
 
 console.log(`\n${findings.length} to fix:\n`);
 for (const finding of findings) {
-  console.log(`  ${finding.where}`);
+  console.log(`  ${finding.where}: ${finding.what}`);
   console.log(`    ...${finding.excerpt}...`);
-  console.log(`    use instead: ${finding.instead.join(', ')}\n`);
+  console.log(`    ${finding.instead}\n`);
 }
 
 process.exit(1);

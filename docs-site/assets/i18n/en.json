@@ -182,7 +182,7 @@
   "staffAccount.renameTitle": "Rename this passkey",
   "staffAccount.sessionsBody": "Each site keeps its own sessions, so signing out of one leaves the other signed in. Your gftv.asia sessions are separate again and are not listed here.",
   "staffAccount.sessionsHeading": "Where you are signed in",
-  "staffAccount.sessionsNoDevice": "We record which site each session is on and when it started, and nothing about the device it is on, so this list cannot name your laptop or your phone.",
+  "staffAccount.sessionsNoDevice": "We record which site each session is on and when it started, and nothing about the device it is on. So this list cannot name your laptop or your phone.",
   "staffAccount.sessionsPartial": "One of the two sites could not be read, so this list may be missing sessions.",
   "staffAccount.site.docs": "Documentation site",
   "staffAccount.site.portal": "Jobs portal",

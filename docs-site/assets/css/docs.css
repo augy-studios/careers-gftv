@@ -862,8 +862,14 @@ body {
 }
 
 /* Tabs, for anything that differs between a desktop and a phone. */
+/* Wrapping, from phase 14 part 2, which is the first page in either tree to use
+   a tabbed block. Four labels in one unwrapped row squeezed every button until
+   its text wrapped inside it and pushed the last one 35px off a 320px screen.
+   16d puts tabs there for "anything that differs by device", so the width they
+   have to hold is a phone's. Rows stack; a label stays on one line. */
 .docs-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.25rem;
   margin: 0 0 -1px;
   border-bottom: 1px solid var(--border);
