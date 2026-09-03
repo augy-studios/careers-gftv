@@ -2758,15 +2758,29 @@ define('seam', 'The second project: its variables, its README, and its deploymen
     );
   }
 
-  /* --- The service worker rule, for a site that has no worker ----------- */
+  /* --- The service worker rule -------------------------------------------
+   *
+   * **This check was the other way round until phase 14 part 4.** Phase 13
+   * decision 3 said no worker while the content was five placeholder pages, and
+   * this asserted there was none, so that the README's rule and the tree could
+   * not disagree. Thirty pages and a staff tier reversed the decision, and the
+   * reason given for it turned around on the way: what decision 3 worried about
+   * was a stale gated page, and network first is what stops one.
+   *
+   * The rule the README carries is the same either way, which is why only the
+   * first half of this moved. `tests/phase14-test.mjs --only=worker` is where
+   * the worker's own behaviour is asserted; this stays a check that the two
+   * halves agree with each other.
+   * ---------------------------------------------------------------------- */
 
-  // Decision 3: no worker in this phase. The rule is written for if one ever
-  // exists, and check-precache.js stays about the portal — so what is checked
-  // is that the two halves still agree that there is not one.
   check(
-    '164. this site still has no service worker, and its README says the rule for when it does',
-    !existsSync(join(DOCS, 'sw.js')) && /bump its `VERSION` on every\s*\n?\s*change to this site/.test(docsReadme),
-    'decision 3: a stale gated page is a worse failure than a missing one'
+    '164. this site has a service worker, and its README carries the VERSION rule',
+    existsSync(join(DOCS, 'sw.js')) &&
+      // Case insensitive: the sentence used to open with "Once this site has a
+      // worker of its own, bump ..." and now opens with "Bump", because the
+      // condition it was waiting on has happened.
+      /bump its `VERSION` on\s+every\s+change to this site/i.test(docsReadme),
+    'phase 14 part 4 reversed decision 3; the README has to have moved with it'
   );
 
   /* --- What the phase says about itself --------------------------------- */

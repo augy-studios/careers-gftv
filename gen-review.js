@@ -69,7 +69,10 @@ const SOURCES = {
   'main-site/assets/build-status.json': 'The fifteen phases, their descriptions, and the note each shipped one carries.',
   'migrations/013_seed_reference_data.sql': 'The English names and descriptions of the departments and tags.',
   'migrations/014_locales_and_translations.sql': 'Those same departments and tags in 华文.',
-  'migrations/018_bilingual_settings.sql': 'The home page hero, which is stored as a setting.',
+  'migrations/018_bilingual_settings.sql':
+    'The home page hero, which is stored as a setting. Two of its three strings; portal_title moved to 041.',
+  'migrations/041_mandarin_portal_name.sql':
+    "The portal's Mandarin name, 国际兽视入队平台, which phase 14 part 4a changed. 018 wrote the old one and has run, so this file is where the current value lives.",
   'telegram-bot/strings.py': 'Everything the bot says, in both languages.',
   'telegram-bot/commands.py': "The nine command descriptions, which Telegram's own menu shows.",
   'telegram-bot/setup.md':
@@ -469,8 +472,18 @@ function collect() {
 
   const heroZh = [...settings.matchAll(/'zh',\s*'([^']+)'\)/g)].map((m) => m[1]);
   const heroZh2 = [...settings.matchAll(/'zh',\s*\n?\s*'([^']+)'\)/g)].map((m) => m[1]);
+  // **`portal_title` is not read from 018 any more, and the exception is the
+  // point.** That migration wrote the Chinese title once and has run, so it is
+  // a record of what was true in phase 5 and not of what the database holds;
+  // phase 14 part 4a renamed the portal and `041_mandarin_portal_name.sql`
+  // moved the row. Reading 018 here would put 国际兽视入队平台 in front of a
+  // reviewer as the current wording, which is the one thing this page must not
+  // do. The other two are still read from 018 because nothing has changed them.
+  const renamed = read('migrations/041_mandarin_portal_name.sql');
+  const portalTitleZh = renamed.match(/jsonb_set\(value, '\{zh\}', '"([^"]+)"'::jsonb\)/)?.[1];
+
   const hero = [
-    { key: 'portal_title', en: 'Careers@GFTV', zh: heroZh[0] || heroZh2[0] },
+    { key: 'portal_title', en: 'Careers@GFTV', zh: portalTitleZh || heroZh[0] || heroZh2[0] },
     { key: 'hero_heading', en: 'Volunteer with Global Furry Television', zh: heroZh[1] || heroZh2[1] },
     { key: 'hero_body', en: "Find a role, apply in a few minutes, and help make the fandom's television station.", zh: heroZh2[heroZh2.length - 1] },
   ];
@@ -784,7 +797,7 @@ code{font-family:var(--mono);font-size:.875em}
 
   <footer>
     <p>Generated from the repository on ${new Date().toISOString().slice(0, 10)}. Interface text comes from <code>assets/i18n/zh.json</code>; departments and tags from migration <code>014</code>; hero copy from migration <code>018</code>; the phase list from <code>assets/build-status.json</code>; the bot's own words from <code>telegram-bot/strings.py</code> and <code>commands.py</code>.</p>
-    <p>The product name is written 国际兽视 Careers, and GFTV alone is 国际兽视. A space sits between Latin and Han characters, never between Han and Han.</p>
+    <p>The product name is written 国际兽视入队平台, and GFTV alone is 国际兽视. A space sits between Latin and Han characters, never between Han and Han, so a run of Han carries no space inside it.</p>
   </footer>
 </div>
 </body>

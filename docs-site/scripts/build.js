@@ -46,7 +46,15 @@
 // marker this script fills in. A build that quietly produced a site missing a
 // page is the failure this whole arrangement exists to make impossible.
 
-import { readFileSync, writeFileSync, mkdirSync, rmSync, cpSync, existsSync } from 'node:fs';
+import {
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+  rmSync,
+  cpSync,
+  existsSync,
+  readdirSync,
+} from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 
@@ -168,11 +176,16 @@ const escapeHtml = (value) =>
  * writing thirty pages that quietly lost their title. A marker that matches
  * twice is as wrong as one that matches nothing.
  */
-function replaceOnce(source, pattern, replacement, what) {
-  const hits = [...source.matchAll(new RegExp(pattern.source, 'g'))].length;
+function replaceOnce(source, pattern, replacement, what, where = 'shell.html') {
+  // The source's own flags are kept and `g` added, so a caller that needs `m`
+  // for a line anchored marker gets it. Without this the flags were dropped and
+  // a multiline pattern counted zero matches while replacing one, which is the
+  // half working state this function exists to make impossible.
+  const flags = pattern.flags.includes('g') ? pattern.flags : `${pattern.flags}g`;
+  const hits = [...source.matchAll(new RegExp(pattern.source, flags))].length;
   if (hits !== 1) {
     fail(
-      `shell.html: expected exactly one ${what}, found ${hits}. ` +
+      `${where}: expected exactly one ${what}, found ${hits}. ` +
         'The build fills it in, so it cannot be renamed there alone.'
     );
     return source;
@@ -411,6 +424,78 @@ function checkImages(page, body, assets) {
 }
 
 /* -------------------------------------------------------------------------
+ * The service worker's precache list
+ * ---------------------------------------------------------------------- */
+
+/**
+ * Every address under a directory of `dist/`, as the browser would ask for it.
+ *
+ * Files and not routes, so no `cleanUrls` reasoning applies: `/assets/css/docs.css`
+ * is fetched by that name from the markup, and a font by the name `theme.css`
+ * writes into it.
+ */
+function addressesUnder(root, prefix) {
+  if (!existsSync(root)) return [];
+
+  const found = [];
+  const walk = (from, at) => {
+    for (const entry of readdirSync(from, { withFileTypes: true })) {
+      if (entry.isDirectory()) walk(join(from, entry.name), `${at}/${entry.name}`);
+      else found.push(`${at}/${entry.name}`);
+    }
+  };
+  walk(root, prefix);
+  return found.sort();
+}
+
+/**
+ * Write `dist/sw.js` from `sw.js`, with the precache list filled in.
+ *
+ * **The list is generated because this project has a build step**, which 16e
+ * makes it the stated exception for. The portal writes its list by hand and
+ * `node check-precache.js` fails on an entry that is not on disk; that check
+ * exists because a hand written list can name a file that is not there. Here
+ * the list is the files that are there, so the failure it guards against is not
+ * available to make.
+ *
+ * The marker is replaced with `replaceOnce`, like every other marker this
+ * script depends on: a worker that quietly lost its list would precache nothing
+ * and report that everything was fine.
+ */
+function writeWorker(pagePaths) {
+  const source = readFileSync(join(ROOT, 'sw.js'), 'utf8');
+
+  const entries = [
+    // The fallback for any address that was never cached. It has to be first in
+    // the file it is needed from, so it is first here as well.
+    '/shell.html',
+    ...pagePaths.sort(),
+    '/search-index.json',
+    ...addressesUnder(join(DIST, 'assets'), '/assets'),
+    // Whatever `public/` holds, which is the brand images today and 16g's
+    // screenshots from part 8. Both are wanted offline: a guide with a missing
+    // screenshot is a guide with a step missing. Read from `public/` and not
+    // from `dist/`, so this cannot pick up the pages the loop above wrote.
+    ...addressesUnder(join(ROOT, 'public'), ''),
+  ];
+
+  const list = entries.map((entry) => `  '${entry}',`).join('\n');
+
+  // `\r?` because this repository is checked out with CRLF on Windows, and a
+  // `$` anchor after a carriage return matches nothing. Found on the first run.
+  const out = replaceOnce(
+    source,
+    /^ {2}\/\* BUILD:PRECACHE \*\/\r?$/m,
+    list,
+    'BUILD:PRECACHE marker',
+    'sw.js'
+  );
+
+  writeFileSync(join(DIST, 'sw.js'), out);
+  return entries.length;
+}
+
+/* -------------------------------------------------------------------------
  * The build
  * ---------------------------------------------------------------------- */
 
@@ -443,6 +528,9 @@ function build() {
 
   const updated = {};
   const publicIndex = [];
+  // The addresses the worker precaches, collected as each page is written so
+  // the list is the pages that exist and never a second answer to that question.
+  const publicPaths = [];
   const gatedIndex = new Map(ACCESS_VALUES.filter((tier) => tier !== 'public').map((t) => [t, []]));
 
   let written = 0;
@@ -495,8 +583,14 @@ function build() {
     const out = join(DIST, page.path === '/' ? 'index.html' : `${page.path.slice(1)}.html`);
     mkdirSync(dirname(out), { recursive: true });
     writeFileSync(out, pageDocument(page, html, data));
+    publicPaths.push(page.path);
     written += 1;
   }
+
+  // Before the problems check, so a marker that stopped matching stops the
+  // build with everything else rather than being recorded after the last thing
+  // that reads the list.
+  const precached = writeWorker(publicPaths);
 
   if (problems.length > 0) {
     console.error(`The build stopped, with ${problems.length} to fix:`);
@@ -522,6 +616,7 @@ function build() {
       ? `Dated all ${pages.size} pages from git.`
       : `Dated ${dated} of ${pages.size} pages from git; the rest carry no date.`
   );
+  console.log(`The worker precaches ${precached} addresses, written into dist/sw.js.`);
 }
 
 build();

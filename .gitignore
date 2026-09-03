@@ -101,6 +101,13 @@ telegram-bot/*.sqlite
 telegram-bot/*.sqlite3
 telegram-bot/*.db
 
+# The gated image fixture, written and removed by tests/phase13-test.mjs.
+# It is the only way to exercise 16e's authenticated image path: a gated page
+# with an image on it has to exist for the length of the run. The suite deletes
+# both, so these two lines only matter when a run is interrupted.
+docs-site/api/_content/admin/example.png
+docs-site/api/_content/admin/example-shot.md
+
 # Playwright, docs-site/scripts/
 playwright-report/
 test-results/

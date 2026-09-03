@@ -28,6 +28,16 @@
 // It also lists files that exist and are not precached, which is information
 // and not an error. Some of those absences are deliberate and are named in
 // EXPECTED_ABSENT below, with the reason.
+//
+// **There is a second half as of phase 14 part 4, and it asks a different
+// question.** The docs site ships a worker too, but its list is not written by
+// hand: docs-site/scripts/build.js fills it in from the pages it has just
+// written, so the failure this file was built for cannot happen there. What can
+// still happen is the generator being wrong, a prefix that does not match how
+// the file is served or a directory that stopped being copied into dist/, and
+// that is what the docs pass checks: every address in the generated list
+// resolves to a file in dist/. It skips, with a sentence, when the build has
+// not run.
 
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname, relative } from 'node:path';
@@ -88,18 +98,18 @@ const SERVED_BY_FUNCTION = {
  * Reading the list out of sw.js
  * ---------------------------------------------------------------------- */
 
-function precacheEntries() {
-  const source = readFileSync(SW, 'utf8');
+function precacheEntries(file = SW, label = 'main-site/sw.js') {
+  const source = readFileSync(file, 'utf8');
 
   const opened = source.indexOf('const PRECACHE = [');
   if (opened === -1) {
-    console.error('Could not find "const PRECACHE = [" in main-site/sw.js.');
+    console.error(`Could not find "const PRECACHE = [" in ${label}.`);
     process.exit(1);
   }
 
   const closed = source.indexOf('\n];', opened);
   if (closed === -1) {
-    console.error('Found PRECACHE in main-site/sw.js but not the "];" that closes it.');
+    console.error(`Found PRECACHE in ${label} but not the "];" that closes it.`);
     process.exit(1);
   }
 
@@ -220,6 +230,47 @@ if (missing.length > 0) {
   }
   console.error('\nEvery one of these is a page or an asset that will not work offline.');
   process.exit(1);
+}
+
+/* -------------------------------------------------------------------------
+ * The docs site, phase 14 part 4
+ * ---------------------------------------------------------------------- */
+
+const DOCS_DIST = join(HERE, 'docs-site', 'dist');
+const DOCS_SW = join(DOCS_DIST, 'sw.js');
+
+if (!existsSync(DOCS_SW)) {
+  console.log('');
+  console.log('docs-site: skipped. Its list is written into dist/sw.js by the build,');
+  console.log('so run  node docs-site/scripts/build.js  first to check that half.');
+} else {
+  const docsEntries = precacheEntries(DOCS_SW, 'docs-site/dist/sw.js');
+  const docsMissing = [];
+
+  for (const entry of docsEntries) {
+    const tried = candidates(entry);
+    if (!tried.some((file) => existsSync(join(DOCS_DIST, file)))) {
+      docsMissing.push({ entry, tried });
+    }
+  }
+
+  if (docsMissing.length > 0) {
+    console.error(
+      `
+docs-site: ${docsMissing.length} generated precache entries name nothing in dist/:`
+    );
+    for (const item of docsMissing) {
+      console.error(`  ${item.entry}`);
+      for (const tried of item.tried) console.error(`      tried docs-site/dist/${tried}`);
+    }
+    console.error('');
+    console.error('That list is generated, so this is a fault in writeWorker() in');
+    console.error('docs-site/scripts/build.js and not a list somebody forgot to update.');
+    process.exit(1);
+  }
+
+  console.log(`
+docs-site: all ${docsEntries.length} generated entries exist in dist/.`);
 }
 
 console.log('\nEvery precache entry exists.');

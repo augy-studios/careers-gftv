@@ -98,7 +98,7 @@ here so that whatever does it later is not writing it from scratch:
 ```
 
 ```text
-国际兽视 Careers 是国际兽视的义工招募网站。在这里关联您的求职账户后，您可以一键登录、收到职位邀请，并在您的申请有进展时收到通知。这里发送的所有内容，在网站上同样可以查看，不会只出现在这个聊天里。点击开始，查看您可以使用的全部功能。
+国际兽视入队平台是国际兽视的义工招募网站。在这里关联您的求职账户后，您可以一键登录、收到职位邀请，并在您的申请有进展时收到通知。这里发送的所有内容，在网站上同样可以查看，不会只出现在这个聊天里。点击开始，查看您可以使用的全部功能。
 ```
 
 The command list is a different matter and is already localised. See below.

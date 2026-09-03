@@ -39,11 +39,15 @@ wrong most often.
 
 ## Names
 
-GFTV is **国际兽视**, and the portal is **国际兽视 Careers**. Use those anywhere
+GFTV is **国际兽视**, and the portal is **国际兽视入队平台**. Use those anywhere
 Chinese is being read, and not the English strings.
 
 A space sits between Latin and Han characters, and never between Han and Han.
-So it is 关于国际兽视 Careers, with no space after 关于.
+So it is Telegram 账户 with a space, and 关于国际兽视入队平台 without one.
+
+**The Mandarin name is not a translation of "Careers", on purpose.** That word
+implies a salary, and every role here is unpaid. 招聘 would carry the same
+wrong meaning across. 入队 says join the team, which is what is on offer.
 
 ## The language names itself
 

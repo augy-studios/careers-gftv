@@ -1051,9 +1051,11 @@ carried on a `data-i18n` attribute, rendered before the dictionary loads. That
 is what put `theme.timeBasedNote` on screen. Anything that calls `t()` outside
 `translateDom` has to re-run on `gftv:localechange`, and both modals now do.
 
-**Names.** GFTV is 国际兽视 in Mandarin, and the portal is 国际兽视 Careers.
+**Names.** GFTV is 国际兽视 in Mandarin, and the portal is 国际兽视入队平台.
 A space goes between Latin and Han characters and never between Han and Han,
-so it is `关于国际兽视 Careers`, not `关于 国际兽视 Careers`.
+so it is `Telegram 账户` and `关于国际兽视入队平台`, with no space inside a run
+of Han. **The Mandarin name is not a translation of "Careers"**: that word
+implies a salary, and 入队 says what is actually on offer.
 
 Tag and department slugs are deliberately not translated: they are URL
 identifiers, and translating them would break every shared link the moment

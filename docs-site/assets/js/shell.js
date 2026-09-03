@@ -33,6 +33,7 @@ import {
   wireLanguageModal,
 } from './chrome-modals.js';
 import { render } from './markdown.js';
+import { initConnectionBar, tellWorker } from './connection-bar.js';
 
 const CHEVRON =
   '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" focusable="false">' +
@@ -208,6 +209,14 @@ function drawAccount(reader) {
         credentials: 'same-origin',
       });
       if (!response.ok) throw new Error(String(response.status));
+
+      // **Every gated page this browser has cached, gone, before the
+      // navigation.** Phase 14 part 4's decision to cache the staff guides is
+      // only defensible because of this line and the tier check in start(). A
+      // sign out that left the cache behind would leave staff procedure
+      // readable, offline, by whoever picks the machine up next.
+      tellWorker({ type: 'signed-out' });
+
       // A full load and not a redraw. Signing out changes what the sidebar is
       // allowed to contain, and the server is the only thing that knows the new
       // answer.
@@ -1104,6 +1113,26 @@ async function start() {
   initTheme();
   await initI18n();
 
+  // The worker, the update prompt and the connection bar. Phase 14 part 4, from
+  // the portal's own module.
+  //
+  // **The bar goes after the skip link and before the header**, which is the
+  // portal's ordering arrived at from the other end: that site has three bars
+  // and top-bars.js to sequence them, and this one has a single bar and a
+  // header written in the markup, so the rule fits in one line.
+  //
+  // **No status page to link to.** The portal's /status is about the portal. A
+  // bar on this site pointing at it would send somebody to a second site to
+  // find out why this one is unreachable.
+  initConnectionBar({
+    insert: (bar) => {
+      const skip = document.querySelector('.docs-skip');
+      if (skip) skip.after(bar);
+      else document.body.prepend(bar);
+    },
+    statusHref: null,
+  });
+
   translateDom(document);
 
   // **The first call to hydrateIcons this site has ever made.** icons.js has
@@ -1122,6 +1151,16 @@ async function start() {
   // followed a link came for the page and not for the navigation.
   const { data } = await get('/api/nav');
   const nav = data?.nav ?? { home: null, staff_home: null, sections: [] };
+
+  // **The worker is told who is reading, on every load and not only on a
+  // change.** Phase 14 part 4. The gated cache is named for the tier it was
+  // filled at, so this is what drops somebody else's staff guides: a reader
+  // whose access was revoked between two visits never announces it, they simply
+  // arrive as a different tier, and the comparison in sw.js notices.
+  //
+  // A signed out reader is 'public', which is a tier like any other and is why
+  // this is not inside a signed in branch.
+  tellWorker({ type: 'tier', tier: data?.reader?.tier ?? 'public' });
 
   // Search waits for the reader, because which halves of the index this tab may
   // fetch is the one thing about it that is not the same for everybody.

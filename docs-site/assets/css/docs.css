@@ -1316,3 +1316,80 @@ section.card {
  * That is the whole finding of the part, seen from the stylesheet's end: this
  * site had been shipping the styles for controls it had never built.
  * ---------------------------------------------------------------------- */
+
+/* -------------------------------------------------------------------------
+ * The connection bar, phase 14 part 4
+ *
+ * The bar assets/js/connection-bar.js draws, above the header and below the
+ * skip link. It says one of three things: you are offline, we cannot be
+ * reached, or a new version is ready.
+ *
+ * **Written here in this site's own language and not copied from app.css**,
+ * which is the account block's rule two hundred lines above and the same
+ * reasoning: the module is shared because its behaviour is the same on both
+ * sites, and 16d is emphatic that this site stays hairlines and whitespace
+ * where the portal has cards. `.btn`, `.btn-secondary` and `.btn-quiet` come
+ * from theme.css, which is generated into both; `.small-btn` does not, so it is
+ * here.
+ * ---------------------------------------------------------------------- */
+
+.connection-notice {
+  background: var(--bg-alt);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+/* The one state carrying an action, tinted so it reads apart from a page that
+ * has simply lost its connection. */
+.connection-notice[data-state='update'] {
+  background: color-mix(in srgb, var(--brand-dark) 12%, transparent);
+  border-bottom-color: var(--border-strong);
+  color: var(--text);
+}
+
+.connection-notice-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  /* The same 96rem .docs-layout uses, so the bar's text starts where the page's
+     does instead of at a width of its own. */
+  max-width: 96rem;
+  margin: 0 auto;
+  padding: 0.5rem 1rem;
+  padding-top: max(0.5rem, env(safe-area-inset-top));
+}
+
+/* Wrapping, because the update state carries two buttons and a sentence, and
+ * 320px is a width this build tests at. */
+@media (max-width: 640px) {
+  .connection-notice-inner {
+    flex-wrap: wrap;
+    padding-inline: 1rem;
+  }
+}
+
+.connection-notice-inner > [data-icon] {
+  flex: none;
+  display: inline-flex;
+}
+
+.connection-notice p {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.connection-notice a,
+.connection-notice a:visited {
+  color: var(--brand-text);
+}
+
+.connection-notice .btn {
+  flex: none;
+}
+
+.small-btn {
+  min-height: 36px;
+  padding: 0.25rem 0.625rem;
+  font-size: 0.875rem;
+}

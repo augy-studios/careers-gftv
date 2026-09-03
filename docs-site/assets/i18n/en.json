@@ -1,5 +1,5 @@
 {
-  "_comment": "The docs site's interface strings. Written with keys in part 4 so that no file would be retrofitted later, and decision 5 put the Chinese in phase 14 — part 6a revised that by arithmetic on 3 September 2026: 175 of these 242 keys were already the portal's own strings, so only 67 were this site's to write and zh.json landed here instead. It is 254 as of phase 14 part 1, which retired the five header.mode* and header.language keys and brought over the seventeen the theme and language modals need — the portal's own strings again, with one exception: language.description says something true of this site and not of the portal, because localStorage is per origin and a reader's choice does not cross between them. These are the chrome only. Everything a reader comes here to read is a markdown page in content/ or api/_content/, and no page string ever appears in this file.",
+  "_comment": "The docs site's interface strings. Written with keys in part 4 so that no file would be retrofitted later, and decision 5 put the Chinese in phase 14 — part 6a revised that by arithmetic on 3 September 2026: 175 of these 242 keys were already the portal's own strings, so only 67 were this site's to write and zh.json landed here instead. It is 254 as of phase 14 part 1, which retired the five header.mode* and header.language keys and brought over the seventeen the theme and language modals need — the portal's own strings again, with one exception: language.description says something true of this site and not of the portal, because localStorage is per origin and a reader's choice does not cross between them. Part 4 added the seven offline.* strings the connection bar draws, which is the portal's module generated in and the same pattern a fourth time. These are the chrome only. Everything a reader comes here to read is a markdown page in content/ or api/_content/, and no page string ever appears in this file.",
   "shell.title": "Careers@GFTV documentation",
   "shell.siteName": "Careers@GFTV docs",
   "shell.skipToContent": "Skip to the content",
@@ -253,5 +253,12 @@
   "login.verify": "Sign in",
   "staffAccount.pageTitle": "Account settings | Careers@GFTV documentation",
   "staffAccount.held": "This is built and is switched off until it has been checked once against a real account, because it changes your gftv.asia account too. Everything else on this page works.",
-  "staffAccount.dangerLastFactor": "This is the last second step on your account, so signing in will be your password alone until you add another."
+  "staffAccount.dangerLastFactor": "This is the last second step on your account, so signing in will be your password alone until you add another.",
+  "offline.bannerLabel": "Connection",
+  "offline.bannerOffline": "You are offline. Every guide you have opened before is still here to read.",
+  "offline.bannerUnreachable": "Your connection looks fine, but we cannot reach the documentation at the moment.",
+  "offline.bannerUnreachableLink": "Check the status page",
+  "offline.updateReady": "A newer version of these guides is ready.",
+  "offline.updateReload": "Reload",
+  "offline.updateLater": "Not now"
 }

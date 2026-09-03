@@ -742,11 +742,42 @@ Rules that will not change:
 
 ## The service worker
 
-Once this site has a service worker of its own, **bump its `VERSION` on every
-change to this site**, the same rule the portal follows. Any edit under
+This site has one as of phase 14 part 4, in `sw.js`. **Bump its `VERSION` on
+every change to this site**, the same rule the portal follows. Any edit under
 `docs-site/` is a new build, and a worker that has not been bumped keeps
 serving the previous one to returning readers. Treat it as part of the change,
 not a separate step.
+
+**You do not maintain the precache list.** `scripts/build.js` writes it into
+`dist/sw.js` from the pages it has just built, replacing the `BUILD:PRECACHE`
+marker, so adding a guide is nothing to remember here. `node check-precache.js`
+checks both halves: the portal's hand written list against `main-site/`, and
+this generated one against `dist/`. The docs half skips with a sentence when
+`dist/` is not there, so run the build first.
+
+**What is cached, and what is deliberately not.**
+
+- **Network first for anything a reader reads**: guides, the search index, and
+  every API answer. The cache answers only when the network does not, so a
+  reader who is online is always reading what was deployed. A procedure served
+  from a cache after the step changed is the failure this whole file is
+  arranged to avoid.
+- **Cache first for `/assets/*`, the fonts and the images**, which are build
+  output and change only with a deploy. A `VERSION` bump is a new cache filled
+  from the network, which is what makes that safe.
+- **`/api/auth/*` is never cached in either direction.**
+
+**The gated guides are cached, per reader, and that needs care.** The cache is
+named for the tier it was filled at, so a reader whose access changes does not
+inherit the previous one; `shell.js` posts the tier on every load and the worker
+drops any gated cache that is not the current one. Signing out posts
+`signed-out`, and the worker deletes all of them. **If you change either of
+those two paths, you are changing what a shared machine keeps after somebody
+signs out**, which is the reason this was a decision and not a default.
+
+There is no `/offline` page. The shell is the fallback for an address that was
+never cached: it draws the chrome and says the page is not available, so a
+reader cannot tell which pipeline a missing page came from.
 
 ## Deployment
 

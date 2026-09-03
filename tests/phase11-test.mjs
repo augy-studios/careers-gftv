@@ -243,7 +243,7 @@ define('qr', 'The QR encoder, round tripped through an independent decoder', asy
   const over = encodeQr('x'.repeat(85));
   check('5. the version 5 capacity boundary is where the table says', at.version === 5 && over.version === 6, `${at.version} then ${over.version}`);
 
-  const utf8 = '国际兽视 Careers';
+  const utf8 = '国际兽视入队平台';
   check('6. multi byte text survives the round trip', decode(encodeQr(utf8).rows) === utf8);
 
   let refused = false;

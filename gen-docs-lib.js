@@ -649,6 +649,21 @@ const FILES = [
     ),
   },
   {
+    // Phase 14 part 4, and the reason this file exists at all. It was the top
+    // half of the portal's offline.js until this site shipped a worker of its
+    // own; update-bar-spec.md is portable by its own first lines, so the choice
+    // was one implementation or two, and this is the one.
+    path: 'assets/js/connection-bar.js',
+    comment: 'js',
+    note: text(
+      'Identical. Registering a worker, the update prompt, and the two connection',
+      'wordings are the same job on both sites, so the three places they differ are',
+      'arguments instead of edits: where the bar goes, whether "cannot reach us"',
+      'has a status page to link to, and what else redraws with it. It imports',
+      'i18n.js and icons.js, both of which were already here.'
+    ),
+  },
+  {
     path: 'assets/js/chrome-modals.js',
     comment: 'js',
     note: text(
@@ -781,8 +796,12 @@ const ASSETS = [
     path: 'HLC-main.png',
     to: 'public/HLC-main.png',
     note: text(
-      'The image on a link card. Every page of this site shares one, which is what',
-      'the portal does: a per page image would be 76 captures to keep current.'
+      'The image on a link card, and the same file the portal points at, so both',
+      'cards carry the same mark. Every page of this site shares one: a per page',
+      'image would be 76 captures to keep current.',
+      'It pairs with twitter:card = summary, which is the small thumbnail card and',
+      'not summary_large_image, so the mark sits beside the title instead of',
+      'becoming a banner over it.'
     ),
   },
 ];
@@ -851,6 +870,15 @@ const OWN = [
   // working sign in on a live site to serve a page that had never had one. The
   // endpoints are shared, which is where 5h says the two are meant to agree.
   'assets/js/docs-login.js',
+  // The service worker, phase 14 part 4. **Not generated, and the portal's is
+  // not a template for it.** main-site/sw.js is 1,032 lines of an IndexedDB
+  // action queue, a postings cache with an eviction policy, and the maintenance
+  // switches; this site has none of those and has a tier, which the portal has
+  // no equivalent of. What the two share is the shape of the lifecycle, and
+  // sharing a shape is not sharing a file. The precache list is written into
+  // this one by scripts/build.js, which is the other reason it could not be a
+  // copy: the portal has no build step to write anything.
+  'sw.js',
 ];
 
 /* -------------------------------------------------------------------------

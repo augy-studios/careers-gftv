@@ -71,7 +71,7 @@
 //                     because a kill switch that forgets itself on the deploy
 //                     that broke something is not a kill switch.
 
-const VERSION = 'careers-gftv-phase14-v128';
+const VERSION = 'careers-gftv-phase14-v129';
 
 const SHELL = `careers-gftv-shell-${VERSION}`;
 const PUBLIC_DATA = 'careers-gftv-public';
@@ -247,6 +247,11 @@ const PRECACHE = [
   // is a header with no theme or language control the moment somebody is
   // offline.
   '/assets/js/chrome-modals.js',
+  // Phase 14 part 4. The top half of offline.js, moved out so the docs site
+  // could have it too. offline.js imports it, so it is fetched on every page
+  // and missing it would leave the connection bar off in exactly the condition
+  // the bar exists for.
+  '/assets/js/connection-bar.js',
   '/assets/js/danger-confirm.js',
   '/assets/js/dialog.js',
   '/assets/js/forgot-password-page.js',

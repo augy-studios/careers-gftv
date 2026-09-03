@@ -1089,6 +1089,458 @@ define('a11y', 'Both modals against the accessibility rules, open', async () => 
   }
 });
 
+define('worker', 'Part 4: the docs service worker, and what makes it safe', async () => {
+  const sw = read(join(DOCS, 'sw.js'));
+  const bar = read(join(MAIN, 'assets/js/connection-bar.js'));
+  const docsBar = read(join(DOCS, 'assets/js/connection-bar.js'));
+  const docsShell = read(join(DOCS, 'assets/js/shell.js'));
+  const offline = read(join(MAIN, 'assets/js/offline.js'));
+  const build = read(join(DOCS, 'scripts/build.js'));
+  const vercel = JSON.parse(read(join(DOCS, 'vercel.json')));
+  const docsEn = JSON.parse(read(join(DOCS, 'assets/i18n/en.json')));
+  const docsZh = JSON.parse(read(join(DOCS, 'assets/i18n/zh.json')));
+
+  /* --- The lifecycle, section 14's one rule ------------------------------ */
+
+  // The update mechanism rests on the worker not taking over by itself. A
+  // skipWaiting in install would replace the page under a reader mid sentence
+  // and make the prompt decorative, which is what section 14 forbids.
+  const installBlock = sw.slice(
+    sw.indexOf("addEventListener('install'"),
+    sw.indexOf("addEventListener('activate'")
+  );
+  check(
+    '1. install does not call skipWaiting',
+    !installBlock.includes('skipWaiting()'),
+    'A new worker waits for the reader to accept it, per section 14.'
+  );
+
+  const activateBlock = sw.slice(
+    sw.indexOf("addEventListener('activate'"),
+    sw.indexOf("addEventListener('message'")
+  );
+  check(
+    '2. activate does not call clients.claim',
+    !activateBlock.includes('clients.claim()'),
+    'The same rule, other half.'
+  );
+
+  check(
+    '3. skipWaiting is reachable only from the skip-waiting message',
+    /if \(type === 'skip-waiting'\)[\s\S]{0,120}skipWaiting\(\)/.test(sw),
+    'The update prompt is the only route to it.'
+  );
+
+  check(
+    '4. and connection-bar.js is the only thing that posts it',
+    bar.includes("postMessage('skip-waiting')") && !docsShell.includes('skip-waiting'),
+    'One implementation of the update path, generated into both sites.'
+  );
+
+  /* --- What makes caching the gated guides defensible --------------------
+   *
+   * These six are the decision of 3 September 2026. Cached staff procedure is
+   * only safe while the cache is named for a tier and is dropped when the
+   * reader changes or leaves. If one of these fails, the decision is wrong and
+   * not merely untidy.
+   * ---------------------------------------------------------------------- */
+
+  check(
+    '5. the gated cache is named for the tier it was filled at',
+    /const gatedCacheFor = \(tier\) =>/.test(sw),
+    'A reader whose tier changes must not inherit the previous one.'
+  );
+
+  check(
+    '6. a gated cache that is not the current tier is deleted',
+    /async function rememberTier[\s\S]*?key !== wanted[\s\S]*?caches\.delete/.test(sw),
+    'The comparison is what notices a revocation nobody announced.'
+  );
+
+  check(
+    '7. signing out deletes every gated cache',
+    /async function forgetGated[\s\S]*?startsWith\(GATED_PREFIX\)[\s\S]*?caches\.delete/.test(sw),
+    'Without this a shared machine keeps the staff guides after a sign out.'
+  );
+
+  check(
+    '8. the shell posts signed-out before it navigates',
+    /tellWorker\(\{ type: 'signed-out' \}\)[\s\S]{0,600}window\.location\.assign/.test(docsShell),
+    'After the navigation would be too late: the page is gone.'
+  );
+
+  check(
+    '9. the shell posts the tier on every load',
+    docsShell.includes("tellWorker({ type: 'tier'"),
+    'A reader whose access was revoked simply arrives as a different tier.'
+  );
+
+  check(
+    '10. a signed out reader is a tier like any other',
+    /tellWorker\(\{ type: 'tier', tier: data\?\.reader\?\.tier \?\? 'public' \}\)/.test(docsShell),
+    'Otherwise signing out would leave the previous cache in place.'
+  );
+
+  /* --- What must never be cached ----------------------------------------- */
+
+  check(
+    '11. nothing under /api/auth is cached in either direction',
+    sw.includes('const NEVER =') && sw.includes('if (NEVER.test(url.pathname)) return;'),
+    'A session is not a document.'
+  );
+
+  check(
+    '12. only GET, and only this origin',
+    sw.includes("request.method !== 'GET'") && sw.includes('url.origin !== self.location.origin'),
+    'A cross origin request belongs to whoever answers it.'
+  );
+
+  check(
+    '13. only a 200 is ever written to a cache',
+    (sw.match(/if \(response\.ok\)/g) ?? []).length >= 3,
+    'A cached 404 tells a reader a page does not exist after somebody wrote it.'
+  );
+
+  /* --- Freshness, which is phase 13 decision 3's own argument ------------- */
+
+  check(
+    '14. a page is network first',
+    /async function pageFirst[\s\S]*?await fetch\(request\)[\s\S]*?catch[\s\S]*?cache\.match/.test(sw),
+    'A procedure from a cache after the step changed is the failure this avoids.'
+  );
+
+  check(
+    '15. the API answers are network first',
+    /async function apiFirst[\s\S]*?networkFirst\(request, gatedCacheFor\(tier\)\)/.test(sw),
+    'The same rule for the gated half.'
+  );
+
+  check(
+    '16. build output is cache first',
+    /async function assetFirst[\s\S]*?cache\.match\(request\)[\s\S]*?await fetch\(request\)/.test(sw),
+    'It changes only with a deploy, and a deploy is a new cache.'
+  );
+
+  check(
+    '17. the shell is the fallback and there is no second offline page',
+    sw.includes("cache.match('/shell.html')") && !sw.includes("'/offline'"),
+    '16e: a reader must not be able to tell which pipeline a missing page came from.'
+  );
+
+  /* --- The precache list, which the build writes -------------------------- */
+
+  check(
+    '18. sw.js carries the marker the build fills in',
+    sw.includes('/* BUILD:PRECACHE */'),
+    'Renaming it in one place stops the build, which is what replaceOnce is for.'
+  );
+
+  check(
+    '19. the source list is empty, so a stale one cannot ship',
+    /const PRECACHE = \[\n {2}\/\* BUILD:PRECACHE \*\/\n\];/.test(sw),
+    'Anything written here by hand is a second answer to what exists.'
+  );
+
+  check(
+    '20. the build writes it from the pages it has just written',
+    /function writeWorker\(pagePaths\)[\s\S]*?BUILD:PRECACHE[\s\S]*?writeFileSync\(join\(DIST, 'sw\.js'\)/.test(
+      build
+    ),
+    'The list cannot drift from the tree.'
+  );
+
+  if (!existsSync(join(DIST, 'sw.js'))) {
+    skip('21. the built worker names every public page', 'dist/sw.js is not there; run the build');
+  } else {
+    const built = read(join(DIST, 'sw.js'));
+    const listed = new Set([...built.matchAll(/^ {2}'([^']+)',$/gm)].map((match) => match[1]));
+    const pages = [...listed].filter((entry) => !entry.includes('.'));
+
+    check(
+      '21. the built worker names every public section',
+      listed.has('/') && listed.has('/bot') && listed.has('/portal') && listed.has('/translations'),
+      `found ${pages.length} page addresses`
+    );
+    check(
+      '22. and one address per public page',
+      pages.length >= 30,
+      `found ${pages.length}, expected at least the 30 the build reports`
+    );
+    check(
+      '23. it precaches the shell, which is the offline fallback',
+      listed.has('/shell.html'),
+      'Without it an uncached address offline has nothing to draw.'
+    );
+    check(
+      '24. it precaches the search index and both dictionaries',
+      listed.has('/search-index.json') &&
+        listed.has('/assets/i18n/en.json') &&
+        listed.has('/assets/i18n/zh.json'),
+      'A 华文 reader offline must not fall back to English.'
+    );
+    check(
+      '25. and no gated address is in it',
+      ![...listed].some((entry) => entry.startsWith('/staff')),
+      '16e: a gated page must never appear in something served to everybody.'
+    );
+  }
+
+  /* --- The bar, generated rather than written twice ----------------------- */
+
+  check(
+    '26. connection-bar.js is the portal file, generated into this site',
+    docsBar.includes('GENERATED FILE') && docsBar.includes('gen-docs-lib.js'),
+    'update-bar-spec.md is portable, so there is one implementation.'
+  );
+
+  check(
+    '27. offline.js delegates to it and keeps its own exports',
+    offline.includes("from './connection-bar.js'") &&
+      offline.includes('export { workerVersion }') &&
+      offline.includes('export function applyNetworkGating'),
+    'Five files import offline.js and none of them changed.'
+  );
+
+  check(
+    '28. the docs site passes no status page to link to',
+    /initConnectionBar\(\{[\s\S]*?statusHref: null/.test(docsShell),
+    'A bar here linking to the portal status page sends somebody to the wrong site.'
+  );
+
+  check(
+    '29. the portal still links to its own',
+    /statusHref: '\/status'/.test(offline),
+    'Which is the right place for somebody who cannot reach the portal.'
+  );
+
+  /* --- The strings, and the headers --------------------------------------- */
+
+  const barKeys = [
+    'offline.bannerLabel',
+    'offline.bannerOffline',
+    'offline.bannerUnreachable',
+    'offline.updateReady',
+    'offline.updateReload',
+    'offline.updateLater',
+  ];
+  check(
+    '30. every string the bar draws is in both docs dictionaries',
+    barKeys.every((key) => Boolean(docsEn[key]) && Boolean(docsZh[key])),
+    barKeys.filter((key) => !docsEn[key] || !docsZh[key]).join(', ')
+  );
+
+  const swHeaders = (vercel.headers ?? []).find((entry) => entry.source === '/sw.js');
+  check(
+    '31. /sw.js is served no-cache',
+    Boolean(
+      swHeaders?.headers?.some((h) => h.key === 'Cache-Control' && h.value === 'no-cache')
+    ),
+    'A cached worker is a build nobody can replace.'
+  );
+  check(
+    '32. and with Service-Worker-Allowed',
+    Boolean(swHeaders?.headers?.some((h) => h.key === 'Service-Worker-Allowed')),
+    'The portal carries the same two.'
+  );
+
+  /* --- The portal side of the same change --------------------------------- */
+
+  const portalSw = read(join(MAIN, 'sw.js'));
+  check(
+    '33. the portal precaches connection-bar.js',
+    portalSw.includes("'/assets/js/connection-bar.js'"),
+    'offline.js imports it on every page, so missing it turns the bar off.'
+  );
+});
+
+define('install', 'Part 4: the worker installed, then the network pulled out', async () => {
+  if (!existsSync(join(DIST, 'sw.js'))) {
+    skip('the built worker', 'run `node scripts/build.js` from docs-site/ first');
+    return;
+  }
+
+  // **This is the only section in either suite that runs a service worker.**
+  // Everything else about part 4 reads source or `dist/`, and a worker is a
+  // thing that installs: a fetch handler that throws makes every page on the
+  // origin fail for anybody who already has it, and no amount of reading the
+  // file finds that. 127.0.0.1 is a secure context, so registration works here
+  // exactly as it does on the deployment.
+  const server = serve();
+  const base = await listen(server);
+  console.log(`      serving the built site at ${base}`);
+
+  const browser = await chromium.launch();
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+
+  try {
+    await page.goto(`${base}/`, { waitUntil: 'networkidle' });
+
+    /* --- It installs at all ---------------------------------------------- */
+
+    const activated = await page.evaluate(async () => {
+      const registration = await navigator.serviceWorker.ready;
+      return Boolean(registration.active);
+    });
+    check(
+      '34. the worker registers and reaches active',
+      activated,
+      'A worker that throws on install never gets here.'
+    );
+
+    check(
+      '35. and it is controlling nothing yet, because it did not claim',
+      (await page.evaluate(() => navigator.serviceWorker.controller === null)) === true,
+      'No clients.claim in activate, so the first load stays uncontrolled, per section 14.'
+    );
+
+    // The precache runs inside install, so by `ready` it has finished or failed.
+    const shellEntries = await page.evaluate(async () => {
+      const names = await caches.keys();
+      const shell = names.find((name) => name.includes('-shell-'));
+      if (!shell) return null;
+      const cache = await caches.open(shell);
+      return (await cache.keys()).map((request) => new URL(request.url).pathname);
+    });
+
+    check(
+      '36. the shell cache exists and the precache filled it',
+      Array.isArray(shellEntries) && shellEntries.length >= 50,
+      `stored ${shellEntries?.length ?? 0} entries`
+    );
+
+    check(
+      '37. every page in the built tree is in it',
+      Array.isArray(shellEntries) &&
+        ['/', '/bot', '/bot/commands', '/portal/applying', '/translations'].every((path) =>
+          shellEntries.includes(path)
+        ),
+      'A precache entry that 404s is dropped one at a time, so a gap here is real.'
+    );
+
+    check(
+      '38. the shell itself is in it, which is what an uncached address falls back to',
+      Array.isArray(shellEntries) && shellEntries.includes('/shell.html')
+    );
+
+    /* --- A second load, now controlled ----------------------------------- */
+
+    await page.reload({ waitUntil: 'networkidle' });
+    check(
+      '39. the second load is controlled by the worker',
+      (await page.evaluate(() => navigator.serviceWorker.controller !== null)) === true,
+      'Which is the ordinary case for a returning reader.'
+    );
+
+    /* --- The tier message, and the cache it names ------------------------ */
+
+    // The stand in server answers /api/nav as a stranger, so the shell posts
+    // `public`. What is being checked is that the message arrives and the
+    // worker acts on it, not which tier it was.
+    const tierCache = await page.evaluate(async () => {
+      const names = await caches.keys();
+      return names.find((name) => name.includes('-gated-')) ?? null;
+    });
+    check(
+      '40. the shell told the worker which tier it is caching for',
+      tierCache === 'careers-gftv-docs-gated-public',
+      `found ${tierCache ?? 'no gated cache'}`
+    );
+
+    // The clearing is the whole safety argument, so it is exercised rather than
+    // read: pretend to be a reader at a higher tier, then post `public` again
+    // the way a sign out would, and watch the first cache go.
+    const cleared = await page.evaluate(async () => {
+      const worker = navigator.serviceWorker.controller;
+      const settle = () => new Promise((done) => setTimeout(done, 250));
+
+      worker.postMessage({ type: 'tier', tier: 'admin' });
+      await settle();
+      const afterAdmin = await caches.keys();
+
+      worker.postMessage({ type: 'signed-out' });
+      await settle();
+      const afterSignOut = await caches.keys();
+
+      return {
+        admin: afterAdmin.filter((name) => name.includes('-gated-')),
+        signedOut: afterSignOut.filter((name) => name.includes('-gated-')),
+      };
+    });
+
+    // **The new tier's cache is not created here, and that is the right
+    // behaviour.** `rememberTier` deletes what does not match and nothing else;
+    // the cache for the tier now in force is opened lazily by the first API
+    // answer that needs storing. So what a tier change guarantees is that the
+    // previous reader's cache is *gone*, which is the half the decision rests
+    // on. This check expected the new one to exist and was wrong about the
+    // code, which is the sort of thing only running it finds.
+    check(
+      '41. a change of tier drops the cache the previous tier filled',
+      !cleared.admin.includes('careers-gftv-docs-gated-public'),
+      `left ${cleared.admin.join(', ') || 'none'}`
+    );
+
+    check(
+      '42. and signing out drops every gated cache there is',
+      cleared.signedOut.length === 0,
+      `left ${cleared.signedOut.join(', ') || 'none'}`
+    );
+
+    /* --- The network, pulled out ----------------------------------------- */
+
+    await context.setOffline(true);
+
+    const precached = await page.goto(`${base}/bot/commands`, { waitUntil: 'domcontentloaded' });
+    check(
+      '43. a precached page still answers with the network gone',
+      precached !== null && precached.status() === 200,
+      `status ${precached?.status() ?? 'no response'}`
+    );
+
+    check(
+      '44. and it is the page, not the shell with an empty article',
+      (await page.locator('#docsArticle h1').first().textContent())?.includes('Command reference') ===
+        true,
+      'The built file carries its own article, so offline it is whole.'
+    );
+
+    check(
+      '45. its stylesheet came out of the cache too',
+      (await page.evaluate(() => getComputedStyle(document.body).backgroundColor)) !==
+        'rgba(0, 0, 0, 0)',
+      'An unstyled page offline would mean the assets were never precached.'
+    );
+
+    const uncached = await page.goto(`${base}/staff/admin/nothing-here`, {
+      waitUntil: 'domcontentloaded',
+    });
+    check(
+      '46. an address that was never cached falls back to the shell',
+      uncached !== null && uncached.status() === 200,
+      'Not the browser error page: 16e says a reader must not be able to tell.'
+    );
+
+    check(
+      '47. and the shell it falls back to is the real one',
+      (await page.locator('.docs-header').count()) === 1,
+      'Chrome, sidebar and search, with the article empty.'
+    );
+
+    /* --- And back --------------------------------------------------------- */
+
+    await context.setOffline(false);
+    const back = await page.goto(`${base}/`, { waitUntil: 'networkidle' });
+    check(
+      '48. and the site is itself again once the network returns',
+      back !== null && back.status() === 200 && (await page.locator('#docsArticle').count()) === 1
+    );
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
 /* -------------------------------------------------------------------------
  * Run
  * ---------------------------------------------------------------------- */
