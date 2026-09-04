@@ -197,6 +197,30 @@ export const ASSET_TYPES = Object.freeze({
 const DATA_EXTENSIONS = ['.json'];
 
 /**
+ * The front matter key a page names its data file with, and the rules on it.
+ *
+ * **The file travels inside the page's own answer.** Phase 14 part 7 is the
+ * page the paragraph above was written for, and this is the other half of that
+ * decision: the content route reads the named file and sends it as a field
+ * beside the markdown, so it goes through the session check the page went
+ * through and has no address of its own to share, bookmark or script against.
+ *
+ * Three rules, each refusing at load time rather than at the request that would
+ * have failed:
+ *
+ * - **A bare file name**, resolved against the directory the page sits in. A
+ *   path would be a way to read a file from another section, which is the tier
+ *   boundary crossed by a string in front matter.
+ * - **`.json` only**, which is what `DATA_EXTENSIONS` above already says has no
+ *   address. Naming a `.png` here would ask this route to send an image as a
+ *   field of a JSON body.
+ * - **The gated tree only.** A public page is a static file on the CDN and its
+ *   data would have to be one too, which is a second public surface: exactly
+ *   what putting the file behind the gate was for.
+ */
+const DATA_KEY = 'data';
+
+/**
  * The address a page's bare image file names resolve against.
  *
  * A query parameter, because that is how the content route is addressed: part 5
@@ -289,6 +313,33 @@ function readTree(root, directory, pipeline, prefix, problems) {
 
     const order = Number.parseInt(data.order ?? '', 10);
 
+    const named = (data[DATA_KEY] ?? '').trim();
+    let dataFile = null;
+
+    if (named !== '') {
+      const extension = named.slice(named.lastIndexOf('.')).toLowerCase();
+      const beside = join(root, directory, relativePath, '..', named);
+
+      if (pipeline !== 'gated') {
+        problems.push(
+          `${where}: ${DATA_KEY} is only for the gated tree. ` +
+            `A public page is a file on the CDN and so is anything beside it.`
+        );
+      } else if (named.includes('/') || named.includes('\\') || named.startsWith('.')) {
+        problems.push(
+          `${where}: ${DATA_KEY} is "${named}". It is a bare file name beside the page, and never a path.`
+        );
+      } else if (!DATA_EXTENSIONS.includes(extension)) {
+        problems.push(
+          `${where}: ${DATA_KEY} is "${named}". Data files are one of: ${DATA_EXTENSIONS.join(', ')}.`
+        );
+      } else if (!existsSync(beside)) {
+        problems.push(`${where}: ${DATA_KEY} names "${named}", and there is no such file beside the page.`);
+      } else {
+        dataFile = beside;
+      }
+    }
+
     pages.push({
       path,
       title,
@@ -301,6 +352,10 @@ function readTree(root, directory, pipeline, prefix, problems) {
       // Never sent anywhere. It is how the content route reads a page without
       // ever building a filesystem path out of something a caller sent.
       file: join(root, directory, relativePath),
+      // Null for every page but the one that names a data file. Same rule as
+      // `file`: the path was built at load time from the tree, never from a
+      // request.
+      dataFile,
     });
   }
 
@@ -572,6 +627,10 @@ export function readablePage(path, readerAccess) {
   return {
     page: publicShape(page),
     file: page.file,
+    // The data file this page carries, or null. It goes out inside the page's
+    // own answer, which is what keeps it behind the same check the page is
+    // behind and gives it no address of its own.
+    dataFile: page.dataFile ?? null,
     // Only a gated page has one. A public page's images are in public/ and are
     // written as absolute paths, per 16g, so a bare file name on one has no
     // directory to be in and the build refuses it.

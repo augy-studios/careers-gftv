@@ -77,9 +77,9 @@ tokens, and no real applicant data.
 ## The test scripts in the developer guide
 
 The developer guide hands a reader the scripts in [`tests/`](../tests/) directly,
-instead of telling them to go and find the repository. **The pages that do it
-are phase 14's and are not written yet.** What is here now is the one piece that
-does not depend on how the site is built:
+instead of telling them to go and find the repository. **The page that does it
+is `api/_content/developer/the-test-scripts.md`**, as of phase 14 part 7. The
+generator behind it does not depend on how the site is built:
 
 [`scripts/embed-tests.mjs`](scripts/embed-tests.mjs) reads every `tests/*.mjs`,
 takes each one's description and usage lines from the comment it already starts
@@ -102,21 +102,27 @@ reader is most likely to undo by accident. The developer guide is admin only, so
 file goes through the gate with the page that reads it; anything in the static
 root is world readable no matter what the interface does. It is committed rather
 than generated at deploy time so that a change to a test script shows up as a
-reviewable diff. The pipeline that serves it is part 5 and the page that reads
-it is phase 14's, so the file itself is written when there is something to read
-it:
+reviewable diff. Regenerate it whenever a script in `tests/` moves:
 
 ```sh
 node docs-site/scripts/embed-tests.mjs --out docs-site/api/_content/developer/test-scripts.json
 node docs-site/scripts/embed-tests.mjs --check docs-site/api/_content/developer/test-scripts.json
 ```
 
-**The download should have no address of its own.** The content travels inside
-the page and the download link is a `blob:` URL built in that tab: unique to the
-tab, dead when the tab closes, and no path anybody can share that serves a
-script directly. A raw path would be a second public surface for a file whose
-only supported entry point is the page explaining what it writes to the live
+**The download has no address of its own.** The content travels inside the page
+and the download link is a `blob:` URL built in that tab: unique to the tab,
+dead when the tab closes, and no path anybody can share that serves a script
+directly. A raw path would be a second public surface for a file whose only
+supported entry point is the page explaining what it writes to the live
 database.
+
+**How it travels is one front matter key.** A gated page names a data file
+beside it with `data: test-scripts.json`, the content route reads that file and
+sends it as a field of the page's own answer, and
+[`assets/js/test-scripts.js`](assets/js/test-scripts.js) draws the table after
+the heading it names. The loader refuses a path, a file that is not `.json`, a
+missing file, and the key on a public page, each at load time and not at the
+request that would have failed.
 
 **Be clear about what that is not.** A blob hides where the file came from, not
 what is in it: the text is in the page and the network tab has it. That is fine
@@ -258,6 +264,11 @@ file a page embeds, such as the developer guide's `test-scripts.json`. It is
 known to the loader so that committing one does not stop the site, and it is
 given no address, because the only supported way to that content is the page
 explaining what it does.
+
+**The page names it with the `data` key**, and the loader refuses four things
+there: a path in place of a bare file name, a file that is not `.json`, a name
+with no file behind it, and the key on a public page. All four fail the build
+and not the request.
 
 ## The shell
 
@@ -691,8 +702,14 @@ title: Applying to a role          required. The sidebar entry and the tab.
 access: public                     required. public, poster, admin, developer.
 order: 3                           optional. See below.
 summary: What happens when you     optional. One line, for listings and search.
+data: test-scripts.json            optional, gated pages only. See below.
 ---
 ```
+
+`data` names a JSON file sitting beside the page, which the content route sends
+inside that page's own answer and never at an address of its own. One page uses
+it, and [the section above](#the-test-scripts-in-the-developer-guide) is the
+whole of why.
 
 `order` means two things at two levels, which are the same question asked twice:
 on a section's `index.md` it orders the sections, and on any other page it orders
@@ -833,11 +850,10 @@ node tests/phase14-test.mjs        # the header's two controls, on both sites
 ```
 
 **And `node docs-site/scripts/embed-tests.mjs --check
-api/_content/developer/test-scripts.json` once that file exists**, which is
-phase 14's: the pipeline that serves it is here and the page that reads it is
-not, and a committed data file nothing reads for a phase is a diff nobody can
-review. [The section above](#the-test-scripts-in-the-developer-guide) has the
-whole of it.
+docs-site/api/_content/developer/test-scripts.json` from the repository root**,
+which fails when a script in `tests/` has moved and the committed copy has not.
+[The section above](#the-test-scripts-in-the-developer-guide) has the whole of
+it.
 
 `robots.txt`, `sitemap.xml`, and `llms.txt` are generated from the page list
 and cover public pages only. A gated page must never appear in any of the

@@ -1393,3 +1393,52 @@ section.card {
   padding: 0.25rem 0.625rem;
   font-size: 0.875rem;
 }
+
+/* -------------------------------------------------------------------------
+ * The test script downloads, phase 14 part 7
+ *
+ * One table on one page of the developer guide, drawn by
+ * assets/js/test-scripts.js from the data file the content route sent inside
+ * the page. It reuses the article's own table styles, because it is a table in
+ * an article and looking like one is the whole intent: 16d keeps this site to
+ * hairlines and whitespace, and a panel with its own frame would read as the
+ * dashboard arriving on the documentation.
+ * ---------------------------------------------------------------------- */
+
+.docs-scripts {
+  margin: 0 0 1.5rem;
+}
+
+.docs-scripts td {
+  vertical-align: top;
+}
+
+.docs-scripts-description {
+  margin: 0.25rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.docs-scripts-usage {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+}
+
+/* The two narrow columns, which hold a measurement and a digest. Neither is
+   prose, so neither wraps mid value: the scroller around the table is what
+   gives way at a narrow width. */
+.docs-scripts-size,
+.docs-scripts-digest {
+  white-space: nowrap;
+}
+
+.docs-scripts-digest {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.docs-scripts-generated {
+  margin: 0.5rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}

@@ -21,4 +21,6 @@ poster guide has the widest staff audience of anything here.
 - **[The admin guide](/staff/admin)** is written and sits on top of it. Staff
   access, applicant accounts, the translations queue, the settings, and the
   maintenance switches.
-- **The developer documentation** is not written yet. It is phase 14's.
+- **[The developer documentation](/staff/developer)** is written and is for
+  whoever works on the code. The specification, the database, authentication,
+  Vercel, the service worker, and the conventions worth not relearning.

@@ -879,6 +879,13 @@ const OWN = [
   // this one by scripts/build.js, which is the other reason it could not be a
   // copy: the portal has no build step to write anything.
   'sw.js',
+  // The developer guide's download table, phase 14 part 7. The portal has no
+  // equivalent and could not: what it draws is a data file the content route
+  // sent inside a gated page, and the portal has no gate, no tiers and no
+  // content route. It is the one module on either site that handles a string it
+  // did not render through markdown.js, which is why it builds every node
+  // itself and assigns no markup anywhere.
+  'assets/js/test-scripts.js',
 ];
 
 /* -------------------------------------------------------------------------

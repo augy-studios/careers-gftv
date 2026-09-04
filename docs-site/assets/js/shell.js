@@ -34,6 +34,7 @@ import {
 } from './chrome-modals.js';
 import { render } from './markdown.js';
 import { initConnectionBar, tellWorker } from './connection-bar.js';
+import { mountScripts } from './test-scripts.js';
 
 const CHEVRON =
   '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" focusable="false">' +
@@ -659,6 +660,12 @@ async function drawPage(nav) {
   const { html, headings } = render(data.markdown, { assetBase: data.asset_base });
   article.innerHTML = html;
   translateDom(article);
+
+  // A page whose front matter names a data file gets it here, inside its own
+  // answer, and only a gated page can name one. `mountScripts` draws nothing at
+  // all when there is nothing to draw, so every other page reaches this line and
+  // passes through it.
+  mountScripts(article, data.data);
 
   document.title = tabTitle(data.page.title);
   drawBreadcrumbs(data.page, nav);

@@ -27,6 +27,7 @@
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { join, extname, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -1890,6 +1891,326 @@ define('admin-guide', 'Part 6: the admin guide, and the access rule it states', 
       /\/staff\/admin/.test(read(join(DOCS, 'api/_content/index.md'))),
     'the index is what a reader lands on, and it outranks the guide it describes'
   );
+});
+
+define('developer-guide', 'Part 7: the developer guide, and the scripts it hands over', async () => {
+  const dir = join(DOCS, 'api/_content/developer');
+  const files = readdirSync(dir).filter((name) => name.endsWith('.md'));
+
+  check('72. the guide is seventeen pages', files.length === 17, `${files.length} files in ${dir}`);
+
+  /* --- Front matter ----------------------------------------------------- */
+
+  const pages = files.map((name) => {
+    const source = read(join(dir, name));
+    const block = source.startsWith('---\n') ? source.slice(4, source.indexOf('\n---', 3)) : '';
+    const value = (key) => new RegExp(`^${key}:\\s*(.+)$`, 'm').exec(block)?.[1]?.trim() ?? null;
+    return {
+      name,
+      source,
+      block,
+      title: value('title'),
+      access: value('access'),
+      order: value('order'),
+      data: value('data'),
+    };
+  });
+
+  check(
+    '73. every page is gated at the developer tier',
+    pages.every((page) => page.access === 'developer'),
+    pages.filter((page) => page.access !== 'developer').map((page) => page.name).join(', ')
+  );
+
+  const index = pages.find((page) => page.name === 'index.md');
+  check('74. the index carries order 3, which is what orders the sections', index?.order === '3');
+
+  const orders = pages
+    .filter((page) => page.name !== 'index.md')
+    .map((page) => Number(page.order))
+    .sort((a, b) => a - b);
+  check(
+    '74. and the sixteen pages under it are 1 to 16 with none repeated',
+    orders.length === 16 && orders.every((value, at) => value === at + 1),
+    orders.join(', ')
+  );
+
+  check(
+    '75. every page has a title and a summary',
+    pages.every((page) => page.title && /^summary:\s*\S/m.test(page.source)),
+    'the title is the sidebar entry and the summary is the search result'
+  );
+
+  // **No screenshot slots here, and that is not an omission.** 16h asks for
+  // captures of the dashboard, which is what the poster and admin guides
+  // describe. This guide describes files, and a photograph of a file is a worse
+  // way to read it than the file.
+  //
+  // Fenced blocks come out first: the Playwright page shows what a slot looks
+  // like, inside a code fence, and an example of a marker is not a marker.
+  const slots = pages.flatMap((page) => [
+    ...page.source.replace(/```[\s\S]*?```/g, '').matchAll(/!\[[^\]]*\]\(pending:/g),
+  ]);
+  check('76. no page here claims a screenshot', slots.length === 0, `${slots.length} slots`);
+
+  /* --- The data file, and the page that is its only entry point --------- */
+
+  const carriers = pages.filter((page) => page.data !== null);
+  check(
+    '77. one page names a data file, and it is the test scripts page',
+    carriers.length === 1 && carriers[0].name === 'the-test-scripts.md',
+    carriers.map((page) => `${page.name} -> ${page.data}`).join(', ')
+  );
+  check(
+    '77. and it names it as a bare file name beside the page',
+    carriers[0]?.data === 'test-scripts.json',
+    String(carriers[0]?.data)
+  );
+
+  // **The file is current, measured against tests/ and not against the
+  // generator.** `embed-tests.mjs --check` compares its own output; this
+  // compares what it wrote against what is on disk, so a generator that started
+  // reading the wrong directory fails here as well.
+  const payload = JSON.parse(read(join(dir, 'test-scripts.json')));
+  const scripts = readdirSync(join(REPO, 'tests'))
+    .filter((name) => name.endsWith('.mjs'))
+    .sort();
+
+  check(
+    '78. it carries every script in tests/ and nothing else',
+    payload.scripts.map((entry) => entry.name).join() === scripts.join(),
+    `${payload.scripts.length} embedded, ${scripts.length} on disk`
+  );
+  check(
+    '78. and its count field agrees with its own list',
+    payload.count === payload.scripts.length,
+    `${payload.count} claimed, ${payload.scripts.length} present`
+  );
+
+  // **Raw, and not through `read`.** That helper normalises line endings so a
+  // Windows checkout reads like a Unix one, and a hash is of the bytes.
+  const raw = (path) => readFileSync(path, 'utf8');
+
+  const stale = payload.scripts.filter((entry) => {
+    const source = raw(join(REPO, 'tests', entry.name));
+    return (
+      entry.sha256 !== createHash('sha256').update(source).digest('hex') ||
+      entry.lines !== source.split('\n').length
+    );
+  });
+  check(
+    '79. every embedded script matches the file it came from',
+    stale.length === 0,
+    `${stale.map((entry) => entry.name).join(', ')} — run docs-site/scripts/embed-tests.mjs`
+  );
+
+  const decoded = payload.scripts.map((entry) => Buffer.from(entry.content, 'base64').toString('utf8'));
+  check(
+    '79. and the base64 decodes back to the script itself',
+    decoded.every((source, at) => source === raw(join(REPO, 'tests', payload.scripts[at].name))),
+    'the download would hand somebody a file that is not what it claims to be'
+  );
+
+  // **A credential in tests/ would be published by this page.** Nothing there
+  // holds one today, and every script takes what it needs from the environment.
+  // This is the check that keeps that true after somebody pastes a key into a
+  // script to debug something and forgets.
+  //
+  // A placeholder is not a credential: every script in that directory shows
+  // `STAFF_PASS='...'` in its usage lines, and a rule that flagged those would
+  // be switched off within a week. So a value is only interesting when it is
+  // long and is not dots.
+  const SECRETISH = [
+    /eyJhbGciOi[A-Za-z0-9_-]{10,}/, // a JWT, which is the shape of a Supabase key
+    /-----BEGIN [A-Z ]*PRIVATE KEY-----/,
+    /\b(?:PASS|PASSWORD|SECRET|TOKEN|APIKEY|API_KEY)\s*[:=]\s*['"][^'"\s.$]{12,}['"]/i,
+  ];
+  const secrets = payload.scripts.filter((entry, at) =>
+    SECRETISH.some((pattern) => pattern.test(decoded[at]))
+  );
+  check(
+    '80. no embedded script carries something that looks like a credential',
+    secrets.length === 0,
+    secrets.map((entry) => entry.name).join(', ')
+  );
+
+  /* --- The wiring that carries it, which has no second address ---------- */
+
+  // The three files that make this work, checked as one rule: the data travels
+  // inside the page's own answer. A raw path would be a second public surface
+  // for a file whose only supported entry point is the page explaining it.
+  const { readableAsset } = await import(
+    new URL('../docs-site/api/_lib/pages.js', import.meta.url).href
+  );
+  check(
+    '81. the data file has no address of its own, even for an admin',
+    readableAsset('/staff/developer/test-scripts.json', 'developer') === null,
+    'a raw path would be a second entry point to it'
+  );
+
+  check(
+    '81. the content route sends it inside the page',
+    /found\.dataFile/.test(read(join(DOCS, 'api/content.js'))),
+    'api/content.js reads the named file behind the same check the page passed'
+  );
+  check(
+    '81. and the shell hands it to the module that draws it',
+    /mountScripts\(article, data\.data\)/.test(read(join(DOCS, 'assets/js/shell.js'))),
+    'assets/js/shell.js'
+  );
+
+  // **The anchor is a checked copy.** The module inserts the table after a
+  // heading whose id it names, and the page writes that heading as prose. A
+  // renamed heading is a table that silently moves to the foot of the page.
+  const module = read(join(DOCS, 'assets/js/test-scripts.js'));
+  const anchor = /ANCHOR_ID = '([a-z0-9-]+)'/.exec(module)?.[1] ?? null;
+  const headings = [...carriers[0].source.matchAll(/^##\s+(.+)$/gm)].map((match) =>
+    match[1].toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+  );
+  check(
+    '82. the page carries the heading the module inserts after',
+    anchor !== null && headings.includes(anchor),
+    `module wants #${anchor}, page has ${headings.join(', ')}`
+  );
+
+  // Source code is never assigned as markup. This module is the one place on
+  // this site that handles a string markdown.js did not render.
+  check(
+    '82. and the module never assigns markup',
+    !/innerHTML|insertAdjacentHTML|outerHTML/.test(module),
+    'every node is built with createElement and filled with textContent'
+  );
+
+  /* --- The links, and the two files this guide points at ---------------- */
+
+  const here = new Set(files.map((name) => name.replace(/\.md$/, '')));
+  const dead = pages.flatMap((page) =>
+    [...page.source.matchAll(/\]\(\/staff\/developer\/([a-z0-9-]+)\)/g)]
+      .map((match) => match[1])
+      .filter((slug) => !here.has(slug))
+      .map((slug) => `${page.name} -> /staff/developer/${slug}`)
+  );
+  check('83. every link inside this guide points at a page that exists', dead.length === 0, dead.join(', '));
+
+  // **The two portable files are pointed at and never reproduced**, because
+  // this repository's copy of each is already a copy. A page that started
+  // quoting either would be the third link in that chain.
+  const theme = read(join(dir, 'the-theme.md'));
+  const banner = read(join(dir, 'the-official-banner.md'));
+  check(
+    '84. the theme page names its source and says this copy is already a copy',
+    /gftv-theme\.md/.test(theme) && /canonical source is GFTV PolicySpot/i.test(theme),
+    'the source is PolicySpot, and this repository holds a copy of it'
+  );
+  check(
+    '84. the banner page is the pointer and not the text',
+    /gftv-official\.md/.test(banner) && /pointer/.test(banner) && !/```html/.test(banner),
+    'reproducing the markup here would make this the furthest copy from the source'
+  );
+
+  check(
+    '85. no page here is left saying it is unwritten',
+    !pages.some((page) => /Not written yet/i.test(page.source)),
+    pages.filter((page) => /Not written yet/i.test(page.source)).map((page) => page.name).join(', ')
+  );
+
+  /* --- What the build did with it --------------------------------------- */
+
+  if (!existsSync(join(DIST, 'sw.js'))) {
+    skip('86. the module is precached', 'run docs-site/scripts/build.js first');
+  } else {
+    check(
+      '86. the module the page needs is in the generated precache list',
+      read(join(DIST, 'sw.js')).includes("'/assets/js/test-scripts.js'"),
+      'a module missing from the list is a table that does not draw offline'
+    );
+  }
+
+  /* --- And it runs, which is the half reading cannot tell you ----------- */
+
+  if (!existsSync(join(DIST, 'shell.html'))) {
+    skip('87. the table draws in a browser', 'run `node scripts/build.js` from docs-site/ first');
+    return;
+  }
+
+  const server = serve();
+  const base = await listen(server);
+  const browser = await chromium.launch();
+  const page = await browser.newContext().then((context) => context.newPage());
+
+  try {
+    await page.goto(`${base}/`, { waitUntil: 'networkidle' });
+
+    // Two invented scripts, one of them carrying a tag and a backtick, which is
+    // what a real one full of template strings looks like on the way through.
+    const result = await page.evaluate(async () => {
+      const { mountScripts } = await import('/assets/js/test-scripts.js');
+      const source = "// <script>alert(1)</script> and a `template` line\n";
+      const encode = (text) => btoa(String.fromCharCode(...new TextEncoder().encode(text)));
+
+      const article = document.createElement('div');
+      const heading = document.createElement('h2');
+      heading.id = 'the-scripts';
+      article.append(heading);
+      document.body.append(article);
+
+      mountScripts(article, {
+        generated: '2026-09-04',
+        count: 2,
+        scripts: [
+          { name: 'one.mjs', description: 'The first. <script>alert(1)</script>', usage: ['node tests/one.mjs'], bytes: 40, lines: 1, sha256: 'a'.repeat(64), content: encode(source) },
+          { name: 'two.mjs', description: 'The second.', usage: [], bytes: 12, lines: 3, sha256: 'b'.repeat(64), content: encode('two\n') },
+        ],
+      });
+
+      // The block goes after the heading it names, and never at the foot.
+      const block = heading.nextElementSibling;
+
+      // Hold the object URL open for long enough to read it back. The module
+      // revokes on the next tick, which is right for a browser and useless for
+      // a check.
+      const urls = [];
+      const revoke = URL.revokeObjectURL;
+      URL.revokeObjectURL = () => {};
+      const create = URL.createObjectURL;
+      URL.createObjectURL = (blob) => {
+        const url = create(blob);
+        urls.push(url);
+        return url;
+      };
+
+      article.querySelector('tbody tr button').click();
+      const saved = urls.length === 1 ? await (await fetch(urls[0])).text() : null;
+
+      URL.revokeObjectURL = revoke;
+      URL.createObjectURL = create;
+
+      return {
+        placed: block?.classList.contains('docs-scripts') ?? false,
+        rows: article.querySelectorAll('tbody tr').length,
+        scripts: article.querySelectorAll('script').length,
+        escaped: article.textContent.includes('<script>alert(1)</script>'),
+        saved,
+        source,
+      };
+    });
+
+    check('87. the table draws after the heading the module names', result.placed);
+    check('87. and one row per script', result.rows === 2, `${result.rows} rows`);
+    check(
+      '88. a description carrying a tag renders as text and not as markup',
+      result.scripts === 0 && result.escaped,
+      'these strings are source code, and source code assigned as markup is source code that runs'
+    );
+    check(
+      '89. the download hands back the file the page was given',
+      result.saved === result.source,
+      'the blob is built in the tab and there is no address behind it'
+    );
+  } finally {
+    await browser.close();
+    server.close();
+  }
 });
 
 /* -------------------------------------------------------------------------

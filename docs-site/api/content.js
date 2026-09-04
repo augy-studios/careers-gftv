@@ -133,12 +133,31 @@ export default async function handler(req, res) {
     const source = await readFile(found.file, 'utf8');
     const markdown = frontMatter(source)?.body ?? source;
 
+    // **A data file travels inside the page and has no address of its own.**
+    // Phase 13's decision 6, and `api/_lib/pages.js` carries the whole of the
+    // reasoning: the only supported entry point to `test-scripts.json` is the
+    // page that explains what those scripts write to a live database, so it is
+    // read here, behind the check this page just passed, and never served.
+    //
+    // A file that has stopped being readable or has stopped being JSON sends
+    // `null` and not a 500. The page is a guide with a table of downloads at the
+    // foot of it, and the guide is still worth reading without them.
+    let data = null;
+    if (found.dataFile) {
+      try {
+        data = JSON.parse(await readFile(found.dataFile, 'utf8'));
+      } catch {
+        data = null;
+      }
+    }
+
     return ok(
       res,
       {
         page: found.page,
         prev: found.prev,
         next: found.next,
+        data,
         // Where a bare image file name on this page points, which is this
         // route's own address for the directory the page was read from. The
         // browser is told it instead of working it out, so the one place that
