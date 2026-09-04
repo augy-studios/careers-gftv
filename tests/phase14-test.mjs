@@ -2213,6 +2213,455 @@ define('developer-guide', 'Part 7: the developer guide, and the scripts it hands
   }
 });
 
+define('captures', "Part 8: 16g's manifest, and what it may photograph", async () => {
+  const manifest = await import(`file://${join(DOCS, 'scripts/screenshots.manifest.js')}`);
+  const { SHOTS, SHOTS_BY_NAME, ALWAYS_MASKED, VIEWPORTS, filesFor, markdownSrc } = manifest;
+
+  const capture = read(join(DOCS, 'scripts/capture.mjs'));
+  const config = read(join(DOCS, 'scripts/playwright.config.js'));
+  const scriptsPackage = JSON.parse(read(join(DOCS, 'scripts/package.json')));
+  const sitePackage = JSON.parse(read(join(DOCS, 'package.json')));
+  const build = read(join(DOCS, 'scripts/build.js'));
+
+  /* --- The scoping, which is the whole of 16g's first bullet -------------- */
+
+  // **The one that would break a deployment rather than a picture.** Node reads
+  // a module's type from the nearest package.json, so the file that scopes
+  // Playwright away from the build also decides whether scripts/build.js parses
+  // as ESM. Without this key the Vercel build fails on its first import.
+  check(
+    '1. scripts/package.json is a module, so build.js still parses as one',
+    scriptsPackage.type === 'module',
+    'the nearest package.json decides, and build.js is a .js file in this directory'
+  );
+
+  for (const dependency of ['playwright', 'sharp']) {
+    check(
+      `2. ${dependency} is scoped to scripts/`,
+      Object.hasOwn(scriptsPackage.devDependencies ?? {}, dependency),
+      '16g: it never becomes a dependency of the portal build'
+    );
+    check(
+      `3. ${dependency} is not a dependency of the deployed docs project`,
+      !Object.hasOwn(sitePackage.dependencies ?? {}, dependency) &&
+        !Object.hasOwn(sitePackage.devDependencies ?? {}, dependency),
+      'Vercel installs docs-site/package.json, and a browser is not something it should fetch'
+    );
+  }
+
+  check(
+    '4. the portal has no capture dependency either',
+    !read(join(MAIN, 'package.json')).includes('playwright'),
+    'the shots are of main-site and the script is not'
+  );
+
+  /* --- The names, and what each one commits to --------------------------- */
+
+  check('5. the manifest holds 25 shots', SHOTS.length === 25, `it holds ${SHOTS.length}`);
+
+  const NAME = /^(portal|poster|admin)-[a-z0-9-]+-(desktop|phone)-(light|dark)$/;
+  const TIER_OF_PREFIX = { portal: 'public', poster: 'poster', admin: 'admin' };
+
+  for (const shot of SHOTS) {
+    check(
+      `6. ${shot.name} is named the way 16g asks`,
+      NAME.test(shot.name),
+      'subject, then viewport, then mode, so a name says what the file is'
+    );
+
+    const prefix = shot.name.split('-')[0];
+    check(
+      `7. ${shot.name} carries the tier its prefix claims`,
+      TIER_OF_PREFIX[prefix] === shot.tier,
+      `the prefix says ${TIER_OF_PREFIX[prefix]} and the entry says ${shot.tier}`
+    );
+
+    check(
+      `8. ${shot.name} names a viewport that exists`,
+      Object.hasOwn(VIEWPORTS, shot.viewport),
+      `it names "${shot.viewport}"`
+    );
+
+    // The name ends in the mode, and the entry carries it separately. Two
+    // copies of one fact, so they are compared rather than trusted.
+    check(
+      `9. ${shot.name} agrees with itself about the mode`,
+      shot.name.endsWith(`-${shot.theme}`),
+      `the entry says ${shot.theme}`
+    );
+  }
+
+  /* --- Where a file is allowed to land ----------------------------------- */
+
+  for (const shot of SHOTS) {
+    const files = filesFor(shot);
+
+    if (shot.tier === 'public') {
+      check(
+        `10. ${shot.name} lands in public/screenshots only`,
+        files.length === 1 && files[0] === `public/screenshots/${shot.name}.webp`,
+        files.join(', ')
+      );
+      check(
+        `11. ${shot.name} is written into a page as an absolute path`,
+        markdownSrc(shot).startsWith('/screenshots/'),
+        "a public page's images live in public/, per 16g"
+      );
+      continue;
+    }
+
+    check(
+      `10. ${shot.name} lands beside the pages that use it`,
+      files.length > 0 && files.every((file) => file.startsWith('api/_content/')),
+      files.join(', ') || 'nowhere'
+    );
+    check(
+      `11. ${shot.name} is written into a page as a bare file name`,
+      !markdownSrc(shot).includes('/'),
+      'so it goes through the same session check the page did'
+    );
+    check(
+      `12. ${shot.name} names the sections it is written into`,
+      Array.isArray(shot.sections) && shot.sections.length > 0,
+      'an asset is gated at its section\'s own level, so the section is the tier'
+    );
+  }
+
+  // 16g's own build failure, checked as a rule and not as a state: the string
+  // that produces a public path must be reachable for public shots alone.
+  check(
+    '13. no gated shot can produce a public path',
+    SHOTS.filter((shot) => shot.tier !== 'public').every((shot) =>
+      filesFor(shot).every((file) => !file.startsWith('public/'))
+    ),
+    '"a shot for a gated page that lands in the public directory is a build failure"'
+  );
+
+  /* --- The manifest against the pages, read here rather than trusted ----- */
+
+  const trees = [join(DOCS, 'content'), join(DOCS, 'api/_content')];
+  const markdown = [];
+  const walk = (directory) => {
+    if (!existsSync(directory)) return;
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const here = join(directory, entry.name);
+      if (entry.isDirectory()) walk(here);
+      else if (entry.name.toLowerCase().endsWith('.md')) markdown.push(here);
+    }
+  };
+  for (const tree of trees) walk(tree);
+
+  // **Scoped to `.webp` and the markers, the way the build is.** That extension
+  // is the only thing the capture script writes, so "every screenshot is in the
+  // manifest" stays checkable without also meaning "this site may only ever
+  // carry screenshots" — and `tests/phase13-test.mjs` writes a `.png` fixture
+  // into the gated tree for the length of its own run.
+  const slots = new Set();
+  for (const file of markdown) {
+    for (const match of read(file).matchAll(/!\[[^\]]*\]\(([^)\s]+)/g)) {
+      const src = match[1];
+      if (src.startsWith('pending:')) {
+        slots.add(src.slice('pending:'.length));
+        continue;
+      }
+      if (!src.toLowerCase().endsWith('.webp')) continue;
+      slots.add(src.slice(src.lastIndexOf('/') + 1).slice(0, -'.webp'.length));
+    }
+  }
+
+  check(
+    '14. every slot in the two trees is in the manifest',
+    [...slots].every((name) => SHOTS_BY_NAME.has(name)),
+    [...slots].filter((name) => !SHOTS_BY_NAME.has(name)).join(', ')
+  );
+  check(
+    '15. every manifest entry is pointed at by a page',
+    SHOTS.every((shot) => slots.has(shot.name)),
+    SHOTS.filter((shot) => !slots.has(shot.name)).map((shot) => shot.name).join(', ')
+  );
+  check(
+    '16. the build refuses both of those',
+    build.includes('names no shot in scripts/screenshots.manifest.js') &&
+      build.includes('is in the manifest and no page points'),
+    'a list somebody wrote needs the thing that compares it, or it drifts'
+  );
+
+  /* --- The routines, against the script and against the portal ----------- */
+
+  const acts = new Set(
+    [...capture.matchAll(/^\s{2}async (\w+)\(page\)/gm)].map((match) => match[1])
+  );
+  for (const shot of SHOTS.filter((entry) => entry.act)) {
+    check(
+      `17. ${shot.act} exists in capture.mjs`,
+      acts.has(shot.act),
+      `${shot.name} names it, and a manifest naming a routine that is not there ` +
+        'fails at the shot rather than at the start'
+    );
+  }
+
+  // **Every id the manifest waits on has to be an id the portal has.** This is
+  // the check that catches a rename over there before a capture run finds it at
+  // 2am with the seed already written.
+  const portalSource = ['assets/js', 'admin', 'account', 'login', 'register', 'search']
+    .flatMap((where) => {
+      const found = [];
+      const collect = (directory) => {
+        if (!existsSync(directory)) return;
+        for (const entry of readdirSync(directory, { withFileTypes: true })) {
+          const here = join(directory, entry.name);
+          if (entry.isDirectory()) collect(here);
+          else if (/\.(js|html)$/.test(entry.name)) found.push(read(here));
+        }
+      };
+      collect(join(MAIN, where));
+      return found;
+    })
+    .join('\n');
+
+  const ids = new Set();
+  for (const shot of SHOTS) {
+    for (const selector of [shot.waitFor, shot.gone, shot.clip, ...shot.mask]) {
+      if (!selector) continue;
+      for (const match of selector.matchAll(/#([a-zA-Z][\w-]*)/g)) ids.add(match[1]);
+    }
+  }
+
+  for (const id of [...ids].sort()) {
+    check(
+      `18. the portal still has #${id}`,
+      portalSource.includes(`id="${id}"`),
+      'a manifest waiting for an element that was renamed is a capture run that times out'
+    );
+  }
+
+  /* --- What may never be photographed ------------------------------------ */
+
+  // 16g: "Never capture a screen showing a live recovery code, backup code,
+  // login code, linking token, or Google Form URL." The recovery code shot is
+  // the one that would have, so the routine calls the module with invented
+  // values instead of registering an account and reading real ones.
+  check(
+    '19. the recovery code shot registers nothing',
+    !capture.includes('/api/auth/applicant/register') &&
+      capture.includes('showRecoveryCodes({ codes, set:'),
+    'the dialog is raised with invented codes, which is what the caption promises'
+  );
+  check(
+    '20. and the codes in it are literals in this repository',
+    /K7QM-2XPD-9RTA/.test(capture),
+    'a code in a picture that came from the database is a code that unlocks something'
+  );
+
+  check(
+    '21. whoever ran the capture is masked out of every staff shot',
+    ALWAYS_MASKED.includes('.admin-whoami-name'),
+    'a staff account is gftv.asia\'s and cannot be seeded, so the name is a real one'
+  );
+  check(
+    '22. the staff access list is masked as well',
+    SHOTS_BY_NAME.get('admin-staff-access-desktop-light').mask.some((selector) =>
+      selector.includes('admin-row-title')
+    ),
+    '5g means this table is the live list of people whatever the seed holds'
+  );
+
+  /* --- The run refuses rather than coping -------------------------------- */
+
+  check(
+    '23. the capture refuses to start without the seed',
+    capture.includes('SAMPLE POSTING') && capture.includes('this run was stopped'),
+    'an unseeded board photographs real applicants, which is 16g\'s one rule about this'
+  );
+  check(
+    '24. BASE has no default',
+    !/BASE\s*=\s*process\.env\.BASE\s*\?\?/.test(capture) && capture.includes("requireEnv(\n  'BASE'"),
+    'this script signs in and opens the dashboard, so where it points is a decision'
+  );
+  check(
+    '25. no credential has a default either',
+    !/STAFF_PASS['"]\s*\]?\s*\?\?/.test(capture) && !capture.includes("SEED_PASSWORD ??"),
+    'a password with a fallback in a committed file is a password in the repository'
+  );
+  check(
+    '26. a missed shot keeps its pending marker',
+    capture.includes('for (const shot of taken)'),
+    'a half finished run must not leave a page pointing at a file that is not there'
+  );
+
+  /* --- Determinism -------------------------------------------------------- */
+
+  check(
+    '27. the clock is frozen rather than the dates masked',
+    config.includes('export const CLOCK') && capture.includes('clock.setFixedTime'),
+    'a masked date leaves a black bar where a guide is explaining a column'
+  );
+  check(
+    '28. animations and transitions are switched off',
+    config.includes('transition: none !important') && config.includes('animation: none !important'),
+    '16g: a set that produces a diff on every capture stops being reviewable'
+  );
+  check(
+    '29. the theme is set before first paint, not left to the browser',
+    capture.includes("localStorage.setItem('gftv-careers.mode'"),
+    "the portal's switcher is two axes and stores an explicit choice"
+  );
+});
+
+define('discovery', "Part 8: the docs site's robots.txt, sitemap and llms.txt", async () => {
+  const discovery = await import(`file://${join(DOCS, 'scripts/discovery.js')}`);
+  const { INDEXING, DISALLOW, NOINDEX_HEADER, NOINDEX_SOURCES, robotsBody, sitemapXml, llmsTxt } =
+    discovery;
+
+  const vercel = JSON.parse(read(join(DOCS, 'vercel.json')));
+  const site = 'https://docs.careers.globalfurry.tv';
+
+  /* --- The two instruments, which have to say the same thing ------------- */
+
+  const headerFor = (source) =>
+    (vercel.headers ?? [])
+      .filter((entry) => entry.source === source)
+      .flatMap((entry) => entry.headers)
+      .find((header) => header.key === 'X-Robots-Tag')?.value ?? null;
+
+  for (const source of NOINDEX_SOURCES) {
+    check(
+      `1. vercel.json carries X-Robots-Tag on ${source}`,
+      headerFor(source) === NOINDEX_HEADER,
+      'a Disallow is a request not to crawl; the header is an instruction not to list, ' +
+        'and it is what covers a URL somebody linked to from elsewhere'
+    );
+  }
+
+  check(
+    '2. and robots.txt disallows the same tree',
+    DISALLOW.includes('/staff'),
+    'the two halves move together or the phase file fails'
+  );
+
+  check(
+    '3. no global X-Robots-Tag while INDEXING is true',
+    INDEXING === true &&
+      (vercel.headers ?? [])
+        .filter((entry) => entry.source === '/(.*)')
+        .flatMap((entry) => entry.headers)
+        .every((header) => header.key !== 'X-Robots-Tag'),
+    'the portal shipped for eleven phases with one, and turning it off is two edits'
+  );
+
+  /* --- robots.txt --------------------------------------------------------- */
+
+  const robots = robotsBody({ indexing: true, site });
+
+  check('4. it names the sitemap absolutely', robots.includes(`Sitemap: ${site}/sitemap.xml`));
+  check(
+    '5. it disallows every prefix in the list and nothing else',
+    DISALLOW.every((path) => robots.includes(`Disallow: ${path}`)) &&
+      [...robots.matchAll(/^Disallow: (.+)$/gm)].length === DISALLOW.length,
+    'a second copy of that list is a second thing to keep in step'
+  );
+  check(
+    '6. /login is not disallowed',
+    !robots.includes('Disallow: /login'),
+    'it is a public address somebody may arrive at from a search'
+  );
+  check(
+    '7. switched off, it says so in words',
+    robotsBody({ indexing: false, site }).includes('Disallow: /') &&
+      robotsBody({ indexing: false, site }).includes('scripts/discovery.js'),
+    'not built, switched off and working are different claims, and curl should say which'
+  );
+
+  /* --- sitemap.xml -------------------------------------------------------- */
+
+  check(
+    '8. a gated path throws rather than being dropped',
+    (() => {
+      try {
+        sitemapXml({ site, paths: ['/', '/staff/admin/daily-run'] });
+        return false;
+      } catch {
+        return true;
+      }
+    })(),
+    'a sitemap that quietly omits what it was asked for is a sitemap nobody can check'
+  );
+
+  const xml = sitemapXml({
+    site,
+    paths: ['/', '/portal', '/portal/applying'],
+    lastmod: { '/portal': '2026-09-03' },
+  });
+
+  check('9. every public path is listed', ['/portal', '/portal/applying'].every((path) =>
+    xml.includes(`<loc>${site}${path}</loc>`)
+  ));
+  check(
+    '10. a page with no date carries no lastmod',
+    [...xml.matchAll(/<lastmod>/g)].length === 1,
+    'a value that could not be established is absent and never a number'
+  );
+  check(
+    '11. no changefreq and no priority',
+    !xml.includes('changefreq') && !xml.includes('priority'),
+    'a field nobody reads is a field that goes stale without anybody finding out'
+  );
+
+  /* --- llms.txt ----------------------------------------------------------- */
+
+  const llms = llmsTxt({
+    site,
+    home: { path: '/', title: 'Careers@GFTV documentation', summary: 'The guides.' },
+    sections: [
+      { title: 'Using the portal', pages: [{ path: '/portal', title: 'Using the portal', summary: null }] },
+    ],
+  });
+
+  check('12. it opens with the format\'s summary line', llms.split('\n')[2].startsWith('> '));
+  check(
+    '13. a page with no summary is listed by title alone',
+    llms.includes(`- [Using the portal](${site}/portal)\n`),
+    'inventing a line of description is the one thing a generated file must never do'
+  );
+  check(
+    '14. it names no gated address',
+    !/\(https:\/\/[^)]*\/staff/.test(llms),
+    'a model told the staff guides exist is fine; one handed their addresses is not'
+  );
+
+  /* --- What the build actually wrote -------------------------------------- */
+
+  const dist = join(DOCS, 'dist');
+  if (!existsSync(join(dist, 'robots.txt'))) {
+    skip('15. the three files are in dist/', 'run node scripts/build.js first');
+    return;
+  }
+
+  for (const file of ['robots.txt', 'sitemap.xml', 'llms.txt']) {
+    check(`15. dist/${file} was written`, existsSync(join(dist, file)));
+  }
+
+  const builtSitemap = read(join(dist, 'sitemap.xml'));
+  check(
+    '16. nothing gated reached the built sitemap',
+    !builtSitemap.includes('/staff'),
+    'the list is the pages the build wrote as static files, and a gated page never is one'
+  );
+  check(
+    '17. every public page is in it',
+    [...builtSitemap.matchAll(/<loc>/g)].length ===
+      [...read(join(dist, 'sw.js')).matchAll(/^ {2}'\/(?:[a-z0-9-]+(?:\/[a-z0-9-]+)*)?',$/gm)].length,
+    'the sitemap and the precache list are the same set of pages, counted two ways'
+  );
+
+  check(
+    '18. neither file is also sitting in public/',
+    !existsSync(join(DOCS, 'public/robots.txt')) && !existsSync(join(DOCS, 'public/sitemap.xml')),
+    'public/ is copied into dist/ before these are written, so a hand written copy ' +
+      'would look edited and be overwritten'
+  );
+});
+
 /* -------------------------------------------------------------------------
  * Run
  * ---------------------------------------------------------------------- */

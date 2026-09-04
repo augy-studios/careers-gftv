@@ -105,6 +105,13 @@ telegram-bot/*.db
 # It is the only way to exercise 16e's authenticated image path: a gated page
 # with an image on it has to exist for the length of the run. The suite deletes
 # both, so these two lines only matter when a run is interrupted.
+#
+# **It stays a .png**, and phase 14 part 8 is when that stopped being an
+# accident. Every .webp beside a gated page is one of 16g's screenshots and the
+# build refuses one that no manifest entry claims; a fixture named after a real
+# shot would collide with the file a capture run commits. So the fixture is the
+# one image type on this site that is not a screenshot, which is also what keeps
+# it out of the manifest's way.
 docs-site/api/_content/admin/example.png
 docs-site/api/_content/admin/example-shot.md
 

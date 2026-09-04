@@ -333,9 +333,16 @@ person who remembers it. Run it before pushing; `--list` prints what it reads.
 ## Scripts at the repo root
 
 Eight, all plain `node`, none of them part of a build. The four checkers are
-the ones to run before pushing. The one script that *is* a build is not here:
-[`docs-site/scripts/build.js`](docs-site/scripts/build.js) belongs to that
-project and is documented in its own README.
+the ones to run before pushing.
+
+**The docs site's own scripts are not in this table**, because they belong to
+that project and are documented in
+[its README](docs-site/README.md): `scripts/build.js`, which is the one script
+in this repository that *is* a build; `scripts/embed-tests.mjs`, which puts
+`tests/` behind the developer guide's download button; and, from phase 14 part
+8, `scripts/capture.mjs` with its manifest, its config and **its own
+`package.json`** — Playwright and sharp are scoped to that directory so they are
+never installed by either deployment.
 
 | Script | What it does |
 |---|---|

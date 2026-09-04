@@ -723,14 +723,116 @@ commit that adds it.
 
 ## Screenshots
 
-Captured with Playwright, never by hand, from a capture script in
-`scripts/` with its own `package.json` so it never becomes a dependency of the
-portal build.
+Captured with Playwright, never by hand. **Built in phase 14 part 8**, in four
+files under `scripts/`:
+
+| File | What it is |
+|---|---|
+| `screenshots.manifest.js` | every shot, as data. 25 of them. |
+| `capture.mjs` | the run. Signs in, drives each page, writes the webp. |
+| `playwright.config.js` | the settings that make two runs produce the same bytes. |
+| `package.json` | `playwright` and `sharp`, scoped to this directory. |
+
+**That last file is what keeps a browser out of both deployments.** Vercel
+installs `docs-site/package.json` and never walks into a subdirectory, so
+nothing here reaches a build. It carries `"type": "module"` because it has to:
+Node reads a module's type from the nearest `package.json`, and `build.js` is a
+`.js` file in the same directory. Without that key the Vercel build stops on its
+first import.
+
+### How to run a capture
+
+Three commands, and the first and last are not optional.
+
+```sh
+SEED_PASSWORD='…' node seed.mjs --yes --anyway   # from the repo root
+cd docs-site/scripts && npm install              # once per clone. 38 MB.
+BASE=https://careers.globalfurry.tv SEED_PASSWORD='…' node capture.mjs --headed
+cd ../.. && node seed.mjs --clear --yes          # take the sample data back out
+```
+
+`npm install` here is `playwright` and `sharp` and comes to 38 MB, not the
+several hundred a browser would be: Playwright keeps its browsers in a shared
+directory outside any project, and `npx playwright install chromium` from the
+repository root has already put one there for `tests/`.
+
+### The dry run
+
+**Use it before the real one.** It takes the same path, encodes the same way and
+uses the same names, into a directory outside the repository, and swaps no
+markers:
+
+```sh
+BASE=… node capture.mjs --dry-run --only=portal-login-desktop-light
+BASE=… node capture.mjs --dry-run --out=./somewhere   # instead of a temp directory
+```
+
+`--dry-run` implies `--no-swap`, so a page can never come to point at a file
+that is not in the tree.
+
+- **`BASE` has no default.** `gen-screenshots.js` defaults to the live portal
+  because an install shot is of the public board; this script signs in and opens
+  lists of applicants, so where it points is a decision somebody types.
+- **`STAFF_USER` and `STAFF_PASS`** are read from `.env.test` at the repo root,
+  which is gitignored, or from the shell. They are a real gftv.asia account:
+  staff accounts are that realm's and cannot be seeded, per 5g.
+- **`--headed` is what you want the first time.** A staff account with a second
+  factor cannot be driven from a script and should not be; the run stops, says
+  so, and carries on when the dashboard appears in the window.
+- **The run refuses to start unless the board shows a seeded posting.** Every
+  posting `seed.mjs` writes says `SAMPLE POSTING`, and that is what is looked
+  for. Capturing without it photographs real applicants into a guide.
+- It ends by **swapping the `pending:` markers** in every page whose shot it
+  took. `--no-swap` leaves them alone.
+
+### How to re-run one shot
+
+```sh
+node capture.mjs --list                              # names, tiers, accounts, paths
+BASE=… node capture.mjs --only=poster-analytics-desktop-light
+```
+
+`--list` works in a clone where `npm install` has never run here: the two heavy
+imports are loaded after the arguments are read, on purpose.
+
+### How to add a shot
+
+Both halves or neither — `node scripts/build.js` fails on either one alone.
+
+1. Write the slot into the page: `![alt](pending:name "caption")`.
+2. Add the entry to `screenshots.manifest.js`, with the same name.
+3. Run the capture with `--only=name`.
+
+**The name is not decoration.** It is `subject-viewport-mode`, and the subject's
+prefix decides the tier and the directory: `portal-` is public and lands in
+`public/screenshots/`, `poster-` and `admin-` are gated and land in
+`api/_content/<section>/`. The build checks the prefix against the entry's
+`tier`, the entry's `sections` against the page's section, and the file on disk
+against the directory it belongs in.
+
+### What the build refuses
+
+- A slot naming a shot that is not in the manifest.
+- A manifest entry that no page points at. A shot nobody points at is a file
+  nobody reviews.
+- A gated shot written on a public page, or the reverse.
+- A gated shot sitting in `public/screenshots/`.
+- A `.webp` beside a gated page that no manifest entry claims.
+
+**The rule is scoped to `.webp` on purpose.** That is the one extension the
+capture script writes, so "every screenshot is in the manifest" is checkable
+without it also meaning "this site may only ever carry screenshots". The four
+other types [Images](#images) allows are left alone, and the gated image fixture
+in `tests/phase13-test.mjs` is a `.png` for exactly that reason.
 
 Rules that will not change:
 
-- It runs on demand against a local or seeded instance, never as part of the
-  Vercel build and never against production.
+- It runs on demand, never as part of the Vercel build. **It runs against
+  production with the seed in it**, which is where this departs from 16g's
+  "never against production": there is one database, so a local or staging
+  instance is not available to be run against. The seed check above is what
+  makes that safe, and the two things no seed can cover — whoever ran the
+  capture, and the staff access list — are masked in the manifest.
 - Every screenshot shows invented people applying to invented roles, from the
   seed script. No real applicant, email, or Telegram handle ever appears.
   **That script exists as of phase 12 part 8**: `seed.mjs` at the repo root
@@ -845,8 +947,8 @@ needs a credential or a network, and the second needs the database as of part
 node gen-docs-lib.js --check       # a change that landed in one copy only
 node docs-site/scripts/build.js    # and every refusal it makes
 node check-i18n.js                 # both sites, both dictionaries
-node tests/phase13-test.mjs        # 677 checks, 27 of them against the deployment
-node tests/phase14-test.mjs        # the header's two controls, on both sites
+node tests/phase13-test.mjs        # 3,199 checks, 27 of them against the deployment
+node tests/phase14-test.mjs        # 440 checks, this phase's parts one by one
 ```
 
 **And `node docs-site/scripts/embed-tests.mjs --check
@@ -855,7 +957,40 @@ which fails when a script in `tests/` has moved and the committed copy has not.
 [The section above](#the-test-scripts-in-the-developer-guide) has the whole of
 it.
 
-`robots.txt`, `sitemap.xml`, and `llms.txt` are generated from the page list
-and cover public pages only. A gated page must never appear in any of the
-three, and they are generated from the same `access` key that drives the gate
-so a page cannot be hidden in one place and advertised in another.
+### The discovery files
+
+`robots.txt`, `sitemap.xml` and `llms.txt` are generated from the page list and
+cover public pages only, from the same `access` key that drives the gate — so a
+page cannot be hidden in one place and advertised in another. **Built in phase
+14 part 8**, in `scripts/discovery.js`, and written into `dist/` by the build.
+
+**Static files here, and functions on the portal.** `main-site` generates its
+two from routes because its answer depends on a maintenance switch read from the
+database and on the set of published postings. Neither is true here: a page is a
+committed markdown file, so what is in the sitemap is decided at deploy time and
+cannot change until the next one. A function would repeat on every request a
+computation the build already did once.
+
+That is also what makes them work at all. This project rewrites
+`/((?!api/|assets/).*)` to the shell, and the rewrite would swallow
+`/robots.txt` if Vercel did not match the filesystem first.
+
+**`/staff` is kept out of an index with two instruments, not one.**
+
+```text
+Disallow: /staff            in robots.txt, from DISALLOW in scripts/discovery.js
+X-Robots-Tag: noindex       on /staff and /staff/(.*), in vercel.json
+```
+
+A `Disallow` is a request not to crawl and is not an instruction not to list: a
+URL somebody linked to from elsewhere can be listed on the strength of the link,
+with no fetch and so no chance to read anything on the page. That matters here
+because **every gated address answers 200** — the shell is served at all of
+them and fills itself in from `api/content`, which is where the gate is.
+`tests/phase14-test.mjs --only=discovery` compares the two halves and fails when
+one moves without the other, in both directions. `vercel.json` cannot carry a
+comment, so `scripts/discovery.js` is where that is written down.
+
+Neither file belongs in `public/`. That directory is copied into `dist/` before
+these are written, so a hand written copy would look maintained and be
+overwritten on every build.

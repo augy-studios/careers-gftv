@@ -25,6 +25,10 @@
 //                              gated address through the rewrite
 //     screenshots/...          public/ copied in, per 16g
 //     search-index.json        the public search index
+//     robots.txt               the three discovery files, part 8, written from
+//     sitemap.xml              the same `access` key that drives the gate. See
+//     llms.txt                 scripts/discovery.js for why they are files here
+//                              and functions on the portal.
 //
 //   api/_generated/            **not public.** Written for the functions to
 //     search-poster.json       read, and carried to them by the includeFiles
@@ -45,6 +49,15 @@
 // image, an image with no file behind it, and a shell that no longer carries a
 // marker this script fills in. A build that quietly produced a site missing a
 // page is the failure this whole arrangement exists to make impossible.
+//
+// **This file is a `.js` in a directory that now has its own package.json**, and
+// that is worth one sentence because it is the kind of thing that breaks a
+// deployment at 2am. `scripts/package.json` arrived with part 8 to keep
+// Playwright and sharp out of both deployed projects, per 16g. Node resolves a
+// module's type from the *nearest* package.json, so that file has to carry
+// `"type": "module"` or this script stops parsing as ESM and the Vercel build
+// fails on its first import. It does carry it, and `tests/phase14-test.mjs`
+// checks that it still does.
 
 import {
   readFileSync,
@@ -61,6 +74,8 @@ import { dirname, join, relative, resolve, sep } from 'node:path';
 import { loadPages, readablePage, frontMatter, projectRoot } from '../api/_lib/pages.js';
 import { ACCESS_VALUES } from '../api/_lib/tiers.js';
 import { render, IMAGE } from '../assets/js/markdown.js';
+import { SHOTS, SHOTS_BY_NAME, filesFor, markdownSrc } from './screenshots.manifest.js';
+import { INDEXING, DISALLOW, robotsBody, sitemapXml, llmsTxt } from './discovery.js';
 
 const ROOT = projectRoot();
 const REPO = resolve(ROOT, '..');
@@ -391,10 +406,24 @@ function indexEntry(page, body, sectionTitle, outline) {
  * images are in public/ and are written absolutely, so a bare name on one has no
  * directory to be in.
  */
-function checkImages(page, body, assets) {
+function checkImages(page, body, assets, slots) {
   for (const match of body.matchAll(new RegExp(IMAGE.source, 'g'))) {
     const src = match[2];
-    if (/^pending:/i.test(src)) continue;
+
+    // **A `.webp` is one of 16g's screenshots and a marker is one waiting to be
+    // taken**, so both are collected for the reconciliation below and are held
+    // to the manifest. Any other image type is not a screenshot: the capture
+    // script writes webp and nothing else, and `ASSET_TYPES` allows four more
+    // for the day a page wants a diagram. Those are checked for placement here
+    // and are not asked to be in a manifest of captures.
+    if (/^pending:/i.test(src)) {
+      slots.push({ page, name: src.slice('pending:'.length).trim(), src, pending: true });
+      continue;
+    }
+
+    if (src.toLowerCase().endsWith('.webp')) {
+      slots.push({ page, name: shotNameFrom(src), src, pending: false });
+    }
 
     const absolute = /^[a-z]+:/i.test(src) || src.startsWith('/');
 
@@ -418,6 +447,130 @@ function checkImages(page, body, assets) {
       fail(
         `${page.path}: the image "${src}" has no directory. A public page's images live ` +
           'in public/, per 16g, and are written as an absolute path.'
+      );
+    }
+  }
+}
+
+/**
+ * The shot a written image source names, whichever way it was written.
+ *
+ * `/screenshots/x.webp` on a public page and `x.webp` on a gated one are the two
+ * forms `markdownSrc` produces, and this is its inverse. Anything else comes
+ * back as the source itself, which will not be in the manifest and is reported
+ * as such.
+ */
+function shotNameFrom(src) {
+  const name = src.slice(src.lastIndexOf('/') + 1);
+  return name.toLowerCase().endsWith('.webp') ? name.slice(0, -'.webp'.length) : src;
+}
+
+/**
+ * 16g's manifest against the pages, in both directions, plus where each file is
+ * allowed to be.
+ *
+ * **This is the check that makes the manifest safe to be a written list.**
+ * `pages.js` refuses to hold one because a list somebody wrote is a list with
+ * something missing from it; a screenshot has no filesystem to be derived from
+ * before it is taken, so the manifest is written and this is what stops it
+ * drifting. A slot naming no entry and an entry no slot names are both failures,
+ * so neither half can be added alone.
+ *
+ * The tier rules are 16g's own sentence — "a shot for a gated page that lands in
+ * the public directory is a build failure rather than a review comment" — and
+ * they are checked from three sides: the manifest's tier against the page's
+ * pipeline, the manifest's sections against the page's section, and the file on
+ * disk against the directory `filesFor` says it belongs in.
+ */
+function checkScreenshots(slots, assets) {
+  const referenced = new Set();
+
+  for (const { page, name, src, pending } of slots) {
+    const shot = SHOTS_BY_NAME.get(name);
+
+    if (!shot) {
+      fail(
+        `${page.path}: the image "${src}" names no shot in scripts/screenshots.manifest.js. ` +
+          'Every picture on this site is one of 16g\'s captures, and the manifest is the list.'
+      );
+      continue;
+    }
+
+    referenced.add(name);
+
+    // The tier, from the two ends. A public page may only carry a public shot,
+    // and a gated page may only carry one written for a section it is in.
+    if (page.pipeline === 'public' && shot.tier !== 'public') {
+      fail(
+        `${page.path}: "${name}" is a ${shot.tier} shot on a public page. ` +
+          'A gated screenshot on a page anybody can read is 16e\'s leak with extra steps.'
+      );
+    } else if (page.pipeline === 'gated' && shot.tier === 'public') {
+      fail(
+        `${page.path}: "${name}" is a public shot on a gated page. It would be fetched ` +
+          'from public/, which tells a signed out reader the gated page exists.'
+      );
+    } else if (page.pipeline === 'gated' && !(shot.sections ?? []).includes(page.section)) {
+      fail(
+        `${page.path}: "${name}" is not written into the ${page.section} section. ` +
+          `Its sections are: ${(shot.sections ?? []).join(', ') || 'none'}. An asset is gated ` +
+          'at its section\'s own level, so a file in another section is not reachable from here.'
+      );
+    }
+
+    if (pending) continue;
+
+    // A written source has to be the one `markdownSrc` produces, so the two
+    // pipelines cannot be written each other's way round and pass the looser
+    // check above.
+    if (src !== markdownSrc(shot)) {
+      fail(
+        `${page.path}: "${name}" is written as "${src}" and belongs as "${markdownSrc(shot)}". ` +
+          'A public shot is an absolute path into public/; a gated one is a bare file name.'
+      );
+    }
+
+    // And the file has to be there. The gated half is already in the `assets`
+    // map the loader built; the public half is on disk under public/, which
+    // nothing else in this build looks at.
+    if (shot.tier === 'public' && !existsSync(join(ROOT, `public/screenshots/${name}.webp`))) {
+      fail(`${page.path}: "${name}" has no file at public/screenshots/${name}.webp.`);
+    }
+  }
+
+  for (const shot of SHOTS) {
+    if (referenced.has(shot.name)) continue;
+    fail(
+      `scripts/screenshots.manifest.js: "${shot.name}" is in the manifest and no page points ` +
+        'at it. A shot nobody points at is a file nobody reviews; add the slot or remove the entry.'
+    );
+  }
+
+  // 16g's build failure, checked against the disk rather than against intent: a
+  // gated shot that has found its way into the public directory is world
+  // readable whatever every page says.
+  for (const shot of SHOTS) {
+    if (shot.tier === 'public') continue;
+    if (existsSync(join(ROOT, `public/screenshots/${shot.name}.webp`))) {
+      fail(
+        `public/screenshots/${shot.name}.webp: a ${shot.tier} tier shot in the public directory. ` +
+          `Everything in public/ is copied into dist/ and is world readable. It belongs at ` +
+          `${filesFor(shot).join(' and ')}.`
+      );
+    }
+  }
+
+  // And the mirror: a `.webp` beside a gated page that no shot claims. Scoped to
+  // the one extension the capture script writes, so the rule stays "every
+  // screenshot is in the manifest" and does not become "this site may only ever
+  // carry screenshots" — which is true today and is not a thing to enforce.
+  for (const path of assets.keys()) {
+    if (!path.toLowerCase().endsWith('.webp')) continue;
+    const name = shotNameFrom(path);
+    if (!SHOTS_BY_NAME.has(name)) {
+      fail(
+        `${path}: no shot in the manifest is written into this file. ` +
+          'Screenshots are captured by scripts/capture.mjs and are never added by hand.'
       );
     }
   }
@@ -496,6 +649,63 @@ function writeWorker(pagePaths) {
 }
 
 /* -------------------------------------------------------------------------
+ * The discovery files
+ * ---------------------------------------------------------------------- */
+
+/**
+ * Write `robots.txt`, `sitemap.xml` and `llms.txt` into `dist/`.
+ *
+ * **The list is the public pages this build wrote, and there is no second one.**
+ * That is the whole argument for generating these: the `access` key decides who
+ * may read a page, `pages.js` turns it into an answer for a request, and this
+ * turns the same key into three files for a crawler. A gated page cannot be in
+ * the sitemap because it never became a static path.
+ *
+ * Files rather than functions, unlike the portal's. `scripts/discovery.js` has
+ * the reasoning; the short version is that nothing here depends on a database or
+ * a switch, so a route would repeat on every request a computation the build
+ * already did once.
+ *
+ * @param {string[]} publicPaths every page written into dist/
+ * @param {Record<string,string>} updated each page's git date, where it has one
+ * @param {Array<object>} sections the loader's sections, both pipelines
+ * @param {Map<string, object>} pages every page by path, for the home page
+ */
+function writeDiscovery(publicPaths, updated, sections, pages) {
+  writeFileSync(join(DIST, 'robots.txt'), robotsBody({ indexing: INDEXING, site: ORIGIN }));
+
+  writeFileSync(
+    join(DIST, 'sitemap.xml'),
+    sitemapXml({ site: ORIGIN, paths: [...publicPaths].sort(), lastmod: updated })
+  );
+
+  // The home page is listed on its own above the sections, because it belongs to
+  // none of them and a model reading a flat list of guides would otherwise never
+  // be told where the site starts.
+  const listed = sections
+    .filter((section) => section.pipeline === 'public')
+    .map((section) => ({
+      title: section.title,
+      pages: section.pages.map((page) => ({
+        path: page.path,
+        title: page.title,
+        summary: page.summary,
+      })),
+    }));
+
+  const home = publicPaths.includes('/') ? pages.get('/') : null;
+  const homePage = home ? { path: '/', title: home.title, summary: home.summary } : null;
+
+  writeFileSync(join(DIST, 'llms.txt'), llmsTxt({ site: ORIGIN, sections: listed, home: homePage }));
+
+  return {
+    listed: publicPaths.length,
+    disallowed: DISALLOW.length,
+    sections: listed.length,
+  };
+}
+
+/* -------------------------------------------------------------------------
  * The build
  * ---------------------------------------------------------------------- */
 
@@ -528,6 +738,10 @@ function build() {
 
   const updated = {};
   const publicIndex = [];
+  // Every image slot on the site, pending or taken, collected as the pages are
+  // read and reconciled against 16g's manifest once they all have been. In one
+  // pass, so the two lists are always describing the same tree.
+  const slots = [];
   // The addresses the worker precaches, collected as each page is written so
   // the list is the pages that exist and never a second answer to that question.
   const publicPaths = [];
@@ -541,7 +755,7 @@ function build() {
     const date = dates.get(repoPath(page.file)) ?? null;
     if (date) updated[page.path] = date;
 
-    checkImages(page, body, assets);
+    checkImages(page, body, assets, slots);
 
     // A reader at exactly this page's tier, which is the one reader every page
     // has. For a public page that is a signed out one, and the neighbours below
@@ -587,6 +801,13 @@ function build() {
     written += 1;
   }
 
+  checkScreenshots(slots, assets);
+
+  // The three discovery files, from the pages this build just wrote. Public
+  // paths only, and they are the same list the worker precaches: a page that is
+  // not a static file is not a URL a crawler can be sent to.
+  const discovery = writeDiscovery(publicPaths, updated, sections, pages);
+
   // Before the problems check, so a marker that stopped matching stops the
   // build with everything else rather than being recorded after the last thing
   // that reads the list.
@@ -617,6 +838,17 @@ function build() {
       : `Dated ${dated} of ${pages.size} pages from git; the rest carry no date.`
   );
   console.log(`The worker precaches ${precached} addresses, written into dist/sw.js.`);
+
+  const pending = slots.filter((slot) => slot.pending).length;
+  console.log(
+    `Screenshots: ${SHOTS.length} in the manifest, ${slots.length - pending} taken, ` +
+      `${pending} still pending.`
+  );
+  console.log(
+    `Discovery: ${discovery.listed} pages in dist/sitemap.xml, ` +
+      `${discovery.disallowed} prefixes disallowed, ` +
+      `${discovery.sections} sections in dist/llms.txt.`
+  );
 }
 
 build();

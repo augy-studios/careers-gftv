@@ -1,0 +1,18 @@
+{
+  "name": "careers-gftv-docs-capture",
+  "version": "0.1.0",
+  "private": true,
+  "description": "16g's screenshot capture, scoped so that Playwright and sharp are never a dependency of either deployed project. Vercel installs docs-site/package.json and does not walk into a subdirectory, so nothing here reaches a build.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "playwright": "^1.48.0",
+    "sharp": "^0.35.0"
+  },
+  "scripts": {
+    "capture": "node capture.mjs",
+    "list": "node capture.mjs --list"
+  }
+}

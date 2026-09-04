@@ -117,9 +117,20 @@ const PNG = Buffer.from(
   'base64'
 );
 
+// **The fixture image stays a .png, and phase 14 part 8 is when that stopped
+// being an accident.** Every .webp beside a gated page is one of 16g's captures
+// and the build refuses one that no manifest entry claims; naming this after a
+// real shot would collide with the file a capture run commits, and the guard
+// below would then refuse to run for good. A .png is the one image type on this
+// site that is not a screenshot, which is exactly what a fixture wants to be.
 const FIXTURE_IMAGE = join(DOCS, 'api/_content/admin/example.png');
 const FIXTURE_PAGE = join(DOCS, 'api/_content/admin/example-shot.md');
 const FIXTURE_PATH = '/staff/admin/example-shot';
+const FIXTURE_ASSET = '/staff/admin/example.png';
+
+/** A real manifest name for the pending half, because a marker is held to it.
+    Nothing is written for one, so this collides with no capture. */
+const FIXTURE_PENDING = 'admin-settings-desktop-light';
 
 function writeFixtures() {
   for (const file of [FIXTURE_IMAGE, FIXTURE_PAGE]) {
@@ -148,7 +159,7 @@ function writeFixtures() {
       '',
       '## Waiting for a capture',
       '',
-      '![The applications table](pending:admin-applications "Coming with the capture run.")',
+      `![The settings page](pending:${FIXTURE_PENDING} "Coming with the capture run.")`,
       '',
     ].join('\n')
   );
@@ -442,7 +453,7 @@ define('render', 'The marks part 5 added to the renderer', async () => {
   }).html;
   check(
     '26. a bare file name resolves against the page it is on',
-    figure.includes('src="/api/content?path=/staff/admin/example.png"')
+    figure.includes(`src="/api/content?path=${FIXTURE_ASSET}"`)
   );
   check('27. an image in a block of its own is a figure', figure.includes('<figcaption>The caption.</figcaption>'));
 
@@ -740,10 +751,10 @@ define('shell', 'The shell, over the built output and the three routes', async (
         'the fixture is written by this run and never committed'
       );
 
-      const admin = await page.evaluate(async () => {
-        const response = await fetch('/api/content?path=/staff/admin/example.png');
+      const admin = await page.evaluate(async (asset) => {
+        const response = await fetch(`/api/content?path=${asset}`);
         return { status: response.status, cache: response.headers.get('cache-control') };
-      });
+      }, FIXTURE_ASSET);
       check('67. an admin may fetch the image', admin.status === 200);
       check(
         '68. and it never enters a shared cache',
@@ -767,10 +778,10 @@ define('shell', 'The shell, over the built output and the three routes', async (
 
     {
       const { context, page } = await open('/', 'public');
-      const status = await page.evaluate(async () => {
-        const response = await fetch('/api/content?path=/staff/admin/example.png');
+      const status = await page.evaluate(async (asset) => {
+        const response = await fetch(`/api/content?path=${asset}`);
         return response.status;
-      });
+      }, FIXTURE_ASSET);
       check(
         '71. a signed out reader gets 404 for that image',
         status === 404,
@@ -779,10 +790,10 @@ define('shell', 'The shell, over the built output and the three routes', async (
 
       // The shape the platform never routed. It is checked here so that going
       // back to it is a failing check rather than a silent 404 on production.
-      const asPath = await page.evaluate(async () => {
-        const response = await fetch('/api/content/staff/admin/example.png');
+      const asPath = await page.evaluate(async (asset) => {
+        const response = await fetch(`/api/content${asset}`);
         return response.status;
-      });
+      }, FIXTURE_ASSET);
       check('72. and the path shaped address answers nothing to anybody', asPath === 404);
       await context.close();
     }
