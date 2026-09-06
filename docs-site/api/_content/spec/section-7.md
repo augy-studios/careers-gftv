@@ -7,71 +7,71 @@ summary: Applications are collected in Google Forms, not in the portal.
 
 # 7. Application flow
 
-Applications are collected in Google Forms, not in the portal. The portal's job is to gate access, hand the applicant over, log the handoff, and record whether the applicant says they went through with it.
+Applications are collected in Google Forms, not in the portal. The portal's job is to gate access, hand the applicant over, and log the handoff. It then records whether the applicant says they went through with it.
 
 ### 7a. Clicking Apply
 
 - Only a logged in applicant can apply. This is a server side check on the endpoint, not just a hidden button. A logged out request for a form URL returns 401 and writes no analytics row.
 - When a logged in applicant clicks Apply, the client calls an authenticated endpoint. That endpoint:
-  1. Verifies the session, and verifies the job is `published`, not past `closes_at` where one is set, and not blocked by the global applications toggle. A null `closes_at` passes this check.
-  2. Inserts a row into `gftvjobs_analytics` with `event_type` of `apply_click`, the job id, the applicant id, `did_apply` false, and `response_state` pending.
+  1. Verifies the session. Then verifies the job is `published`, not past `closes_at` where one is set, and not blocked by the global applications toggle. A null `closes_at` passes this check.
+  2. Inserts a row into `gftvjobs_analytics`. It carries `event_type` of `apply_click`, the job id, the applicant id, `did_apply` false, and `response_state` pending.
   3. Upserts the `gftvjobs_applications` tracking row to status `started` and writes a `gftvjobs_application_events` row.
   4. Returns the prefilled form URL plus the id of the analytics row it just created.
 - The client opens the modal first and then the new tab, in the order set out in 7c. Do not open the tab before the modal is on screen.
-- The Apply button is disabled with an explanatory label once `closes_at` has passed, the status is not `published`, or the global toggle is off. A posting with no `closes_at` never disables on time grounds.
-- **An applicant already `accepted` for this posting is refused, permanently**, per 7f. It is checked in the same place as the cooldown and is a separate reason, because the sentence is different: they have the role, and there is no date on which that changes. Never show them a cooldown date, which reads as an invitation to try again.
+- The Apply button is disabled with an explanatory label once `closes_at` has passed. The same happens when the status is not `published`, or the global toggle is off. A posting with no `closes_at` never disables on time grounds.
+- **An applicant already `accepted` for this posting is refused, permanently**, per 7f. It is checked in the same place as the cooldown and is a separate reason, because the sentence is different. They have the role, and there is no date on which that changes. Never show them a cooldown date, which reads as an invitation to try again.
 
 ### 7b. Prefilling the applicant's email into the Google Form
 
 This works and is worth doing. Google Forms supports prefill through query parameters.
 
-- In Google Forms, open the form, choose "Get pre-filled link", fill in the email field with a placeholder, submit, and copy the resulting link. It contains an `entry.NNNNNNN` parameter for that field. That number is the field id.
-- Store it in the job's `form_prefill` map, for example `{"entry.1045781291": "email", "entry.2005620554": "display_name"}`. The admin job editor has inputs for this, with help text explaining where the entry ids come from.
-- The server builds the final URL as the base form URL plus `?usp=pp_url` plus each `entry.NNNNNNN=<value>` pair, with every value URL encoded. Build this server side from the session, never from a client supplied value.
-- Two limitations to state plainly in the admin help text: prefilled values are editable by the applicant, so the email in the form response is not proof of identity, and prefill only works on the `viewform` URL, not on a `forms.gle` short link. Validate on save that the stored URL is a long-form `docs.google.com/forms/.../viewform` address.
+- In Google Forms, open the form and choose "Get pre-filled link". Fill in the email field with a placeholder, submit, and copy the resulting link. It contains an `entry.NNNNNNN` parameter for that field. That number is the field id.
+- Store it in the job's `form_prefill` map. An example is `{"entry.1045781291": "email", "entry.2005620554": "display_name"}`. The admin job editor has inputs for this, with help text explaining where the entry ids come from.
+- The server builds the final URL from the base form URL, then `?usp=pp_url`, then each `entry.NNNNNNN=<value>` pair. Every value is URL encoded. Build this server side from the session, and never from a client supplied value.
+- Two limitations to state plainly in the admin help text. Prefilled values are editable by the applicant, so the email in the form response is not proof of identity. And prefill only works on the `viewform` URL, not on a `forms.gle` short link. Validate on save that the stored URL is a long-form `docs.google.com/forms/.../viewform` address.
 - If a job has no `form_prefill` map, open the plain form URL. Never fail the handoff because prefill is not configured.
 
 ### 7c. The handoff modal
 
-Clicking Apply opens a modal, and only then does the form open in a new tab. The order matters: the modal has to be on screen before focus moves away, so the applicant registers it going up and recognises it when they come back. A light tap on the shoulder, not an ambush on return.
+Clicking Apply opens a modal, and only then does the form open in a new tab. The order matters. The modal has to be on screen before focus moves away, so the applicant registers it going up and recognises it when they come back. A light tap on the shoulder, not an ambush on return.
 
 **Sequence**
 
 1. Click Apply. The modal opens immediately, in the same tick as the click, before any network call resolves. Nothing is awaited first.
-2. The `api/applications/start` call fires in parallel and returns the prefilled form URL and the analytics row id. Prefetch the form URL earlier where possible, on `mouseenter` or `focus` of the Apply button, so by click time it is usually already in memory and nothing has to be awaited between the click and the new tab. Fall back to fetching on click when the prefetch has not landed.
-3. Once the modal has actually painted and at least 800ms have passed since it opened, open the form with `window.open(url, '_blank', 'noopener')`. The short delay is deliberate, so the modal is visibly on screen before the new tab takes focus.
-4. The modal itself is never at risk of being blocked. It is an in-page `<dialog>`, exactly like the theme modal, and browsers do not police those. The only thing a popup blocker can stop is step 3, the new tab. Keep step 3 inside the transient user activation window from the click, which is a few seconds in Chrome and Firefox, and avoid awaiting anything slow in between.
-5. Safari and iOS are stricter than the rest and can refuse a `window.open` that happens after an `await` rather than synchronously inside the click handler. Do not fight this. Detect it: if `window.open` returns null or throws, treat the tab as blocked.
-6. When the tab is blocked, swap the modal header to "Open the application form" and show a large primary anchor with the form URL and `target="_blank"`. A click on a real anchor is a fresh user gesture and always succeeds. The rest of the modal keeps working unchanged. Also render a quiet version of that link at the bottom of the modal in every case, since a tab can open on another monitor or behind the current window without the applicant noticing.
+2. The `api/applications/start` call fires in parallel. It returns the prefilled form URL and the analytics row id. Prefetch the form URL earlier where possible, on `mouseenter` or `focus` of the Apply button. Then by click time it is usually already in memory, and nothing has to be awaited between the click and the new tab. Fall back to fetching on click when the prefetch has not landed.
+3. Once the modal has actually painted, and at least 800ms have passed since it opened, open the form. Use `window.open(url, '_blank', 'noopener')`. The short delay is deliberate, so the modal is visibly on screen before the new tab takes focus.
+4. The modal itself is never at risk of being blocked. It is an in-page `<dialog>`, exactly like the theme modal, and browsers do not police those. The only thing a popup blocker can stop is step 3, the new tab. Keep step 3 inside the transient user activation window from the click, which is a few seconds in Chrome and Firefox. Avoid awaiting anything slow in between.
+5. Safari and iOS are stricter than the rest. They can refuse a `window.open` that happens after an `await`, instead of synchronously inside the click handler. Do not fight this. Detect it: if `window.open` returns null or throws, treat the tab as blocked.
+6. When the tab is blocked, swap the modal header to "Open the application form". Show a large primary anchor with the form URL and `target="_blank"`. A click on a real anchor is a fresh user gesture and always succeeds. The rest of the modal keeps working unchanged. Also render a quiet version of that link at the bottom of the modal in every case. A tab can open on another monitor, or behind the current window, without the applicant noticing.
 
 **Structure**
 
 The modal has three stacked sections, in this order:
 
-1. **Header.** Opens reading "Redirecting you to the job application form..." with a small indeterminate progress indicator. When the applicant returns to the portal tab, it changes to "Tell us what you think" and the progress indicator disappears. Detect the return with `document.visibilitychange` plus a `window` focus listener, and belt and braces, swap the header after 8 seconds regardless in case the tab never lost focus, for example when the popup was blocked or the form opened on a second monitor. Mark the header `aria-live="polite"` so the change is announced.
-2. **Rate this job posting.** Five yellow stars, empty by default. Rating is optional and independent of the apply answer, and the modal never blocks on it. Save on selection, and allow changing the choice while the modal is open. Build it as a real radio group with visually hidden inputs and labels so it is keyboard operable with arrow keys, not a row of clickable spans. Yellow is the star fill only, so keep it accessible against both light and dark mode surfaces and pair it with a text label reading the value back, for example "3 of 5".
-3. **Have you applied for this role?** Yes and No buttons, equally weighted, neither styled as the obvious default. Yes sets the analytics row's `did_apply` to true, `response_state` to answered, `answer_source` to applicant, and `responded_at` to now, then moves the tracking row to `submitted` and starts the cooldown in 7f. No sets `response_state` to answered, leaves `did_apply` false and the tracking row at `started`, and offers a line to reopen the form.
+1. **Header.** Opens reading "Redirecting you to the job application form...", with a small indeterminate progress indicator. When the applicant returns to the portal tab, it changes to "Tell us what you think" and the progress indicator disappears. Detect the return with `document.visibilitychange` plus a `window` focus listener. Belt and braces: swap the header after 8 seconds regardless, in case the tab never lost focus. That happens when the popup was blocked, or the form opened on a second monitor. Mark the header `aria-live="polite"` so the change is announced.
+2. **Rate this job posting.** Five yellow stars, empty by default. Rating is optional and independent of the apply answer, and the modal never blocks on it. Save on selection, and allow changing the choice while the modal is open. Build it as a real radio group, with visually hidden inputs and labels, so it is keyboard operable with arrow keys. Never a row of clickable spans. Yellow is the star fill only, so keep it accessible against both light and dark mode surfaces. Pair it with a text label reading the value back, for example "3 of 5".
+3. **Have you applied for this role?** Yes and No buttons, equally weighted, neither styled as the obvious default. Yes sets the analytics row's `did_apply` to true, `response_state` to answered, `answer_source` to applicant, and `responded_at` to now. It then moves the tracking row to `submitted` and starts the cooldown in 7f. No sets `response_state` to answered. It leaves `did_apply` false and the tracking row at `started`, and offers a line to reopen the form.
 
 **Behaviour**
 
-- Build it with a native `<dialog>` and `showModal()`, so focus is trapped and the backdrop comes free. It dismisses like every other modal on the site: clicking the backdrop closes it, Escape closes it, and there is a close control in the corner. Do not special case this modal into something harder to leave than the theme picker.
-- Native `<dialog>` does not close on backdrop click by itself. Add it: listen for a click on the dialog element and close when the click coordinates fall outside the content box, or wrap the content in an inner element and close when the click target is the dialog itself.
+- Build it with a native `<dialog>` and `showModal()`, so focus is trapped and the backdrop comes free. It dismisses like every other modal on the site. Clicking the backdrop closes it, Escape closes it, and there is a close control in the corner. Do not special case this modal into something harder to leave than the theme picker.
+- Native `<dialog>` does not close on backdrop click by itself, so add it. Listen for a click on the dialog element, and close when the click coordinates fall outside the content box. Or wrap the content in an inner element, and close when the click target is the dialog itself.
 - Dismissing without answering is fine and leaves the row pending, which already counts as No. The modal reopens on their next visit, so nothing is lost by closing it.
-- Answering Yes or No closes the modal and replaces the Apply button on the page with the resulting state, either the cooldown notice or the reopen link. A rating already given is saved even if the modal is then dismissed without answering the apply question.
-- **No answer means no.** `did_apply` starts false and stays false until something positively confirms otherwise. A pending row is treated as not applied everywhere it matters: no cooldown starts, the Apply button stays available, and the funnel does not count it as an application. The only difference between an unanswered row and an explicit No is the `response_state` and `answer_source` values, which exist so the analytics page can separate a real No from silence.
+- Answering Yes or No closes the modal. It replaces the Apply button on the page with the resulting state, either the cooldown notice or the reopen link. A rating already given is saved even if the modal is then dismissed without answering the apply question.
+- **No answer means no.** `did_apply` starts false and stays false until something positively confirms otherwise. A pending row is treated as not applied everywhere it matters. No cooldown starts, the Apply button stays available, and the funnel does not count it as an application. The only difference between an unanswered row and an explicit No is the `response_state` and `answer_source` values. They exist so the analytics page can separate a real No from silence.
 - The prompt survives leaving, and it is state rather than a page. There is no `/survey/` route and no route of its own at all. See "Resuming a pending prompt" below.
 - Asking again is about recovering a possible Yes, not about withholding anything, so nothing in the portal is gated on answering.
 
 **Resuming a pending prompt**
 
-- The server is the source of truth. `GET api/applications/pending` returns the applicant's `gftvjobs_analytics` rows where `response_state` is pending, each with its row id, job id, and job title. It reads the applicant from the session cookie and never takes an id from the caller.
-- A small shared script runs on every page of the portal. If an applicant session exists, it calls that endpoint once per page load and opens the modal if anything comes back, straight into the "Tell us what you think" state with no redirect step and no progress indicator. The modal is one component that takes a row id and a job id, so it can mount on any page.
-- `localStorage` holds the same row id purely as a fast path, so the modal can appear before the fetch resolves on the job page the applicant just came from. Treat it as a cache that can be wrong. If the server says nothing is pending, clear it and show nothing. This is also why the server check exists at all: a different device or a cleared browser would otherwise lose the prompt.
-- The outstanding item on `/account/tasks` opens the same modal in place. If it needs to be linkable, use a query parameter on the posting, `/jobs/{uuid}?prompt={analytics_row_id}`, rather than a nested path. The prompt is not a resource of its own, should never be indexable, and does not deserve a URL segment. Validate that the row belongs to the session's applicant before opening anything, and strip the parameter with `history.replaceState` once the modal is open so it does not linger in a shared link.
+- The server is the source of truth. `GET api/applications/pending` returns the applicant's `gftvjobs_analytics` rows where `response_state` is pending. Each carries its row id, job id, and job title. It reads the applicant from the session cookie and never takes an id from the caller.
+- A small shared script runs on every page of the portal. If an applicant session exists, it calls that endpoint once per page load, and opens the modal if anything comes back. It goes straight into the "Tell us what you think" state, with no redirect step and no progress indicator. The modal is one component that takes a row id and a job id, so it can mount on any page.
+- `localStorage` holds the same row id purely as a fast path. The modal can then appear before the fetch resolves, on the job page the applicant just came from. Treat it as a cache that can be wrong. If the server says nothing is pending, clear it and show nothing. This is also why the server check exists at all: a different device or a cleared browser would otherwise lose the prompt.
+- The outstanding item on `/account/tasks` opens the same modal in place. If it needs to be linkable, use a query parameter on the posting: `/jobs/{uuid}?prompt={analytics_row_id}`, and never a nested path. The prompt is not a resource of its own, should never be indexable, and does not deserve a URL segment. Validate that the row belongs to the session's applicant before opening anything. Strip the parameter with `history.replaceState` once the modal is open, so it does not linger in a shared link.
 - Only ever show one modal at a time. If several prompts are pending, take the most recent and leave the rest for later page loads.
-- While an answer is pending for a posting, the Apply button on that posting is replaced by a "You have an unanswered question about this application" prompt that reopens the modal, so a second handoff cannot stack on top of an unresolved one.
-- The daily cron moves analytics rows still pending after 14 days to `response_state` of `no_response`, with `did_apply` staying false and `answer_source` set to `timeout`. Nothing about the applicant's access changes at that point, since silence was already being read as No. The timeout exists to stop the modal reappearing forever and to close the row off for reporting.
-- The modal must be usable on a phone: full width sheet, thumb reachable buttons, stars large enough to tap accurately, and no reliance on hover.
+- While an answer is pending for a posting, the Apply button on that posting is replaced. In its place is a "You have an unanswered question about this application" prompt that reopens the modal. So a second handoff cannot stack on top of an unresolved one.
+- The daily cron moves analytics rows still pending after 14 days to `response_state` of `no_response`. `did_apply` stays false and `answer_source` is set to `timeout`. Nothing about the applicant's access changes at that point, since silence was already being read as No. The timeout exists to stop the modal reappearing forever, and to close the row off for reporting.
+- The modal must be usable on a phone. Full width sheet, thumb reachable buttons, stars large enough to tap accurately, and no reliance on hover.
 
 ### 7d. About blocking the tab from closing
 
@@ -92,35 +92,35 @@ I asked for the user to be forced to answer before closing the tab. That is not 
 
 Once an applicant has applied to a posting, they cannot apply to that same posting again for three months.
 
-- The cooldown starts only on a positive confirmation, whichever comes first: the applicant clicking Yes in the modal in 7c, or the webhook in section 13 reporting the submission.
-- Clicking No starts nothing, and neither does ignoring the modal. An unanswered prompt is read as No, so an applicant who closed the tab without answering keeps full access to the Apply button. Never infer an application from the click alone.
-- On confirmation, set `applied_at` on the `gftvjobs_applications` row and `cooldown_until` to three months later. Store the date rather than computing it on read, so the rule stays stable if the policy changes later and so an admin can override a single row.
-- Enforce it server side in the apply endpoint, not only by hiding the button. A request for a posting still inside its cooldown returns a clear error and writes no analytics row.
-- The Apply button on a posting inside the cooldown is replaced by a disabled state reading "Applied on 4 March. You can apply again from 4 June." Show the same on the card in the search results, so nobody clicks through only to be turned away.
-- The cooldown is per applicant per posting. A different posting is unaffected, and a role that is closed and later reposted gets a new uuid, so it is a new posting with no cooldown. Mention that in the admin help text, since it is the intended escape hatch for genuinely reopened roles.
-- Admins can waive a cooldown on a single tracking row from the applicant tracking page, which clears `cooldown_until` and writes an event row naming who did it.
-- **A status change never touches the cooldown.** A job poster moving somebody to `accepted` or `rejected`, or to anything else in the pipeline, leaves `applied_at` and `cooldown_until` exactly as they are, and the applicant serves the rest of the period they were already serving. Only three things ever write those columns: a confirmed application sets them, a withdrawal clears them per 7e, and an explicit waive clears `cooldown_until` per the line above. A rejection is not a waive, and making it one would let somebody reapply the same afternoon they were turned down, which helps nobody.
-- **Once the cooldown has run out, a rejected applicant may apply again**, and the tracking row starts fresh at `started`. The cooldown is the whole of the gate; a rejection is not a ban, and the event history keeps the record of what happened. `rejected` therefore joins `started` and `withdrawn` as a status a new application may reset, which is the list in `api/_lib/apply.js`.
-- **An accepted applicant may not apply to that posting again**, cooldown or no cooldown. They have the role. The Apply control says so plainly rather than showing a date, since a date invites somebody to come back and try again for something they already have. This is the one refusal in 7a that is not about time passing.
+- The cooldown starts only on a positive confirmation, whichever comes first. That is the applicant clicking Yes in the modal in 7c, or the webhook in section 13 reporting the submission.
+- Clicking No starts nothing, and neither does ignoring the modal. An unanswered prompt is read as No. An applicant who closed the tab without answering keeps full access to the Apply button. Never infer an application from the click alone.
+- On confirmation, set `applied_at` on the `gftvjobs_applications` row, and `cooldown_until` to three months later. Store the date instead of computing it on read. The rule then stays stable if the policy changes later, and an admin can override a single row.
+- Enforce it server side in the apply endpoint, and not only by hiding the button. A request for a posting still inside its cooldown returns a clear error and writes no analytics row.
+- The Apply button on a posting inside the cooldown is replaced by a disabled state. It reads "Applied on 4 March. You can apply again from 4 June." Show the same on the card in the search results, so nobody clicks through only to be turned away.
+- The cooldown is per applicant per posting. A different posting is unaffected. A role that is closed and later reposted gets a new uuid, so it is a new posting with no cooldown. Mention that in the admin help text, since it is the intended escape hatch for genuinely reopened roles.
+- Admins can waive a cooldown on a single tracking row, from the applicant tracking page. That clears `cooldown_until` and writes an event row naming who did it.
+- **A status change never touches the cooldown.** A job poster moving somebody to `accepted` or `rejected`, or to anything else in the pipeline, leaves `applied_at` and `cooldown_until` exactly as they are. The applicant serves the rest of the period they were already serving. Only three things ever write those columns. A confirmed application sets them, a withdrawal clears them per 7e, and an explicit waive clears `cooldown_until` per the line above. A rejection is not a waive. Making it one would let somebody reapply the same afternoon they were turned down, which helps nobody.
+- **Once the cooldown has run out, a rejected applicant may apply again**, and the tracking row starts fresh at `started`. The cooldown is the whole of the gate. A rejection is not a ban, and the event history keeps the record of what happened. `rejected` therefore joins `started` and `withdrawn` as a status a new application may reset. That is the list in `api/_lib/apply.js`.
+- **An accepted applicant may not apply to that posting again**, cooldown or no cooldown. They have the role. The Apply control says so plainly, and never shows a date. A date invites somebody to come back and try again for something they already have. This is the one refusal in 7a that is not about time passing.
 
 ### 7g. Applicant dashboard
 
-The account area gets two list pages beyond the profile. Both are private, both require an applicant session, and both must keep working for postings that are closed, expired, or archived.
+The account area gets two list pages beyond the profile. Both are private and both require an applicant session. Both must keep working for postings that are closed, expired, or archived.
 
 **My applications (`/account/applications`)**
 
-- Every posting the applicant has applied to or started an application for, newest first, with status, the date they applied, and the cooldown state where one is active.
+- Every posting the applicant has applied to, or started an application for, newest first. Each shows the status, the date they applied, and the cooldown state where one is active.
 - Bucket tabs mirroring the admin ones, so they can filter to submitted, in progress, or closed out.
-- Each row links back to the posting at its `/jobs/{uuid}` URL. That link must resolve even if the posting has since closed, expired, or been archived, so an applicant can always reread what they applied for.
+- Each row links back to the posting at its `/jobs/{uuid}` URL. That link must resolve even if the posting has since closed, expired, or been archived. An applicant can then always reread what they applied for.
 - Any unanswered prompt from 7c also surfaces on the outstanding tasks page below, which is the canonical place for it.
 - Withdraw action, per 7e.
 - Empty state pointing at `/search`.
 
 **Saved jobs (`/account/saved`)**
 
-- Same treatment. Postings the applicant saved, including ones that have since closed or expired, which stay visible with a clear "no longer accepting applications" badge rather than vanishing from the list.
+- Same treatment. Postings the applicant saved, including ones that have since closed or expired. Those stay visible with a clear "no longer accepting applications" badge, and never vanish from the list.
 - Unsave action, and a save or unsave toggle on both the job cards in `/search` and the job detail page.
-- Saving requires a session. For a logged out visitor the save control opens the same sign in prompt as Apply, described in section 4, and completes the save once they are back.
+- Saving requires a session. For a logged out visitor, the save control opens the same sign in prompt as Apply, described in section 4. It completes the save once they are back.
 - Sort by recently saved, with a filter for still open versus closed.
 
 **Outstanding tasks (`/account/tasks`)**
@@ -130,10 +130,10 @@ A single inbox for anything the portal needs the applicant to deal with. It exis
 - Two sources feed the list, and the page unions them at read time:
   1. Unanswered apply prompts, derived live from `gftvjobs_analytics` rows at `response_state` pending. Do not copy these into the tasks table. The analytics row stays the single source of truth, and duplicating it guarantees the two drift apart.
   2. Rows in `gftvjobs_tasks`, which is where admin raised items live.
-- Task types to support from the start: `info_request`, where an admin needs more detail before progressing an application, and `notice`, a one way message with nothing to submit. Leave the type column open so more can be added without a migration.
-- Each item shows a title, the posting it relates to where there is one, who raised it, when, and its status. Open items sort first, newest first, with resolved ones collapsed under a "recently completed" section rather than vanishing.
+- Two task types to support from the start. `info_request` is where an admin needs more detail before progressing an application. `notice` is a one way message with nothing to submit. Leave the type column open, so more can be added without a migration.
+- Each item shows a title, the posting it relates to where there is one, who raised it, when, and its status. Open items sort first, newest first. Resolved ones collapse under a "recently completed" section, and never vanish.
 - Opening an apply prompt item opens the modal from 7c in place. Opening an info request expands an inline panel with the admin's message and the questions it carries.
-- Keep replies to one round for now. The admin asks, the applicant replies once, the admin reads it and closes the task. This is deliberately not a messaging thread, and it should not grow into one without a decision to build that properly.
+- Keep replies to one round for now. The admin asks, the applicant replies once, and the admin reads it and closes the task. This is deliberately not a messaging thread. It should not grow into one without a decision to build that properly.
 
 *Questions on a task*
 
