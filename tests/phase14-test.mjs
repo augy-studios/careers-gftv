@@ -23,6 +23,10 @@
 //   boundary     part 5: what a job poster may reach, and what is an admin's
 //   guide        part 5: the poster guide, and the procedure it copies
 //   admin-guide  part 6: the admin guide, and the access rule it states
+//   developer-guide  part 7: the developer guide, and the scripts it embeds
+//   captures     part 8: 16g's manifest, and what it may photograph
+//   discovery    part 8: robots.txt, sitemap.xml and llms.txt
+//   translations part 9: the 华文 tree, the two tables, and what serves them
 
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
@@ -1247,9 +1251,11 @@ define('worker', 'Part 4: the docs service worker, and what makes it safe', asyn
     'Anything written here by hand is a second answer to what exists.'
   );
 
+  // The signature gained `locales` in part 9, which is the one language index
+  // per language the build now writes beside the English one.
   check(
     '20. the build writes it from the pages it has just written',
-    /function writeWorker\(pagePaths\)[\s\S]*?BUILD:PRECACHE[\s\S]*?writeFileSync\(join\(DIST, 'sw\.js'\)/.test(
+    /function writeWorker\(pagePaths, locales\)[\s\S]*?BUILD:PRECACHE[\s\S]*?writeFileSync\(join\(DIST, 'sw\.js'\)/.test(
       build
     ),
     'The list cannot drift from the tree.'
@@ -2659,6 +2665,433 @@ define('discovery', "Part 8: the docs site's robots.txt, sitemap and llms.txt", 
     !existsSync(join(DOCS, 'public/robots.txt')) && !existsSync(join(DOCS, 'public/sitemap.xml')),
     'public/ is copied into dist/ before these are written, so a hand written copy ' +
       'would look edited and be overwritten'
+  );
+});
+
+define('translations', 'Part 9: the 华文 tree, the two tables, and what serves them', async () => {
+  const { loadTranslations, localesOnDisk, fileForPage, BASE_LOCALE } = await import(
+    `file://${join(DOCS, 'scripts/translations.js')}`
+  );
+  const { TABLES, REQUIRED } = await import(`file://${join(DOCS, 'scripts/db.js')}`);
+  const { loadPages } = await import(`file://${join(DOCS, 'api/_lib/pages.js')}`);
+
+  const build = read(join(DOCS, 'scripts/build.js'));
+  const content = read(join(DOCS, 'api/content.js'));
+  const nav = read(join(DOCS, 'api/nav.js'));
+  const searchIndex = read(join(DOCS, 'api/search-index.js'));
+  const generated = read(join(DOCS, 'api/_lib/generated.js'));
+  const shell = read(join(DOCS, 'assets/js/shell.js'));
+  const worker = read(join(DOCS, 'sw.js'));
+  const migration = read(join(REPO, 'migrations/042_docs_translations.sql'));
+  const portalLib = read(join(MAIN, 'api/_lib/supabase.js'));
+  const docsEn = JSON.parse(read(join(DOCS, 'assets/i18n/en.json')));
+  const docsZh = JSON.parse(read(join(DOCS, 'assets/i18n/zh.json')));
+
+  /* --- The tree, against the pages it claims to translate ---------------- */
+
+  const { pages } = loadPages({ fresh: true });
+  const tree = loadTranslations({ root: DOCS });
+
+  check(
+    '1. the translation tree loads with no problems',
+    tree.problems.length === 0,
+    tree.problems.join('; ')
+  );
+
+  check(
+    '2. every locale with a tree has a dictionary beside it',
+    tree.locales.every((locale) => localesOnDisk(DOCS).includes(locale)),
+    `trees: ${tree.locales.join(', ') || 'none'}; dictionaries: ${localesOnDisk(DOCS).join(', ')}`
+  );
+
+  // **The count is the whole point of the part.** 16f made the site bilingual,
+  // staff half included, so a page nobody has translated is a page a 华文
+  // reader gets in English. That is allowed, and it is worth counting out loud.
+  check(
+    `3. every page is translated into every language on disk (${tree.rows.length} files, ${tree.missing.length} not)`,
+    tree.missing.length === 0,
+    tree.missing.map((row) => `${row.locale} ${row.path}`).slice(0, 8).join(', ')
+  );
+
+  check(
+    '4. every translation is ready, so every one of them is served',
+    tree.rows.every((row) => row.ready),
+    tree.rows.filter((row) => !row.ready).map((row) => row.where).join(', ')
+  );
+
+  // The file name a page's translation has to carry. Derived from the loader
+  // and never written down, so a page renamed in the English tree renames its
+  // translation's expected path with it.
+  const expected = new Set();
+  for (const locale of tree.locales) {
+    for (const page of pages.values()) expected.add(fileForPage(page, locale));
+  }
+  check(
+    '5. every translation file is named for the page it translates',
+    tree.rows.every((row) => expected.has(row.where)),
+    tree.rows.filter((row) => !expected.has(row.where)).map((row) => row.where).join(', ')
+  );
+
+  check(
+    '6. no translation carries an access key, so the tier is decided once',
+    tree.rows.every((row) => !read(row.file).match(/^access:/m)),
+    '16e: the access key stays in the English file and is never anywhere else'
+  );
+
+  /* --- The two tables ----------------------------------------------------- */
+
+  // **Two copies of two table names, compared.** scripts/db.js cannot import
+  // `T` from api/_lib/supabase.js, because that module builds a Supabase client
+  // at import time and the build exists to avoid that dependency. So the names
+  // are written twice and this is what stops them drifting.
+  check(
+    '7. the build writes the tables api/_lib/supabase.js names',
+    portalLib.includes(`docsTranslations: '${TABLES.translations}'`) &&
+      portalLib.includes(`docsPages: '${TABLES.pages}'`),
+    `db.js says ${TABLES.translations} and ${TABLES.pages}`
+  );
+
+  check(
+    '8. migration 042 creates both tables and the view over them',
+    migration.includes(`create table if not exists ${TABLES.translations}`) &&
+      migration.includes(`create table if not exists ${TABLES.pages}`) &&
+      migration.includes('create or replace view gftvjobs_docs_public'),
+    'the tables and the one thing outside Vercel that may read a page'
+  );
+
+  // 16e's leak, spelled as a constraint. The build refuses first; this refuses
+  // after it, and the two failures are different sizes.
+  check(
+    '9. the mirror refuses a gated page at the database',
+    migration.includes('gftvjobs_docs_pages_public_only') &&
+      migration.includes("page_path <> '/staff' and page_path not like '/staff/%'"),
+    'a gated page in gftvjobs_docs_pages is the admin guide on Telegram'
+  );
+
+  check(
+    '10. the view is an inner join, which is what keeps a gated page out of it',
+    /join\s+gftvjobs_docs_translations\s+t\s+on\s+t\.page_path\s*=\s*p\.page_path/.test(migration) &&
+      migration.includes('where t.is_ready'),
+    'written as a left join it would carry every gated page with null English beside it'
+  );
+
+  check(
+    '11. the view is revoked from anon and authenticated, per migration 035',
+    migration.includes('security_invoker = true') &&
+      migration.includes('revoke all on gftvjobs_docs_public from anon, authenticated'),
+    'a view runs as its owner, so the row level security under it does not apply'
+  );
+
+  /* --- The build ---------------------------------------------------------- */
+
+  check(
+    '12. the build refuses a gated page in the mirror before the database does',
+    build.includes('a gated page reached the Supabase mirror'),
+    'the loop is one continue away from being wrong'
+  );
+
+  check(
+    '13. the build fails loudly with no credentials, and names the escape hatch',
+    build.includes('This build needs the database') &&
+      build.includes('--no-database') &&
+      REQUIRED.every((name) => build.includes(name) || read(join(DOCS, 'scripts/db.js')).includes(name)),
+    '16e: a build that cannot reach Supabase must fail loudly'
+  );
+
+  check(
+    '14. --no-database is refused on Vercel',
+    build.includes('--no-database is refused on Vercel') && build.includes('onVercel()'),
+    'a deployment is where nobody sees the banner'
+  );
+
+  check(
+    '15. the build upserts before it deletes',
+    build.indexOf('await upsert(TABLES.translations') < build.indexOf('selectColumns(TABLES.translations'),
+    'the other order has a window where a renamed page is in the table under neither name'
+  );
+
+  check(
+    "16. a translation's date comes from git and is never now()",
+    build.includes('updated_at: dates.get(repoPath(row.file)) ?? null'),
+    'a row claiming to change on every deploy gives every page a date that moves on its own'
+  );
+
+  /* --- What the build wrote ----------------------------------------------- */
+
+  for (const locale of tree.locales) {
+    check(
+      `17. dist/search-index.${locale}.json was written`,
+      existsSync(join(DIST, `search-index.${locale}.json`)),
+      'one static index per language, and the English keeps its own name'
+    );
+
+    const localised = JSON.parse(read(join(DIST, `search-index.${locale}.json`)));
+    const english = JSON.parse(read(join(DIST, 'search-index.json')));
+    check(
+      `18. the ${locale} index holds every page the English one does`,
+      localised.length === english.length,
+      `${localised.length} against ${english.length}: an untranslated page is in it in English`
+    );
+
+    const home = localised.find((entry) => entry.path === '/');
+    const homeEnglish = english.find((entry) => entry.path === '/');
+    check(
+      `19. the ${locale} index is actually in ${locale}`,
+      Boolean(home) && home.title !== homeEnglish.title,
+      'a localised index carrying the English titles is an index nobody can search'
+    );
+
+    for (const tier of ['poster', 'admin', 'developer']) {
+      check(
+        `20. api/_generated/search-${tier}.${locale}.json was written`,
+        existsSync(join(DOCS, `api/_generated/search-${tier}.${locale}.json`)),
+        'the gated indexes are split by tier first and by language second'
+      );
+    }
+  }
+
+  check(
+    '21. the worker precaches every language index',
+    tree.locales.every((locale) =>
+      read(join(DIST, 'sw.js')).includes(`'/search-index.${locale}.json'`)
+    ),
+    'a reader offline who changes language is the case this is for'
+  );
+
+  /* --- The routes --------------------------------------------------------- */
+
+  check(
+    '22. the content route applies the gate before the language',
+    content.indexOf('readablePage(path, tier)') < content.indexOf('localeParam(req.query?.locale)'),
+    'a title lookup that ran first could put a page back into an answer the gate took out'
+  );
+
+  check(
+    '23. the content route says which language it actually answered in',
+    content.includes('locale: translated ? locale : BASE_LOCALE') &&
+      content.includes('asked_locale:'),
+    'the notice is drawn off what was served and never off what the reader chose'
+  );
+
+  check(
+    '24. a blank body is not a translated page',
+    content.includes('const translated = Boolean(mine?.body)'),
+    "3a: a 华文 title over an English body is the half translated page ready exists to prevent"
+  );
+
+  check(
+    '25. the nav route filters by tier before it swaps any title',
+    nav.indexOf('navFor(tier)') < nav.indexOf('titlesFor(locale)') ||
+      nav.includes('localiseNav(navFor(tier), await titlesFor(locale))'),
+    'what is in the tree is the tier; what it is called is the language'
+  );
+
+  check(
+    '26. the search index route passes the locale through to the generated files',
+    searchIndex.includes('gatedIndexFor(tier, locale)') &&
+      generated.includes('search-${tier}.${locale}.json'),
+    'the tier chooses the set of files and the language chooses which copy of each'
+  );
+
+  check(
+    '27. a missing localised gated index falls back to the English one',
+    generated.includes('required: false') && generated.includes('required: true'),
+    'a missing English index is still the loud failure; a missing localised one is not'
+  );
+
+  // Code lines only. The file's own comments say it never throws, and a check
+  // that read those would pass on a file that had stopped being true.
+  const readPath = read(join(DOCS, 'api/_lib/docs-translations.js'))
+    .split('\n')
+    .filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line));
+
+  check(
+    '28. every read path fails to English and never throws',
+    readPath.some((line) => line.includes('return out;')) &&
+      !readPath.some((line) => /\bthrow\b/.test(line)),
+    'a database that cannot be reached costs a reader their language and nothing else'
+  );
+
+  /* --- The shell ---------------------------------------------------------- */
+
+  check(
+    '29. an English reader sends no locale parameter at all',
+    shell.includes('locale === DEFAULT_LOCALE ? null : locale'),
+    'English is the base row, so the address a signed out reader fetches is unchanged'
+  );
+
+  check(
+    '30. the prerendered English article is kept for a reader who switches back',
+    shell.includes('prerendered ??= article.innerHTML'),
+    'switching to 华文 replaces the article, and switching back has nothing to fetch'
+  );
+
+  check(
+    '31. the language notice is redrawn on every draw and not only on a change',
+    shell.includes('drawLanguageNotice') &&
+      shell.includes("article.querySelector('[data-language-notice]')?.remove()"),
+    'a notice left behind says a page is English while it is read in 华文'
+  );
+
+  check(
+    '32. the search index is thrown away when the language changes',
+    shell.includes('forgetIndex()'),
+    'the next keystroke has to reach for the right language'
+  );
+
+  check(
+    '33. the guide is redrawn on a language change',
+    shell.includes('const { headings } = await drawPage(next)'),
+    'the comment this replaced said there was nothing to fetch, which was true until there was'
+  );
+
+  /* --- The notice, in both dictionaries ----------------------------------- */
+
+  for (const key of ['page.englishOnlyLabel', 'page.englishOnlyBody']) {
+    check(
+      `34. ${key} is in both dictionaries`,
+      typeof docsEn[key] === 'string' && typeof docsZh[key] === 'string',
+      '3a: a page with no translation falls back to English with a notice'
+    );
+  }
+
+  check(
+    '35. the notice is a callout and adds no CSS of its own',
+    shell.includes('class="docs-callout" data-callout="note"'),
+    'the renderer already draws four of them and docs.css already styles them'
+  );
+
+  /* --- The worker --------------------------------------------------------- */
+
+  check(
+    '36. the worker matches a localised search index',
+    worker.includes('SEARCH_INDEX') &&
+      /search-index\(\\\.\[a-z\]\{2,3\}/.test(worker.replace(/\\\\/g, '\\')),
+    'both are build output and both are precached'
+  );
+
+  check(
+    '37. VERSION moved with this part',
+    worker.includes("careers-gftv-docs-phase14-v5"),
+    'the rule is one bump per change to the site, and this part changed the shell'
+  );
+
+  /* --- The English half the part had to correct --------------------------- */
+
+  check(
+    '38. the staff index no longer says these guides are English only',
+    !read(join(DOCS, 'api/_content/index.md')).includes('These guides are in English today'),
+    'part 9 is what made that sentence untrue, so part 9 is what takes it out'
+  );
+
+  check(
+    "39. 3a no longer says the staff half of the docs site stays English",
+    read(join(REPO, 'careers-gftv-spec.md')).includes(
+      'That was overruled by 16f on 3 September 2026 and built by phase 14 part 9'
+    ),
+    '3a and 16f cannot be left saying opposite things about the same pages'
+  );
+
+  check(
+    '40. the base locale is the same word in both halves of the code',
+    BASE_LOCALE === 'en' &&
+      read(join(DOCS, 'api/_lib/docs-translations.js')).includes("BASE_LOCALE = 'en'"),
+    'the tree loader and the read path have to agree what English is'
+  );
+
+  /* --- The four concerns, answered after the part was written ------------- */
+
+  // **The portal's own rule, applied to the one element that arrives late.**
+  // shell.html's pre-paint script holds the whole document while the dictionary
+  // loads and releases it after 1200ms whatever happens; a public article now
+  // takes the same hold and the same valve, because the alternative is a 华文
+  // reader watching English be replaced.
+  const docsCss = read(join(DOCS, 'assets/css/docs.css'));
+  const shellHtml = read(join(DOCS, 'shell.html'));
+
+  check(
+    '41. a public article is hidden until its translation arrives',
+    docsCss.includes('.docs-article[data-awaiting-translation]') &&
+      docsCss.includes('visibility: hidden') &&
+      shell.includes("article.setAttribute('data-awaiting-translation', '')"),
+    'the portal hides the page until the swap, and this is the same technique'
+  );
+
+  check(
+    '42. the hold has a release valve, at the portal\'s own 1200ms',
+    shell.includes('setTimeout(reveal, 1200)') && shellHtml.includes('}, 1200);'),
+    'a translation that never arrives must not leave somebody looking at nothing'
+  );
+
+  check(
+    '43. the valve is cleared and the article revealed on every path out',
+    (shell.match(/reveal\(\)/g) ?? []).length >= 2 && shell.includes('clearTimeout(valve)'),
+    'the untranslated branch and the drawn branch both have to release it'
+  );
+
+  // A translated page has two dates. The site takes the later of the two and so
+  // does the view, which is what stops one page being dated twice.
+  const updated = existsSync(join(DOCS, 'api/_generated/updated.json'))
+    ? JSON.parse(read(join(DOCS, 'api/_generated/updated.json')))
+    : {};
+
+  // **Predicted while the tree is uncommitted, and it is not a defect.** The
+  // dates come from git, and a file git has never seen carries none on purpose
+  // — the same rule phase 13's check 24 states about a page. So this skips
+  // until the translations are pushed and asserts from then on, which is the
+  // shape that stops it being ignored the day it starts mattering.
+  const anyDated = tree.locales.some((locale) =>
+    tree.rows.some((row) => Object.hasOwn(updated, `${locale}:${row.path}`))
+  );
+
+  if (!anyDated) {
+    skip(
+      "44. the build writes each translation's own date under its own key",
+      'git has not dated the translation tree yet, which is what an uncommitted ' +
+        'file looks like. It asserts once the tree is pushed.'
+    );
+  } else {
+    check(
+      "44. the build writes each translation's own date under its own key",
+      tree.locales.every((locale) =>
+        tree.rows.every(
+          (row) => row.locale !== locale || Object.hasOwn(updated, `${locale}:${row.path}`)
+        )
+      ),
+      'a page path always opens with a slash, so a locale prefix cannot collide with one'
+    );
+  }
+
+  check(
+    '45. the site takes the later of a translated page\'s two dates',
+    generated.includes('return translated > base ? translated : base;') &&
+      content.includes('updatedFor(found.page.path, translated ? locale : null)'),
+    'a guide written in March whose 华文 moved in September changed in September'
+  );
+
+  check(
+    '46. the view applies the same rule, so the bot cannot disagree',
+    migration.includes('greatest(p.updated_at, t.updated_at)'),
+    'one page, one date, whichever of the two readers is asking'
+  );
+
+  // Detection was offered for a translation going stale and was not taken, so
+  // the reminder is the deliverable. A habit nobody wrote down is not one.
+  check(
+    '47. editing a page reminds you to check its translations',
+    read(join(DOCS, 'README.md')).includes('Check its translations in the same change') &&
+      read(join(DOCS, 'api/_content/developer/conventions.md')).includes(
+        'Check the translations when you edit a page'
+      ),
+    'the README section somebody edits from, and the conventions page'
+  );
+
+  check(
+    '48. the reminder is in 华文 as well, on the page that carries it',
+    read(join(DOCS, 'translations/zh/staff/developer/conventions.md')).includes(
+      '编辑页面时，请一并检查它的翻译'
+    ),
+    'a guide about keeping translations current, untranslated, would be the joke telling itself'
   );
 });
 

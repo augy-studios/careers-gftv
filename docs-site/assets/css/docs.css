@@ -332,6 +332,30 @@ body {
   max-width: var(--docs-content-width);
 }
 
+/* **A public page's article is English until its translation arrives**, since
+   phase 14 part 9, and this is the portal's own rule applied to the one element
+   that arrives late here.
+
+   The build writes one static file per public page and it is the English one,
+   per 16f: a language is a stored preference and not an address. So a 华文
+   reader loads the right page in the wrong language and the shell fetches the
+   translation. Without this rule they would read a paragraph of English and
+   watch it be replaced.
+
+   The pre-paint script in shell.html does exactly this for the whole document
+   while the dictionary loads, and the comment in theme.css beside it carries
+   the reasoning: visibility over display, so layout is already computed and
+   nothing jumps when the page appears. This is the same technique, scoped to
+   the article, for the same reason.
+
+   **shell.js releases it on arrival, on failure, and on a timeout**, which is
+   the release valve the pre-paint script has and for the identical reason: a
+   translation that never arrives must not leave somebody looking at nothing.
+   Never set for an English reader, and never set without JavaScript. */
+.docs-article[data-awaiting-translation] {
+  visibility: hidden;
+}
+
 .docs-toc {
   display: none;
 }

@@ -56,6 +56,7 @@ import {
   frontMatter,
 } from './_lib/pages.js';
 import { updatedFor } from './_lib/generated.js';
+import { localeParam, translationsFor, BASE_LOCALE } from './_lib/docs-translations.js';
 import { readFile } from 'node:fs/promises';
 
 /** One sentence, for every reason this route says no. */
@@ -151,13 +152,48 @@ export default async function handler(req, res) {
       }
     }
 
+    // **The language, after the gate and never before it.** `found` is what
+    // this reader may open; everything below only changes the words it is
+    // written in. A page nobody has translated, a blank row, a language nobody
+    // has started, and a database that cannot be reached all arrive here as an
+    // empty map, and all four draw the English page with the notice on it that
+    // 3a asks for.
+    //
+    // The neighbours are asked for in the same query as the page, because the
+    // pager sits on the same screen and three round trips for three titles is
+    // three times the latency for one view.
+    const locale = localeParam(req.query?.locale);
+    const rows = await translationsFor(
+      [found.page.path, found.prev?.path, found.next?.path],
+      locale
+    );
+
+    const mine = rows.get(found.page.path) ?? null;
+    // A row with no body is not a translated page. Per 3a a blank field falls
+    // back, and a blank body falls back to the whole English page: a title in
+    // 华文 over an English body would be the half translated page the ready
+    // flag exists to keep off the screen.
+    const translated = Boolean(mine?.body);
+    const withTitle = (page) => {
+      const row = page && rows.get(page.path);
+      return row?.title ? { ...page, title: row.title } : page;
+    };
+
     return ok(
       res,
       {
-        page: found.page,
-        prev: found.prev,
-        next: found.next,
+        page: translated
+          ? { ...found.page, title: mine.title ?? found.page.title, summary: mine.summary ?? found.page.summary }
+          : found.page,
+        prev: withTitle(found.prev),
+        next: withTitle(found.next),
         data,
+        // What language this answer is actually in, which is not always the one
+        // that was asked for. The page draws the notice off this and not off the
+        // reader's own setting, so the one thing that decides whether a reader is
+        // told "this page is in English" is whether it is.
+        locale: translated ? locale : BASE_LOCALE,
+        asked_locale: locale ?? BASE_LOCALE,
         // Where a bare image file name on this page points, which is this
         // route's own address for the directory the page was read from. The
         // browser is told it instead of working it out, so the one place that
@@ -165,8 +201,15 @@ export default async function handler(req, res) {
         asset_base: found.assetBase,
         // Null when the build could not date it, and null is drawn as no date
         // at all. Never today's.
-        updated: updatedFor(found.page.path),
-        markdown,
+        //
+        // **The later of the page's two dates, when a translation is being
+        // served.** The English file and its 华文 have two histories, so a
+        // guide written in March whose Chinese was rewritten in September
+        // changed in September for the reader looking at the Chinese.
+        // `gftvjobs_docs_public` applies the same rule with `greatest()`, which
+        // is what stops this site and the Telegram bot dating one page twice.
+        updated: updatedFor(found.page.path, translated ? locale : null),
+        markdown: translated ? mine.body : markdown,
       },
       // Never a shared cache. The answer depends on a session cookie, and this
       // is the route where getting that wrong hands one reader another reader's

@@ -69,7 +69,7 @@
 // reader must not be able to tell which pipeline a page came from" holding in
 // the one condition where it would be easiest to break.
 
-const VERSION = 'careers-gftv-docs-phase14-v4';
+const VERSION = 'careers-gftv-docs-phase14-v5';
 
 /** Build output. Versioned, so a bump is a new cache filled from the network. */
 const SHELL = `careers-gftv-docs-shell-${VERSION}`;
@@ -101,6 +101,15 @@ const NEVER = /^\/api\/auth\//;
 
 /** The API answers a signed in reader's guides come through. */
 const GATED_API = /^\/api\/(content|nav|search-index)$/;
+
+/**
+ * The public search index, in any language.
+ *
+ * One static file per language since part 9, and every one of them precached.
+ * The English keeps the name it has always had, so a reader who has never
+ * changed language fetches exactly what they always did.
+ */
+const SEARCH_INDEX = /^\/search-index(\.[a-z]{2,3}(-[A-Za-z0-9]{2,8})*)?\.json$/;
 
 const PRECACHE = [
   /* BUILD:PRECACHE */
@@ -284,7 +293,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (url.pathname === '/search-index.json') {
+  // The public index, in whichever language. `/search-index.json` is English
+  // and `/search-index.zh.json` is the same file translated, per part 9; both
+  // are build output and both are precached, so this is the offline path for a
+  // reader who searches in either.
+  if (SEARCH_INDEX.test(url.pathname)) {
     event.respondWith(networkFirst(request, SHELL));
   }
 });
@@ -363,6 +376,13 @@ async function networkFirst(request, cacheName) {
  * The cached answer carries no session. It is being replayed to the browser
  * that fetched it, in the tier it was fetched at, and the clearing above is
  * what makes that the same person.
+ *
+ * **A public page's translation comes through here too, since part 9**, because
+ * a 华文 reader fetches every page from the content route and a signed out
+ * reader's tier is `public` like any other. So the cache named for the public
+ * tier holds public content, which is what it says on it. The language is part
+ * of the address, so the English and the 华文 of one page are two entries and
+ * neither is ever served as the other.
  */
 async function apiFirst(request) {
   const tier = await currentTier();

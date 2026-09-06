@@ -24,7 +24,12 @@
 //     assets/, shell.html      copied as they are; the shell still serves every
 //                              gated address through the rewrite
 //     screenshots/...          public/ copied in, per 16g
-//     search-index.json        the public search index
+//     search-index.json        the public search index, English
+//     search-index.zh.json     the same index in every other language, one file
+//                              each, per 16f. A page with no translation is in
+//                              it in English, because a reader searching a
+//                              bilingual site for an English word is not asking
+//                              to be told nothing.
 //     robots.txt               the three discovery files, part 8, written from
 //     sitemap.xml              the same `access` key that drives the gate. See
 //     llms.txt                 scripts/discovery.js for why they are files here
@@ -32,9 +37,20 @@
 //
 //   api/_generated/            **not public.** Written for the functions to
 //     search-poster.json       read, and carried to them by the includeFiles
-//     search-admin.json        entry in vercel.json.
-//     search-developer.json
+//     search-admin.json        entry in vercel.json. One set per language,
+//     search-developer.json    suffixed the same way as the public index.
+//     search-poster.zh.json
+//     ...
 //     updated.json
+//
+//   Supabase                   **the only thing this build writes that is not a
+//     gftvjobs_docs_translations   file**, and phase 14 part 9 is what added it.
+//     gftvjobs_docs_pages          The translations tree is upserted into the
+//                              first, deletions included, so the table matches
+//                              the tree; the English of the public pages is
+//                              mirrored into the second for readers outside
+//                              Vercel, per section 6. Migration 042 and
+//                              scripts/translations.js carry the reasoning.
 //
 // **The split is the whole security argument**, per 16e: "the public index is a
 // static file. The gated index is served per role by api/search-index, built at
@@ -76,6 +92,17 @@ import { ACCESS_VALUES } from '../api/_lib/tiers.js';
 import { render, IMAGE } from '../assets/js/markdown.js';
 import { SHOTS, SHOTS_BY_NAME, filesFor, markdownSrc } from './screenshots.manifest.js';
 import { INDEXING, DISALLOW, robotsBody, sitemapXml, llmsTxt } from './discovery.js';
+import { loadTranslations, BASE_LOCALE } from './translations.js';
+import {
+  REQUIRED,
+  TABLES,
+  loadEnvFile,
+  haveCredentials,
+  onVercel,
+  upsert,
+  selectColumns,
+  deleteWhere,
+} from './db.js';
 
 const ROOT = projectRoot();
 const REPO = resolve(ROOT, '..');
@@ -84,6 +111,29 @@ const GENERATED = join(ROOT, 'api/_generated');
 
 const problems = [];
 const fail = (message) => problems.push(message);
+
+/**
+ * The one way to build without a database, and why it is a flag and not a
+ * fallback.
+ *
+ * 16e is explicit: "the build reads the table, so a deploy needs the database.
+ * A build that cannot reach Supabase must fail loudly rather than quietly emit
+ * an English-only site. A site missing every translation is the failure that
+ * looks like success."
+ *
+ * **Loudly is the operative word, and it is not the same as never.** A fresh
+ * clone has no service key, `tests/phase14-test.mjs` runs this build with no
+ * credentials at all, and a person changing the CSS should not need a
+ * production secret to see their change. What 16e forbids is a build that
+ * decides for itself to skip the database and says nothing -- so the default is
+ * to fail, this flag is the only way past it, and it prints a banner naming
+ * what the output is missing.
+ *
+ * **It is refused on Vercel.** A deployment is exactly the place where a person
+ * cannot see the banner, and a build command edited to carry this flag would be
+ * a site serving English to every 华文 reader for as long as nobody noticed.
+ */
+const NO_DATABASE = process.argv.includes('--no-database');
 
 /* -------------------------------------------------------------------------
  * The last updated date, from git
@@ -111,7 +161,19 @@ function gitDates() {
   try {
     output = execFileSync(
       'git',
-      ['log', '--format=%cI', '--name-only', '--', 'docs-site/content', 'docs-site/api/_content'],
+      [
+        'log',
+        '--format=%cI',
+        '--name-only',
+        '--',
+        'docs-site/content',
+        'docs-site/api/_content',
+        // The translation tree is dated by exactly the same pass, because a
+        // translation has its own last change and it is not the English page's.
+        // A guide rewritten in March with its 华文 written in September is two
+        // dates, and the row in gftvjobs_docs_translations carries the second.
+        'docs-site/translations',
+      ],
       { cwd: REPO, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }
     );
   } catch {
@@ -615,7 +677,7 @@ function addressesUnder(root, prefix) {
  * script depends on: a worker that quietly lost its list would precache nothing
  * and report that everything was fine.
  */
-function writeWorker(pagePaths) {
+function writeWorker(pagePaths, locales) {
   const source = readFileSync(join(ROOT, 'sw.js'), 'utf8');
 
   const entries = [
@@ -624,6 +686,10 @@ function writeWorker(pagePaths) {
     '/shell.html',
     ...pagePaths.sort(),
     '/search-index.json',
+    // One index per language, all of them precached and not only the reader's.
+    // A reader offline who changes language is the case this is for, and the
+    // whole set is smaller than one screenshot.
+    ...locales.map((locale) => `/search-index.${locale}.json`),
     ...addressesUnder(join(DIST, 'assets'), '/assets'),
     // Whatever `public/` holds, which is the brand images today and 16g's
     // screenshots from part 8. Both are wanted offline: a guide with a missing
@@ -705,19 +771,148 @@ function writeDiscovery(publicPaths, updated, sections, pages) {
   };
 }
 
+/**
+ * Every image a translation points at, against the page it translates.
+ *
+ * **The same pictures, in the same order, and only the captions differ.** A
+ * screenshot is a screenshot in every language: the alt text and the caption
+ * are translated and the file is not, so the two bodies have to name the same
+ * sources. What this actually catches is one thing, and it is the thing that
+ * would otherwise happen: `capture.mjs` swaps a `pending:` marker for a real
+ * address in all three trees at once, and a page edited by hand afterwards
+ * leaves a 华文 reader looking at "screenshot pending" under a picture that has
+ * been taken.
+ *
+ * It compares sources and never captions, because a caption that matched would
+ * mean the translation had not been done.
+ */
+function checkTranslatedImages(row, page, englishBody) {
+  const sources = (body) => [...body.matchAll(new RegExp(IMAGE.source, 'g'))].map((m) => m[2]);
+
+  const mine = sources(row.body);
+  const theirs = sources(englishBody);
+
+  if (mine.join('\n') === theirs.join('\n')) return;
+
+  fail(
+    `${row.where}: points at ${mine.length === 0 ? 'no images' : mine.join(', ')}, and ` +
+      `${page.path} points at ${theirs.length === 0 ? 'none' : theirs.join(', ')}. ` +
+      'A translated page carries the same screenshots as the page it translates; ' +
+      'only the caption is in another language.'
+  );
+}
+
+/* -------------------------------------------------------------------------
+ * Supabase
+ * ---------------------------------------------------------------------- */
+
+/**
+ * Make the two tables match the repository.
+ *
+ * **One direction, every time, deletions included.** The tree is the source and
+ * the tables are a copy, so this is not a merge and there is nothing to
+ * reconcile: whatever a person typed into a row in the Supabase table editor is
+ * gone the next time this runs. Migration 042 says so beside the tables, and
+ * scripts/translations.js has the argument for authoring the 华文 as files.
+ *
+ * **Upsert first and delete second**, which is the order that survives being
+ * interrupted. A page renamed between two deploys is briefly in the table under
+ * both names, and a reader served the old one is served a page that was correct
+ * yesterday. The other order has a window where the page is in the table under
+ * neither, and a reader in that window is told a guide does not exist.
+ *
+ * @param {Array} rows      the translation rows, from loadTranslations
+ * @param {Array} mirror    the public pages, English, collected by the build
+ * @param {Map}   dates     every file's git date, keyed by repository path
+ */
+async function syncDatabase(rows, mirror, dates) {
+  const translationRows = rows.map((row) => ({
+    page_path: row.path,
+    locale: row.locale,
+    title: row.title,
+    summary: row.summary,
+    body: row.body,
+    is_ready: row.ready,
+    // The translation's own last change, and null where git cannot date it.
+    // Never now(): a row that claimed to change on every deploy would give
+    // every translated page a date that moves on its own, through the view.
+    updated_at: dates.get(repoPath(row.file)) ?? null,
+  }));
+
+  await upsert(TABLES.translations, translationRows, 'page_path,locale');
+  await upsert(TABLES.pages, mirror, 'page_path');
+
+  let removed = 0;
+
+  const wanted = new Set(translationRows.map((row) => `${row.locale} ${row.page_path}`));
+  for (const row of await selectColumns(TABLES.translations, 'page_path,locale')) {
+    if (wanted.has(`${row.locale} ${row.page_path}`)) continue;
+    await deleteWhere(
+      TABLES.translations,
+      `page_path=eq.${encodeURIComponent(row.page_path)}&locale=eq.${encodeURIComponent(row.locale)}`,
+      `deleting the ${row.locale} translation of ${row.page_path}`
+    );
+    removed += 1;
+  }
+
+  const mirrored = new Set(mirror.map((row) => row.page_path));
+  for (const row of await selectColumns(TABLES.pages, 'page_path')) {
+    if (mirrored.has(row.page_path)) continue;
+    await deleteWhere(
+      TABLES.pages,
+      `page_path=eq.${encodeURIComponent(row.page_path)}`,
+      `deleting the mirrored page ${row.page_path}`
+    );
+    removed += 1;
+  }
+
+  return { translations: translationRows.length, mirrored: mirror.length, removed };
+}
+
 /* -------------------------------------------------------------------------
  * The build
  * ---------------------------------------------------------------------- */
 
-function build() {
+async function build() {
   // Throws, naming every problem it found, on anything wrong with either tree --
   // a missing `access` key included, which is 16e's "fail the build" and is why
   // nothing here catches it.
   const { pages, assets, sections } = loadPages({ fresh: true });
 
+  // The 华文 tree, checked against the pages it claims to translate. Its
+  // problems join the build's, so a file naming a page that no longer exists
+  // stops the deploy beside a page with no access key.
+  const translations = loadTranslations({ root: ROOT });
+  for (const problem of translations.problems) fail(problem);
+
+  // Only a ready row is ever served, per 3a, so only a ready row is what the
+  // indexes below are built from. A page held back with `ready: false` is still
+  // upserted -- the table is a copy of the tree and the flag travels with it --
+  // and is still searched for in English, which is what a reader gets.
+  const key = (locale, path) => `${locale} ${path}`;
+  const translated = new Map(
+    translations.rows.filter((row) => row.ready).map((row) => [key(row.locale, row.path), row])
+  );
+
   const dates = gitDates();
   const sectionTitles = new Map(
     sections.map((section) => [`${section.pipeline}:${section.slug}`, section.title])
+  );
+
+  // A section's own heading, in each language, taken from the translation of
+  // its index page. A search result names the section it was found in, and one
+  // that named it in English on a 华文 page would be the one English word on the
+  // screen.
+  const localeSectionTitles = new Map(
+    translations.locales.map((locale) => [
+      locale,
+      new Map(
+        sections.map((section) => [
+          `${section.pipeline}:${section.slug}`,
+          translated.get(key(locale, section.path))?.title || section.title,
+        ])
+      ),
+    ])
   );
 
   rmSync(DIST, { recursive: true, force: true });
@@ -747,6 +942,26 @@ function build() {
   const publicPaths = [];
   const gatedIndex = new Map(ACCESS_VALUES.filter((tier) => tier !== 'public').map((t) => [t, []]));
 
+  // One set of indexes per language, the same shape as the English pair above.
+  // **A page with no translation is in them in English**, which is the choice
+  // worth naming: the alternative is a 华文 reader searching a word that is on
+  // the screen in front of them and being told it appears nowhere. 3a's
+  // fallback is that an untranslated page is shown in English with a notice,
+  // and search is that page's other door.
+  const localeIndexes = new Map(
+    translations.locales.map((locale) => [
+      locale,
+      {
+        public: [],
+        gated: new Map(ACCESS_VALUES.filter((tier) => tier !== 'public').map((t) => [t, []])),
+      },
+    ])
+  );
+
+  // What the English of the public pages is mirrored into Supabase as, per
+  // section 6, collected here so nothing reads a file twice.
+  const mirror = [];
+
   let written = 0;
 
   for (const page of pages.values()) {
@@ -764,12 +979,51 @@ function build() {
     const { html, outline } = render(body, { assetBase: found?.assetBase ?? null });
     const entry = indexEntry(page, body, sectionTitles.get(`${page.pipeline}:${page.section}`), outline);
 
+    // The same page in every other language, indexed off the translation where
+    // there is one and off the English where there is not.
+    for (const locale of translations.locales) {
+      const row = translated.get(key(locale, page.path));
+      if (row) checkTranslatedImages(row, page, body);
+      const localBody = row ? row.body : body;
+      const localPage = row
+        ? { ...page, title: row.title || page.title, summary: row.summary ?? page.summary }
+        : page;
+
+      // Rendered again, and not reused, because the heading ids come from the
+      // renderer: a 华文 heading is a different anchor from the English one, and
+      // an index pointing at the English anchor would jump nowhere.
+      const { outline: localOutline } = render(localBody, { assetBase: found?.assetBase ?? null });
+      const localEntry = indexEntry(
+        localPage,
+        localBody,
+        localeSectionTitles.get(locale).get(`${page.pipeline}:${page.section}`),
+        localOutline
+      );
+
+      const bucket = localeIndexes.get(locale);
+      if (page.pipeline === 'gated') bucket.gated.get(page.access).push(localEntry);
+      else bucket.public.push(localEntry);
+    }
+
     if (page.pipeline === 'gated') {
       gatedIndex.get(page.access).push(entry);
       continue;
     }
 
     publicIndex.push(entry);
+
+    // The mirror row, per section 6. **Public pages only**, which is why this
+    // line is below the `continue` above and not beside the index push: a gated
+    // page reaching gftvjobs_docs_pages is 16e's leak, and the shape of the
+    // code is the first of the two things that stop it. The check constraint in
+    // migration 042 is the second.
+    mirror.push({
+      page_path: page.path,
+      title: page.title,
+      summary: page.summary,
+      body,
+      updated_at: date,
+    });
 
     // The neighbours a signed out reader gets, which are the only neighbours a
     // static page can carry: it is one file, served to everybody, and 16e's
@@ -808,10 +1062,24 @@ function build() {
   // not a static file is not a URL a crawler can be sent to.
   const discovery = writeDiscovery(publicPaths, updated, sections, pages);
 
+  // **A gated page in the mirror stops the build**, checked here and not only
+  // trusted from the loop above. The loop is one `continue` away from being
+  // wrong and the constraint in migration 042 is a database round trip away
+  // from saying so, and the sentence 16e wants said is this one.
+  for (const row of mirror) {
+    if (row.page_path === '/staff' || row.page_path.startsWith('/staff/')) {
+      fail(
+        `${row.page_path}: a gated page reached the Supabase mirror, which is read by ` +
+          'the Telegram bot and served to anybody who asks. Only public pages go there, ' +
+          'per section 6.'
+      );
+    }
+  }
+
   // Before the problems check, so a marker that stopped matching stops the
   // build with everything else rather than being recorded after the last thing
   // that reads the list.
-  const precached = writeWorker(publicPaths);
+  const precached = writeWorker(publicPaths, translations.locales);
 
   if (problems.length > 0) {
     console.error(`The build stopped, with ${problems.length} to fix:`);
@@ -823,6 +1091,24 @@ function build() {
   for (const [tier, entries] of gatedIndex) {
     writeFileSync(join(GENERATED, `search-${tier}.json`), JSON.stringify(entries));
   }
+  for (const [locale, bucket] of localeIndexes) {
+    writeFileSync(join(DIST, `search-index.${locale}.json`), JSON.stringify(bucket.public));
+    for (const [tier, entries] of bucket.gated) {
+      writeFileSync(join(GENERATED, `search-${tier}.${locale}.json`), JSON.stringify(entries));
+    }
+  }
+  // **A translated page's own date, under a key of its own.** The English page
+  // keeps the bare path it has always had, so nothing that reads this file
+  // needs to know translations exist; a translation is `zh:/portal/applying`,
+  // which no page path can collide with because every one of them opens with a
+  // slash. `updatedFor` takes the later of the two, which is the same rule
+  // `gftvjobs_docs_public` applies with `greatest()` — so the site and the
+  // Telegram bot cannot give one page two different dates.
+  for (const row of translations.rows) {
+    const date = dates.get(repoPath(row.file));
+    if (date) updated[`${row.locale}:${row.path}`] = date;
+  }
+
   writeFileSync(join(GENERATED, 'updated.json'), JSON.stringify(updated));
 
   const dated = Object.keys(updated).length;
@@ -849,6 +1135,76 @@ function build() {
       `${discovery.disallowed} prefixes disallowed, ` +
       `${discovery.sections} sections in dist/llms.txt.`
   );
+
+  const ready = translations.rows.filter((row) => row.ready).length;
+  console.log(
+    translations.locales.length === 0
+      ? 'Translations: none. Every page is English.'
+      : `Translations: ${translations.rows.length} files in ${translations.locales.join(', ')}, ` +
+          `${ready} ready, ${translations.missing.length} pages still English.`
+  );
+
+  /* ---------------------------------------------------------------------
+   * Supabase, last
+   * ------------------------------------------------------------------ */
+  //
+  // **Last, and after every file is on disk.** A deploy that fails here has
+  // written a correct dist/ and left the tables behind it, which is the
+  // failure updated_at is there to make visible. The other order would mean a
+  // build that wrote the tables and then stopped on a marker in shell.html,
+  // leaving the database describing a site that was never published.
+
+  if (NO_DATABASE) {
+    console.warn('');
+    console.warn('  !!  Built with --no-database.');
+    console.warn('  !!  gftvjobs_docs_translations and gftvjobs_docs_pages were not written,');
+    console.warn('  !!  so the site serves English to every reader and the Telegram bot');
+    console.warn('  !!  serves whatever the last real deploy left behind.');
+    console.warn('  !!  Never use this flag for a deployment.');
+    console.warn('');
+    return;
+  }
+
+  if (!haveCredentials()) {
+    console.error('');
+    console.error(`This build needs the database. Set ${REQUIRED.join(' and ')}.`);
+    console.error('');
+    console.error('  Locally they go in docs-site/.env.local or main-site/.env.local,');
+    console.error('  and main-site/.env.example is what says which project to point at.');
+    console.error('');
+    console.error('  16e: "a build that cannot reach Supabase must fail loudly rather than');
+    console.error('  quietly emit an English-only site. A site missing every translation is');
+    console.error('  the failure that looks like success."');
+    console.error('');
+    console.error('  To build the files alone and skip the tables, on purpose:');
+    console.error('    node scripts/build.js --no-database');
+    console.error('');
+    process.exit(1);
+  }
+
+  const wrote = await syncDatabase(translations.rows, mirror, dates);
+  console.log(
+    `Supabase: ${wrote.translations} translation rows, ${wrote.mirrored} pages mirrored ` +
+      `for the bot, ${wrote.removed} stale rows deleted.`
+  );
 }
 
-build();
+// The two variables, before anything reads them. Nothing here prints a value.
+loadEnvFile(ROOT);
+
+if (NO_DATABASE && onVercel()) {
+  console.error('--no-database is refused on Vercel. It is for a clone with no service key.');
+  console.error('A deployment built with it serves English to every reader and says so');
+  console.error('only in a build log nobody reads.');
+  process.exit(1);
+}
+
+build().catch((cause) => {
+  // A thrown error here is the database, every time: everything else in this
+  // script collects into `problems` and exits with the list. So the message is
+  // printed whole, because the useful half of a PostgREST failure is the body
+  // it sent back.
+  console.error('The build stopped.');
+  console.error(`  ${cause.message}`);
+  process.exit(1);
+});

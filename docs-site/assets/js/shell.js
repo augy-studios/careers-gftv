@@ -24,7 +24,7 @@
 // a second time here.
 
 import { initTheme } from './theme.js';
-import { initI18n, t, translateDom, getLocale } from './i18n.js';
+import { initI18n, t, translateDom, getLocale, DEFAULT_LOCALE } from './i18n.js';
 import { hydrateIcons } from './icons.js';
 import {
   renderThemeModal,
@@ -580,6 +580,71 @@ function state(bodyKey, titleKey) {
   );
 }
 
+/* -------------------------------------------------------------------------
+ * Language
+ * ---------------------------------------------------------------------- */
+
+/**
+ * The locale to ask an endpoint for, or null when there is nothing to ask.
+ *
+ * English is the base row, per 3a: the files are written in it and there is no
+ * translation row for it by definition. So an English reader sends no parameter
+ * at all, which keeps the address a signed out reader fetches identical to the
+ * one this site has always fetched.
+ */
+const askFor = () => {
+  const locale = getLocale();
+  return locale === DEFAULT_LOCALE ? null : locale;
+};
+
+/** A content address, with the language on it only when there is one. */
+const contentUrl = (path, locale) =>
+  `/api/content?path=${encodeURIComponent(path)}${locale ? `&locale=${encodeURIComponent(locale)}` : ''}`;
+
+/**
+ * The one sentence a reader gets when the page in front of them is not in the
+ * language they chose.
+ *
+ * 3a: "a page with no translation falls back to English with a notice, exactly
+ * as a posting does." The portal says this about a posting on the posting; this
+ * says it about a page on the page, and both say it in the reader's own
+ * language, which is the only part of the screen that can be.
+ *
+ * **A callout and not a new component.** The renderer already draws four of
+ * them and docs.css already styles them, so this is the same block a page would
+ * carry if somebody had typed it, and there is no CSS in this part at all.
+ */
+function languageNotice() {
+  return (
+    '<div class="docs-callout" data-callout="note" data-language-notice>' +
+    '<p class="docs-callout-label" data-i18n="page.englishOnlyLabel"></p>' +
+    '<p data-i18n="page.englishOnlyBody"></p></div>'
+  );
+}
+
+/**
+ * Put the notice at the top of an article, or take it away.
+ *
+ * Called on every draw and not only when it changes, because the cheap thing to
+ * get wrong is a notice left behind: a reader who switches to 华文 on an
+ * untranslated page and then opens a translated one would otherwise be told the
+ * page they are reading is in English while they read it in Chinese.
+ */
+function drawLanguageNotice(article, needed) {
+  article.querySelector('[data-language-notice]')?.remove();
+  if (!needed) return;
+
+  article.insertAdjacentHTML('afterbegin', languageNotice());
+  translateDom(article);
+}
+
+/**
+ * The English article the build wrote into this document, held from the first
+ * draw so a reader switching back to English gets it again. Null on a gated
+ * page, which never had one.
+ */
+let prerendered = null;
+
 /**
  * Fill the article, from whichever pipeline this page came through.
  *
@@ -598,13 +663,15 @@ async function drawPage(nav) {
   // would have two things drawing its chrome and one of them would eventually be
   // a version behind. So the build writes the page's data into the document and
   // the functions below are the same ones a gated page goes through.
-  if (article.hasAttribute('data-prerendered')) {
-    const headings = [...article.querySelectorAll('h2[id], h3[id], h4[id]')].map((node) => ({
-      id: node.id,
-      text: node.textContent.replace(/#$/, '').trim(),
-      level: Number(node.tagName.slice(1)),
-    }));
+  const locale = askFor();
 
+  // **The prerendered article is the English one, always.** The build writes
+  // one file per public page and it is the file every reader is served, per
+  // 16f's decision that a language is a stored preference and not an address.
+  // So an English reader is finished here with nothing fetched, and a 华文
+  // reader has the right page in the wrong language sitting in front of them
+  // while the translation is asked for.
+  if (article.hasAttribute('data-prerendered')) {
     let data = null;
     try {
       data = JSON.parse(el('docsPageData')?.textContent ?? 'null');
@@ -615,14 +682,72 @@ async function drawPage(nav) {
       data = null;
     }
 
-    if (data) {
-      document.title = tabTitle(data.page.title);
-      drawBreadcrumbs(data.page, nav);
-      drawPager(data.prev, data.next);
-      drawUpdated(data.updated);
+    // **The English article, kept, because the reader can change their mind.**
+    // Switching to 华文 replaces this article with the translation; switching
+    // back has nothing to fetch, because 3a's base row is a file and not a row.
+    // Without this the second switch would leave the Chinese on the screen and
+    // call it English.
+    prerendered ??= article.innerHTML;
+
+    const asDrawn = () => {
+      if (article.innerHTML !== prerendered) {
+        article.innerHTML = prerendered;
+        translateDom(article);
+      }
+
+      const headings = [...article.querySelectorAll('h2[id], h3[id], h4[id]')].map((node) => ({
+        id: node.id,
+        text: node.textContent.replace(/#$/, '').trim(),
+        level: Number(node.tagName.slice(1)),
+      }));
+
+      if (data) {
+        document.title = tabTitle(data.page.title);
+        drawBreadcrumbs(data.page, nav);
+        drawPager(data.prev, data.next);
+        drawUpdated(data.updated);
+      }
+
+      return { page: data?.page ?? null, headings };
+    };
+
+    if (!locale || !data) return asDrawn();
+
+    // **Hidden until the translation lands, which is what the portal does.**
+    // The pre-paint script in shell.html holds the whole document while the
+    // dictionary loads, for the reason it states: the alternative is every
+    // reader watching the English redraw. The article is the one thing that
+    // arrives after that hold has been released, so it takes its own.
+    //
+    // **The timeout is the same release valve and the same 1200ms.** A
+    // translation that never arrives must not leave somebody looking at
+    // nothing, and `get` already turns a dead request into a result rather than
+    // a rejection — so this covers the case that is left, which is a request
+    // that neither succeeds nor fails in any useful time.
+    article.setAttribute('data-awaiting-translation', '');
+    const reveal = () => article.removeAttribute('data-awaiting-translation');
+    const valve = setTimeout(reveal, 1200);
+
+    const found = await get(contentUrl(data.page.path, locale));
+    clearTimeout(valve);
+
+    const translated = found.ok && found.data?.locale === locale;
+
+    if (!translated) {
+      // Three different things arrive here and all three are the same answer to
+      // the reader: nobody has translated this page, the row is not ready, and
+      // the request never completed. **The English is already on the screen and
+      // is correct**, so the honest thing to add is the sentence saying which
+      // language they are reading, and never an error over a page that loaded.
+      const out = asDrawn();
+      drawLanguageNotice(article, true);
+      reveal();
+      return out;
     }
 
-    return { page: data?.page ?? null, headings };
+    const out = drawFetched(article, found.data, nav);
+    reveal();
+    return out;
   }
 
   article.innerHTML = `<p class="docs-loading" data-i18n="page.loading"></p>`;
@@ -634,7 +759,7 @@ async function drawPage(nav) {
   // and locally it looked perfect. The home page is an empty parameter, so it
   // needs no alias either.
   const path = window.location.pathname.replace(/\/+$/, '');
-  const result = await get(`/api/content?path=${encodeURIComponent(path)}`);
+  const result = await get(contentUrl(path, locale));
 
   if (!result.ok) {
     const missing = result.status === 404;
@@ -653,13 +778,30 @@ async function drawPage(nav) {
   }
 
   setRobots(false);
-  const data = result.data;
+  return drawFetched(article, result.data, nav);
+}
+
+/**
+ * An article, from an answer the content route sent.
+ *
+ * **Both pipelines end here since part 9.** A gated page has always arrived
+ * this way; a public page in a language that is not English now does too, and
+ * that is the whole of what "the public half fetches its translation" means in
+ * code. 16e asks that a reader must not be able to tell which pipeline a page
+ * came from, and the two now share the drawing as well as the layout.
+ */
+function drawFetched(article, data, nav) {
   // The images beside a gated page are addressed from where the page itself was
   // read, which the server sent: nothing in the browser works out where a gated
   // file lives.
   const { html, headings } = render(data.markdown, { assetBase: data.asset_base });
   article.innerHTML = html;
   translateDom(article);
+
+  // What language this answer actually came back in, which is not always the
+  // one that was asked for. The route says so in the payload, so the notice is
+  // drawn off what was served and never off what the reader chose.
+  drawLanguageNotice(article, data.asked_locale !== data.locale);
 
   // A page whose front matter names a data file gets it here, inside its own
   // answer, and only a gated page can name one. `mountScripts` draws nothing at
@@ -719,8 +861,14 @@ function loadIndex(signedIn) {
 }
 
 async function fetchIndex(signedIn) {
+  // One static file per language, written by the build, and the English one
+  // keeps the name it has always had: `/search-index.json` is what a signed out
+  // English reader fetches, unchanged, and a language is a suffix on it.
+  const locale = askFor();
+  const file = locale ? `/search-index.${locale}.json` : '/search-index.json';
+
   try {
-    const response = await fetch('/search-index.json', { headers: { Accept: 'application/json' } });
+    const response = await fetch(file, { headers: { Accept: 'application/json' } });
     if (!response.ok) throw new Error(String(response.status));
     index.entries = await response.json();
   } catch {
@@ -729,9 +877,25 @@ async function fetchIndex(signedIn) {
 
   if (!signedIn) return;
 
-  const staff = await get('/api/search-index');
+  const staff = await get(`/api/search-index${locale ? `?locale=${encodeURIComponent(locale)}` : ''}`);
   if (staff.ok) index.entries = index.entries.concat(staff.data?.entries ?? []);
   else index.staffFailed = true;
+}
+
+/**
+ * Throw the index away, so the next search fetches it in the new language.
+ *
+ * **Not refetched here**, deliberately. A reader who changes language has not
+ * asked to search, and the index is the largest thing this site fetches: the
+ * whole text of every page they may open. It is loaded on the first keystroke,
+ * as it always was, and this is what makes that keystroke reach for the right
+ * language.
+ */
+function forgetIndex() {
+  index.loading = null;
+  index.entries = [];
+  index.failed = false;
+  index.staffFailed = false;
 }
 
 const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -1156,7 +1320,12 @@ async function start() {
   // A sidebar that could not be fetched is an empty one, and never a guess. The
   // page itself still renders, which is the right way round: somebody who
   // followed a link came for the page and not for the navigation.
-  const { data } = await get('/api/nav');
+  const navUrl = () => {
+    const locale = askFor();
+    return `/api/nav${locale ? `?locale=${encodeURIComponent(locale)}` : ''}`;
+  };
+
+  const { data } = await get(navUrl());
   const nav = data?.nav ?? { home: null, staff_home: null, sections: [] };
 
   // **The worker is told who is reading, on every load and not only on a
@@ -1188,17 +1357,36 @@ async function start() {
     drawContents(headings);
   }
 
-  // Anything that renders its own content redraws when the language changes.
-  // The header's language modal is what fires it. **The guide itself is not
-  // redrawn here**, and that is not an omission: the markdown is English in the
-  // files until phase 14 puts the translations in gftvjobs_docs_translations,
-  // so there is nothing yet for a redraw to fetch.
+  // Everything that renders its own content redraws when the language changes.
+  // The header's language modal is what fires it.
+  //
+  // **The guide itself is in this list since part 9**, which is what the
+  // translations were for: the sidebar's titles, the article, its contents and
+  // the search index all come from the language the reader has just chosen, and
+  // the page does not reload. The comment this replaces said there was nothing
+  // to fetch, which was true until there was.
   //
   // The two modals are not in this list. Each one listens for the event itself,
   // in chrome-modals.js, which is what lets that file be the portal's copy
   // unchanged.
   document.addEventListener('gftv:localechange', () => {
     drawAccount(data?.reader ?? null);
+    forgetIndex();
+
+    // The sidebar is fetched again and not translated in place: which pages are
+    // in it is the server's answer, and asking again is one request that cannot
+    // disagree with the gate. A failure leaves the sidebar exactly as it is,
+    // which is the right pages with the wrong words on them.
+    void (async () => {
+      const fresh = await get(navUrl());
+      const next = fresh.data?.nav ?? nav;
+      drawSidebar(next, window.location.pathname.replace(/\/+$/, '') || '/');
+
+      if (FORM_PAGES[window.location.pathname.replace(/\/+$/, '') || '/']) return;
+
+      const { headings } = await drawPage(next);
+      drawContents(headings);
+    })();
   });
 }
 

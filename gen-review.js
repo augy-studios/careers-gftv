@@ -81,6 +81,23 @@ const SOURCES = {
     "The bot's About and Description, which live in a document because nothing calls the API that sets them yet.",
 };
 
+/** Whole directories that are a source, named by prefix.
+ *
+ *  **One entry and not eighty two.** Phase 14 part 9 translated every guide
+ *  page, and listing each file in `SOURCES` above would be a list somebody
+ *  wrote, going stale the first time a page is added. The tree is read whole,
+ *  so the tree is what is declared: a page appearing in it is on this review
+ *  page without anybody remembering to say so, which is the property the
+ *  per-file list cannot have.
+ *
+ *  The scan below skips anything under one of these, because the renderer has
+ *  already read it.
+ */
+const SOURCE_TREES = {
+  'docs-site/translations/':
+    'Every guide page in 华文, paragraph by paragraph beside its English. Phase 14 part 9. The files here are the authoring source; `docs-site/scripts/build.js` upserts them into gftvjobs_docs_translations at deploy time.',
+};
+
 /** Singapore Mandarin, in one place, because three documents state the rule.
  *
  *  `main-site/README.md` and `migrations/README.md` both carry a version of this
@@ -215,6 +232,40 @@ const EXEMPT = {
     "The language's own name, in the argument for why an active team needs a name in every language.",
   'docs-site/api/_content/poster/asking-for-more-information.md':
     "The language's own name, saying which reader gets the English question when a translation is left blank.",
+  // Phase 14 part 9. Nine files gained 华文 in a comment or a heading when the
+  // guides were translated, and every one of them is a file about the
+  // translations and not a file of them. The pages themselves are read whole,
+  // out of docs-site/translations/, and are rendered on this page under The
+  // guides -- which is what makes these exemptions safe: the Chinese a reader
+  // meets is on the page, and what is exempt here is the prose explaining how it
+  // got there.
+  'docs-site/api/_lib/docs-translations.js':
+    'Comments about reading a guide in a language that is not English.',
+  'docs-site/api/content.js':
+    'A comment about a 华文 title over an English body, which is the state the ready flag exists to prevent.',
+  'docs-site/assets/js/shell.js':
+    'Comments about what a 华文 reader is served while the translation is fetched.',
+  'docs-site/scripts/translations.js':
+    'The tree loader. Its comments argue for authoring the 华文 as files.',
+  'docs-site/scripts/build.js':
+    'Comments about the per-language search indexes and the section headings in them.',
+  'docs-site/scripts/capture.mjs':
+    'One comment, about a marker left behind in the translation tree.',
+  'docs-site/sw.js':
+    'A comment about the English and the 华文 of one page being two cache entries.',
+  'main-site/api/_lib/supabase.js':
+    "A comment naming the two documentation tables, which no code in main-site reads.",
+  'docs-site/api/_lib/supabase.js': "The generated copy of the same comment.",
+  'migrations/042_docs_translations.sql':
+    'The migration creating the two tables. Its Chinese is in comments about what they hold.',
+  'docs-site/api/_content/index.md':
+    "The language's own name, saying the staff guides now exist in both. The English page; its own 华文 is in the translations tree.",
+  'docs-site/api/_content/developer/conventions.md':
+    "The language's own name, in the habit that says to check a page's translations when its English is edited. The English page; its own 华文 is in the translations tree.",
+  'docs-site/api/_lib/generated.js':
+    'A comment about a page whose 华文 was rewritten after its English, which is why a translated page carries the later of two dates.',
+  'docs-site/assets/css/docs.css':
+    'A comment on the one rule that hides a public article until its translation arrives, saying which reader it is for.',
   // Outside SCAN_ROOTS, since the repo root holds this file, the specification
   // and the memo and is not scanned at all. Written down anyway: the judgement
   // is the one dev-seed-jobs.sql gets, and if the root is ever scanned it is
@@ -277,6 +328,7 @@ function scanForUnreviewed() {
       }
       if (SCAN_SKIP_EXT.has(path.extname(entry.name).toLowerCase())) continue;
       if (relative in SOURCES || relative in EXEMPT) continue;
+      if (Object.keys(SOURCE_TREES).some((prefix) => relative.startsWith(prefix))) continue;
       let text;
       try {
         text = fs.readFileSync(path.join(repo, relative), 'utf8');
@@ -436,6 +488,115 @@ function botProfile() {
  *  Chinese. The page is built from the same object, so a string on the page and
  *  a string under check cannot come apart.
  */
+/* -------------------------------------------------------------------------
+ * The guide pages
+ * ---------------------------------------------------------------------- */
+
+/** A markdown file split into the blocks a reviewer reads one at a time.
+ *
+ *  Blank lines separate them, which is markdown's own idea of a paragraph and
+ *  is also how a list, a table and a fenced block each end up whole. The front
+ *  matter is stripped, because `title` and `summary` are paired separately and
+ *  the `---` fences are not prose.
+ */
+function markdownBlocks(source) {
+  return source
+    .replace(/^﻿/, '')
+    .replace(/\r\n/g, '\n')
+    .replace(/^---\n[\s\S]*?\n---\n/, '')
+    .split(/\n{2,}/)
+    .map((block) => block.trim())
+    .filter(Boolean);
+}
+
+/** The two front matter keys a translation carries. */
+function frontMatterOf(source) {
+  const text = source.replace(/^﻿/, '').replace(/\r\n/g, '\n');
+  const match = text.match(/^---\n([\s\S]*?)\n---\n/);
+  const data = {};
+  if (!match) return data;
+  for (const line of match[1].split('\n')) {
+    const at = line.indexOf(':');
+    if (at === -1) continue;
+    data[line.slice(0, at).trim()] = line.slice(at + 1).trim();
+  }
+  return data;
+}
+
+/**
+ * Every translated guide page, beside the English it translates.
+ *
+ * **The English is found and never listed.** A file under `translations/zh/`
+ * names its page by its address, so the English is one of two known places:
+ * `staff/` is the gated tree and everything else is the public one. A file that
+ * matches neither is reported rather than skipped, because a translation of a
+ * page that does not exist is a page nobody will ever read.
+ *
+ * **Blocks are paired by position, and a mismatch is said out loud.** The two
+ * files are written to the same shape, so block three of one is block three of
+ * the other. Where the counts differ the page is still rendered, whole, with
+ * the difference named: silently pairing block four against block five would
+ * put a reviewer's correction on the wrong paragraph.
+ */
+function guidePages() {
+  const root = 'docs-site/translations/zh';
+  const pages = [];
+
+  const walk = (dir) => {
+    let entries;
+    try {
+      entries = fs.readdirSync(path.join(repo, dir), { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+      const relative = `${dir}/${entry.name}`;
+      if (entry.isDirectory()) {
+        walk(relative);
+        continue;
+      }
+      if (!entry.name.endsWith('.md')) continue;
+
+      const tail = relative.slice(root.length + 1);
+      const english = tail.startsWith('staff/')
+        ? `docs-site/api/_content/${tail.slice('staff/'.length)}`
+        : `docs-site/content/${tail}`;
+
+      if (!fs.existsSync(path.join(repo, english))) {
+        pages.push({ file: relative, english, missing: true, blocks: [], title: null, summary: null });
+        continue;
+      }
+
+      const zhSource = read(relative);
+      const enSource = read(english);
+      const zhFront = frontMatterOf(zhSource);
+      const enFront = frontMatterOf(enSource);
+      const zhBlocks = markdownBlocks(zhSource);
+      const enBlocks = markdownBlocks(enSource);
+
+      const blocks = [];
+      const count = Math.max(zhBlocks.length, enBlocks.length);
+      for (let at = 0; at < count; at += 1) {
+        blocks.push({ en: enBlocks[at] ?? '', zh: zhBlocks[at] ?? '' });
+      }
+
+      pages.push({
+        file: relative,
+        english,
+        missing: false,
+        aligned: zhBlocks.length === enBlocks.length,
+        counts: [enBlocks.length, zhBlocks.length],
+        title: { en: enFront.title ?? '', zh: zhFront.title ?? '' },
+        summary: { en: enFront.summary ?? '', zh: zhFront.summary ?? '' },
+        blocks,
+      });
+    }
+  };
+
+  walk(root);
+  return pages;
+}
+
 function collect() {
   const en = JSON.parse(read('main-site/assets/i18n/en.json'));
   const zh = JSON.parse(read('main-site/assets/i18n/zh.json'));
@@ -531,7 +692,9 @@ function collect() {
 
   const botProfileText = botProfile();
 
-  const data = { en, zh, keys, groups, groupOrder, depts, tags, enRows, hero, phases, botMessages, botCommands, botProfileText };
+  const guides = guidePages();
+
+  const data = { en, zh, keys, groups, groupOrder, depts, tags, enRows, hero, phases, botMessages, botCommands, botProfileText, guides };
   data.pairs = flatten(data);
   return data;
 }
@@ -568,6 +731,23 @@ function flatten(data) {
     pairs.push({ ref: `C${i + 1}`, source: 'commands', label: c.key, en: c.en, zh: c.zh }));
   data.botProfileText.forEach((g, i) =>
     pairs.push({ ref: `G${i + 1}`, source: 'profile', label: g.key, en: g.en, zh: g.zh }));
+
+  // The guides, page by page and block by block. `W` for the written guides:
+  // every other letter this page uses was taken, and a reviewer sending back
+  // `W412` is naming one paragraph of one page.
+  let w = 0;
+  for (const page of data.guides) {
+    if (page.missing) continue;
+    const at = page.file.slice('docs-site/translations/zh/'.length).replace(/\.md$/, '');
+    const push = (label, entry) => {
+      w += 1;
+      pairs.push({ ref: `W${w}`, source: 'guides', label: `${at} ${label}`, en: entry.en, zh: entry.zh });
+    };
+    push('title', page.title);
+    if (page.summary.en || page.summary.zh) push('summary', page.summary);
+    page.blocks.forEach((block, i) => push(`¶${i + 1}`, block));
+  }
+
   return pairs;
 }
 
@@ -668,6 +848,41 @@ function buildHtml(data) {
   ${table('Field', refsFor('profile'))}
 </section>`;
 
+  // --- The guides -------------------------------------------------------------
+  const guidePairs = data.pairs.filter((p) => p.source === 'guides');
+  if (guidePairs.length > 0) {
+    let guides = '';
+    let readAt = 0;
+
+    for (const page of data.guides) {
+      if (page.missing) {
+        guides += `<h3>${esc(page.file)}</h3><p class="note">There is no page at
+        <code>${esc(page.english)}</code>, so this translation has nothing to sit
+        beside. It is either a page that was renamed or a file in the wrong
+        place, and nothing here renders it.</p>`;
+        continue;
+      }
+
+      const count = 1 + (page.summary.en || page.summary.zh ? 1 : 0) + page.blocks.length;
+      const refs = guidePairs.slice(readAt, readAt + count).map((p) => p.ref);
+      readAt += count;
+
+      const at = page.file.slice('docs-site/translations/zh/'.length).replace(/\.md$/, '');
+      const note = page.aligned
+        ? `${page.blocks.length} paragraphs, in the order they appear on the page.`
+        : `The English has ${page.counts[0]} paragraphs and the 华文 has ${page.counts[1]}, so the two are read side by side only as far as they agree. Read this page whole.`;
+
+      guides += `<h3 id="guide-${esc(at.replace(/\//g, '-'))}">${esc(at)} <span class="count">${count}</span></h3>
+      <p class="note">${esc(note)}</p>${table('Where', refs)}`;
+    }
+
+    sections += `<section id="guides">
+  <div class="secthead"><div><p class="eyebrow">Editable with a deploy</p><h2>The guides</h2></div></div>
+  <p class="lede">Every page of the documentation site, in 华文 beside its English, paragraph by paragraph. This is the largest body of Chinese in the build by a wide margin: ${data.guides.length} pages against the ${data.keys.length} interface strings above. The English is the source and the 华文 is a file in the repository, so a correction here is a commit and a deploy. Markdown marks carry meaning: <code>**bold**</code>, a leading <code>#</code>, a table's pipes, and <code>[text](/address)</code> all have to survive. An address in a link never changes.</p>
+  ${guides}
+</section>`;
+  }
+
   const total = data.pairs.length;
   const counts = {
     reference: data.depts.length * 2 + data.tags.length * 2,
@@ -675,6 +890,7 @@ function buildHtml(data) {
     interface: interfaceRefs.length,
     phases: data.phases.length,
     bot: data.botMessages.length + data.botCommands.length + data.botProfileText.length,
+    guides: guidePairs.length,
   };
 
   // The usage rule, written from the one table rather than typed a third time.
@@ -690,6 +906,9 @@ function buildHtml(data) {
     ['#interface', 'Interface text', counts.interface, 'Every label and message on the site. The largest part by far.'],
     ['#phases', 'The build, phase by phase', counts.phases, 'The public build status page, and the notice bar.'],
     ['#bot', 'The Telegram bot', counts.bot, 'What arrives in a private chat, and the profile before anybody presses Start.'],
+    ...(counts.guides > 0
+      ? [['#guides', 'The guides', counts.guides, `Every page of the documentation site, paragraph by paragraph. ${data.guides.length} pages.`]]
+      : []),
   ].map(([href, title, n, note]) =>
     `<li><a href="${href}"><b>${esc(title)}</b> <span class="count">${n}</span></a><span class="tocnote">${esc(note)}</span></li>`
   ).join('');
@@ -840,9 +1059,20 @@ if (require.main === module) {
   console.log(
     `total entries: ${data.pairs.length}  (interface ${by('interface')}, ` +
       `departments ${by('departments')}, tags ${by('tags')}, hero ${by('hero')}, ` +
-      `phases ${by('phases')}, bot ${by('bot')}, commands ${by('commands')}, profile ${by('profile')})`
+      `phases ${by('phases')}, bot ${by('bot')}, commands ${by('commands')}, profile ${by('profile')}, ` +
+      `guides ${by('guides')})`
   );
   console.log(`interface groups: ${data.groupOrder.length}, all of them rendered`);
+
+  const guides = data.guides.filter((page) => !page.missing);
+  const ragged = guides.filter((page) => !page.aligned);
+  console.log(
+    `guides: ${guides.length} pages` +
+      (ragged.length === 0
+        ? ', every one of them paragraph for paragraph with its English.'
+        : `, ${ragged.length} of which do not line up paragraph for paragraph: ` +
+          ragged.map((page) => page.file).join(', '))
+  );
 
   const unreviewed = scanForUnreviewed();
   if (unreviewed.length === 0) {

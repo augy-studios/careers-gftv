@@ -53,7 +53,7 @@ factor, cooldown: keep the word, because it is the word on the button and in the
 browser's own prompt. Give it a plain explanation where the reader first meets
 it. Replacing the term leaves the page and the screen saying different things.
 
-`node check-copy.js` enforces all of it over eight sources, and `--list` prints
+`node check-copy.js` enforces all of it over nine sources, and `--list` prints
 what it reads.
 
 ## The four checkers
@@ -130,7 +130,7 @@ and wait.
 has the declined alternatives written beside it. That is the only thing making a
 decision reviewable a year later.
 
-## Two habits that are part of the work
+## Three habits that are part of the work
 
 **Update the README in the same change.** A README goes stale the moment it
 stops matching the code. A stale one is worse than none, because it is read with
@@ -139,3 +139,17 @@ the same trust as a current one.
 **Write the memo entry as you go.** `next-steps.md` is rewritten at the start and
 the end of every phase, and a deviation recorded later is a deviation half
 remembered. See [the working memo](/staff/developer/the-working-memo).
+
+**Check the translations when you edit a page.** Every documentation page has a
+华文 file under `docs-site/translations/`, and editing the English does not
+touch it. A page whose English moved and whose Chinese did not tells two readers
+different things. **Nothing will tell you**: the translation is still marked
+ready, and it is still served.
+
+That is deliberate. Detection was offered when part 9 landed and was not taken.
+A build that fails on a one word typo, until somebody re-translates the page, is
+a build people learn to work around. So this is a habit and not a check, which
+puts it in the same bracket as the two above it.
+
+`node gen-review.js` puts every page beside its English, paragraph by paragraph,
+which is the fastest way to see what moved.

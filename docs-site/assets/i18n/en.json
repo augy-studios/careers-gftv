@@ -56,6 +56,8 @@
   "page.errorTitle": "That did not load",
   "page.errorBody": "Something went wrong at our end. Reload the page in a moment.",
   "page.offline": "You are offline, so this page could not be fetched.",
+  "page.englishOnlyLabel": "English only",
+  "page.englishOnlyBody": "We have not translated this page yet, so it is shown in English.",
   "code.copy": "Copy",
   "code.copyLabel": "Copy this block",
   "code.copied": "Copied",

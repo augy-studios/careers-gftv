@@ -102,6 +102,27 @@ const MANDARIN = [
   { pattern: /(?<![选其集看命])中文(?!字)/g, word: '中文', instead: '华文' },
 ];
 
+/** The one page that has to contain the words this rule bans.
+ *
+ *  **The page whose subject is the rule.** 16h gives the translations guide a
+ *  page on Singapore Mandarin, and 3a's table is what that page is: two
+ *  columns, the word to use and the word not to. Translated into 华文, the
+ *  right hand column is six findings, and every one of them is the page doing
+ *  its job.
+ *
+ *  Kept as narrow as it can be. One path, a reason beside it, and the check
+ *  below fails if the path stops existing — an exemption that outlives the page
+ *  it was written for is a hole nobody remembers opening. The banned phrase and
+ *  sentence rules still apply to it; it is exempt from the vocabulary rule
+ *  alone.
+ */
+const MANDARIN_EXEMPT = [
+  {
+    where: 'docs-site/translations/zh/translations/singapore-mandarin.md',
+    why: "3a's vocabulary table, translated. The words it bans are its own subject.",
+  },
+];
+
 /* -------------------------------------------------------------------------
  * Where the copy is
  * ---------------------------------------------------------------------- */
@@ -318,6 +339,40 @@ function chineseStrings() {
   return out;
 }
 
+/** The 华文 of every guide page, from phase 14 part 9.
+ *
+ *  **The largest body of Chinese this project has**, by a wide margin: the
+ *  dictionaries are 271 keys a side and this is eighty two pages. It gets the
+ *  vocabulary rule for the reason 3a gives -- the table is a rule and not a
+ *  preference -- and it gets the banned phrase rule as well, which sounds odd
+ *  for a Chinese file until you remember that a translation carries the English
+ *  of every link label, command and file name it names.
+ *
+ *  It does not get the sentence rule. Chinese has no spaces to count words
+ *  with, which is the same reason the Chinese dictionaries are exempt.
+ */
+function chineseDocsStrings() {
+  const out = [];
+  const root = path.join(repo, 'docs-site/translations');
+  if (!fs.existsSync(root)) return out;
+
+  (function walk(dir) {
+    for (const item of fs.readdirSync(dir)) {
+      const full = path.join(dir, item);
+      if (fs.statSync(full).isDirectory()) {
+        walk(full);
+        continue;
+      }
+      if (!item.endsWith('.md')) continue;
+
+      const relative = full.slice(repo.length + 1).split(path.sep).join('/');
+      out.push({ where: relative, text: fs.readFileSync(full, 'utf8') });
+    }
+  })(root);
+
+  return out;
+}
+
 /** What each source is scanned for.
  *
  *  `sentences` is off for the two sources where counting words would be
@@ -334,6 +389,7 @@ const SOURCES = [
   ["the Telegram bot's own strings", botStrings, { sentences: true }],
   ["the bot's profile text", botProfileStrings, { sentences: true }],
   ['the Chinese dictionaries', chineseStrings, { mandarin: true }],
+  ['the translated guide pages', chineseDocsStrings, { mandarin: true }],
 ];
 
 /* -------------------------------------------------------------------------
@@ -413,6 +469,23 @@ if (process.argv.includes('--list')) {
 const findings = [];
 let scanned = 0;
 
+// **An exemption that outlives its page is a hole nobody remembers opening.**
+// So the list is checked against the disk before it is used, and a path that
+// has been renamed or deleted is a finding like any other.
+const exemptFromMandarin = new Set();
+for (const entry of MANDARIN_EXEMPT) {
+  if (fs.existsSync(path.join(repo, entry.where))) {
+    exemptFromMandarin.add(entry.where);
+    continue;
+  }
+  findings.push({
+    where: 'check-copy.js',
+    what: `an exemption for ${entry.where}, which is not there any more`,
+    excerpt: entry.why,
+    instead: 'take the entry out of MANDARIN_EXEMPT, or point it at the page that replaced it',
+  });
+}
+
 for (const [, load, rules] of SOURCES) {
   for (const entry of load()) {
     scanned += 1;
@@ -451,7 +524,7 @@ for (const [, load, rules] of SOURCES) {
       }
     }
 
-    if (rules.mandarin && !isNote) {
+    if (rules.mandarin && !isNote && !exemptFromMandarin.has(entry.where)) {
       for (const rule of MANDARIN) {
         rule.pattern.lastIndex = 0;
         const match = rule.pattern.exec(entry.text);

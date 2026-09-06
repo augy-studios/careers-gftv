@@ -854,6 +854,12 @@ const OWN = [
   // has no equivalent for the plainest of reasons: it has no build step, which
   // is the rule 16e makes this site the stated exception to.
   'api/_lib/generated.js',
+  // Reading a guide in a language that is not English, phase 14 part 9. The
+  // portal translates postings, which are rows with a fixed set of fields; this
+  // translates pages, which are markdown files in two pipelines behind four
+  // tiers. The two share 3a's shape and nothing else, and the portal has no
+  // module to generate this from.
+  'api/_lib/docs-translations.js',
   // The shell, phase 13 part 4. The layout, its behaviour, and the renderer the
   // two pipelines share. The portal has no equivalent of any of the three: its
   // markdown.js renders a posting body, which is paragraphs and bullets and no

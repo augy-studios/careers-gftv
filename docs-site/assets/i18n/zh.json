@@ -56,6 +56,8 @@
   "page.errorTitle": "这个页面没有载入",
   "page.errorBody": "我们这边出了点问题。请稍候重新载入页面。",
   "page.offline": "您目前离线，所以无法取得这个页面。",
+  "page.englishOnlyLabel": "仅有英文版",
+  "page.englishOnlyBody": "这个页面我们还没有翻译，所以以英文显示。",
   "code.copy": "复制",
   "code.copyLabel": "复制这一段",
   "code.copied": "已复制",

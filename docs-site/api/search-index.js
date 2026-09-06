@@ -20,6 +20,7 @@
 import { ok, methodNotAllowed, failInternal } from './_lib/respond.js';
 import { reader } from './_lib/reader.js';
 import { gatedIndexFor } from './_lib/generated.js';
+import { localeParam } from './_lib/docs-translations.js';
 
 export default async function handler(req, res) {
   if (methodNotAllowed(req, res, ['GET', 'HEAD'])) return;
@@ -27,9 +28,14 @@ export default async function handler(req, res) {
   try {
     const { tier } = await reader(req);
 
+    // The tier decides which files are read and the language decides which
+    // copy of each. **A locale can only ever change the words**, because it is
+    // used to pick a file name inside a set the tier already chose.
+    const locale = localeParam(req.query?.locale);
+
     return ok(
       res,
-      { entries: gatedIndexFor(tier) },
+      { entries: gatedIndexFor(tier, locale) },
       // Never a shared cache: the answer is the reader's tier, and an index
       // served to the wrong person is every gated heading at once.
       { headers: { 'Cache-Control': 'private, no-store' } }

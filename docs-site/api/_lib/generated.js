@@ -11,6 +11,9 @@
 //   search-poster.json    the search index for exactly that tier
 //   search-admin.json     "
 //   search-developer.json "
+//   search-poster.zh.json the same, per language, since part 9. A page with no
+//   ...                   translation is in them in English, so a reader
+//                         searching a word that is on the screen finds it.
 //
 // **The two files fail differently, on purpose.**
 //
@@ -34,6 +37,9 @@ import { projectRoot } from './pages.js';
 import { ACCESS_VALUES, tierRank } from './tiers.js';
 
 const GENERATED_DIR = 'api/_generated';
+
+/** The language the files themselves are written in, per 3a. */
+const BASE_LOCALE = 'en';
 
 /** The one sentence anybody who has not run the build needs to read. */
 const HOW = 'Run: node scripts/build.js  (it is the docs project\'s Build Command)';
@@ -59,12 +65,35 @@ function read(name, { required }) {
 /**
  * When a page was last changed, as an ISO date, or null.
  *
+ * **A translated page has two dates and the later one is the answer.** Phase 14
+ * part 9: the English page and its translation are two files with two histories,
+ * so a guide written in March whose 华文 was rewritten in September changed in
+ * September for the reader looking at the Chinese. Anything else tells them the
+ * page in front of them is older than it is.
+ *
+ * The same rule is in `gftvjobs_docs_public`, as a `greatest()` over the two
+ * columns, so the site and the Telegram bot cannot answer this differently for
+ * the same page. That is the whole reason this takes a locale at all.
+ *
+ * The dates are `YYYY-MM-DD`, which compares correctly as text, and either half
+ * can be absent: `updated.json` carries only what git could date, per the rule
+ * `scripts/build.js` states twice.
+ *
  * @param {string} path a page path, as pages.js builds them
+ * @param {string|null} [locale] the language the page is being served in
  * @returns {string|null}
  */
-export function updatedFor(path) {
+export function updatedFor(path, locale = null) {
   const dates = read('updated.json', { required: false });
-  return dates?.[path] ?? null;
+  const base = dates?.[path] ?? null;
+
+  if (!locale || locale === BASE_LOCALE) return base;
+
+  const translated = dates?.[`${locale}:${path}`] ?? null;
+  if (!translated) return base;
+  if (!base) return translated;
+
+  return translated > base ? translated : base;
 }
 
 /**
@@ -78,14 +107,24 @@ export function updatedFor(path) {
  * @param {string} readerAccess from readerTier
  * @returns {Array<object>} empty for a signed out reader, without reading a file
  */
-export function gatedIndexFor(readerAccess) {
+export function gatedIndexFor(readerAccess, locale = null) {
   const rank = tierRank(readerAccess);
   if (rank === null) return [];
 
   const out = [];
   for (const tier of ACCESS_VALUES) {
     if (tier === 'public' || tierRank(tier) > rank) continue;
-    out.push(...(read(`search-${tier}.json`, { required: true }) ?? []));
+
+    // **The language's index is optional and the English one is not.** The
+    // build writes one file per tier per language, so a missing localised file
+    // means either a language that arrived without a rebuild or a locale
+    // nobody translates into. Either way the honest answer is the English
+    // index, which is also what those pages are served as. A missing English
+    // index is still the loud failure the header describes: it means the build
+    // did not run, and an empty list would tell a reader their words appear
+    // nowhere in the staff guides.
+    const localised = locale ? read(`search-${tier}.${locale}.json`, { required: false }) : null;
+    out.push(...(localised ?? read(`search-${tier}.json`, { required: true }) ?? []));
   }
 
   return out;

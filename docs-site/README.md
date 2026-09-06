@@ -28,8 +28,9 @@ anything here, and it is the audience least likely to read English by
 preference. The cost is accepted instead of argued away — a guide that changes
 with a phase is re-translated with that phase, and the phase is not done until
 it is. The chrome's dictionary is [`assets/i18n/`](assets/i18n/); the guides'
-own translations live in `gftvjobs_docs_translations` and land with the guides
-in phase 14.
+own translations are served from `gftvjobs_docs_translations` and authored as
+files under [`translations/`](translations/), which phase 14 part 9 landed for
+all 82 pages. [Translating a page](#translating-a-page) is the whole of how.
 
 **Two things about the second factor that are this site's and not the portal's.**
 A passkey registered on either site works on both, because 5e has both claim the
@@ -494,7 +495,8 @@ portal applies: approved, and either `is_admin` or `is_editor`, or a row in
 ## The build, and the two pipelines
 
 ```sh
-node scripts/build.js     # from docs-site/, and before any local preview
+node scripts/build.js                  # from docs-site/, and before any local preview
+node scripts/build.js --no-database    # the files alone, on a clone with no service key
 ```
 
 It is this project's Vercel Build Command, named in `vercel.json` so the project
@@ -502,6 +504,21 @@ settings have nothing to remember, and it is **the only build step in this
 repository**. 16e states the exception and gives the reason: hand maintaining a
 shared sidebar and header across thirty files is how documentation rots. Node
 built-ins only, no dependencies, and the portal keeps no build command at all.
+
+**It needs the database, since phase 14 part 9.** The build is the one thing
+that writes the guide translations into Supabase: it upserts every file under
+`translations/` into `gftvjobs_docs_translations`, mirrors the English of the
+public pages into `gftvjobs_docs_pages` for the Telegram bot, and deletes the
+rows that no longer have a file. 16e is explicit about what happens without it:
+"a build that cannot reach Supabase must fail loudly rather than quietly emit an
+English-only site. A site missing every translation is the failure that looks
+like success."
+
+So with no `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` it stops, naming both. The
+`--no-database` flag is the only way past, it prints a banner saying what the
+output is missing, and **it is refused on Vercel**, because a deployment is
+exactly where nobody would see that banner. `tests/phase13-test.mjs` passes it,
+which is what keeps that suite needing no credential.
 
 **Two pipelines, because a gated page cannot be a file on the CDN.** A public
 page is rendered into a static file at deploy time; a gated page is returned by
@@ -522,8 +539,10 @@ from, and neither can a maintainer without looking at the address.
 | `dist/<page>.html` | One file per public page: the shell with its article already in it and the page's own title, description and data. |
 | `dist/assets/`, `dist/shell.html` | Copied as they are. The shell is still what every gated address rewrites to. |
 | `dist/screenshots/` | `public/` copied in, so a shot at `public/screenshots/x.webp` is `/screenshots/x.webp`. |
-| `dist/search-index.json` | The public search index. |
-| `api/_generated/` | **Not public.** Written for the functions to read and carried to them by the `includeFiles` entry: one search index per gated tier, and every page's last updated date. |
+| `dist/search-index.json` | The public search index, English. |
+| `dist/search-index.<locale>.json` | The same index in every other language, one file each. A page nobody has translated is in it in English, so a reader searching a word that is on the screen finds it. |
+| `api/_generated/` | **Not public.** Written for the functions to read and carried to them by the `includeFiles` entry: one search index per gated tier per language, and every page's last updated date. |
+| Supabase | **The only thing it writes that is not a file.** `gftvjobs_docs_translations` is made to match `translations/`, deletions included, and `gftvjobs_docs_pages` carries the English of the public pages for the Telegram bot. Migration `042` and `scripts/translations.js` carry the reasoning. |
 
 Neither `dist/` nor `api/_generated/` is committed. Both are rebuilt by the
 command above, and a local preview needs it run first.
@@ -720,6 +739,70 @@ file is never invisible for want of a number.
 line in the search index. Nothing else is needed: the sidebar, the pager and the
 breadcrumbs all come off the page list, and the last updated date comes from the
 commit that adds it.
+
+> **Editing an English page? Check its translations in the same change.**
+> Every page has a 华文 file under [`translations/`](translations/), and editing
+> the English does not touch it. A page whose English moved and whose Chinese
+> did not is a page telling two readers different things, and nothing on the
+> site will say so: the translation is still marked ready and is still served.
+> [Translating a page](#translating-a-page) says where the file is, and
+> `node gen-review.js` puts the two side by side.
+
+## Translating a page
+
+**The English is the file and every other language is a file too**, under
+`translations/<locale>/`, named for the page's own address. Phase 14 part 9
+translated all eighty two.
+
+```text
+translations/zh/index.md                   ->  /
+translations/zh/portal/applying.md         ->  /portal/applying
+translations/zh/staff/index.md             ->  /staff
+translations/zh/staff/admin/settings.md    ->  /staff/admin/settings
+```
+
+**One tree for both pipelines**, because a translation is keyed by the address
+and the address space is one. `content/` and `api/_content/` are split by who
+may fetch a file, which is a question no file in here answers.
+
+Front matter carries two keys and refuses three:
+
+```text
+---
+title: 申请职位                     required. The sidebar entry and the tab.
+summary: 按下申请后会发生什么       optional, and the same line as the English page's.
+ready: false                        optional. Holds the page back; the default is ready.
+---
+```
+
+**No `access`, no `order` and no `data`.** All three belong to the English page:
+16e is explicit that who may read a page is decided by exactly one thing, and
+the reading order and the file a page embeds are the same in every language. A
+translation carrying any of them stops the build.
+
+**The pictures are the same pictures.** A translated page carries the same image
+sources as the page it translates, with the alt text and caption translated. The
+build compares the two lists and stops when they differ, and `capture.mjs` swaps
+a `pending:` marker in all three trees at once so they cannot fall out of step.
+
+**The database is what serves them.** The build upserts this tree into
+`gftvjobs_docs_translations` and the site reads that table per request, so a
+translation goes live on the deploy that carries it. The cost, said plainly:
+changing one word means a commit and a deploy, and a volunteer with no access to
+this repository cannot fix anything themselves. `scripts/translations.js` opens
+with the whole argument.
+
+**A page with no translation is not a problem.** It is shown in English with a
+notice saying so, per 3a, and it is in that language's search index in English
+so a reader can still find it.
+
+```sh
+node gen-review.js     # from the repository root
+```
+
+That writes `zh-review.html`, which puts every guide page beside its English
+paragraph by paragraph, for a fluent reader to go through. It reports any page
+whose two halves no longer line up paragraph for paragraph.
 
 ## Screenshots
 
@@ -939,16 +1022,17 @@ Run it after every docs deploy.
 
 ### Before a docs deploy
 
-All five from the repository root but the second, which runs from here. None
-needs a credential or a network, and the second needs the database as of part
-6a.
+All six from the repository root but the second, which runs from here. **Only
+the second needs anything**: it wants `SUPABASE_URL` and `SUPABASE_SERVICE_KEY`,
+as of part 9, and takes `--no-database` on a clone that has neither.
 
 ```sh
 node gen-docs-lib.js --check       # a change that landed in one copy only
 node docs-site/scripts/build.js    # and every refusal it makes
 node check-i18n.js                 # both sites, both dictionaries
+node check-copy.js                 # the house style, over nine sources
 node tests/phase13-test.mjs        # 3,199 checks, 27 of them against the deployment
-node tests/phase14-test.mjs        # 440 checks, this phase's parts one by one
+node tests/phase14-test.mjs        # 490 checks, this phase's parts one by one
 ```
 
 **And `node docs-site/scripts/embed-tests.mjs --check

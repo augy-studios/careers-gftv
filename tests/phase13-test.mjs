@@ -93,12 +93,26 @@ function section(title) {
  * The build, and the fixtures
  * ---------------------------------------------------------------------- */
 
-/** Run the build. Never throws: its exit code and output are the subject. */
+/** Run the build. Never throws: its exit code and output are the subject.
+ *
+ *  **`--no-database` since phase 14 part 9**, and it is the one flag this suite
+ *  passes. That part gave the build a Supabase connection: it upserts the 华文
+ *  of every guide into gftvjobs_docs_translations and mirrors the public pages
+ *  for the Telegram bot, and with no credentials it fails loudly instead of
+ *  quietly emitting an English-only site. This suite's whole rule is that no
+ *  section needs a credential, a database or the network, so it takes the
+ *  escape hatch the build provides for exactly this case.
+ *
+ *  What that costs is honest and small: nothing here checks the two tables.
+ *  `tests/phase14-test.mjs --only=translations` checks everything about them
+ *  that can be checked without a database, which is the shape of the tree, the
+ *  migration, and the code that writes and reads them.
+ */
 function build() {
   try {
     return {
       code: 0,
-      out: execFileSync(process.execPath, ['scripts/build.js'], {
+      out: execFileSync(process.execPath, ['scripts/build.js', '--no-database'], {
         cwd: DOCS,
         encoding: 'utf8',
         stdio: ['ignore', 'pipe', 'pipe'],

@@ -137,10 +137,24 @@ export const T = Object.freeze({
   // Phase 8's helper role, from migration 023.
   translationHelpers: 'gftvjobs_translation_helpers',
 
+  // The documentation site's guide content, from migration 042. **Nothing in
+  // main-site reads or writes any of these**, and they are named here because
+  // this file is the one copy of the table names and gen-docs-lib.js writes the
+  // docs site's from it. 16e: the markdown file is the base row, every other
+  // language is a row in docsTranslations, and docsPages is the English of the
+  // public pages mirrored one direction for readers outside Vercel.
+  docsTranslations: 'gftvjobs_docs_translations',
+  docsPages: 'gftvjobs_docs_pages',
+
   // Views, not tables. Read only by construction: PostgREST will refuse a write
   // to any of them, which is the property that makes them safe to expose to the
-  // same client the tables use. Migrations 032 and 033.
+  // same client the tables use. Migrations 032, 033 and 042.
   needsTranslation: 'gftvjobs_needs_translation',
+  // **The only thing outside Vercel that may read a guide page.** Migration 042
+  // joins docsTranslations to docsPages, so a gated page's 华文 joins to nothing
+  // and cannot appear. The Telegram bot's /docs reads this and holds no tier
+  // logic of its own.
+  docsPublic: 'gftvjobs_docs_public',
   applicationSearch: 'gftvjobs_application_search',
   jobFunnel: 'gftvjobs_job_funnel',
   jobFunnelDaily: 'gftvjobs_job_funnel_daily',

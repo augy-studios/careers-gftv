@@ -550,7 +550,13 @@ async function capture(browser, shot, sessions) {
  * pointing at files that are not there.
  */
 function swapMarkers() {
-  const roots = [join(DOCS, 'content'), join(DOCS, 'api/_content')];
+  // Three trees since part 9. A translated page carries the same screenshots as
+  // the English one it translates -- the picture is the same picture, and only
+  // the caption is in another language -- so a marker left behind in
+  // `translations/` would be a 华文 reader seeing "screenshot pending" under a
+  // shot that was taken months ago. The swap is by shot name, so all three
+  // trees move together with no second list to keep.
+  const roots = [join(DOCS, 'content'), join(DOCS, 'api/_content'), join(DOCS, 'translations')];
   const changed = [];
   const files = [];
 

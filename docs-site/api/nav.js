@@ -22,12 +22,20 @@
 import { ok, methodNotAllowed, failInternal } from './_lib/respond.js';
 import { reader } from './_lib/reader.js';
 import { navFor } from './_lib/pages.js';
+import { localeParam, titlesFor, localiseNav } from './_lib/docs-translations.js';
 
 export default async function handler(req, res) {
   if (methodNotAllowed(req, res, ['GET', 'HEAD'])) return;
 
   try {
     const { user, tier, role } = await reader(req);
+
+    // **The gate first and the language second, always in that order.** What is
+    // in the tree is decided by the tier; what it is called is decided by the
+    // reader's language. Swapping the two would mean a title lookup that could
+    // put a page back into a nav the gate had taken out of it.
+    const locale = localeParam(req.query?.locale);
+    const nav = localiseNav(navFor(tier), await titlesFor(locale));
 
     return ok(
       res,
@@ -41,7 +49,7 @@ export default async function handler(req, res) {
           role,
           tier,
         },
-        nav: navFor(tier),
+        nav,
       },
       { headers: { 'Cache-Control': 'private, no-store' } }
     );
