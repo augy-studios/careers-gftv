@@ -301,11 +301,37 @@ function drawSidebar(nav, currentPath) {
   // so it is here instead, and the stylesheet shows exactly one of the two.
   parts.push(
     '<div class="docs-sidebar-foot">' +
-      '<a href="https://careers.globalfurry.tv" data-i18n="header.portal">The portal</a></div>'
+      '<a class="docs-btn" href="https://careers.globalfurry.tv"' +
+      ' data-i18n="header.portal" data-i18n-attr="title:header.portalLabel">The portal</a></div>'
   );
 
   mount.innerHTML = parts.join('');
   translateDom(mount);
+
+  // **The reader's own page, brought into view inside the panel.** The section
+  // holding it is already open, which is what `open` above decides, and that is
+  // only half the job: the four gated sections and the specification's twenty
+  // pages make a sidebar taller than any screen, so "expanded" often means
+  // "expanded somewhere below the fold". A reader then scrolls the panel on
+  // every navigation to find out where they are. Asked for on 7 September 2026,
+  // at every width, and it costs four lines.
+  //
+  // **scrollTop and not scrollIntoView**, which is the only fiddly part.
+  // scrollIntoView walks up and scrolls every scrollable ancestor, so on the
+  // desktop column it would scroll the article as well and drop the reader
+  // partway down a page they just opened. Setting the panel's own scrollTop
+  // cannot touch anything else.
+  //
+  // Centred, and clamped by the browser to the ends, so an entry near the top
+  // or the bottom of a long list still lands somewhere sensible. A panel with
+  // nothing to scroll takes 0 and does not move.
+  const here = mount.querySelector('a[aria-current="page"]');
+  if (here) {
+    mount.scrollTop = Math.max(
+      0,
+      here.offsetTop - mount.clientHeight / 2 + here.offsetHeight / 2
+    );
+  }
 }
 
 /**

@@ -499,6 +499,29 @@ export function render(source, opts = {}) {
         !/^(#{1,4}\s|```|:::|>|\s*(?:[-*+]|\d+[.)])\s|---+\s*$)/.test(next)
     );
 
+    // **A run that consumed nothing is an infinite loop, and it was one.**
+    // `take` leaves the cursor alone when its test fails on the very first
+    // line, and this branch pushes and continues whatever it got back -- so a
+    // line that reaches here while matching this branch's own exclusion list
+    // spins, growing `html` until Array.push throws RangeError. In a browser
+    // that is a locked tab, not an error.
+    //
+    // The line that found it was `# `: the heading rule above needs text after
+    // the hashes, so a hash and a space alone is not a heading, and the
+    // exclusion here refuses it as a paragraph. One to four hashes followed by
+    // nothing else does it, and so would anything a later exclusion adds
+    // without a handler in front of it.
+    //
+    // So this is deliberately not a fix for `# `. Whatever arrives that nothing
+    // above handled is one paragraph of its own text, and the cursor moves.
+    // Found on 7 September 2026 by the working memo, whose generated landing
+    // page carried an empty heading.
+    if (paragraph.length === 0) {
+      html.push(`<p>${inline(line.trim(), opts)}</p>`);
+      index += 1;
+      continue;
+    }
+
     // **Lines inside a paragraph are joined, not broken.** The portal's renderer
     // does the opposite, and is right to: an admin typing into a textarea and
     // pressing return once means a new line. A documentation page is a file

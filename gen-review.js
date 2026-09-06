@@ -98,6 +98,21 @@ const SOURCE_TREES = {
     'Every guide page in 华文, paragraph by paragraph beside its English. Phase 14 part 9. The files here are the authoring source; `docs-site/scripts/build.js` upserts them into gftvjobs_docs_translations at deploy time.',
 };
 
+/** Trees exempt in the same way EXEMPT names files, and for one shared reason.
+ *
+ *  **A generated tree cannot be listed file by file.** EXEMPT below is keyed by
+ *  exact path, which is right for a file somebody wrote and wrong for a
+ *  directory a script fills: the day the brief gains a section that quotes 3a,
+ *  a per file list is a check failing on a page nobody typed. Phase 14 part 7a,
+ *  the same argument SOURCE_TREES above was added for.
+ */
+const EXEMPT_TREES = {
+  'docs-site/api/_content/spec/':
+    'careers-gftv-spec.md, rendered by gen-spec-pages.js. The 华文 in it is 3a\'s vocabulary table and a column name, in a reproduction of the brief: the page is the file, and a reviewer approving words here would be approving an edit the next run undoes.',
+  'docs-site/api/_content/memo/':
+    'next-steps.md, rendered by gen-memo-pages.js. The same argument, on a snapshot of a working file that is not copy in any language.',
+};
+
 /** Singapore Mandarin, in one place, because three documents state the rule.
  *
  *  `main-site/README.md` and `migrations/README.md` both carry a version of this
@@ -329,6 +344,7 @@ function scanForUnreviewed() {
       if (SCAN_SKIP_EXT.has(path.extname(entry.name).toLowerCase())) continue;
       if (relative in SOURCES || relative in EXEMPT) continue;
       if (Object.keys(SOURCE_TREES).some((prefix) => relative.startsWith(prefix))) continue;
+      if (Object.keys(EXEMPT_TREES).some((prefix) => relative.startsWith(prefix))) continue;
       let text;
       try {
         text = fs.readFileSync(path.join(repo, relative), 'utf8');
@@ -1090,6 +1106,6 @@ if (require.main === module) {
 }
 
 module.exports = {
-  SOURCES, EXEMPT, SCAN_ROOTS, WHERE, ORDER, USAGE,
+  SOURCES, EXEMPT, EXEMPT_TREES, SCAN_ROOTS, WHERE, ORDER, USAGE,
   collect, flatten, botStrings, botProfile, buildHtml, scanForUnreviewed, usageHits,
 };

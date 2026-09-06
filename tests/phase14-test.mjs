@@ -3190,6 +3190,225 @@ define('translations', 'Part 9: the 华文 tree, the two tables, and what serves
 });
 
 /* -------------------------------------------------------------------------
+ * The sidebar, as a panel and as a column
+ *
+ * Three defects reported from the live site on 7 September 2026, all in the one
+ * control, and none of them reachable by reading a file: the panel's height is
+ * a used value, its scrolling is a behaviour, and where it is scrolled to is a
+ * number nothing writes down. So this section runs a browser at two widths.
+ *
+ * **The stand-in nav is deliberately bigger than the one the `browser` section
+ * uses.** Thirty entries across three sections is what makes the panel taller
+ * than a phone, and a panel that fits on screen cannot demonstrate any of this.
+ * ---------------------------------------------------------------------- */
+
+define('sidebar', 'The sidebar: its height, its scrolling, and where it sits', async () => {
+  if (!existsSync(join(DIST, 'shell.html'))) {
+    skip('the built output', 'run `node scripts/build.js` from docs-site/ first');
+    return;
+  }
+
+  const pages = (n, section) =>
+    Array.from({ length: n }, (_, i) => ({
+      path: `/${section}/p${i}`,
+      title: `A page with a fairly long title ${i}`,
+      access: 'public',
+      summary: null,
+    }));
+
+  const nav = {
+    home: null,
+    staff_home: null,
+    sections: [
+      { slug: 'portal', pipeline: 'public', title: 'Using the portal', access: 'public', pages: pages(14, 'portal') },
+      { slug: 'bot', pipeline: 'public', title: 'The Telegram bot', access: 'public', pages: pages(8, 'bot') },
+      { slug: 'tr', pipeline: 'public', title: 'Helping translate', access: 'public', pages: pages(8, 'tr') },
+    ],
+  };
+
+  const server = createServer((req, res) => {
+    const url = new URL(req.url, 'http://localhost');
+    if (url.pathname === '/api/nav') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(
+        JSON.stringify({ ok: true, data: { reader: { signed_in: false, tier: 'public' }, nav } })
+      );
+    }
+    if (url.pathname.startsWith('/api/')) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ ok: false, error: { code: 'not_found' } }));
+    }
+    const candidates = [
+      join(DIST, url.pathname.slice(1)),
+      join(DIST, `${url.pathname.slice(1)}.html`),
+      join(DIST, 'shell.html'),
+    ];
+    const file = candidates.find((candidate) => existsSync(candidate) && extname(candidate) !== '');
+    res.writeHead(200, { 'Content-Type': TYPES[extname(file)] ?? 'application/octet-stream' });
+    res.end(readFileSync(file));
+  });
+
+  const base = await listen(server);
+  const browser = await chromium.launch();
+
+  try {
+    /* --- The panel, at 390px -------------------------------------------- */
+
+    const phone = await browser.newPage({ viewport: { width: 390, height: 720 } });
+    await phone.goto(`${base}/portal/p11`, { waitUntil: 'networkidle' });
+    await phone.click('#docsMenu');
+    await phone.waitForTimeout(400);
+
+    const shut = await phone.evaluate(() => {
+      const el = document.getElementById('docsSidebar');
+      const box = el.getBoundingClientRect();
+      return { bottom: box.bottom, viewport: window.innerHeight };
+    });
+
+    check(
+      '1. the panel reaches the bottom of the screen with every section closed',
+      Math.abs(shut.bottom - shut.viewport) < 2,
+      `it ends at ${Math.round(shut.bottom)} of ${shut.viewport}. align-self: start on the base rule ` +
+        'made this size to its content, so it stopped partway down'
+    );
+
+    // Opened by attribute and not by clicking, so the measurement does not
+    // depend on the very scrolling it is about to measure.
+    await phone.evaluate(() => {
+      for (const heading of document.querySelectorAll('.docs-sidebar-heading')) {
+        heading.setAttribute('aria-expanded', 'true');
+        document.getElementById(heading.getAttribute('aria-controls')).hidden = false;
+      }
+    });
+
+    const open = await phone.evaluate(() => {
+      const el = document.getElementById('docsSidebar');
+      return {
+        height: el.getBoundingClientRect().height,
+        client: el.clientHeight,
+        scroll: el.scrollHeight,
+        overscroll: getComputedStyle(el).overscrollBehaviorY,
+        viewport: window.innerHeight,
+      };
+    });
+
+    check(
+      '2. and stays that height with every section open, instead of growing past the window',
+      open.height <= open.viewport + 1,
+      `${Math.round(open.height)}px tall on a ${open.viewport}px screen`
+    );
+
+    check(
+      '3. so the content overflows the panel, which is what gives it something to scroll',
+      open.scroll > open.client,
+      `${open.scroll} of content in ${open.client} of panel`
+    );
+
+    check(
+      '4. and a scroll that reaches the end does not carry on into the page behind',
+      open.overscroll === 'contain',
+      'without this the page underneath moves, which is what a reader reports as "the sidebar will not scroll"'
+    );
+
+    await phone.mouse.move(120, 400);
+    await phone.mouse.wheel(0, 500);
+    await phone.waitForTimeout(300);
+
+    const wheeled = await phone.evaluate(() => ({
+      panel: document.getElementById('docsSidebar').scrollTop,
+      page: window.scrollY,
+    }));
+
+    check(
+      '5. scrolling over the panel moves the panel',
+      wheeled.panel > 0,
+      `the panel is at ${wheeled.panel}`
+    );
+
+    check(
+      '6. and does not move the page underneath it',
+      wheeled.page === 0,
+      `the page is at ${wheeled.page}`
+    );
+
+    /* --- The portal control, both copies -------------------------------- */
+
+    const inPanel = await phone.evaluate(() => {
+      const link = document.querySelector('.docs-sidebar-foot a');
+      const style = getComputedStyle(link);
+      return {
+        button: link.classList.contains('docs-btn'),
+        border: style.borderTopWidth,
+        transparent: style.backgroundColor === 'rgba(0, 0, 0, 0)',
+      };
+    });
+
+    check(
+      '7. the portal control in the panel is a button and not loose text',
+      inPanel.button && inPanel.border !== '0px' && !inPanel.transparent,
+      JSON.stringify(inPanel)
+    );
+
+    /* --- The column, at 1280px ------------------------------------------ */
+
+    const desktop = await browser.newPage({ viewport: { width: 1280, height: 700 } });
+    await desktop.goto(`${base}/portal/p11`, { waitUntil: 'networkidle' });
+    await desktop.waitForTimeout(300);
+
+    const column = await desktop.evaluate(() => {
+      const mount = document.getElementById('docsSidebar');
+      const here = mount.querySelector('a[aria-current="page"]');
+      if (!here) return null;
+      const panel = mount.getBoundingClientRect();
+      const entry = here.getBoundingClientRect();
+      return {
+        scrollable: mount.scrollHeight > mount.clientHeight,
+        scrolled: mount.scrollTop,
+        visible: entry.top >= panel.top - 1 && entry.bottom <= panel.bottom + 1,
+        page: window.scrollY,
+      };
+    });
+
+    check(
+      '8. the sidebar is long enough here to hide the current page',
+      column?.scrollable === true,
+      'if it all fits there is nothing for the next two checks to be about'
+    );
+
+    check(
+      '9. and it is scrolled so the current page is in view, without being looked for',
+      column?.visible === true && column?.scrolled > 0,
+      `scrolled to ${column?.scrolled}, in view: ${column?.visible}`
+    );
+
+    check(
+      '10. and the article did not move with it',
+      column?.page === 0,
+      'scrollIntoView would have scrolled every scrollable ancestor, which is why this sets scrollTop'
+    );
+
+    const headerButton = await desktop.evaluate(() => {
+      const link = document.querySelector('.docs-portal-link');
+      const style = getComputedStyle(link);
+      return {
+        quiet: link.classList.contains('docs-btn-quiet'),
+        border: style.borderTopColor,
+        transparent: style.backgroundColor === 'rgba(0, 0, 0, 0)',
+      };
+    });
+
+    check(
+      '11. and the header keeps its own copy as a button, not a quiet one',
+      !headerButton.quiet && !headerButton.transparent,
+      JSON.stringify(headerButton)
+    );
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
+/* -------------------------------------------------------------------------
  * Run
  * ---------------------------------------------------------------------- */
 

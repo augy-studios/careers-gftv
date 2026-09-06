@@ -464,11 +464,22 @@ body {
 }
 
 /* The portal link, which lives in the header above 640px and here below it. One
- * of the two is always hidden, and it is a link either way. */
+ * of the two is always hidden, and it is a button either way.
+ *
+ * **It was a bare anchor here and a quiet button there, and both read as loose
+ * text.** It is the one control on this site that leaves it, sitting under a
+ * rule at the bottom of the panel with nothing around it, so it needs to look
+ * like something you press. The header's copy drops `docs-btn-quiet` for the
+ * same reason. Reported 7 September 2026. */
 .docs-sidebar-foot {
   margin-top: 1.5rem;
   padding-top: 0.75rem;
   border-top: 1px solid var(--border);
+}
+
+.docs-sidebar-foot .docs-btn {
+  justify-content: center;
+  width: 100%;
 }
 
 @media (min-width: 640px) {
@@ -511,7 +522,34 @@ body {
     inset: var(--docs-header-height) auto 0 0;
     z-index: 50;
     width: min(20rem, 84vw);
+
+    /* **The panel is as tall as the screen below the header, and it scrolls
+     * inside itself.** Both halves of that were missing and the second was a
+     * consequence of the first.
+     *
+     * `inset` sets top and bottom, which should have been enough to fill the
+     * space between them -- and was not, because the base rule above sets
+     * `align-self: start`. That is right for the sticky column this becomes at
+     * 640px, and for an absolutely positioned box it means "take your content
+     * height and sit at the start" in place of the default stretch. So the panel
+     * grew to its content, `bottom` was ignored as over-constrained, and a
+     * sidebar with every section open stood 1,467px tall on a 720px screen with
+     * its lower half simply off the bottom of the window and no way to reach it.
+     *
+     * The height is stated here instead of unsetting align-self, because a
+     * number is what the next person reading this needs: dvh is the viewport a
+     * phone actually shows, which changes as the browser's own chrome slides
+     * away, and vh is the fallback for anything that does not know dvh.
+     *
+     * `overscroll-behavior` is the reported half of the defect. Without it, a
+     * scroll that reaches either end of the panel carries on into the page
+     * underneath, which is what a reader felt as "the sidebar will not scroll":
+     * it was not scrolling, the page behind it was. Reported 7 September 2026. */
+    height: calc(100vh - var(--docs-header-height));
+    height: calc(100dvh - var(--docs-header-height));
     max-height: none;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     padding: 1rem;
     /* Opaque, for the same reason the account menu is: this panel covers the
      * page and its whole job is a list somebody has to read. */
@@ -530,6 +568,11 @@ body {
     inset: var(--docs-header-height) 0 0 0;
     z-index: 45;
     background: rgba(0, 0, 0, 0.4);
+    /* Dragging the dimmed area is not a way to scroll the page you cannot see.
+     * The panel's own overscroll rule stops the chaining from inside it, and
+     * this stops it from beside it. */
+    overscroll-behavior: contain;
+    touch-action: none;
   }
 }
 
