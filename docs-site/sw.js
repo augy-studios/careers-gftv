@@ -69,7 +69,7 @@
 // reader must not be able to tell which pipeline a page came from" holding in
 // the one condition where it would be easiest to break.
 
-const VERSION = 'careers-gftv-docs-phase14-v5';
+const VERSION = 'careers-gftv-docs-phase14-v6';
 
 /** Build output. Versioned, so a bump is a new cache filled from the network. */
 const SHELL = `careers-gftv-docs-shell-${VERSION}`;

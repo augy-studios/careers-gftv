@@ -107,11 +107,46 @@ function serve() {
     const url = new URL(req.url, 'http://localhost');
 
     if (url.pathname === '/api/nav') {
+      // **One section, and its title is in the language that was asked for.**
+      // It used to answer with no sections at all, which meant the suite drew a
+      // sidebar with nothing in it and could say nothing about the one control
+      // in there: the disclosure on a section heading. That is the control a
+      // reader found broken on 7 September 2026 after changing language, so the
+      // stub now carries enough of a sidebar to press.
+      //
+      // The title differs by locale on purpose. It is how a check tells "the
+      // sidebar was fetched and drawn again" from "the sidebar is still the
+      // one the first paint left there", which is the difference the defect
+      // lived in.
+      const locale = url.searchParams.get('locale') === 'zh' ? 'zh' : 'en';
+      const words = {
+        en: { section: 'Using the portal', page: 'Applying to a role' },
+        zh: { section: '使用入队平台', page: '申请职位' },
+      }[locale];
+
       res.writeHead(200, { 'Content-Type': 'application/json' });
       return res.end(
         JSON.stringify({
           ok: true,
-          data: { reader: { signed_in: false }, nav: { home: null, staff_home: null, sections: [] } },
+          data: {
+            reader: { signed_in: false, username: null, role: null, tier: 'public' },
+            nav: {
+              home: null,
+              staff_home: null,
+              sections: [
+                {
+                  slug: 'portal',
+                  pipeline: 'public',
+                  title: words.section,
+                  access: 'public',
+                  pages: [
+                    { path: '/portal', title: words.section, access: 'public', summary: null },
+                    { path: '/portal/applying', title: words.page, access: 'public', summary: null },
+                  ],
+                },
+              ],
+            },
+          },
         })
       );
     }
@@ -427,6 +462,55 @@ define('browser', 'The same header, opened, pressed, and reloaded', async () => 
         return document.activeElement !== field;
       }),
       'a native <dialog> gives this; the hand-rolled modal it replaced did not'
+    );
+
+    /* --- The sidebar, after the language has changed under it ----------- */
+
+    // **The defect these four were written for.** Reported from the live site
+    // on 7 September 2026: open a section in the sidebar, change language, and
+    // the section headings stop responding until the page is reloaded by hand.
+    //
+    // The cause was one line in the wrong function. `drawSidebar` replaces the
+    // mount's innerHTML and then added its delegated click handler, and the
+    // mount is the same element every time — so the language change, which
+    // redraws the sidebar, left two handlers on it. One click ran both: the
+    // first opened the section and the second read the attribute the first had
+    // just written and closed it again.
+    //
+    // **Pressing it once proves nothing**, which is why the sequence below is
+    // the sequence it is. A single toggle works on a page whose sidebar has
+    // been drawn once, and it works again after a third draw, because an odd
+    // number of handlers is indistinguishable from one. The check has to draw
+    // twice and then press.
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('#languageModal')?.open);
+
+    check(
+      '26a. the sidebar was fetched and drawn again in the new language',
+      (await page.locator('.docs-sidebar-heading').innerText()).trim() === '使用入队平台',
+      'a redraw is what puts a second listener on the mount, so this is the precondition'
+    );
+
+    const heading = page.locator('.docs-sidebar-heading');
+    const list = page.locator('.docs-sidebar-section ul');
+
+    check(
+      '26b. the section starts closed, as the one holding no current page does',
+      (await heading.getAttribute('aria-expanded')) === 'false' && (await list.isHidden()),
+      'nothing in the stub nav matches the path, so nothing is expanded'
+    );
+
+    await heading.click();
+    check(
+      '26c. and it opens on a click after the redraw, which is the reported defect',
+      (await heading.getAttribute('aria-expanded')) === 'true' && (await list.isVisible()),
+      'two handlers on one click toggle twice, and the section does not move'
+    );
+
+    await heading.click();
+    check(
+      '26d. and closes again, so it is a toggle and not a one way latch',
+      (await heading.getAttribute('aria-expanded')) === 'false' && (await list.isHidden())
     );
 
     /* --- A reader who arrives already in 华文 ---------------------------- */
@@ -2970,10 +3054,20 @@ define('translations', 'Part 9: the 华文 tree, the two tables, and what serves
     'both are build output and both are precached'
   );
 
+  // **This asserted `v5` as a literal and had to stop.** Part 9 wrote the
+  // number it had just shipped, which is the honest thing to check on the day
+  // and a check that fails on the next correct change on every day after it:
+  // the sidebar fix of 7 September moved the worker to v6 and this was the only
+  // thing in either suite that objected.
+  //
+  // What it means to check is that the number never goes backwards. v5 is part
+  // 9's floor, so a worker below it is one somebody reverted or hand-edited,
+  // and a worker at or above it is the rule being kept.
+  const version = /careers-gftv-docs-phase14-v(\d+)/.exec(worker);
   check(
-    '37. VERSION moved with this part',
-    worker.includes("careers-gftv-docs-phase14-v5"),
-    'the rule is one bump per change to the site, and this part changed the shell'
+    '37. VERSION moved with this part, and has not gone backwards since',
+    Number(version?.[1] ?? 0) >= 5,
+    `the rule is one bump per change to the site; part 9 left it at v5 and it reads ${version?.[1] ?? 'nothing'}`
   );
 
   /* --- The English half the part had to correct --------------------------- */

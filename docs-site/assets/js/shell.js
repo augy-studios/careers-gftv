@@ -177,26 +177,14 @@ function drawAccount(reader) {
   const button = el('docsAccountBtn');
   const menu = el('docsAccountMenu');
 
-  const close = () => {
-    menu.hidden = true;
-    button.setAttribute('aria-expanded', 'false');
-  };
-
+  // These two are safe to bind here and the two in wireAccount below are not,
+  // and the difference is which node they sit on. This button and the sign out
+  // control were built by the line above, so the previous draw's listeners went
+  // out with the previous draw's markup. A listener on `document` would not.
   button.addEventListener('click', () => {
     const open = menu.hidden;
     menu.hidden = !open;
     button.setAttribute('aria-expanded', open ? 'true' : 'false');
-  });
-
-  document.addEventListener('click', (event) => {
-    if (!mount.contains(event.target)) close();
-  });
-
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && !menu.hidden) {
-      close();
-      button.focus();
-    }
   });
 
   el('docsSignOut').addEventListener('click', async (event) => {
@@ -226,6 +214,45 @@ function drawAccount(reader) {
       control.disabled = false;
       control.textContent = t('account.signOutFailed');
     }
+  });
+}
+
+/**
+ * Closing the account menu from outside it, wired once.
+ *
+ * **The same defect the sidebar had**, found beside it on 7 September 2026 and
+ * fixed with it. These two sit on `document`, which no redraw replaces, so
+ * `drawAccount` was adding a pair of them every time the language changed. They
+ * also closed over that draw's own `menu` and `button`, so every copy but the
+ * newest was reaching for nodes that had already been thrown away.
+ *
+ * Nothing a reader could see was wrong, and that is the whole reason to fix it
+ * now: a stale handler that does nothing today is one refactor away from doing
+ * something. So the nodes are looked up when the event fires and never held.
+ *
+ * A signed out reader has no menu at all -- the mount is a sign in link -- which
+ * is why both of these tolerate finding nothing.
+ */
+function wireAccount() {
+  const mount = el('docsAccount');
+  if (!mount) return;
+
+  const close = () => {
+    const menu = el('docsAccountMenu');
+    const button = el('docsAccountBtn');
+    if (menu) menu.hidden = true;
+    if (button) button.setAttribute('aria-expanded', 'false');
+  };
+
+  document.addEventListener('click', (event) => {
+    if (!mount.contains(event.target)) close();
+  });
+
+  document.addEventListener('keydown', (event) => {
+    const menu = el('docsAccountMenu');
+    if (event.key !== 'Escape' || !menu || menu.hidden) return;
+    close();
+    el('docsAccountBtn')?.focus();
   });
 }
 
@@ -279,6 +306,31 @@ function drawSidebar(nav, currentPath) {
 
   mount.innerHTML = parts.join('');
   translateDom(mount);
+}
+
+/**
+ * The section disclosures, wired once and never again.
+ *
+ * **This is delegated to the mount, and the mount outlives the redraw.**
+ * `drawSidebar` replaces its innerHTML, so the headings are new nodes every
+ * time, but `#docsSidebar` itself is the same element from the first paint to
+ * the last. A listener added here inside `drawSidebar` would therefore not be
+ * replaced with the markup -- it would be added again beside the one already
+ * there, and `addEventListener` only ever de-duplicates the same function
+ * reference, which a fresh arrow function is not.
+ *
+ * **What that cost, before it was pulled out here.** The language modal redraws
+ * the sidebar, per the listener at the bottom of this file, so a reader who
+ * changed language had two handlers on one click: the first opened the section
+ * and the second read the attribute the first had just written and closed it
+ * again. The section did not move. Changing language a second time made it work
+ * again, because three toggles are an odd number, which is the shape that makes
+ * this kind of defect read as intermittent. Reported from the live site and
+ * fixed on 7 September 2026.
+ */
+function wireSidebar() {
+  const mount = el('docsSidebar');
+  if (!mount) return;
 
   mount.addEventListener('click', (event) => {
     const heading = event.target.closest('.docs-sidebar-heading');
@@ -1316,6 +1368,14 @@ async function start() {
   drawChromeModals();
   wireMenu();
   wireArticle();
+
+  // **Wired before the first draw and never again**, which is the point of both
+  // of them. Each delegates to a mount that outlives every redraw, so calling
+  // either one a second time would add a second handler rather than replace the
+  // first. They are called here, beside wireMenu, and not from the draw
+  // functions they belong to.
+  wireSidebar();
+  wireAccount();
 
   // A sidebar that could not be fetched is an empty one, and never a guess. The
   // page itself still renders, which is the right way round: somebody who
