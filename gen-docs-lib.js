@@ -778,10 +778,13 @@ const ASSETS = [
   // same rule as every other shared file: this generator writes them and
   // `--check` fails when the portal's change has not reached here.
   //
-  // Three of the seven, and the four left behind are the manifest's. `HLC-192`,
-  // `HLC-512` and the two maskable variants exist for an installed application
-  // icon; this site has no manifest and no worker, per phase 13 decision 3, so
-  // copying them would be four files nothing on this site names.
+  // **All seven now, and the reason the other four were left behind has gone.**
+  // Part 2b copied three and said of the rest: "`HLC-192`, `HLC-512` and the two
+  // maskable variants exist for an installed application icon; this site has no
+  // manifest and no worker, per phase 13 decision 3, so copying them would be
+  // four files nothing on this site names." Part 4 gave this site a worker and
+  // part 10 gave it a manifest, so both halves of that sentence stopped being
+  // true and the four come across.
   {
     path: 'favicon.ico',
     to: 'public/favicon.ico',
@@ -803,6 +806,30 @@ const ASSETS = [
       'not summary_large_image, so the mark sits beside the title instead of',
       'becoming a banner over it.'
     ),
+  },
+  // The installed application icon, in the four shapes a manifest asks for.
+  // `any` is the icon as drawn; `maskable` carries the safe zone padding a
+  // platform crops into a circle or a squircle, and shipping only `any` is what
+  // makes an Android icon that looks like it has been trimmed with scissors.
+  {
+    path: 'HLC-192.png',
+    to: 'public/HLC-192.png',
+    note: 'The installed icon at 192, named by manifest.json.',
+  },
+  {
+    path: 'HLC-512.png',
+    to: 'public/HLC-512.png',
+    note: 'The installed icon at 512, and the splash screen mark.',
+  },
+  {
+    path: 'HLC-192-maskable.png',
+    to: 'public/HLC-192-maskable.png',
+    note: 'The same at 192 with the maskable safe zone.',
+  },
+  {
+    path: 'HLC-512-maskable.png',
+    to: 'public/HLC-512-maskable.png',
+    note: 'The same at 512 with the maskable safe zone.',
   },
 ];
 

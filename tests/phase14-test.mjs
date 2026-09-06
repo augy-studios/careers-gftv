@@ -3409,6 +3409,190 @@ define('sidebar', 'The sidebar: its height, its scrolling, and where it sits', a
 });
 
 /* -------------------------------------------------------------------------
+ * The install manifest
+ *
+ * The docs site had a worker from part 4 and no manifest, which is half of
+ * being installable: a browser offers the install when it has both, plus an
+ * icon at 192 and 512. This is the other half.
+ *
+ * **The file checks are the ones worth having.** A manifest fails silently —
+ * a browser that cannot parse it, or that follows an icon `src` to a 404,
+ * offers no install and says nothing about why. So every icon it names is
+ * resolved against `dist/` here, which is the failure nobody would otherwise
+ * see until somebody tried to install the site on a phone.
+ * ---------------------------------------------------------------------- */
+
+define('manifest', 'The docs site as an installable application', async () => {
+  const shell = read(join(DOCS, 'shell.html'));
+
+  check(
+    '1. the shell links a manifest',
+    /<link\s+rel="manifest"\s+href="\/manifest\.json">/.test(shell),
+    'without this a browser never looks for one, whatever the file says'
+  );
+
+  const source = join(DOCS, 'public/manifest.json');
+  if (!existsSync(source)) {
+    check('2. public/manifest.json exists', false, 'the manifest is this site’s own file in public/');
+    return;
+  }
+
+  let manifest = null;
+  try {
+    manifest = JSON.parse(read(source));
+  } catch (cause) {
+    check('2. the manifest is valid JSON', false, String(cause));
+    return;
+  }
+  check('2. the manifest is valid JSON', true);
+
+  // The fields a browser actually requires before it will offer an install.
+  for (const [index, field] of ['name', 'start_url', 'display', 'icons'].entries()) {
+    check(
+      `3${'abcd'[index]}. it carries ${field}`,
+      manifest[field] !== undefined && manifest[field] !== '',
+      'a manifest missing one of these is a manifest a browser ignores'
+    );
+  }
+
+  check(
+    '4. it is its own application and not the portal',
+    manifest.id !== 'careersgftv' && manifest.start_url === '/',
+    `id ${JSON.stringify(manifest.id)}, start_url ${JSON.stringify(manifest.start_url)}. ` +
+      'Two installed applications sharing an id are one application to the platform'
+  );
+
+  const sizes = (purpose) =>
+    (manifest.icons ?? [])
+      .filter((icon) => (icon.purpose ?? 'any').split(/\s+/).includes(purpose))
+      .map((icon) => icon.sizes);
+
+  check(
+    '5. it offers 192 and 512 in the any purpose',
+    sizes('any').includes('192x192') && sizes('any').includes('512x512'),
+    JSON.stringify(sizes('any'))
+  );
+
+  check(
+    '6. and both again as maskable, so the icon is not trimmed with scissors',
+    sizes('maskable').includes('192x192') && sizes('maskable').includes('512x512'),
+    JSON.stringify(sizes('maskable'))
+  );
+
+  /* --- Every file it names, on disk ------------------------------------- */
+
+  if (!existsSync(join(DIST, 'shell.html'))) {
+    skip('the built output', 'run `node scripts/build.js` from docs-site/ first');
+    return;
+  }
+
+  const named = [
+    ...(manifest.icons ?? []).map((icon) => icon.src),
+    ...(manifest.shortcuts ?? []).map((shortcut) => shortcut.url),
+  ];
+
+  const missingIcons = (manifest.icons ?? [])
+    .map((icon) => icon.src)
+    .filter((src) => !existsSync(join(DIST, src.replace(/^\//, ''))));
+
+  check(
+    '7. every icon it names is in dist/',
+    missingIcons.length === 0,
+    `missing: ${missingIcons.join(', ') || 'none'}. An icon src that 404s is an install offer that never appears`
+  );
+
+  check(
+    '8. the manifest itself reaches dist/',
+    existsSync(join(DIST, 'manifest.json')),
+    'public/ is the directory the build empties into the root of dist/'
+  );
+
+  const worker = read(join(DIST, 'sw.js'));
+  check(
+    '9. and the worker precaches it with its icons',
+    worker.includes("'/manifest.json'") &&
+      (manifest.icons ?? []).every((icon) => worker.includes(`'${icon.src}'`)),
+    'writeWorker() takes everything under public/, so this is the build working'
+  );
+
+  // **A shortcut into the gated half would fail for almost everybody.** 16a
+  // keeps the gate quiet about what it holds, and a home screen menu item that
+  // opens a sign in page for every reader who is not staff is the opposite.
+  const gated = (manifest.shortcuts ?? []).filter((shortcut) => shortcut.url.startsWith('/staff'));
+  check(
+    '10. no shortcut points into the staff half',
+    gated.length === 0,
+    JSON.stringify(gated.map((shortcut) => shortcut.url))
+  );
+
+  const brokenShortcuts = (manifest.shortcuts ?? [])
+    .map((shortcut) => shortcut.url)
+    .filter((url) => !existsSync(join(DIST, `${url.replace(/^\//, '')}.html`)));
+
+  check(
+    '11. and every shortcut opens a page that was built',
+    brokenShortcuts.length === 0,
+    `missing: ${brokenShortcuts.join(', ') || 'none'}`
+  );
+
+  /* --- The browser's own reading of it ---------------------------------- */
+
+  const server = serve();
+  const base = await listen(server);
+  const browser = await chromium.launch();
+
+  try {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    await page.goto(`${base}/`, { waitUntil: 'networkidle' });
+
+    const fetched = await page.evaluate(async () => {
+      const link = document.querySelector('link[rel="manifest"]');
+      if (!link) return { ok: false, why: 'no link element' };
+      const response = await fetch(link.href);
+      if (!response.ok) return { ok: false, why: `status ${response.status}` };
+      try {
+        const body = await response.json();
+        return { ok: true, name: body.name, icons: (body.icons ?? []).length };
+      } catch (cause) {
+        return { ok: false, why: `unparseable: ${cause}` };
+      }
+    });
+
+    check(
+      '12. a browser at the site root fetches and parses it',
+      fetched.ok === true && fetched.icons === (manifest.icons ?? []).length,
+      JSON.stringify(fetched)
+    );
+
+    const iconStatus = await page.evaluate(
+      (sources) =>
+        Promise.all(
+          sources.map(async (src) => {
+            const response = await fetch(src);
+            return { src, status: response.status, type: response.headers.get('content-type') };
+          })
+        ),
+      (manifest.icons ?? []).map((icon) => icon.src)
+    );
+
+    check(
+      '13. and every icon it names answers as an image',
+      iconStatus.every((icon) => icon.status === 200 && (icon.type ?? '').startsWith('image/')),
+      JSON.stringify(iconStatus)
+    );
+  } finally {
+    await browser.close();
+    server.close();
+  }
+
+  check(
+    '14. nothing it names is missing from the build',
+    named.length > 0,
+    'a manifest with no icons and no shortcuts would pass every check above vacuously'
+  );
+});
+
+/* -------------------------------------------------------------------------
  * Run
  * ---------------------------------------------------------------------- */
 

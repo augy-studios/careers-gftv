@@ -1,0 +1,60 @@
+{
+    "$comment": "The docs site's install manifest, phase 14. It is this site's own file and not a generated copy of the portal's: the two share a mark and share nothing else, because an installed documentation site opening on the job board would be the wrong application. It sits in public/ because that is the directory the build empties into the root of dist/, which is also what gets it precached: writeWorker() in scripts/build.js takes everything under public/ verbatim. Written in English only, and deliberately, for the reason the portal's carries: a manifest is fetched with no session and no localStorage, so it has no way of knowing which language the reader chose, and 16f keeps the choice a stored preference rather than an address. The icons are the portal's four, copied in by gen-docs-lib.js rather than linked across, per part 2b: two Vercel projects are two origins, and an installed icon fetched from the other one is a blank icon the day that project moves. theme_color is white to agree with what theme.js writes into meta[name=theme-color] for the default classic light theme, so the title bar does not change colour a moment after launch. background_color is the GFTV yellow the icon plate sits on, so the splash screen and the icon are one colour.",
+    "name": "Careers@GFTV documentation",
+    "short_name": "Careers docs",
+    "description": "Guides to the Careers@GFTV job portal and its Telegram bot. How to find a role and apply, how to link Telegram, and how to help with translations.",
+    "icons": [{
+            "src": "/HLC-192.png",
+            "type": "image/png",
+            "sizes": "192x192",
+            "purpose": "any"
+        },
+        {
+            "src": "/HLC-512.png",
+            "type": "image/png",
+            "sizes": "512x512",
+            "purpose": "any"
+        },
+        {
+            "src": "/HLC-192-maskable.png",
+            "type": "image/png",
+            "sizes": "192x192",
+            "purpose": "maskable"
+        },
+        {
+            "src": "/HLC-512-maskable.png",
+            "type": "image/png",
+            "sizes": "512x512",
+            "purpose": "maskable"
+        }
+    ],
+    "$comment-shortcuts": "Public sections only. A shortcut into /staff would open the sign in page for the reader who is not staff, which is a menu item that fails for almost everybody who has one, and the gate in 16a is deliberately quiet about what it holds.",
+    "shortcuts": [{
+            "name": "Using the portal",
+            "short_name": "Portal guide",
+            "description": "Finding a role, applying, and tracking what happened next.",
+            "url": "/portal"
+        },
+        {
+            "name": "Using the Telegram bot",
+            "short_name": "Bot guide",
+            "description": "Linking your account, sign in codes, and notifications.",
+            "url": "/bot"
+        }
+    ],
+    "start_url": "/",
+    "theme_color": "#ffffff",
+    "background_color": "#fedc00",
+    "display": "standalone",
+    "display_override": ["standalone", "minimal-ui"],
+    "orientation": "any",
+    "id": "careersgftv-docs",
+    "dir": "ltr",
+    "scope": "/",
+    "lang": "en",
+    "categories": [
+        "business",
+        "productivity",
+        "education"
+    ]
+}

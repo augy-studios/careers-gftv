@@ -17,7 +17,7 @@ Build a Telegram bot in a new `telegram-bot` directory in this same repo. Base i
 - Deliver every file individually. No zip.
 - SQLite for anything bot local: scheduling, rate limits, dedupe, and the registry of active interaction buttons, so buttons keep working forever across restarts. Store the callback payload and its meaning in SQLite, and look it up on click. Never pack state into the callback data.
 - Supabase is the shared source of truth for accounts, links, tokens, invites, and the notification outbox. The bot reads and writes those directly with `SUPABASE_URL` and `SUPABASE_SERVICE_KEY`. SQLite never duplicates account data.
-- Prefer rich formatted replies over plain text. Avoid em dashes, and rephrase rather than leaving a sentence that only worked with one.
+- Prefer rich formatted replies over plain text. Avoid em dashes, and rephrase instead of leaving a sentence that only worked with one.
 - Any knowledge base content, if it ever becomes relevant, comes from an open source REST API rather than a hardcoded list.
 
 ### Commands

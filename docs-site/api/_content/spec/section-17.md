@@ -9,7 +9,7 @@ order: 20
 - Full working repo following the structure above.
 - The `migrations/` directory with every numbered SQL file, its README, and the rollback blocks.
 - `sitemap.xml`, `robots.txt`, and `llms.txt` on both sites, per section 4.
-- Root README covering setup, environment variables, Supabase configuration, Vercel deployment, and the custom domain setup for `careers.globalfurry.tv`.
+- Root README covering setup, environment variables, and Supabase configuration. Then Vercel deployment, and the custom domain setup for `careers.globalfurry.tv`.
 - `main-site/.env.example` as specified in section 2, with a how-to-obtain comment on every variable.
 - The four READMEs described in section 2, kept current through every phase.
 - Seed script with a few sample departments and job postings for local testing.

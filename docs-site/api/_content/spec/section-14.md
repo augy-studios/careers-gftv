@@ -50,7 +50,7 @@ The site must be a fully installable PWA that stays useful with no connection. B
 - Any cached view carries a quiet "last updated" timestamp so nobody mistakes an old board for the current one.
 - Controls that cannot work offline are disabled with a reason on the control itself, never a dead button that fails on click.
 - An offline fallback page for an uncached route, offering the cached postings and saved jobs as somewhere to go.
-- An update prompt when a new service worker is waiting, letting the applicant reload rather than swapping the page under them. Use `skipWaiting` and `clients.claim` only behind that prompt.
+- An update prompt when a new service worker is waiting, letting the applicant reload. Never swap the page under them. Use `skipWaiting` and `clients.claim` only behind that prompt.
 
 ### Manifest and install
 

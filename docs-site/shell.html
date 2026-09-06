@@ -112,6 +112,17 @@
     <link rel="apple-touch-icon" href="/HLC-180.png">
     <link rel="icon" href="/favicon.ico">
     <link rel="shortcut icon" href="/favicon.ico">
+
+    <!-- The install manifest, phase 14. This site already had the other half of
+         being installable since part 4 — a service worker, registered below —
+         and this is what a browser reads to offer the install at all: a name, a
+         start url, a display mode, and an icon at 192 and 512 in both purposes.
+
+         It is this site's own file in public/, and not a generated copy of the
+         portal's. The two share a mark and nothing else: an installed
+         documentation site whose start_url opened the job board would be the
+         wrong application on the home screen. -->
+    <link rel="manifest" href="/manifest.json">
 </head>
 
 <body class="docs-shell">
