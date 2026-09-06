@@ -137,7 +137,7 @@ A single inbox for anything the portal needs the applicant to deal with. It exis
 
 *Questions on a task*
 
-An `info_request` may carry a set of questions rather than only a free text box. A job poster composes them in 8.3 and the applicant answers all of them in one submission, which is still one round.
+An `info_request` may carry a set of questions, instead of only a free text box. A job poster composes them in 8.3 and the applicant answers all of them in one submission, which is still one round.
 
 **Two questions are built in and are never part of a poster's set.** They are "did you apply for this role" and the posting rating, both from 7c. They belong to the apply prompt, and they are derived from `gftvjobs_analytics` and never stored as questions. No composer can edit, reorder, or remove them. A poster's questions never appear inside the handoff modal either, for the reason 7c gives. That modal is a light tap on the shoulder and not an ambush. Hanging a required form off it would make dismissing it cost something.
 
@@ -159,7 +159,7 @@ The set itself:
 - **The set is frozen once the task is sent.** Questions can be added, edited, reordered, and deleted freely in the composer, and not at all afterwards. Editing a sent set orphans answers already given, and changes the meaning of ones already read. Getting it wrong means raising a new task and resolving the old one, which is visible and is the right cost. Editing the set stored on a posting changes what future applicants are asked and never touches a task already raised.
 - **Cap the set, and keep the cap low.** Twenty questions, with a cap on options per question and on the length of every answer.
 - **No file upload of any kind.** Not on a question, not on the free text box, not ever. Anything needing a file is asked for through the role's Google Form or arranged out of band.
-- The applicant sees their own answers after submitting, exactly as they see a plain reply now. A question they were asked and did not have to answer shows as unanswered rather than as blank.
+- The applicant sees their own answers after submitting, exactly as they see a plain reply now. A question they were asked and did not have to answer shows as unanswered, and never as blank.
 - A badge in the account navigation shows the count of open items across both sources. The page is then discoverable without an email or a push notification.
 - Deep links: `/account/tasks?task={task_id}` opens a specific item, and the apply prompt keeps the `/jobs/{uuid}?prompt={analytics_row_id}` form from 7c. Validate ownership against the session in both cases, and strip the parameter with `history.replaceState` once it has been handled.
 - Empty state that reads as a good thing, not an error.
@@ -245,7 +245,7 @@ The helper area is not the only way in. A helper reading any page can select the
 - Selecting text inside a translatable region offers a small control to suggest a correction. Everything translatable on the site already carries an attribute naming its source. Interface strings render inside elements with `data-i18n="key"`, and content renders inside elements marked with its table, row, and field. The annotation layer walks up from the selection to find it, so the helper never types an identifier.
 - The suggestion is stored in `gftvjobs_translation_reports` with `origin` of `annotation`, alongside the ordinary reports from 7h. **One queue, not two.** An admin works through a single list whether the item came from a form or a selection.
 - Anchoring follows the W3C Web Annotation Data Model's `TextQuoteSelector`. Store the exact quote, plus a short run of text either side. That is worth copying instead of inventing. A suggestion can still be found after the surrounding text has been edited. When it cannot, it is shown as detached, and never silently applied to the wrong place.
-- A suggestion against an interface string is a code change. The wording lives in `assets/i18n`, which is what keeps the site build free and lets the dictionaries precache for offline. So the admin view shows the key, the current wording, and the suggestion. A developer applies it and deploys. Say that plainly in the admin view rather than letting an admin click approve and wonder why nothing changed. **Do not build an interface string editor**, and do not move the dictionaries into the database to avoid the deploy.
+- A suggestion against an interface string is a code change. The wording lives in `assets/i18n`, which is what keeps the site build free and lets the dictionaries precache for offline. So the admin view shows the key, the current wording, and the suggestion. A developer applies it and deploys. Say that plainly in the admin view, instead of letting an admin click approve and wonder why nothing changed. **Do not build an interface string editor**, and do not move the dictionaries into the database to avoid the deploy.
 - A suggestion against content, a posting, department, or tag, an admin can apply directly, because that text is in the database.
 
 **The layer itself**

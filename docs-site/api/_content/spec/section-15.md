@@ -18,7 +18,7 @@ Build a Telegram bot in a new `telegram-bot` directory in this same repo. Base i
 - SQLite for anything bot local: scheduling, rate limits, dedupe, and the registry of active interaction buttons, so buttons keep working forever across restarts. Store the callback payload and its meaning in SQLite, and look it up on click. Never pack state into the callback data.
 - Supabase is the shared source of truth for accounts, links, tokens, invites, and the notification outbox. The bot reads and writes those directly with `SUPABASE_URL` and `SUPABASE_SERVICE_KEY`. SQLite never duplicates account data.
 - Prefer rich formatted replies over plain text. Avoid em dashes, and rephrase instead of leaving a sentence that only worked with one.
-- Any knowledge base content, if it ever becomes relevant, comes from an open source REST API rather than a hardcoded list.
+- Any knowledge base content, if it ever becomes relevant, comes from an open source REST API and never a hardcoded list.
 
 ### Commands
 
@@ -47,7 +47,7 @@ No `help` command. `start` carries that content.
 - `code`, or the button on the 2FA prompt, issues a six digit code. It is valid for five minutes, single use, and stored hashed, with an attempt cap.
 - The magic link variant sends a one tap button that signs the applicant in directly. Treat it as a full login and not a second factor, because that is what it is. Bind it to the browser that requested it. Store a nonce in a cookie at request time and check it on consumption, so a forwarded link is useless to anyone else. Keep its lifetime to five minutes.
 - Never send a code or link to a Telegram account that is not currently linked to the account being signed into.
-- Rate limit per account and per Telegram user, and back off after repeated failures rather than silently ignoring them.
+- Rate limit per account and per Telegram user, and back off after repeated failures. Never silently ignore them.
 
 ### Notifications
 
@@ -55,7 +55,7 @@ No `help` command. `start` carries that content.
 - The bot polls that table every 15 to 30 seconds. It claims a batch by moving rows from `queued` to `claimed` in a single conditional update, so two bot instances cannot double send. It sends, then marks `sent` or `failed` with the error and an attempt count. Retry failures a few times with backoff, then leave them `failed` for an admin to see.
 - Three kinds, all shipping in the first version: `invite`, `task_raised`, and `application_status_changed`. Security messages such as a password reset or a new trusted device are sent directly and never queued. They are not subject to the `notify` toggles, since silencing them is what an attacker would want. An applicant with no Telegram link gets their rows marked `skipped`, instead of left queued forever.
 - Respect the `notify` toggles per kind, and always include an unsubscribe hint in the footer of a notification.
-- Keep Telegram rate limits in mind: pace sends, and handle flood wait errors by rescheduling in SQLite rather than sleeping the whole worker.
+- Keep Telegram rate limits in mind. Pace sends, and handle flood wait errors by rescheduling in SQLite, instead of sleeping the whole worker.
 
 ### Invites over Telegram
 
