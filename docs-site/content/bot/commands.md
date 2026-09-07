@@ -121,8 +121,11 @@ arrives as a message you can read in the chat.
 It needs no linked account. These guides are public, and `/docs` only ever
 carries the public ones.
 
-A long page arrives in parts, with **Previous** and **Next** and a "2 of 5". It
-breaks at a heading, so a part never stops mid sentence. Where a page has a
+A long page arrives in parts, under a row of three buttons. The middle one says
+which part you are on, and the two beside it step back and on. On the first part the left one
+jumps to the last, and on the last part the right one jumps back to the first.
+The row never changes shape under your thumb. A part breaks at a
+heading, so it never stops mid sentence. Where a page has a
 table, a set of per device instructions, or a screenshot, you get one line
 saying what is there instead. A chat window cannot draw those, and leaving them
 out silently would be a procedure with a step missing. **Read this on the site**

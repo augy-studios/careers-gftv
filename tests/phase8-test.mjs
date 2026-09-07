@@ -2899,9 +2899,15 @@ define('helpers', 'Translation helpers, items 76 to 82', async (state) => {
     Boolean(listed),
     `${(roster.data?.helpers ?? []).length} helpers listed for ${locale}`
   );
+  // Every active language, the default one included since 8 September 2026:
+  // the role decides who may suggest a correction in place as well as who may
+  // draft a translation, and the English wording is the half nobody could
+  // reach before.
   check(
     '78. the roster names the languages the role can be granted in',
-    Array.isArray(roster.data?.grantable) && roster.data.grantable.every((entry) => !entry.is_default),
+    Array.isArray(roster.data?.grantable) &&
+      roster.data.grantable.length > 0 &&
+      roster.data.grantable.some((entry) => entry.is_default),
     short(roster.data?.grantable, 160)
   );
 

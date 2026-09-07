@@ -1,14 +1,19 @@
-# Working references, not part of the deliverable. They live at the repo root
-# on the maintainer's machine only. Source comments cite them by name and by
-# section number, and the root README explains where they went, so a fresh
-# clone is not left wondering. The theme is implemented in full in
-# main-site/assets/css/theme.css, which is committed.
-#   next-steps.md         the phase memo, rewritten at each phase boundary
-#   careers-gftv-spec.md  the brief for the whole project
+# The brief and the memo moved into reference/ on 7 September 2026 and are
+# committed from that day on. Both were ignored at the repo root until then,
+# which is how phase 14 part 7a came to commit twenty one pages generated from
+# a file no clone has ever held. Source comments all over this repository cite
+# the two by name and by section number, and those citations are addresses a
+# reader can now open.
+#   reference/careers-gftv-spec.md  the brief for the whole project
+#   reference/next-steps.md         the phase memo, rewritten at each boundary
+#
+# The other two are unchanged: working references, not part of the deliverable,
+# at the repo root on the maintainer's machine only. The theme is implemented
+# in full in main-site/assets/css/theme.css, which is committed.
 #   gftv-theme.md         the GFTV theme system, shared across the GFTV apps
 #   gftv-official.md      the official site banner, shared across the GFTV apps
-next-steps.md
 *spec.md
+!reference/careers-gftv-spec.md
 gftv-theme.md
 gftv-official.md
 
@@ -23,12 +28,18 @@ gftv-official.md
 .claude
 gen-*.js
 
-# The five at the root that are not throwaway, listed one by one rather than by
+# The seven at the root that are not throwaway, listed one by one rather than by
 # widening either pattern above. Phase 12 part 8 found the first three of them
 # ignored while the root README told a reader to run them, which is the same
 # failure that pass exists to catch from the other direction: a document
 # describing something a fresh clone does not have. It caught the fifth on the
 # day it was written, which is the pass doing its job rather than a near miss.
+#
+# **The last two are phase 14 part 10e, and they were the same failure again.**
+# Part 7a wrote both, committed the pages they produce, and never noticed that
+# `gen-*.js` above had swallowed the scripts: the twenty one spec pages went
+# into the repository with no way for a clone to regenerate or --check them,
+# and this file's own memo said "two generators at the repo root, committed".
 #   seed.mjs           section 17's seed script, part of the deliverable
 #   gen-icons.js       every icon under main-site/, from HLC-source.png
 #   gen-screenshots.js the two install screenshots in the manifest
@@ -36,11 +47,15 @@ gen-*.js
 #   gen-docs-lib.js    the docs site's copies of the portal's shared modules,
 #                      phase 13 part 1. Without it a clone cannot rebuild
 #                      docs-site/api/ and cannot check that it is current.
+#   gen-spec-pages.js  the brief as twenty one pages, phase 14 part 7a
+#   gen-memo-pages.js  the memo as nine pages, phase 14 part 10e
 !seed.mjs
 !gen-icons.js
 !gen-screenshots.js
 !gen-review.js
 !gen-docs-lib.js
+!gen-spec-pages.js
+!gen-memo-pages.js
 
 # Generated review sheet for the Chinese copy. Regenerate instead of committing.
 zh-review.html

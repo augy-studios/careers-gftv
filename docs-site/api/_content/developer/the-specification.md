@@ -7,9 +7,9 @@ summary: The brief the whole build answers to, where it lives, and what to do wh
 
 # The specification
 
-**`careers-gftv-spec.md` is the brief for the whole project.** It sits at the
-repository root, it is committed, and it is the reference for every phase. It is
-about seventeen hundred lines and the detail in it is load bearing.
+**`reference/careers-gftv-spec.md` is the brief for the whole project.** It sits
+beside the working memo, it is committed, and it is the reference for every
+phase. It is about seventeen hundred lines and the detail in it is load bearing.
 
 The parts to slow down on are section 6, the schema, and section 5, the
 authentication rules. Everything else depends on those two being right, and
@@ -74,9 +74,9 @@ level section of the file. They are generated from the file itself, so the two
 cannot drift.
 
 > [!NOTE]
-> The generator is the second half of this part of the build and lands with the
-> pages. Until it does, the file at the repository root is the only copy, and it
-> is the one to read.
+> They are here: [the specification](/staff/spec), twenty one pages, written by
+> `node gen-spec-pages.js`. An edit made on one of those pages is undone by the
+> next run of it.
 
 **Two files are deliberately not reproduced anywhere on this site.**
 `gftv-theme.md` and `gftv-official.md` travel between GFTV repositories, so this

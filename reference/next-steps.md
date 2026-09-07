@@ -1,0 +1,6546 @@
+# next-steps.md
+
+Working memo for the Careers@GFTV build, rewritten at the start and end of every
+phase. **It lives in `reference/` and is committed, as of 8 September 2026**; it
+was gitignored for the first fourteen phases. The brief is
+`reference/careers-gftv-spec.md`, and this file never overrides it.
+
+Last written: **during phase 14, Documentation, on 8 September 2026**, in part
+10e. That part moved this file and the brief into `reference/`, and generated
+the nine pages this snapshot is made of. It also rewrote the whole memo to pass
+`check-copy.js`. Part 10f is four things a reader asked for on the same day, in
+the bot and in the portal.
+
+Parts 1, 2 and 2a are pushed as `14dc190` and `f095bad` and verified live.
+**Parts 2b and 3 were committed together as `12ec9de`, not yet verified against
+the deployment.** **Parts 4 and 4a pushed together as `7d82b02`, also not yet
+verified against the deployment.** **Part 5, the job poster guide, is pushed as
+`04261b4` and verified live.** The twenty pages were served to a job poster and
+refused to a stranger. Deviation 130's two routes answered 403 to a real poster
+session. **Part 5a, `8e197c4`, repaired `tests/phase7-test.mjs` after running
+it.** Section 2 is the phase; its part list carries what each part landed.
+
+**Part 7 is the developer guide, 17 pages, and it is pushed as `61d9ce5`, not
+yet verified against the deployment.** Four decisions were put up and answered
+before it, and four concerns after it, all eight as recommended. The largest of
+the first four splits this part in two. The guide is 7. The generated
+specification and memo pages are **7a**, which now has a gated section of its
+own to write into. It also built the half phase 13 decision 6 left behind: a
+`data:` key in a gated page's front matter. A committed JSON file reaches the
+browser inside the page's own answer and never at an address of its own. That is
+what puts all sixteen scripts in `tests/` behind a download button on one page.
+**It found one thing it did not fix.** `main-site/README.md` still opens
+"Current phase: 6 of 15", eight phases stale, and part 10 owns the READMEs.
+
+**Part 8 is the capture machinery and the three discovery files, and it is
+pushed as `a84170a`, not yet verified against the deployment.** Four decisions
+were put up and three were answered as recommended. The fourth kept the
+discovery files inside part 8 instead of splitting them off as 8a. **It
+deliberately takes no pictures.** The manifest's 25 slots, the Playwright
+script, its scoped `package.json`, the build's five refusals, `robots.txt`,
+`sitemap.xml` and `llms.txt` all land here. The capture run itself needs a
+seeded database and a staff session, which is decision 27's by-hand sitting.
+**Deviation 132** is where that run departs from 16g. There is one database, so
+"never against production" cannot be kept. What replaces it is a script that
+refuses to start unless the board is showing a seeded posting.
+
+**Part 9 is 华文 for all 82 pages.** It is pushed as `c0be461`, and it is verified
+against the deployment as of 7 September 2026.
+`/api/content?path=/portal/applying&locale=zh` answers with a 华文 title, summary
+and body, and `/api/nav?locale=zh` answers with the section titles translated.
+**So the deploy ran with the database and filled both tables.** That is the one
+thing part 9 could not prove for itself. The sentence below about nothing having
+been written is now history and not a state. The mirror and the view are live,
+which is what part 10's `/docs` reads.
+
+**A reader found a defect on the live site on 7 September 2026.** It is fixed
+and pushed as `e86f53b`, "phase 14 part 9a", not yet verified against the
+deployment. Open a section in the docs sidebar, change language, and the section
+headings stop responding until the page is reloaded by hand. **It was going to
+ride with part 10 and did not.** Committing the tree as it stood meant it landed
+on its own. A commit landing alone cannot be named for a part that does not
+exist yet. So it took the letter after the part it fell behind, and it is
+written up under part 10 below. The short version: `drawSidebar` added its
+delegated click handler every time it drew. The mount outlives the redraw, so
+two handlers toggled the section twice per click. The same shape was found
+beside it in `drawAccount`, on `document`, and fixed with it.
+
+**Four decisions were settled on 7 September 2026, before part 10 was started,
+and all four as recommended.** Part **7a comes before part 10**. Part 10
+**splits into 10 and 10a**, the bot then the prose. **Item 30's list of the
+writes that leave this build gets built** in the seam. Phase 11's **webhook
+confirmation notice lands after 10a and before the flip**, in its own commit. So
+the phase's remaining order is 7a, 10, 10a, the notice, then the flip. Both
+halves of the site are in it, plus the plumbing that had never existed. That is
+migration `042`'s two tables and the view over them, the build's database
+connection, and one search index per language. The read path is in it, and the
+notice on a page nobody has translated. **Four decisions were put up and one
+went against the recommendation.** The part was offered as 9 and a 9a, and the
+answer was all of it at once. **Migration `042` was applied by hand on 6
+September 2026.**
+
+**The view is the part worth reading the migration for.** It inner joins the
+translations to the public mirror, so a gated page's 华文 joins to nothing and
+cannot appear. The Telegram bot's `/docs` reads it with no tier logic of its
+own. That **discharges the worry this file has carried since 3 September** about
+the tier rule being implemented twice and the copies disagreeing. There is no
+second copy.
+
+**Two deviations, 133 and 134.** The first is where the 华文 is authored: files,
+with the table as a copy the build writes. That is against 16e's letter and in
+service of its purpose. The second is one nullable column. Vercel clones
+shallowly, and a `not null` there would stop a correct deploy.
+
+**Nothing has been written to the database yet.** There is no `.env.local` on
+this machine, so every build has been `--no-database`. The tables are created
+and empty, and the first deploy fills them. Until then a 华文 reader gets English
+with the notice. That is the same thing the read path does when the database
+cannot be reached.
+
+**It found two stale things in the English and fixed both**, because part 9 is
+what made them stale. The staff index still opened "These guides are in English
+today". And **3a still said the staff half of the docs site stays English**,
+which 16f overruled on 3 September and nobody went back for.
+
+**It found that `/staff` has never been kept out of a search index.** No
+`robots.txt` at all, no `X-Robots-Tag`, and every gated address answers 200 with
+the shell. Not a leak, because that answer carries no content, and closed here
+with both instruments.
+
+**Four concerns were put up after it and all four answered as recommended.** The
+one that changed the code gave the script a `--dry-run`. **It has now been
+run**: one real 65 KB webp of the sign in page, captured into a temporary
+directory on 5 September 2026. That is the first time any of this has started a
+browser. Two defects were found by reading it again before that: every mask
+would have been magenta, and the suggestion layer would never have drawn. One
+was found by running it: 1440 is a wide frame for the portal's centred pages,
+and the obvious fix makes it worse.
+
+**Part 6 is the admin guide, 14 pages, and it is pushed as `0aa1f92`, not yet
+verified against the deployment.** Four decisions were put up and answered, and
+the first of them is the fourteenth page. 16h's thirteen bullets do not include
+the maintenance switches, which part 5 had just made admins only, so 8.12 was
+documented nowhere. It found **deviation 131**, which is 130's last paragraph
+arriving from the other end. Four strings promise a helper that only an admin
+can publish their work, and any job poster can.
+
+**Part 4 gives the docs site a service worker and makes it work offline.** It
+arrived as a new part 4 that pushed everything below it down one. That is the
+second time this phase has renumbered itself, and for the same reason part 1 did
+it. Plumbing under 76 pages is cheaper before the pages than after them. Three
+decisions were put up and answered. The gated guides are cached per reader, the
+precache list is generated by the build, and the update bar is the portal's
+module generated in. **It has run in a browser**, which is the one thing every
+other check here cannot tell you. `--only=install` installs the worker in a real
+Chromium and then pulls the network out.
+
+**Part 5 is the job poster guide, 20 pages, and it is the first gated content
+either tree has held.** Written from the 785 `admin.*` strings and the routes
+behind them, in one sitting. It is 20 because 16h's nineteen bullets open with
+signing in and a section needs a landing page. Four decisions were put up and
+answered: the twentieth page, and the Apps Script procedure as a **checked**
+copy of the dashboard's four steps. The other two are ten screenshot slots for
+part 8, and what to do about what it found.
+
+**What it found is deviation 130: a job poster could close the whole board.**
+`/admin/settings` and `/admin/maintenance` were in the poster's sidebar, and
+both routes were guarded with `requireStaff`. 10 item 2 names both as an
+admin's. Six phases old. **Fixed in this part**, so part 5 touches `main-site/`
+the way part 2 did. `tests/phase7-test.mjs` had been asserting the defect in as
+many words.
+
+**Part 4a renames the portal in Mandarin: 国际兽视入队平台.** More honest than the
+English name, because "Careers" implies a salary and 入队 says join the team. It
+moved 93 strings, four documents and **specification 3a**, without which the
+rename would not have been real. **Migration `041` was applied on 4 September
+2026**, which is the half no dictionary could reach: the home page's title is a
+database row.
+
+**Part 2 is the portal guide, thirteen pages, and it is the first real content
+either tree has held.** It was written from `en.json` and the routes and not
+from the specification, which is the whole reason 16 puts this phase second to
+last. It also found one thing: section 5 item 31, a home page still promising
+offline support that shipped a week ago.
+
+**Then a plain language pass was asked for, over both sites, and it is part
+2a.** Simple, concise English and Singapore Mandarin, for a reader with no
+technical knowledge who wants to find a role and apply for it. It is written up
+under part 2a below. The rule it produced is now **specification 3b** and three
+checks inside `check-copy.js`. A rule about writing that nobody can run is a
+rule with a lifespan.
+
+**Part 2b is a defect somebody spotted in a link preview: the docs site had no
+icons and no card at all.** No `favicon.ico`, no `apple-touch-icon`, no `og:` or
+`twitter:` tags, and no image files of its own. So a tab showed the browser's
+blank icon, and a shared link previewed as a title with nothing beside it. Two
+Vercel projects means the portal's `/HLC-main.png` resolves to nothing here.
+Part 2b is written up below and cost one new field in `gen-docs-lib.js`.
+
+**Part 3 is the bot guide and the translations guide, sixteen pages, both
+public.** That takes the public tier to 30 pages and finishes it. The command
+reference is now a checked copy. `commands.py --check` reads it as a third
+document. The list in a guide on another site cannot drift from the list the bot
+registers with Telegram.
+
+**Phase 13 shipped on 3 September 2026 and thirteen of fifteen phases are
+live.** `build-status.json` reads `shipped` with a note in both languages, and
+phase 14 reads `building`. The root README says thirteen of fifteen, and `sw.js`
+is at **`v126`**. Section 1 has the condensed account; section 2 is phase 14.
+
+**It shipped in the order this file calls the honest one: walk, lift, then
+flip.** Section 5 item 24's sitting happened first, `HELLO_WRITES_ENABLED` went
+`true` after it, and the phase flipped after that. Both deployments were
+confirmed carrying the lift before anything was written down. Check 166 is what
+kept the pair honest, and it earned its place. **The portal was still building
+the first time it was asked**, and answered `held` while the docs site answered
+normally.
+
+**The walk found four things and every one of them was invisible to this
+repository's checks.** `SITE_URL` had never been set on the docs Vercel project.
+So `/api/auth/staff/account` and `/api/auth/staff/passkeys` had answered **500
+to every staff account since part 6**. `--only=live`'s 27 checks passed
+throughout, because all of them ask as a stranger. The gftv.asia profile link
+pointed at `/account` on a one page app whose catch all **answers 200**. "Sign
+out everywhere" left the current browser signed in and never reached gftv.asia
+at all. And **a fourth write reaches gftv.asia that the hold never covered**,
+regenerating the backup code set. It was stated in four places in the code and
+counted in none. Items 24, 29 and 30, deviations 126 and 127.
+
+**Three of those became commits after the seam**, all pushed 3 September 2026.
+**`5270412`** is the link and checks 167 and 167a, **`c2612c5`** is the lift,
+and **`643c7dd`** is the sign out fix. **`ea253ce`**, the flip itself, is
+between the last two. **Parts 7a, 7b, 7d and 7e, with no 7c** — the numbering
+skipped one when the commits were rebuilt by hand.
+
+**The flip landed before the sign out fix**, which is only worth knowing because
+the order reads oddly in the log. `ea253ce` set the phase to `shipped` and
+`643c7dd` corrected the danger zone after it. Nothing was wrong on the
+deployment in between. Check 166 guards the phase against the *hold*, and the
+hold had been lifted two commits earlier.
+
+**What is not fixed and is written down instead**: `checkEnv()` exists on both
+sites and nothing calls it. That is the whole reason a perfect error message sat
+in a log for a fortnight. Item 29.
+
+**Two long standing items closed.** Item 26: `gftvhello_users.display_name` and
+`.email` both read back, so two assumptions from section 5a are facts and the
+defensive fallback was never taken. Item 24: the staff sign in has now run
+somewhere other than a laptop.
+
+**What phase 13 does not owe.** Nothing. Its own before-it-is-done list is
+discharged and its checks are 677 passing, twenty seven of them against the
+deployment.
+
+**What the build still owes is phase 12's, unchanged since 31 August.** Part 4's
+Chinese round trip is with its reviewer. One by-hand sitting covers phase 10's
+device checks, phase 11's 29 step checklist, part 2's interactive admin surfaces
+and decision 13's switched-off admin page. **That sitting opens with `node
+seed.mjs --yes --anyway` and closes with `--clear --yes`**, decision 27. `node
+gen-screenshots.js` is still owed from the seed being cleared.
+
+The account of phase 12 that used to open this file follows, because none of it
+has changed.
+
+**Phase 12, Polish, shipped in eight parts**: `3bcf34b` and `c32a4ab`,
+`f6c8143`, `45a3451` and `a9478af`, `25028e7`, `a90776c`, `9c1fa73`. Then
+`ce25419` with `787e21a`, `0c9f219` and `1850997` after it, and **`37eecd1`,
+"phase 12 part 8"**, the seam. It reads `shipped` in `build-status.json` with a
+note in both languages, and `sw.js` is at **`v111`**. Section 1 has the
+condensed account of the phase; section 2 is phase 13.
+
+**One commit lands after the phase and belongs to no part of it**: **`2c27a2b`,
+"phase 12 part 8a"**. It moves the portal's staff sessions out of
+`gftvhello_sessions` into a table this build owns. Migration `038` was applied
+by hand in front of it. It is numbered as part 8a because that is where it fell,
+and not because the seam asked for it. Deviation 122 is the whole account.
+**Both sites were signed into afterwards to prove it**, which is the one thing
+no file here could check for itself.
+
+**One more change belongs to no part of phase 12 either.** An admin can edit an
+applicant's username, email, display name, phone and language on
+`/admin/applicants`, and see their Telegram id and handle read only. **8.9 does
+not have that action.** Deviation 123 is the account of it. That includes why
+changing an identifier signs the applicant out and a display name does not, and
+why nobody is notified. **It shipped as `4d338a7`, "phase 12 part 8b"**.
+`16792d4`, `5512c9c`, `5176fdd`, `4f5f8b9` and `ee7bfcd` came after it as parts
+8c to 8g. Nothing is proved against a deployment yet. The checks that exist are
+`node check-i18n.js`, `node gen-review.js` and the phase files, all clean, and
+**the action itself has never run**.
+
+**The site is open to search engines as of part 8**, after eleven phases closed
+to them. `INDEXING` in `api/_lib/discovery.js` is `true`, the global
+`X-Robots-Tag` is out of `vercel.json`, and the one on `/api/(.*)` stays. The
+two halves are checked against each other in both directions, so a half state
+cannot ship quietly. `--only=discovery-live` reads 9 passed, 0 failed, 0 skipped
+against the deployment carrying it.
+
+**The board is empty and that is the correct board**, as of 31 August 2026. The
+dev seed was deleted after the flip, and `--only=discovery-live` reads 8 passed,
+0 failed, 1 skipped against it. The sitemap is the five static pages and the
+feed answers zero postings. The skip is the check that compares the two saying
+so instead of passing on two empty lists. Decision 25 is the argument, and
+section 5 item 6 is what it costs.
+
+**What is still owed from that clearing is one command**: `node
+gen-screenshots.js`. The two install screenshots in `manifest.json` are real
+captures of `/search`, and they show the nine postings that have just gone.
+
+**Twelve of fifteen phases were live when that was written**, and thirteen are
+now. What phase 12 still owes is in section 5, and none of it is code. Part 4's
+Chinese round trip is with its reviewer. One by-hand sitting covers phase 10's
+device checks, phase 11's 29 step checklist, part 2's interactive admin surfaces
+and decision 13's switched-off admin page. **That sitting opens with `node
+seed.mjs --yes --anyway` and closes with `--clear --yes`**, decision 27, because
+clearing the seed empties the surfaces it walks.
+
+---
+
+## 1. Done so far
+
+### Phase 1, Foundations. Shipped.
+
+Migrations `001` to `013`, the `api/_lib/` helpers, and the build status
+mechanism from section 0c. Then `theme.css` and `app.css`, `shell.js`, and the
+holding home page, `/status`, `placeholder.html`, and `404.html`.
+
+### The multilingual change set. Committed as `2bbe967`. Not a phase.
+
+Migrations `014` to `023`, `i18n.js`, the two dictionaries, the globe button,
+and the page held blank until the dictionary applies. Took the phase plan from
+eleven to fourteen.
+
+### Phase 2, Authentication. Shipped, and proved on the live site.
+
+`api/_lib/` gained `password.js`, `totp.js`, `webauthn.js`, `rate-limit.js`,
+`validate.js`, `accounts.js`, `audit.js`, and the creation half of `session.js`.
+`api/auth/staff/` and `api/auth/applicant/`, the full set. `/login`,
+`/register`, `/forgot-password`, `/admin/login`, `/account/security`,
+`/admin/security`. Migrations `024` to `027`.
+
+### Phase 3, Browsing roles. Shipped, verified live on 20 August 2026.
+
+Migration `028`. `api/public/search.js`, `suggest.js`, `facets.js`, and
+`api/_lib/jobs.js`. The home page, `search/index.html`, `about/`, `faq/`.
+`format.js`, `job-card.js`, `search-page.js`, `home-page.js`. 82 checks passed.
+
+Two rules from that run are still live and not history:
+
+- **Do not lower `gftvjobs_typo_threshold()`** to catch `edtior`. Catching a mid
+  word transposition needs edit distance, which is a new numbered file.
+- **A route returning 200 is not evidence its rewrite works.** Vercel matches
+  the filesystem before it consults rewrites.
+
+### Phase 4, Job postings. Shipped, deployed, and verified live.
+
+No migration. `api/_lib/job-detail.js`, `page-shell.js`, `api/job-page.js`,
+`api/public/job.js`, `jobs-feed.js`, `api/translations/report.js`. Client:
+`job-page.js`, `markdown.js`, `dialog.js`, `signin-prompt.js`,
+`translation-report.js`. 159 checks passed, 0 failed.
+
+Three findings from that run are still rules:
+
+- **HEAD belongs alongside GET** on anything a stranger may fetch. **Phase 9 is
+  the one deliberate exception**, and the run on 26 August 2026 confirmed it:
+  `HEAD /api/cron/daily` answers 405.
+- **A confirmation must not live inside the form it replaces.**
+- **A form with no method is a GET form.** Every credential form carries
+  `method="post"`.
+
+### Phase 5, Apply flow. Shipped, deployed, and verified live.
+
+No migration. `api/_lib/apply.js`, `api/applications/start.js`, `respond.js`,
+`pending.js`, `mine.js`, `api/ratings/upsert.js`. Client: `apply.js`,
+`apply-dialog.js`, `apply-prompt.js`, `apply-badges.js`.
+
+### Phase 6, Applicant dashboard. Shipped, deployed, and verified live.
+
+No migration, and the bucket that is not one: `gftvjobs-avatars` is Storage and
+not a table. A fresh environment needs `main-site/AVATARS.md` section 1 run by
+hand before avatars work.
+
+`api/_lib/dashboard.js`, `tasks.js`, `avatars.js`.
+`api/applications/withdraw.js`, `api/saved/*`, `api/tasks/*`,
+`api/account/avatar.js`, `api/account/danger/delete.js`,
+`api/translations/mine.js`. Five pages under `/account`, and `account-shell.js`,
+`account-row.js`, `save-button.js`, `avatar.js` and the five page modules. 70
+checks passed, 0 failed.
+
+The rule from that run worth keeping: **a script that registers through the API
+is not a registered user.** The register *page* generates the recovery code set
+immediately after signing somebody up. `api/auth/applicant/register` alone does
+not. And `login-page.js` sends an account with zero recovery codes to
+`/account/security?codes=none`, ignoring the `?redirect=` entirely.
+
+### Phase 7, Admin core. Shipped, deployed, and verified live on 22 August 2026.
+
+**Migration `031`.** `questions jsonb` and `answers jsonb` on `gftvjobs_tasks`,
+`task_questions jsonb` on `gftvjobs_jobs`, and three validator functions.
+
+**Server.** `api/_lib/admin.js`, `admin-jobs.js`, `admin-applications.js`,
+`admin-tasks.js`, `questions.js`, and `maintenance.js`. Nine routes under
+`api/admin/`, plus `api/public/feature-status.js`, each an action based POST
+plus a GET.
+
+**Pages.** `/admin`, `/admin/jobs`, `/admin/jobs/edit`, `/admin/applications`,
+`/admin/departments`, `/admin/tags`, `/admin/maintenance`, and the nine client
+modules behind them.
+
+**Eleven defects, all invisible in the source.** `tests/phase7-test.mjs` is the
+executable version of that account; five of them left rules behind, in section
+3.
+
+### Phase 8, Admin operations. Shipped, deployed, verified live on 25 August 2026.
+
+**Migrations `032` to `035`, all applied by hand in the Supabase SQL editor and
+confirmed. `036` is written and still not applied** — see section 5.
+
+- `032`: the shortlist status on `gftvjobs_invites` and `must_change_password`
+  on `gftvjobs_users`. And two views, `gftvjobs_needs_translation` and
+  `gftvjobs_application_search`.
+- `033`: `gftvjobs_job_funnel` and `gftvjobs_job_funnel_daily`, because
+  PostgREST has no group by and the alternative got slower every week.
+- `034`: `updated_by` on the three translation tables, which is what makes
+  8.11's "what each has drafted" answerable at all.
+- `035`: `revoke` and `security_invoker = on` for all four views, after
+  Supabase's advisor reported them. **This is the one to remember.** RLS with no
+  policies protects a table and does not reach a view, because a view runs as
+  its owner. Both lines belong in the file that creates a view, not in a file
+  somebody writes after an advisor complains.
+
+**Eleven parts.** Settings and the public half nothing was reading; analytics
+with the `view` event that had never existed; invites and shortlists; admin
+users. Then applicant users; the translations queue; the needs-translation audit
+and the real applicant search. Then translation helpers, the admin half; the
+helper area; the annotation layer. And the seam, which is
+`tests/phase8-test.mjs` and the corrections to `check-i18n.js` and
+`main-site/README.md`.
+
+Four things from it that phase 9 leaned on directly:
+
+- **A migration applied is not a feature shipped.** `032` created two views on
+  23 August and one of them was read by nothing for six parts. Before writing
+  that something is done, grep for the thing that would have to read it. **This
+  caught a real error in phase 9's own plan** — see deviation 58.
+- **A flag nothing enforces is the failure this build keeps hitting.**
+- **The one editing action in the build that is audited is a helper's save.**
+  Phase 9 added the second, and deviation 62 says why.
+- **`api/admin/me` sends `null` and not `0` for a count it could not read.** The
+  cron's last-run panel keeps the same manners, in three states instead of two.
+
+### Phase 9, Automation. Shipped, deployed, verified live on 26 August 2026.
+
+**No migration.** Everything it needed already existed, which is the unusual
+part and is worth stating. That is `gftvjobs_form_submissions` and its unique
+constraint from `008`, and the three `form_check_*` columns from `005`. It is
+also `answer_source` on `gftvjobs_analytics` from `007`, and
+**`gftvjobs_cron_runs` from `012`**.
+
+**Server.** `api/_lib/cron.js`, `form-check.js`, `form-submissions.js`.
+`api/cron/daily.js`, `api/webhooks/form-submit.js`, `api/admin/submissions.js`.
+A `formWebhook` bucket and `subjectForForm` in `rate-limit.js`, `lastRun` on
+`api/admin/stats.js`, and `SUBMISSION_LINKED` in `audit.js`.
+
+**Client.** The maintenance panel on `/admin`, with `formatDateTime` and
+`hoursSince` in `format.js` behind it. The unmatched submissions panel and its
+account picker on `/admin/analytics`. The collapsible webhook checklist with a
+copy button in the job editor, and the two-state form check badge on
+`/admin/jobs`. 25 dictionary keys per language, and one removed.
+
+**Elsewhere.** `crons` and `functions` in `vercel.json`,
+`apps-script/careers-form-webhook.gs`, the two new README sections, and
+`tests/phase9-test.mjs`.
+
+**The verification run, 26 August 2026.** Every product check passed. The three
+things this phase could check that no earlier phase could all held:
+
+1. **A duplicate delivery is a 200 and one row.** Migration `008`'s unique
+   constraint doing its job.
+2. **A webhook confirmation overrides a No**, and says so in its response. The
+   funnel then counts the Yes against `webhook` and not against the applicant.
+3. **The cron is idempotent.** The second run straight after closed nothing.
+
+**Nothing in the phase was wrong. Three things around it were**, and all three
+are fixed:
+
+- **`tests/phase9-test.mjs` called `requireEnv` at module level**, before
+  `--only=` was read, so the documented offline section could not run without a
+  staff password. Both READMEs said it needed none. Now gated on `NEEDS_STAFF`.
+- **The panel checks waited for the wrong thing.** `#adminCronRun` is in
+  `admin/index.html`'s static markup, so `waitForSelector` resolved before
+  `/api/admin/stats` had answered and `drawCron` had filled it. The panel was
+  working the whole time; the test reported it as an empty box. Now a
+  `waitForFunction` on the panel having text. See section 3.
+- **`FORM_WEBHOOK_SECRET` was keyed in twice** in the local env file, so ten
+  webhook checks failed as `unauthorised`. Worth keeping only for the diagnosis.
+  The endpoint answers **503 "not configured"** when the variable is absent, and
+  **401 "not recognised"** when it is present and wrong. So the status code says
+  which of the two it is without anybody opening the Vercel dashboard.
+
+### Phase 10, Offline. Shipped 27 August 2026, deployment checks still owed.
+
+**No migration**, and the first phase that owns `sw.js` instead of only bumping
+it.
+
+**The worker.** `sw.js` in full: the precache list of 102 entries, a tolerant
+install that adds one entry at a time, an activate working from an allowlist.
+Then four strategies, the posting index, the Background Sync handler, and both
+kill switches. `check-precache.js` at the repo root beside `check-i18n.js`.
+
+**The client.** `offline.js` — one registration in place of thirty three inline
+blocks, the update prompt, the connection bar in both wordings, and the network
+gating pass. `idb.js`, the bottom of the stack, with the compound user id key.
+`queue.js` for the two offline answers. `offline.html` and `offline-page.js`.
+The install surface: `gen-icons.js`, `gen-screenshots.js`, the yellow plate, the
+maskable pair, and a rewritten `manifest.json`.
+
+**Elsewhere.** `api.js` gained the two connection events and the `unreachable`
+flag. `account-shell.js` and `admin-shell.js` both stopped reading a failed
+session as a signed out one, and `apply.js` gained an eighth state.
+
+**`tests/phase10-test.mjs`: 125 checks in nine sections, and every one of them
+needs no deployment, no credentials, and no network.** That is unique to this
+phase, and it is a consequence of what it builds and not a virtue. A service
+worker is not on the deployment until it is pushed, and by then a wrong precache
+list has already shipped.
+
+Five things from it that later phases inherit:
+
+- **An authenticated response never enters the Cache API**, and neither does one
+  carrying `private` or `no-store`. The second is the sharper half: the two
+  routes it catches look public from inside a worker.
+- **A failed request is a third state, not a No.** It bit twice, on both
+  dashboards, and the fix was the same both times. The same shape as the rule
+  that a count which could not be read is `null` and never `0`.
+- **There are three reasons a control can be disabled**, and the third does not
+  borrow the first two's machinery.
+- **A switch has to work in both directions**, and deviation 89 is what happens
+  when only one direction is built.
+- **A seam finds what a part cannot.** The two sections that found things were
+  the two that belonged to no part. Deviation 90.
+
+### Phase 11, Telegram bot. Shipped 29 August 2026, the by-hand walk still owed.
+
+**No migration.** Migration `011` created all three tables on day one, with the
+purposes, the unique constraints and the per kind notify columns. Nothing in
+seven parts needed anything added to them. **The one that mattered most going
+in**: nothing anywhere had ever written `gftvjobs_notifications`. So every part
+that said "the site queues a row" was writing that path for the first time.
+
+**The bot.** `telegram-bot/`, about 5,100 lines of Python across fourteen files
+and **three asyncio loops in one process**. Those are the command dispatcher, a
+two second security loop for sign in codes, and the twenty second outbox drain.
+Telethon and not the HTTP Bot API, SQLite for anything bot local, Supabase for
+anything shared. And a single instance lock that refuses to start twice and
+names the pid holding it. `commands.py` is the one copy of the command list.
+`start` prints from it, Telegram's menu is registered from it, and both
+documents that carry it are checked against it.
+
+**The site.** `api/account/telegram` for section 15's applicant half, and
+`api/_lib/telegram.js` with `KIND`, the two queue helpers and `outboxSummary()`.
+The panel and its QR on `/account/settings`; the code and the one tap link on
+`/login`. The second factor switch on `/account/security`, which is phase 2's
+deliberately disabled wiring finished and turned on. The outbox panel on
+`/admin`. `INVITE_DECLINED` in `audit.js`, written by the bot and not by this
+codebase, as `TELEGRAM_LINKED` already was.
+
+**Seven parts and four commits after them.** `72f2f55`, `6bdde23`, `8c24a7e`,
+`5ca53a8`, `70fb44c`, `1af598a`. Then the flip to `shipped` as `9d9c4d8`, and
+the VPS restart `af246d4`. Then the copy button `f95a1e0`, the login page pair
+`f2a6b4d`, and the seam `7b0a3fa`.
+
+**`tests/phase11-test.mjs`: 89 checks in nine sections, none of which needs a
+deployment, a credential or a network.** It is the site half only. Deviation 91
+traded a scripted suite for a person and a list, so the Python has no automated
+coverage at all. What stands in its place is the 29 step checklist part 7 wrote
+into `telegram-bot/README.md`, **and it has not been walked yet**. Section 5
+item 17, and it is the only thing this phase still owes.
+
+Five things from it that later phases inherit:
+
+- **The site never calls the bot.** It writes a row and returns. Nothing awaits
+  a Telegram send inside a request, however small it looks.
+- **Correctness comes from the database and not from a test.** One conditional
+  update claims a batch, so two instances cannot send one row twice even when a
+  bad restart leaves both polling. Nothing in the bot reads and then writes.
+- **A kind this build cannot render is never claimed**, which is the only reason
+  the two halves can be deployed hours apart. Deviation 103.
+- **Security messages are not queued and are not subject to the toggles**,
+  because silencing them is what an attacker would want.
+- **A list copied into documents needs a check, not a docstring.** `python
+  commands.py --check` reads every copy, and a document carrying none fails.
+  Deviations 91 and 116.
+- **House style is a script, and one comparative is banned from copy.** The
+  phrase itself is in `check-copy.js`, which is where a rule about copy belongs
+  and is why this line does not print it. Settled 1 September 2026: no English
+  string a reader sees carries it. The alternatives are `instead of`, `in place
+  of`, `as opposed to`, `over`, `in preference to`, `without` and `and not`.
+  `node check-copy.js` reads the dictionary, the pages with their comments
+  stripped, the phase list on `/status` and `llms.txt`. It also reads **every
+  quoted string in every one of the bot's Python files**, and the About and
+  Description on its profile. That is 3,470 strings, and it exits non zero on
+  one. The bot half is the whole directory and not only `strings.py`, confirmed
+  the same day. A sentence can be built anywhere. The one hit outside that file
+  was `db.py`'s message to whoever runs an older bot against a newer database.
+  **Comments, READMEs and the migrations are not copy** and keep the phrase,
+  because banning it in an explanation only teaches people to write worse
+  explanations. **This memo stopped being one of them in part 10e**, which
+  published it as nine pages and put 6,511 lines into the check's scope. Eleven
+  strings were rewritten to introduce the rule, and **the check found one the
+  greps did not**. `admin/index.html` carries the outbox lede in its markup as
+  well as in the dictionary. That is the pattern every `data-i18n` page follows,
+  and the reason a dictionary-only sweep is half a sweep.
+
+### Phase 12, Polish. Shipped 31 August 2026, in eight parts.
+
+**The first phase with no new feature at its centre**, and the difficulty was
+exactly that. Every phase before it could be checked by asking whether the new
+thing worked. What stands in place of that question is
+**`tests/phase12-test.mjs`, 13 sections and about 590 checks**. A pass with no
+list is a pass nobody can repeat.
+
+**Two migrations, `037` and `038`**, both applied by hand on 31 August 2026.
+`037` is the phase's own: `gftvjobs_status_days`, `gftvjobs_status_incidents`
+and `gftvjobs_status_record()`, which is the only way into either. Deviation 120
+is why that is not the table section 6 names. **`038` belongs to no part of the
+phase**: it moves the portal's staff sessions out of `gftvhello_sessions`, and
+it is deviation 122.
+
+**Eight parts, and their commits.**
+
+1. **The responsive pass**, `3bcf34b` and `c32a4ab`. Six widths, two
+   orientations, both languages, scripted and not walked. One theme and the
+   portal only — deviations 117 and 118.
+2. **The accessibility pass**, `f6c8143`. Four sections, nine findings, all
+   fixed. Its by-hand half is still owed and rides with phase 11's walk.
+3. **The measured colours**, `45a3451` and `a9478af`. The star colours, the
+   language pills, the switch states and the four panel tones against 1.4.3 and
+   1.4.11. Seven findings, two measured exemptions, one new token,
+   `--border-control`. `tests/capture-themes.mjs` came with it, because
+   arithmetic cannot say a token looks wrong. The two findings it produced
+   closed a gap in the file: nothing had been measuring a colour on a colour.
+4. **The dictionary read through**, `25028e7`. `gen-review.js` rewritten, and
+   the finding was about the page and not the words. `zh-review.html` had been
+   rendering 223 of 1,728 interface strings since phase 3, while counting all of
+   them in its own header. It carries 1,987 entries now. **The round trip is out
+   and the part is still open** — section 5 item 2.
+5. **Discovery**, `a90776c`. `robots.txt` and `sitemap.xml` as functions behind
+   one constant, `llms.txt` written, and the static `robots.txt` deleted because
+   Vercel matches the filesystem before it consults rewrites.
+6. **The polish pass**, `9c1fa73`. `dialog.js` onto a native `<dialog>` and four
+   modals built from it. Three copies of `runAction` made one, six tab strips
+   given one keyboard, eleven inert rewrites removed, and decision 17 applied
+   once in `admin-shell.js`.
+7. **The status page**, `ce25419`, with `787e21a`, `0c9f219` and `1850997` after
+   it. The largest part of the phase, and the only one building on both sides of
+   the architecture. That is migration `037`, and `telegram-bot/probe.py` as a
+   second process on the VPS. `/status` is rebuilt as a function rendering
+   either the phase list or the service status page, from one derivation over
+   `build-status.json`. **The switchover is not a task**: the last phase reading
+   `shipped` turns the page over.
+8. **The seam**, `37eecd1`. `seed.mjs`, the pass over the four READMEs,
+   `setup.md` and the offline checklist. And **the flip that opened the site to
+   search engines** after eleven phases closed to them.
+
+**Six things from it that later phases inherit.**
+
+- **A gap is data, and nothing is allowed to fill it in.** The probe writes
+  nothing it could not measure, and the function creates no row for a day nobody
+  probed. The page draws that day as unknown, with the legend naming it. A
+  percentage never appears without the count it came from. Three files, one
+  rule, and the phase file breaks all three on purpose to prove it.
+- **A list somebody wrote is a list with something missing from it**, and what
+  is missing is invisible by construction. It caught `gen-review.js` at 223 of
+  1,728, and a probe measuring 26 colours and never a fill with a label on it.
+  It also caught a migrations README that stopped at `033`. Every list this
+  phase added is compared against the thing it is a list of, in both directions.
+- **Arithmetic cannot say a token looks wrong.** Three of part 7's findings and
+  two of part 3's came from looking at a rendered page beside the numbers.
+  `tests/capture-themes.mjs` exists for that and is not a check.
+- **Whether the site may be indexed is one constant**, `INDEXING` in
+  `api/_lib/discovery.js`, and the header in `vercel.json` is its other half.
+  They are checked against each other in both directions, so the half state
+  cannot ship.
+- **A page that is now an answer cannot be served cache first.** `/status` is
+  the one entry in `NETWORK_FIRST_PAGES`. It would otherwise have shipped frozen
+  at whenever a reader last updated their worker, on the one page people open
+  when something is wrong.
+- **The specification can be corrected, and it was, once.** Deviation 120: the
+  probe's storage shape was costed at half a million rows, and rebuilt as a day
+  and an outage. Sections 6, 11, 15 and 0c were reconciled instead of being left
+  to drift.
+
+**What it still owes**, all of it in section 5: part 4's round trip, part 2's
+by-hand half, and the seed cleared. `--only=discovery-live` has been run against
+the deployment carrying part 8 and reads 9 passed, 0 failed, 0 skipped.
+
+### Phase 13, Docs site foundations. Shipped 3 September 2026, in seven parts.
+
+**The first new directory since phase 11, and the first second Vercel project.**
+It is the only phase so far whose subject was a second application and not a
+feature. `docs.careers.globalfurry.tv` has its own functions and its own staff
+sign in. It has a four tier role gate, two content pipelines and the first build
+step in this repository. **It needed no schema of its own**, because `038`
+carried its two tables. It added three migrations anyway: `039` for which site a
+passkey was registered from, and `040` for the staff password resets. Both were
+applied by hand before the code that reads them.
+
+**The seven parts.** `5f8bd4a` the generated shared modules and the session,
+`8358d95` the whole staff sign in, and `cfb9052` the tiers and both content
+trees. Then `5ee87b2` the shell, `a4f86cf` with `45df60f` the two pipelines and
+the twenty live checks, `eea38b4` account settings, and `1f978d2` the seam. Then
+three after it: **`5270412`** the gftv.asia link, **`c2612c5`** the lift,
+**`ea253ce`** the flip, and **`643c7dd`** the sign out fix. Parts 7a to 7e, with
+no 7c: the numbering skipped one when the commits were rebuilt by hand.
+
+**Its most dangerous problem was solved by generation.** Two Vercel roots cannot
+import from each other. So fourteen `api/_lib` modules and ten `assets/js` files
+are *written* into `docs-site/` by `gen-docs-lib.js`. `--check` fails on any
+tree where a change landed in `main-site/` and stopped there. That is decision
+1. What it actually bought is that a rule which no longer matches stops the
+   generator. The check duplication needed was never "are these the same" but
+   "is the difference still the intended one".
+
+**The adapter between the two sites turned out to be a stylesheet.** One module
+builds all nine settings panels, writes the portal's class names, and `docs.css`
+defines the same names in the docs site's own language. Fourteen generated files
+needed no transform rule at all.
+
+**It went bilingual against its own plan.** Decision 5 settled "华文 in 14", and
+part 6a overruled it five days later. `zh.json` came to 242 keys, and **175 of
+them were already the portal's strings**. Revised by arithmetic and not by
+argument, and it is the second edit this build has made to the specification.
+`check-i18n.js` compares both sites now, which is what the part really bought.
+
+**It was live and broken for two days and nobody knew either half.** Every push
+had deployed the site since part 3 while this file said nothing was deployed.
+And on that deployment every request to the content route answered 404:
+`api/content/[...page].js` is a framework feature a bare `api/` project does not
+have. Part 5 replaced it with a plain function addressed by a parameter. Check
+110 now fails if anybody goes back to the shape that never worked.
+
+**And it shipped the honest way round**: walk, lift, then flip. Section 5 item
+24's sitting was done on 3 September, before `HELLO_WRITES_ENABLED` went `true`
+and before the phase flipped. **It found four things no check in this repository
+could have.** A missing Vercel variable had been answering 500 to every staff
+account since part 6. A cross site link went into a catch all that answers 200.
+A "sign out everywhere" did neither. And a fourth write reaching gftv.asia was
+one the hold never covered. Item 24 is the account.
+
+`tests/phase13-test.mjs` is **677 checks**, twenty seven of them against the
+deployment, from 96 when part 5 introduced the file.
+
+---
+
+## 2. This phase. Phase 14, Documentation.
+
+**Thirty or so guides, in every language this build speaks, describing what was
+actually built.** Phase 13 built the site and shipped it with five placeholder
+pages; this phase writes the pages. It is the last phase with a subject of its
+own — 15 is Malay and Tamil, and the official site banner is section 8's.
+
+**Written late on purpose.** Section 16 puts the documentation second to last so
+it describes the thing and not the plan. Eleven phases of deviations are why
+that was right. 5f's trusted device list cannot say what 5f said it would.
+`/status` is two pages at one address, and the bot's `/jobs` reads the public
+feed. A guide written in phase 6 would be wrong about all three.
+
+### What section 14 asks for, and where 16 pins it down
+
+16a puts the applicant and bot guides in the public tier, so no login. 16h lists
+the bot guide's eight pages by name. The staff guides sit behind the gate phase
+13 built, tiered poster, admin and developer. 16e is the sentence that governs
+all of them: **behind a login is not safe to paste a service role key into.**
+
+### What the earlier phases handed over
+
+Everything below arrived in section 6 before this phase started, and is moved
+here because this is where it is worked from.
+
+- **The applicant's guide to the bot**, fully specified by 16h in eight pages.
+  Those are what the bot can and cannot do, linking from both ends, a command
+  reference, and codes against the one tap link. Then the three notification
+  kinds and why security messages cannot be silenced, invitations, unlinking and
+  what it does to 2FA, and troubleshooting. In every shipped language.
+
+  **The command list in `telegram-bot/setup.md` and the one in that guide are
+  the same list.** Phase 11 part 7 re-read `setup.md` and took two stale
+  passages out, so it is current as of 30 August 2026. But "current" is a state
+  that decays, and the guide is the second copy that will decay with it.
+
+- **`/docs`, a tenth bot command**, settled 3 September 2026. It browses the
+  guides with inline buttons and sends a page as formatted text in the reader's
+  own language. It lands beside the start message finally gaining its docs
+  button, and **`commands.py` is the one copy of the command list**. So the
+  menu, `start` and both documents move together.
+
+  **Two of its four decisions went against the recommendation**, and the cost
+  lands here and not on whoever chose:
+
+  - **It reads Supabase directly, not the site.** Deviation 111 settled the
+    opposite for `/jobs`. Reading `gftvjobs_docs_translations` with the bot's
+    service key means **the tier rule is implemented twice**, once in
+    `reader.js` and once in Python. The copies can disagree. **What this phase
+    owed because of it.** The bot's tier logic checked against the site's, the
+    way `strings.py`'s nine status words are checked against `status.*` — value
+    by value, in a test that fails when they drift. A second gate that nothing
+    compares is the failure this build keeps naming. Section 5 item 30 is the
+    same shape of problem arriving from a different direction.
+
+    **Part 9 discharged that instead of paying it, on 6 September 2026.**
+    Migration `042` carries a view, `gftvjobs_docs_public`, which inner joins
+    the translations to the public mirror. A gated page has no mirror row, so
+    its 华文 joins to nothing and is not in the view at all. **The bot reads the
+    view and never either table**, which leaves no tier logic in Python to check
+    against anything. It is not a second copy that is compared; there is no
+    second copy. The join being an inner one is the load bearing word, and the
+    migration says so beside it.
+
+    **And the English is not in the database at all.** That was found on 3
+    September 2026 by asking where a page reaches Supabase from. 16e keeps the
+    English in the files and puts only the other languages in
+    `gftvjobs_docs_translations`. So a bot reading that table serves 华文 and has
+    nothing whatever to send an English reader. The base row is a markdown file
+    inside another Vercel project's build. **Settled the same day: the build
+    mirrors the public pages into `gftvjobs_docs_pages`.** One direction at
+    deploy time. It writes `page_path`, `title`, `summary`, `body` and
+    `updated_at`, upserted by `docs-site/scripts/build.js`. That build already
+    needs the database to read the translations, so this is a write path on a
+    connection it opens anyway. The files stay the source of truth and the
+    mirror is never edited. The bot reads it and joins the translations table
+    against it, exactly as the site does against the files.
+
+    **It carries public pages only, and therefore carries no `access` column**,
+    which is what makes it safe. A gated page never reaches the table, so the
+    Python half has no tier to compare. The paragraph above is discharged and
+    not paid. A gated page appearing in it is the leak 16e names. So the build
+    refuses to write one the way it already refuses to render one into `dist/`.
+    **The rejected alternatives.** English rows at `locale: 'en'` in the
+    translations table breaks 3a's base-row shape. It makes a second copy of the
+    English that can drift from the file. The bot calling `/api/content` is
+    deviation 111's own shape. It was declined here because it puts the docs
+    site's uptime in front of a bot command.
+
+    **A deploy that half fails leaves the mirror behind the site**, and that is
+    the cost. `updated_at` is what makes it visible instead of silent.
+
+    **All of that is built, by part 9 on 6 September 2026.** One thing about it
+    moved: the join is not the bot's to make. Migration `042` carries it as a
+    view, `gftvjobs_docs_public`. So the bot reads one row for a path and a
+    locale and never joins anything itself. `updated_at` is nullable in both
+    tables, per deviation 134, because a page git cannot date carries no date
+    and Vercel clones shallowly.
+  - **Linked admins get the staff guides in Telegram.** Nothing links Telegram
+    to `gftvhello_users` today: phase 11 links a Telegram account to a
+    `gftvjobs_users` applicant, and staff are a different realm. This needs a
+    staff link table, a verification flow, and a decision about what proves a
+    staff identity in a chat window. **That is a phase of its own and not a
+    command.** And it puts gated procedure into a channel this build does not
+    control, which makes 16e load bearing instead of cautionary. Whoever builds
+    it re-reads that line first.
+
+  **The rendering is settled, after one correction.** Rich text does not raise
+  the message limit: Telegram caps a message at 4096 characters *after* entity
+  parsing. `parse_mode` changes formatting and not length, and Telethon raises
+  `MessageTooLongError` instead of splitting. **Settled: page it, and name what
+  it cannot render.** Split on heading boundaries, Previous and Next and a "2 of
+  5". Render bold, italic, code, links and blockquote. Replace a table, a tabbed
+  block or a screenshot with one line saying what is there and a link to that
+  heading on the site. **A block silently dropped is a procedure with a step
+  missing.**
+
+- **The docs site's own `robots.txt`, `sitemap.xml` and `llms.txt`**, generated
+  from the same `access` key that drives the gate. One source for what is public
+  and what is not, or the discovery files become a second gate. Phase 12 part 8
+  already settled that a half state must not be able to ship quietly.
+
+- **The Playwright capture script, and a first run against seeded data.** This
+  is what `seed.mjs` was built for. **Expect to debug it and not to use it**,
+  per section 5 item 19. Its write path has never run against a database. The
+  failure to look for is an `on_conflict` that does not match a real unique
+  constraint.
+
+- **The bot's start message finally carrying a docs link.** 16's cross link rule
+  has been holding this back since phase 11: the link must not ship before the
+  page does. The page exists now, so this is unblocked the moment the bot guide
+  lands.
+
+- **`embed-tests.mjs`'s output**, decision 6 from phase 13. It goes to
+  `docs-site/api/_content/developer/test-scripts.json`, committed and not built
+  at deploy time, so a change to a test script is a reviewable diff. Gated,
+  because the developer guide is admin only and anything in the static root is
+  world readable whatever the interface says. **The file is written when there
+  is a page to read it, which is this phase.**
+
+- **Phase 11's webhook confirmation notice**, deferred three times and settled
+  on 1 September 2026. **Build it, in its own commit**, numbered the way
+  `2c27a2b` was. It is portal and bot work and not documentation, which is why
+  it gets its own commit instead of a part. The cost: a fourth `KIND`, a
+  renderer in `outbox.py`, and a fourth notify column with a migration for it.
+  Phase 11 part 5's forty cases are re-walked. Declining it was on the table and
+  was not taken. The confirmation is the one status change the portal makes on
+  somebody's behalf, and it stays the one they hear nothing about.
+
+- **One call to `checkEnv()`, on both sites.** Section 5 item 29. Written for
+  exactly the outage that happened and called by nothing.
+
+### What is already true, so it is not rebuilt
+
+- **The pipelines are done.** `docs-site/scripts/build.js` prerenders the public
+  tree into `dist/`, splits the search index public against per tier, and dates
+  every page from git. It **refuses a page with no `access` key, a gated page
+  pointing at a public image, and an image with no file behind it.** Writing a
+  guide is adding a markdown file with front matter.
+- **The gate is done and proved on the deployment**, in both directions, as a
+  stranger and signed in.
+- **The shell is done.** That is 16d's three columns, the sidebar, on-page
+  contents, the header, the callouts and the renderer. Part 7's responsive and
+  accessibility pass over both trees at six widths in two languages is in it
+  too.
+- **Both dictionaries exist and `check-i18n.js` reads both sites.** The shell is
+  273 keys as of part 9, which added the two the English-only notice needs.
+  Guide *content* translations are served from Supabase and **authored as files
+  under `docs-site/translations/`**, per deviation 133. So **`scripts/build.js`
+  needs the database**, said since part 6a, true since part 9, and easy to
+  forget on a fresh clone. `--no-database` is the way past it there.
+- **There are no images in either content tree yet.** The first screenshot this
+  phase adds is also the first exercise of the gated image path, which is built
+  and has never served a file.
+
+### The parts. Settled 3 September 2026: nine, the chrome then the guides.
+
+**It is ten as of 7 September 2026**, when the seam was split into 10 and 10a.
+The lettered parts are not counted in either number. 2a, 2b, 4a, 5a and 7a all
+fell where they fell, and 7a is the only one of them still to be built.
+
+**It was eight and became nine the same day**, when somebody looked at the docs
+header and found `gftv-theme.md` half applied. The chrome part goes first and
+everything else shifted down one. That is because **76 pages written against a
+header that is about to change is 76 pages to re-read**. Part 8's captures would
+photograph the old one.
+
+**82 pages across six guides**, counted from 16h and not estimated: portal 13,
+bot 8, translations 8, job poster 20, admin 14, developer 17. **16e's "thirty
+files" is an undercount**, and was the number this file used until it was
+counted. Whoever plans a session against it should use 82. **It was 76 until
+part 5**, which gave the poster guide a twentieth page. 16h's first bullet for
+it is not a landing page. **It was 77 until part 6**, which gave the admin guide
+a page for the maintenance switches. 16h's thirteen bullets do not ask for one.
+And **82 after part 7**, whose fifteen bullets became a landing page, fifteen
+pages and one for the test scripts. **Part 7a's generated specification pages
+are on top of all of that** and are counted separately, because nobody writes
+them.
+
+1. **The docs site's chrome, and `gftv-theme.md` applied properly. Shipped as
+   `14dc190`, "phase 14 part 1", pushed and verified 3 September 2026.** Settled
+   that day after somebody pressed the buttons, and shipped the same day. Detail
+   below, because it is the one part of this phase that is not prose.
+
+   **What it turned out to be.** `main-site/assets/js/chrome-modals.js`, the
+   four functions out of the portal's `shell.js`. Two entries in
+   `gen-docs-lib.js` for it and for `dialog.js`, both `Identical` and neither
+   needing a rule. The docs header's text button and `<select>` swapped for two
+   `.icon-btn`s with the portal's own ids. `hydrateIcons` is called in the docs
+   shell for the first time. Seventeen dictionary keys in and five retired.
+   `.docs-lang` out of `docs.css` and no CSS added, because `theme.css` had been
+   shipping all of it since part 4. And `sw.js` at **`v127`** with the new
+   import precached.
+
+   **It found one defect and it was in neither site's chrome.** It is deviation
+   128: `--border-control` on three controls that had been on `--border` since
+   phase 12 part 3 created the token. A portal defect as much as a docs one.
+
+   **The checks are a new file, `tests/phase14-test.mjs`, at 71.** Four
+   sections. `chrome` reads both sites' source, and `browser` presses the
+   controls over `dist/`. `contrast` measures both modals against WCAG AA in all
+   four theme combinations, and `a11y` walks them open. Nothing in it needs a
+   credential, a database, a deployment or the network, and it writes nothing at
+   all.
+
+   **`tests/phase13-test.mjs` moved with it and stays at 677.** Its `contrast`
+   section measured `#docsMode`, which no longer exists, and now measures the
+   two buttons that replaced it.
+2. **The portal guide**, 13 pages, public. **Shipped as `f095bad`, "phase 14
+   part 2", pushed and verified live 3 September 2026**, carrying part 2a with
+   it. First of the guides because it is the one most people read and the one
+   whose subject has been stable longest.
+
+   **The thirteen files are 16h's thirteen bullets**, with the first of them as
+   the section's `index.md`. They are what Careers@GFTV is, creating an account,
+   signing in, finding roles, saving roles, and applying. Then applying again,
+   your applications, outstanding tasks, account settings, recovery codes,
+   offline and installing, and troubleshooting. `docs-site/content/index.md`
+   lost the sentence saying every page here is a placeholder, because eleven of
+   them stopped being one.
+
+   **It was written from the interface dictionary and the code, never from the
+   specification.** 16's whole argument for writing the documentation late is
+   that a guide written from the plan describes the plan. So every claim on
+   these pages traces to a string a reader actually sees in `en.json`. It traces
+   to the route that enforces it, or to a comment written beside the decision.
+   Where the two disagree the string won. The eight states of the Apply control
+   are `apply.js`'s own list, the nine statuses are `status.*`, the two sessions
+   are 12 hours and 30 days because `auth.staySignedIn*` says so. The codes
+   warning fires below three because `security-page.js` compares with `<`, and
+   the search weighting is migration `009`'s four `setweight` calls.
+
+   **Six pending screenshot slots**, written as 16g's `pending:` marker so they
+   read as pending and not as broken. They are named the way 16g asks:
+   `portal-login-desktop-light`, `portal-search-desktop-light`,
+   `portal-apply-dialog-desktop-light`, `portal-applications-desktop-light`,
+   `portal-tasks-desktop-light` and `portal-recovery-codes-desktop-light`.
+   **Part 8 captures exactly these six.** The last of them is the one 16g names
+   as needing invented values with a caption saying so.
+
+   **Two entries were added to `gen-review.js`'s `EXEMPT`.** Two of the pages
+   carry 华文 as the name of the language on the control they are describing,
+   which is the judgement `main-site/about/index.html` already has. A guide's
+   own Chinese is not in these files at all. 16f puts guide content translations
+   in Supabase, so `docs-site/content/` stays the English tree whatever part 8
+   ships beside it.
+
+   **It found two defects, and neither was in the prose.**
+
+   - **`.docs-tabs` could not hold a phone.** The install instructions are the
+     first tabbed block either tree has ever carried. 16d put tabs there for
+     "anything that differs by device", which makes a phone the width they have
+     to hold. Four labels in one `display: flex` row with no wrap squeezed every
+     button until its text wrapped inside it. It pushed the last one **35px off
+     a 320px screen**. One line of CSS, `flex-wrap: wrap`, in `docs.css`, which
+     is this site's own file and not a generated one. **Phase 13's responsive
+     section caught it.** That is the first time that suite has been the thing
+     that found something instead of the thing that confirmed it.
+   - **The home page still promised offline support as unbuilt**, a week after
+     phase 10 shipped it. Section 5 item 31 is the account. Fixed in this part
+     on 3 September 2026 by choice. `home.offlineBody` in both dictionaries and
+     its fallback in `main-site/index.html`, rewritten in the present tense. And
+     `sw.js` to **`v128`**, because that is a change to the portal.
+
+   So this part touches `main-site/` after all, which the plan did not expect.
+   The docs site still has no worker to bump: phase 13 decision 3 is why, and
+   section 2's decision 4 is where that gets revisited.
+
+   **The checks after it.** The docs build at 16 public pages, `check-copy.js`
+   at 3,860 strings clean, and `check-i18n.js` clean on both sites. Then
+   `gen-review.js` clean once the two exemptions landed, `check-precache.js` at
+   109 entries, `gen-docs-lib.js --check` current at 42 files, and
+   `tests/phase14-test.mjs` at 71.
+
+   **`tests/phase13-test.mjs` is no longer 677 and never will be again.** Its
+   responsive section runs per page, so eleven new pages took the suite to
+   **1,240**. The number in the list below is the number for a tree this size,
+   and it moves with every part of this phase. **Check 24, "every committed page
+   has a date", fails while the new pages sit uncommitted** and passes the
+   moment they are pushed. `scripts/build.js` dates a page from git, and a page
+   git has never seen carries no date on purpose. **2a. The plain language pass,
+   over both sites. Done 3 September 2026, and pushed inside `f095bad` with part
+   2.** Asked for after part 2 was written. Simple and concise English and
+   Singapore Mandarin, so that somebody with no technical knowledge can read
+   everything and apply. It is numbered 2a because it fell here, and because its
+   subject is every site's copy and not this part's thirteen pages.
+
+   **Three decisions, all put to the person asking and all answered.**
+
+   - **All of it, in three passes, applicant facing first.** Everything both
+     sites say, and not the public half alone.
+   - **A technical term keeps its name and gains a plain explanation where the
+     reader first meets it.** Passkey stays "passkey" with "your fingerprint,
+     your face, or a security key" beside it. That is the word on the button and
+     in the browser's own prompt. Replacing the term would leave the page and
+     the screen saying different things.
+   - **The docs site is 国际兽视入队平台 说明文件 in Chinese**, and not 文档. 3a's table says
+     文件 and not 文档, and 说明文件 is what a Singapore reader calls a manual. Ten
+     strings across both dictionaries carried the old word.
+
+   **The rule is 25 words to a sentence, and it was chosen by measuring.** At
+   the moment it arrived, the whole portal dictionary held seven sentences over
+   25 words, and the documentation held 36. A cap that fails on nothing teaches
+   nothing, and one that fails on a hundred strings is switched off in a week.
+   The portal's own average is under seven words, so the cap is not the target.
+
+   **What it changed, by pass.**
+
+   - **A, the applicant's portal.** 65 strings in `en.json`, their 39 fallbacks
+     in the markup, and 21 in `zh.json`. Then 27 fields in `build-status.json`
+     in both languages, which is the public phase list on `/status`.
+   - **B, the documentation.** 41 sentences split across the thirteen new guide
+     pages and the five gated placeholders. Then every page in
+     `docs-site/content/` rewrapped at 80 columns.
+   - **C, the staff strings.** The seven that broke the cap, in both
+     dictionaries and both languages, `staffAccount.sessionsNoDevice` included.
+     That is the account suite shown on both sites, and it had to move on both.
+
+   **What `check-copy.js` grew.** A 25 word cap over the dictionaries, the phase
+   list, the documentation pages and the bot's strings. 3a's vocabulary table as
+   a check over both `zh.json` files. And a markdown aware sentence splitter,
+   **because the first version read eight bullets as one 60 word sentence** and
+   reported clean pages as broken. It reads 6,029 strings from eight sources and
+   passes.
+
+   **What this pass did not do, said plainly.** The roughly 2,000 strings that
+   were already short were checked by the script and not re-read one by one. The
+   admin dictionary's word choice has had no human pass. The Chinese moved only
+   where the English moved.
+
+   **Both of those were put up as decisions and both were settled the same
+   day.** The admin dictionary **stops here.** Everything a reader meets passes
+   the rule, and the dashboard's audience is trained staff. Parts 5 and 6 read
+   every admin screen anyway to describe it, which is the cheapest moment to fix
+   wording that reads badly. And the **Chinese reviewer's handoff waits for part
+   9**, when the guides are translated. Sending now would mean reviewing the
+   interface twice: once for this pass's sixty strings, and again when 76 pages
+   arrive. Section 5's round trip item is unchanged in nature and larger in
+   size.
+
+   **2b. The docs site's icons and its link card. Committed inside `12ec9de`,
+   "phase 14 part 3", on 3 September 2026**, because the two were written in one
+   sitting. Found by somebody pasting both sites into a chat and looking at the
+   two previews. It is numbered 2b because that is where it fell; its subject is
+   the docs site's head and not this phase's prose.
+
+   **What was actually missing was all of it.** `docs-site/shell.html` carried
+   `charset`, `viewport`, a title, a description, a theme colour and two
+   stylesheets, and nothing else. No `<link rel="icon">`, no `apple-touch-icon`,
+   no `og:` or `twitter:` tags, no canonical. And `docs-site/` held no image
+   files at all, so `/HLC-main.png` and `/favicon.ico` were addresses that
+   answered nothing. The HLC set lives in `main-site/`, which Vercel builds as a
+   **different project from a different root directory**. The card in a chat was
+   the scraper falling back to the two things `scripts/build.js` already rewrote
+   per page.
+
+   **The images are generated in, not linked across, and that is the one
+   decision here.** A tab icon fetched from the portal is a blank tab the day
+   the portal is renamed or has a bad afternoon. So `ASSETS` in
+   `gen-docs-lib.js` gained a `to` field, and three entries use it. They are
+   `favicon.ico`, `HLC-180.png` and `HLC-main.png`, copied to `public/`. That is
+   the directory the build empties into the root of `dist/`. **The other four
+   HLC files are the manifest's** and are deliberately left behind. This site
+   has no manifest and no worker, per phase 13 decision 3, so copying them would
+   be four files nothing names.
+
+   **The card is per page and the origin is written once.** `shell.html` carries
+   the canonical link, and `scripts/build.js` reads the origin back off that
+   line to build each page's `og:url` and canonical. A move is one line. The
+   per-page rewrite is `replaceOnce` like the others. A marker that stops
+   matching stops the build instead of writing 30 pages with the wrong address.
+   **A gated page keeps the shell's defaults.** A preview card is read by
+   something that is not signed in. A gated title and summary in one would be
+   16e's leak arriving through a meta tag.
+
+   **The card is the small one.** `twitter:card` is `summary`, which draws the
+   mark as a thumbnail beside the title. It is not `summary_large_image`, which
+   draws it as a banner over the top. The image is `HLC-main.png`, the same file
+   the portal's card points at, so the two sites carry the same mark. Asked
+   about after the fact, so it is written down here.
+
+   **None of the card is translated, deliberately.** Nothing that reads it runs
+   the page, so a `data-i18n-attr` there would leave every card in the fallback
+   language whatever the reader chose. The `description` meta keeps its
+   `data-i18n-attr` because a browser does read that one, which is why the head
+   now says the same sentence twice.
+
+   **`public/` became an owned directory in the same edit**, with `.png` and
+   `.ico` added to the extensions the stray check knows. Everything in it
+   becomes a public address at the root of `dist/` with no review. That is
+   exactly the directory that should not accept a file nobody declared. The scan
+   reads one level, so 16g's `public/screenshots/` is out of its way and stays
+   this site's own.
+
+   **No `sw.js` bump, and it is the first change in this phase that touches
+   neither site's worker.** Nothing under `main-site/` moved.
+
+3. **The bot guide and the translations guide**, 16 pages, both public.
+   **Shipped as `12ec9de`, "phase 14 part 3", committed 3 September 2026**,
+   carrying part 2b with it. Together because the bot's command reference and
+   `telegram-bot/setup.md` are the same list, so whatever `start` says has to be
+   settled once for both.
+
+   **The bot's eight pages are 16h's eight bullets.** What it does and cannot do
+   is the section's `index.md`. Then linking, the command reference, signing in,
+   notifications, invitations, unlinking, and troubleshooting. Written from
+   `handlers.py`, `strings.py`, `outbox.py`, `security.py` and the portal's own
+   routes. Every quoted sentence is a string the bot actually sends.
+
+   **The translations guide's eight pages are 16h's eight bullets too**, and its
+   subject was already built. `translation_report` shipped in phase 4, and
+   `translation_helpers` and `translation_annotations` in phase 8. The feature
+   key `translation_helper_guide` is phase 14's and is this section. Nothing
+   reads a switch for it, which `maintenance.js` already said in a note.
+
+   **The command reference is a checked copy.** It carries the `## Commands`
+   table in the shape `commands.py`'s `--check` reads. That file's `DOCUMENTS`
+   now names it as a third document beside `setup.md` and `README.md`. The
+   docstring at the top of `commands.py` has named this guide as a consumer
+   since part 1 of phase 11. This is the part where the claim stops being about
+   the future. **A copy nothing compares is the copy that goes stale, and this
+   one would go stale in public.**
+
+   **Six entries were added to `gen-review.js`'s `EXEMPT`.** Five of them are
+   the judgement part 2 already made twice: the language's own name inside an
+   English sentence. **The sixth is different and is the interesting one.**
+   `translations/singapore-mandarin.md` reproduces 3a's vocabulary table for the
+   people it was written for, so half of it is words this build refuses. Putting
+   志愿者 on the review page as copy to approve would be the opposite of what the
+   page is for. `check-copy.js` already enforces that table over both `zh.json`
+   files, which is where the rule belongs.
+
+   **`docs-site/content/index.md` stopped saying two guides are placeholders**,
+   because they are not any more. All three public guides are listed on it.
+
+   **The bot's start message still has no docs link.** It is the seam's, per
+   part 10, and 16's cross link rule is now satisfied on this end: the page it
+   would point at exists.
+
+   **The checks after it.** The docs build at **30 public pages**,
+   `check-copy.js` at **6,044 strings** clean, and `check-i18n.js` clean on both
+   sites. Then `gen-review.js` clean once the six exemptions landed, and
+   `gen-docs-lib.js --check` current at 42 files. Then `check-precache.js`
+   clean, `python commands.py --check` current across three documents, and
+   `tests/phase14-test.mjs` at 71.
+
+4. **The docs service worker, and the site fully offline capable. Shipped as
+   `7d82b02`, "phase 14 part 4", pushed 4 September 2026**, carrying part 4a
+   with it. Asked for on 3 September 2026, and it is decision 4 below being
+   settled by being built. **It arrived as a new part 4 and pushed everything
+   below it down one**, which is the second time this phase has done that. Part
+   1 did it in the same way and for the same reason. A piece of plumbing under
+   76 pages is cheaper before the pages than after them.
+
+   **Three sub decisions, all put up and all answered the same day.**
+
+   - **The gated guides are cached too, per reader**, and not the public tree
+     alone. That is the answer that costs the most and it was taken knowingly.
+     16e keeps gated content behind an authenticated route, so a cache of it is
+     staff procedure written to the disk of whatever machine read it. What makes
+     it safe is the clearing, on sign out and on any change of tier. That
+     clearing has to be airtight or the decision is wrong.
+   - **The precache list is generated by the build**, and not written by hand
+     the way the portal's is. `scripts/build.js` already knows exactly which
+     public pages it just wrote, so the list cannot drift from the tree. This is
+     the one place the docs site is better arranged than the portal. The reason
+     is that it has a build step and the portal does not.
+   - **The update bar is the portal's, generated in.** `update-bar-spec.md` is
+     portable by its own first lines. This is the fourth instance of decision
+     1's question, with the cheapest answer yet: one implementation, in
+     `main-site/assets/js/`, copied here by `gen-docs-lib.js`.
+
+   **What it is, file by file.**
+
+   - **`docs-site/sw.js`**, this site's own and named in `gen-docs-lib.js` under
+     `OWN`. **The portal's worker was not a template for it.** That file is
+     1,032 lines of an IndexedDB action queue, a postings cache with an eviction
+     policy, and the maintenance switches. None of that exists here, and this
+     one has a tier, which the portal has no equivalent of. What the two share
+     is the shape of the lifecycle, and sharing a shape is not sharing a file.
+   - **`main-site/assets/js/connection-bar.js`**, which is the top half of
+     `offline.js` moved out: registering the worker, the update prompt, and the
+     bar's three states. What stayed in `offline.js` is what is about the portal
+     and not about a worker. That is the controls that cannot work offline, and
+     the postings cache. **Its five importers were checked and none broke.**
+     `workerVersion` moved and is re-exported from its old home, so a console
+     that has been asking `offline.js` for it since phase 1 still works.
+   - **The three places the two sites differ are arguments and not edits.** They
+     are where the bar is inserted, whether "cannot reach us" has a status page
+     to link to, and what else redraws with it. The docs site passes `null` for
+     the second. A bar on this site linking to the portal's status page would
+     send somebody to a second site to find out about this one.
+   - **`docs.css` gained the bar's styles**, written in this site's language
+     instead of copied from `app.css`. That is the account block's rule from
+     part 6 and the same reasoning. 16d keeps this site to hairlines and
+     whitespace where the portal has cards. `.small-btn` came with it, because
+     `theme.css` carries `.btn` and its variants and not that one.
+   - **Seven `offline.*` strings in both dictionaries.** The portal's wording
+     adapted: it says guides where the portal says Careers@GFTV.
+   - **`vercel.json` gained `Cache-Control: no-cache` and
+     `Service-Worker-Allowed` on `/sw.js`**, the portal's own two headers.
+
+   **`check-precache.js` grew its second half, and it asks a different
+   question.** The portal's list is written by hand, so that check is about a
+   file that is not there. This site's list is generated, so that failure is not
+   available to make. What can still go wrong is the *generator* being wrong.
+   The docs pass checks that every generated address resolves to a file in
+   `dist/`. It skips with a sentence when the build has not run. **It was proved
+   by breaking it.** One entry was edited to a path that does not exist, and it
+   failed and named the two files it tried.
+
+   **`main-site/sw.js` is at `v129`**, with `connection-bar.js` added to its
+   precache list. A new module the shell imports on every page, missing from
+   that list, would turn the connection bar off. That is exactly the condition
+   the bar exists for.
+
+   **What the reader gets.** Thirty public pages, the search index, the chrome
+   and the images all work with no network, and a signed in reader's staff
+   guides do too. **There is no `/offline` page.** The shell is the fallback, so
+   an uncached address draws the chrome and says the page is not available.
+   16e's "a reader must not be able to tell which pipeline a page came from"
+   holds here. This is the condition where it would be easiest to break.
+
+   **It has run in a browser, and that was asked for and not assumed.** The gap
+   this part closed last was that every other check reads source or `dist/`, and
+   a worker is a thing that *installs*. A fetch handler that throws makes every
+   page on the origin fail for anybody who already has it. No amount of reading
+   the file finds that. So `--only=install` is fifteen checks over a real
+   Chromium against the stand in server. 127.0.0.1 is a secure context, so
+   registration behaves as it does on the deployment. It installs, reaches
+   active, does **not** claim the first load, precaches 57 addresses, and then
+   the network is pulled out with Playwright. A precached guide still answers
+   200 with its own article and its stylesheet. An address nobody cached falls
+   back to the real shell instead of the browser's error page, and the site
+   comes back when the network does.
+
+   **It also found the one thing reading could not.** Check 41 asserted that a
+   change of tier leaves the *new* tier's cache in place, and it does not.
+   `rememberTier` deletes what does not match and nothing else. The cache for
+   the tier now in force is opened lazily by the first API answer worth storing.
+   **The code was right and the check was wrong**, which is the shape of finding
+   that only running it produces. What a tier change guarantees is that the
+   previous reader's cache is gone. That is the half the decision rests on, and
+   it is what the check asserts now.
+
+   **The checks after it.** The docs build at 30 public pages and **57 precached
+   addresses**, `check-precache.js` clean on both halves. `check-i18n.js` clean
+   at 261 keys each side, and `check-copy.js` at 6,058 strings. `gen-docs-lib.js
+   --check` current at **43** files. `tests/phase12-test.mjs --only=contrast` at
+   35, and `--only=a11y-keyboard` at 40. That is the portal's own connection
+   bar, opened in a browser after its module was pulled in half. And
+   **`tests/phase14-test.mjs` at 119**: 71, plus a `worker` section of 33 and an
+   `install` section of 15.
+
+   **`tests/phase13-test.mjs`'s check 164 turned around.** It asserted that this
+   site has no service worker, which is what phase 13 decision 3 settled and
+   what stopped being true here. It now asserts the opposite, and the README
+   sentence it reads alongside is the same one either way. The rule for a worker
+   did not change, only whether there is one to apply it to.
+
+   **The worker section is the part's own argument, written as checks.** Six of
+   them are the gated caching decision and nothing else. The cache is named for
+   a tier, a tier that is not the current one is deleted, and signing out
+   deletes all of them. The shell posts `signed-out` *before* it navigates, it
+   posts the tier on every load, and a signed out reader is a tier like any
+   other. **If one of those six fails, the decision is wrong and not merely
+   untidy**, which is why they are asserted instead of described. It also holds
+   section 14's line: no `skipWaiting` in install, no `clients.claim` in
+   activate, and the update prompt as the only route to either.
+
+   **4a. The portal's Mandarin name. Done 3 September 2026, and pushed inside
+   `7d82b02` with part 4.** Raised while part 4 was in flight and applied
+   immediately at the asker's direction, having first been scheduled for part 9.
+   It is numbered 4a because that is where it fell, the way 2a and 2b were.
+
+   **国际兽视入队平台**, replacing 国际兽视入队平台. Literally the portal for joining the team.
+
+   **The argument is that it is more honest than the English name.** "Careers"
+   implies a salary, which is why the portal guide opens with a paragraph
+   explaining that there is none. 招聘 would have carried that same wrong
+   implication into Chinese. 入队 says what is actually on offer. The longer
+   国际兽视入队申请平台 was offered and declined: 申请 is implied by 入队平台, and the header
+   holds the language and theme controls at 320px.
+
+   **What moved.** 73 strings in `main-site/assets/i18n/zh.json`, 68 of the old
+   name and **five `Careers@GFTV` in Chinese copy**. 3a already said those five
+   should have been the Chinese name, and nobody had noticed. Then 18 in
+   `docs-site/assets/i18n/zh.json`, the phase list's Chinese half, two strings
+   in `strings.py`, and the bot's Chinese About in `setup.md`. Then
+   `about.whoBody` and its fallback in the markup, and the dev seed's two sample
+   postings. And a UTF-8 round trip constant in `tests/phase11-test.mjs`, with
+   the four documents that state the naming rule.
+
+   **And a migration, which is the half a dictionary could not reach.** The home
+   page's title is not a dictionary key: it is `gftvjobs_settings.portal_title`,
+   locale keyed since `018` and editable by an admin. The portal renders the
+   Chinese half of it from the database. **Without `041` the rename would have
+   been complete everywhere except the largest words on the home page.** Found
+   by sweeping every file type for the old string instead of only the ones the
+   rename had touched.
+
+   **`041_mandarin_portal_name.sql` fires only on the exact string `018`
+   wrote.** An admin who has edited the Chinese title since has made a decision
+   about their own copy. A migration that overwrote it would be this file
+   deciding it knows better than whoever runs the site. That is `018`'s own rule
+   — it fired only on rows still holding a bare string — one step further along.
+   It is idempotent twice over, and it **was applied on 4 September 2026**,
+   leaving `036` alone on the list of migrations nobody has run.
+
+   **`gen-review.js` stopped reading `portal_title` from `018`.** That migration
+   has run, so it is a record of what was true in phase 5 and not of what the
+   database holds. Reading it would have put the old name in front of the
+   reviewer as the current wording. That is the one thing that page must not do.
+   It reads the value out of `041` instead, and `041` is a listed source.
+
+   **Specification 3a moved with it**, which is the part that makes the rename
+   real. This file never overrides the brief, so a rename the brief still
+   contradicts is not a rename. Its Names paragraph now carries the new name and
+   the reason for it.
+
+   **Nothing in `next-steps.md` was rewritten**, on purpose. This file is a
+   record of what happened, and the phases that shipped under the old name
+   shipped under it.
+
+   **The spacing rule needed a new example.** 3a's was `关于国际兽视 Careers`, which
+   demonstrated the Latin and Han space rule *using the product name*. The new
+   name is Han throughout, so that example now demonstrates nothing. Every place
+   that stated the rule now uses `Telegram 账户` for the space and `关于国际兽视入队平台`
+   for its absence. Those are 3a, `main-site/README.md`, `gen-review.js` and the
+   Singapore Mandarin guide page. **A rule whose only example stopped being an
+   example is a rule that quietly stops being taught.**
+
+   **One thing for the reviewer and not for us**: 入队 reads as 少先队入队 in some
+   Mainland contexts. For a Singapore reader it should not, but that judgement
+   is theirs and it goes with part 9.
+
+5. **The job poster guide, 20 pages, gated at the poster tier. Shipped as
+   `04261b4`, "phase 14 part 5", pushed 4 September 2026.** The largest of the
+   six, and the one written for somebody who has never seen an admin interface.
+
+   **It is 20 and not 19, which was the first of four decisions.** 16h lists 19
+   bullets and its first is signing in. That does not read as a section landing
+   page, the way the portal guide's "what Careers@GFTV is" did. So `index.md` is
+   a twentieth page, **Using the dashboard**. It carries who the guide is for,
+   the poster and admin boundary, what the dashboard does not hold, and the
+   contents. Every count in this file that said 19 for this part now says 20,
+   and **76 pages across the six guides is 77.**
+
+   **Written from the dashboard and not from section 8**, which is part 2's rule
+   and the whole argument for writing the documentation late. The source was the
+   785 `admin.*` strings in `en.json`, the routes behind them, and the comments
+   beside the decisions. Every number on these pages traces to a constant. The
+   ratings floor of three and the flag's five clicks and a fifth are
+   `analytics.js`'s own. Twenty questions is `questionsHint`, six featured roles
+   is `MAX_FEATURED`, and ninety days is the chart's `SERIES_DAYS`. The four
+   prefillable fields are `PREFILLABLE`'s keys, and not a list of what sounds
+   likely.
+
+   **The Apps Script setup is a checked copy, which was the second decision.**
+   16h asks for the confirmed submissions procedure "as a plain checklist with
+   copy buttons", and that procedure already existed twice. It is in the root
+   README, and as four sentences in the job editor's own help block. A guide
+   made it the third copy. So `confirmed-submissions.md` **quotes the
+   dashboard's four steps word for word**, each as a blockquote with the
+   expansion under it. `--only=guide` compares all four against
+   `admin.webhookStep1` to `4`. This is `commands.py --check`'s argument in a
+   second place. A copy nothing compares is the copy that goes stale. This one
+   would go stale in front of whoever is doing the fiddliest job on the site.
+   **It was proved by breaking it**: "authorise" to "authorize" in the page, and
+   step 4 failed and printed the sentence it wanted.
+
+   **Ten screenshot slots are named for part 8**, the third decision, written as
+   16g's `pending:` marker. They are the overview, the postings list, the
+   editor, its language tabs, and the form fields. Then the tracking table, one
+   application in detail, analytics, invites, and the dashboard on a phone.
+   `--only=guide` checks the count, the naming shape and that none is named
+   twice, because a typo in a slot is a shot nobody takes.
+
+   **It found deviation 130, and that is the fourth decision.** A job poster
+   could open `/admin/settings` and `/admin/maintenance` from their own sidebar,
+   and both routes were guarded with `requireStaff`. 10 item 2 names both as an
+   admin's. Writing a guide that taught a poster to use the settings page was
+   the alternative and was not taken. **Fixed in this part**, so it touches
+   `main-site/` the way part 2 did. Two `adminOnly` entries, `requireAdmin` in
+   both routes, and the overview banner keeps its sentence for a poster and
+   loses its link.
+
+   **`tests/phase7-test.mjs` asserted the defect** in as many words. It read "a
+   job poster still reaches postings, tracking, teams, tags and maintenance",
+   and that check is now the pair that refuses both routes. **A check can hold a
+   mistake still**, which is worth writing down twice.
+
+   **One thing on 10 item 2's list was deliberately left alone**: marking a
+   translation ready. 7i's sentence is about a helper and not about staff, and a
+   poster who cannot tick ready cannot publish their own posting in two
+   languages. Deviation 130's last paragraph is the argument.
+
+   **Four concerns were put up when the part was finished, and all four were
+   answered the way they were recommended**, 4 September 2026.
+
+   - **The maintenance switches stay admins only**, and the counter argument
+     stays written into the route's own header. The page exists for whoever is
+     looking at a broken feature, which is as likely to be the poster who
+     noticed. A read-only maintenance page for a poster was offered and
+     declined. What a poster keeps is the banner sentence saying something is
+     off.
+   - **The ready tick stays as built**, and **the brief is not amended for it**.
+     Adding the word "helper" to 10 item 2 was offered and declined, so the
+     conflict is recorded here and in deviation 130 and nowhere else.
+   - **The live proof is owed and not skipped**, and it is section 5 item 33.
+   - **16h is not amended for the twentieth page.** It lists what the pages must
+     cover and not how many files that is, so twenty pages over nineteen bullets
+     contradicts nothing. Part 4a moved specification 3a because a rename the
+     brief contradicts is not a rename; this is not that.
+
+   **`tests/phase13-test.mjs`'s check 17 turned out to be wrong, which is part
+   4's check 41 happening again.** It took the first 30 characters of every
+   gated block and asserted none appears in the public search index. Twenty
+   poster pages quote the same interface strings the public guides quote. So
+   three prefixes appeared in both indexes and none of them was a leak. They are
+   "Will be available in Phase 5", "Temporarily unavailable while we fix
+   something", and one shared opening sentence. **It now traces a hit instead of
+   counting it.** Find the public entry carrying the words, and read that
+   entry's own source file. It fails only when a public entry carries words its
+   own page does not say. Reading the source through the same mark stripping the
+   index uses is load bearing. Without it, a page that bolds the sentence it
+   quotes reads as a page that never said it.
+
+   **What that rewrite could not be proved against is a real leak.** The suite
+   runs the build before any section, so a fabricated `dist/search-index.json`
+   never survives to be read. The new branch was exercised by calling the same
+   logic on the same inputs, with a poster sentence spliced into a public entry.
+   It reported the leak. That is a weaker proof than part 4's and it is what is
+   available.
+
+   **`tests/phase13-test.mjs` read 2,470 passed, 1 failed before the push**, and
+   the one was check 24, "every committed page has a date". `--only=index` reads
+   **11 passed, 0 failed** after it, exactly as in part 2. `scripts/build.js`
+   dates a page from git, and a page git has never seen carries no date on
+   purpose.
+
+   **Proved on the deployment, 4 September 2026**, both halves of the gate and
+   both people:
+
+   - **A stranger gets 404** from `/api/content` on `/staff/poster` and on three
+     pages under it. 404 and never 401, per 16e.
+   - **A job poster gets all twenty.** `/api/nav` reads "Using the dashboard
+     (20)" beside the three public sections. Each page answers 200 with its
+     title, `access: poster`, its markdown, and **`updated: 2026-09-04`**. That
+     is check 24's date arriving from git through the build.
+   - **The two routes answer 403 to a real poster session**, which is item 33.
+
+   **The checks after it.** The docs build at 30 public pages, **21 poster
+   entries** in the gated index, and 57 precached addresses. `check-copy.js` at
+   **6,077 strings** clean, after eight sentences over the 25 word cap were
+   split. `check-i18n.js` clean, `gen-review.js` clean, and `check-precache.js`
+   clean on both halves. `gen-docs-lib.js --check` current at 43 files, and
+   `python commands.py --check` current across three documents. And
+   **`tests/phase14-test.mjs` at 149**: 119, plus a `boundary` section of 17 and
+   a `guide` section of 13.
+
+   **`gen-review.js` took three exemptions and one change that is not one.** The
+   three are the judgement parts 2 and 3 already made, the language's own name
+   inside an English sentence. The change is that `scripts/build.js` writes a
+   search index per tier into `docs-site/api/_generated/`, so a guide page
+   carrying 华文 was reported twice. Once at its source, and once inside a JSON
+   blob nobody wrote. `_generated` is now skipped by the scan for `dist/`'s own
+   reason.
+
+   **`main-site/sw.js` is at `v130`**, because `admin-shell.js` moved.
+
+   **5a. `tests/phase7-test.mjs` repaired, in two places. Pushed as `8e197c4`,
+   "phase 14 part 5a", 4 September 2026.** Part 5 rewrote that file's role
+   section for deviation 130 and the rewrite was checked by reading. Running it
+   is what found both of these, which is part 4's lesson arriving for the third
+   time.
+
+   - **The two route checks sat below an early return.** The delete half of the
+     role section returns when there is no posting to aim at. With the board
+     empty, per decision 25, that is the ordinary state. So the pair that proves
+     a poster is refused `/api/admin/settings` and `/api/admin/maintenance`
+     reported nothing at all on its first run. They are now above it, which is
+     where a check that does not depend on a posting belongs.
+   - **The access section hardcoded which features are unbuilt.** The list was
+     `['admin_analytics', 'admin_invites', 'admin_settings']`, true the day
+     phase 7 shipped and false from phase 8. All three have shipped, and the
+     third is not in a poster's sidebar at all any more. Three checks reported a
+     build that had moved on as a defect, and the click threw on an element that
+     no longer exists. That took the section down before the role half ran. It
+     now **reads the disabled items off the page** and skips with a sentence
+     when there are none. **0c's rule is that nothing hardcodes a phase
+     number**, and a test naming which features are unbuilt is that mistake
+     wearing a different hat.
+
+   Numbered 5a because that is where it fell, the way 2a, 2b and 4a were. No
+   `main-site/` file moved, so no `sw.js` bump.
+6. **The admin guide, 14 pages, gated at the admin tier. Shipped as `0aa1f92`,
+   "phase 14 part 6", pushed 4 September 2026.** The content section 8a used to
+   hold.
+
+   **It is 14 and not 13, and that was the first of four decisions.** 16h lists
+   thirteen bullets for this guide and **the maintenance switches are not among
+   them.** That was invisible until part 5 made that page admins only. The
+   poster guide cannot cover a page a poster cannot open, and the admin list
+   never asked for one. So `maintenance-switches.md` is a fourteenth page, and
+   8.12 is documented for the first time. 16h is not amended, for part 5's own
+   reason: it lists what the pages must cover and not how many files that is.
+
+   **The other three decisions**, all put up and all answered as recommended.
+   The access rule is a **checked copy**, and eight screenshot slots are named
+   for part 8. Admin wording that reads badly is **fixed as found**, which part
+   2a deferred to exactly this part.
+
+   **Written from the dashboard**, which is part 2's rule. The source was the
+   785 `admin.*` strings, the routes behind them, and the comments beside the
+   decisions. Every number traces to a constant. Ninety days is
+   `DEFAULT_REAPPLY_COOLDOWN_DAYS`, six featured roles is `MAX_FEATURED`, and
+   200 is the applicant search ceiling. The list of what cannot be switched off
+   is `DENYLIST`, read entry by entry.
+
+   **The checked copy is the access rule, and it is the third copy of it.**
+   `hasPortalAccess` decides who comes in and `tiers.js` decides what opens; 16h
+   asks this guide to say both. So `--only=admin-guide` compares the page
+   against both files. The five sentences the dashboard shows beside an account
+   are quoted word for word. The four tier names are **imported from
+   `tiers.js`** instead of typed into the test. The three steps are checked for
+   **order** on the page and in `hasPortalAccess` itself. Order is the rule: the
+   same three words in another order describe an override that beat
+   `is_approved`. **Proved by breaking it twice**, renaming a tier and swapping
+   step 2 for step 3, and both failed and printed what they wanted.
+
+   **It found one thing, and it is in the copy and not in a route.** Four
+   strings tell a helper that **only an admin** marks a translation ready:
+   `admin.helpersNote`, `admin.helperCannotPublish`, `helper.whatSavingDoes` and
+   `helper.draftUntilReady`. `api/admin/jobs.js` guards with `requireStaff`, so
+   **any job poster can tick ready**, and its one `isAdmin` branch is the delete
+   path. The brief says admin in three places, 971, 1146 and 1592.
+
+   **Part 5 settled the behaviour and nobody had looked at the wording.** Its
+   decision was that the ready tick stays as built and the brief is not amended.
+   These four strings are the same conflict, written where a helper reads it.
+   **Fixed in this part**: they say staff, in both languages. So the interface,
+   the routes and the guide now agree, and the brief is the one copy that does
+   not. Deviation 131.
+
+   **A fifth string was left alone deliberately.** `helper.gateBody` says an
+   admin grants the role one language at a time, and that one is true. Granting
+   is the only thing on the translations page a poster cannot do.
+
+   **One more string moved, and it is the smallest fix here.**
+   `admin.rolePosterOpens` read "Opens postings and applicants", on the staff
+   access page, beside a poster's row. Applicant *accounts* are admins only, so
+   it named the one section that role cannot open. It reads "postings and
+   applications" now, in both languages, and it is one of the five sentences
+   check 67 holds the guide to.
+
+   **The eight slots.** The staff access list, one access row's three states, an
+   applicant account, and the translations queue. Then the language audit, the
+   annotation layer, portal settings, and the unmatched submissions list.
+
+   **`main-site/sw.js` is at `v131`**, because six strings in both dictionaries
+   moved.
+
+   **`docs-site/sw.js` is at `v2`, and this is the first bump it has had.** Part
+   5 added twenty pages to this site and left it at `v1`. That file's own first
+   lines forbid it: "bump VERSION on every change to this site, not once per
+   phase". The gated pages are network first and are not precached, so nothing
+   was served stale, and that is why nobody noticed. This bump carries both
+   parts.
+
+   **The checks after it.** The docs build at 30 public pages with **14 admin
+   entries** in the gated index, and 57 precached addresses. `check-copy.js` at
+   **6,091 strings** clean, after four sentences over the 25 word cap were
+   split. `check-i18n.js` clean, `gen-review.js` clean with **no new
+   exemption**, and `check-precache.js` clean on both halves. `gen-docs-lib.js
+   --check` current at 43 files, and **`tests/phase14-test.mjs` at 167**: 149,
+   plus an `admin-guide` section of 18.
+
+   **The two suites collided, and the fix is in phase 14 and not in phase 13.**
+   `tests/phase13-test.mjs` plants `example-shot.md` and `example.png` in
+   `api/_content/admin/` to exercise the gated image path, and deletes them when
+   it finishes. So an overlapping phase 14 run read fifteen pages and a ninth
+   screenshot slot. Found by running them together. **Check 62 skips the two
+   fixture names**, so the suites are independent again. It was verified with
+   phase 13 actually running and its two files on disk. A suite that fails
+   because another suite is running is a suite people learn to ignore.
+
+   **Four more concerns were put up when the part was finished, 4 September
+   2026, and answered as recommended.**
+
+   - **The brief is amended, and this is the difference from part 5.** 971, 1146
+     and 1592 said only an admin sets `is_ready`. They say staff now, each with
+     the date and deviation 131 beside it, and 7i keeps its reason for the gate
+     word for word. Part 5 declined this when only the behaviour disagreed; four
+     strings promising a helper something untrue is what changed the answer.
+     Part 4a's rule again: a rule the brief still contradicts is not settled.
+   - **The live proof is owed and is section 5 item 34.** Fourteen pages behind
+     the same access key, and the half worth doing is the job poster getting 404
+     on them.
+   - **The fixture clash is fixed in the check**, above.
+   - **The admin dictionary stops here**, which is part 2a's answer held. Every
+     string a reader meets passes the 25 word cap, and the five that were wrong
+     about the site are fixed. The remaining 780 have an audience of trained
+     staff. No style pass is owed.
+7. **The developer guide, 17 pages, gated at the developer tier, plus the
+   mechanism that hands a reader `tests/`. Shipped as `61d9ce5`, "phase 14 part
+   7", pushed 4 September 2026, not yet verified against the deployment.** The
+   last of the six guides, and the one that stops the build being readable only
+   to its authors.
+
+   **It is 17 and not 15**, which is the same arithmetic parts 5 and 6 did. 16h
+   lists fifteen bullets. `index.md` is the section landing on top of them, the
+   way the admin guide's is. **The test scripts are a page of their own.** So
+   the six guides are **82 pages** and not 78.
+
+   **Four decisions were put up and all four were answered as recommended.**
+
+   - **The specification becomes one page per top level section**, generated
+     from the file with a `--check`, and that is **part 7a** below. 16h asks for
+     it "rendered as pages and not one wall", and 18 sections is what the file
+     has.
+   - **The memo's page is written now and its snapshot is generated at the
+     seam**, part 10. Anything generated this week would be a snapshot of a file
+     still being written. **`next-steps.md` was gitignored, so Vercel's checkout
+     never saw it.** The snapshot had to be committed markdown, which is what
+     ruled out generating it at deploy time, and is the reason 7a exists at all.
+     **Part 10e moved the file into `reference/` and un-ignored it**, so that
+     argument is history. The snapshot stays committed for the reasons
+     `gen-memo-pages.js` now gives.
+   - **The guide and the generators are two parts.** 7 is the prose and 7a is
+     the machinery. So the second is reviewable as a diff of a script, instead
+     of 18 generated files mixed in with hand written ones.
+   - **The test scripts get a sixteenth bullet's worth of page.** 16h's fifteen
+     have no home for it: Playwright is the capture script and not the phase
+     suites.
+
+   **The mechanism is the part that is not prose, and it is one front matter
+   key.** Phase 13 decision 6 put `test-scripts.json` in
+   `api/_content/developer/`, committed, with the loader giving it no address.
+   It left the half that reads it to this phase. What that turned out to be:
+
+   - **`data:` in a gated page's front matter**, naming a `.json` file beside
+     it. `api/_lib/pages.js` refuses a path, a non-JSON name, a missing file,
+     and the key on a public page, all four at load time. **Proved by breaking
+     it three ways**, each failing with the sentence it should.
+   - **`api/content.js` sends it as a field of the page's own answer**, so it
+     goes through the session check the page went through. It has no address to
+     share. A file that will not parse sends `null` and not a 500.
+   - **`docs-site/assets/js/test-scripts.js`**, this site's own and named in
+     `gen-docs-lib.js` under `OWN`. It builds every node with `createElement`
+     and fills it with `textContent`. **It is the one module on either site that
+     handles a string `markdown.js` did not render.** Source code assigned as
+     markup is source code that runs.
+   - **The download is a `blob:` URL built in the tab.** No second public
+     surface for a file whose only supported entry point is the page explaining
+     what those scripts write to a live database.
+
+   **Ten dictionary keys, both languages, and the table reuses the article's own
+   table styles. 16d keeps this site to hairlines and whitespace, and a panel
+   with its own frame would read as the dashboard arriving on the documentation.
+
+   **The source was the code and the READMEs, never the specification**, which
+   is part 2's rule. Every number traces to a file. 4.5 MB is the Vercel request
+   body limit `AVATARS.md` is shaped around, and 64 KB is `readJson`'s cap. Cost
+   12 is what the bot's bcrypt has to agree with, 100 postings is the worker's
+   own cap, and 25 words is `check-copy.js`'s.
+
+   **It found one thing and it is not fixed here.** `main-site/README.md` opens
+   "Current phase: 6 of 15" and lists what is live as of phase 6, while the root
+   README says thirteen of fifteen. Section 2 asks for that line to move when a
+   phase ships, and it stopped moving eight phases ago. **Part 10 owns the three
+   READMEs** and it is left there deliberately. The paragraph under it is a
+   phase-shaped account of the whole portal, and rewriting it is that part's
+   work and not a one line fix.
+
+   **The `conventions` page cannot quote the phrase it bans**, which is the one
+   place this phase's own rule bit the page describing it. `check-copy.js` reads
+   these pages, so the page describes the phrase and points at `check-copy.js
+   --list`, which prints it. The script is the copy of the rule that matters.
+
+   **The checks after it.** The docs build at 30 public pages with **17
+   developer entries** in the gated index, and 58 precached addresses.
+   `check-copy.js` at **6,126 strings** clean, after 89 sentences over the 25
+   word cap were split. `check-i18n.js` clean at 271 keys each side.
+   `gen-review.js` clean with **no new exemption**: no page here carries a Han
+   character, and the Singapore Mandarin table is linked and not reproduced.
+   `check-precache.js` clean on both halves, and `gen-docs-lib.js --check`
+   current at 43 files. `embed-tests.mjs --check` current at **16 scripts**. And
+   **`tests/phase14-test.mjs` at 194**: 167, plus a `developer-guide` section of
+   27.
+
+   **Four of those 27 run in a browser**, which is part 4's lesson applied to a
+   module nothing else could exercise. The table draws after the heading it
+   names, and a description carrying a `<script>` tag renders as text. And **the
+   blob hands back the bytes the page was given**, read back through `fetch`
+   with the revoke stubbed out. Writing that check found the one defect in it,
+   which was in the check and not the module.
+
+   **Two of the 27 are the credential rule.** Nothing in `tests/` holds one
+   today and every script takes what it needs from the environment. This page
+   publishes all sixteen, so a key pasted into a script to debug something would
+   be published with it. The pattern deliberately ignores a placeholder, because
+   every script's usage lines carry `STAFF_PASS='...'`. A rule failing on those
+   is a rule switched off in a week.
+
+   **`tests/phase13-test.mjs` reads 3,198 passed, 1 failed**, and the one is
+   check 24, "every committed page has a date". That is the predicted failure
+   for the fourth time this phase and not a defect. `scripts/build.js` dates a
+   page from git, and a page git has never seen carries no date on purpose. It
+   discharges itself on the push.
+
+   **`docs-site/sw.js` is at `v3`.** No `main-site/` file moved, so the portal's
+   worker is unchanged at `v131`.
+
+   **Four concerns were put up when the part was finished, 4 September 2026, and
+   all four were answered the way they were recommended.**
+
+   - **The 1.35 MB payload stays.** That page's answer carries sixteen scripts
+     base64 encoded, which is **431 KB gzipped** over the wire. It is network
+     first, and cached per tier like every other gated answer. Handing over the
+     files is what the page is for. Part 4 already settled that a gated answer
+     is cached and cleared on sign out and on any change of tier. Keeping it out
+     of the cache was offered and declined: it would buy disk and not secrecy.
+   - **The `data:` key stays general.** Any gated page may name a JSON file
+     beside it. The four refusals are what make that safe. The alternative put a
+     specific file name inside the content route, which is the shape this build
+     has avoided everywhere else.
+   - **Part 7a's pages get a section of their own**, below.
+   - **`main-site/README.md` is left to part 10.** The stale part is not one
+     line. The paragraph under it is a phase-shaped account of the whole portal,
+     and rewriting it is that part's work.
+
+   **Six source documents, three treatments, and the rule is who owns the
+   file.** Settled 3 September 2026 by reading the two portable files' own first
+   lines. 16h spells it out for one of them and not the others:
+
+   - **Reproduced in full**, because this project owns them and nothing else
+     holds them. `careers-gftv-spec.md` is "rendered as pages and not one wall".
+     `next-steps.md` carries a note on the page saying it is a snapshot and not
+     a live file.
+   - **Pointed at, never copied**, because they are portable and travel between
+     GFTV repos. 16h says outright that `gftv-official.md` is "the source and
+     this page as the pointer". **`gftv-theme.md` is the same case, and 16h does
+     not say so.** That file's own first lines read "Canonical source: GFTV
+     PolicySpot" and "update this file when the canonical implementation
+     changes". **So this repository's copy is already a copy.** A docs page
+     reproducing it would be the third link in the chain, and the one furthest
+     from the source.
+   - **Described from, so a reader here needs no second tab.** That is
+     `main-site/AVATARS.md`, and the theme page too. 16h names exactly what it
+     covers: the tokens, the two axis switcher, `.glass-card`, and the loading
+     primitives with their 250ms delay. Then links with no underline and one
+     weight step heavier, and no gradients, orbs, blobs or emoji. **Describing
+     the rules is not reproducing the file**, and the page says where the source
+     is.
+
+   The distinction matters because this build has spent two phases on one
+   sentence: a copy that can drift is a copy that will. The theme is the case
+   where drift would be silent. A token renamed in PolicySpot leaves a docs page
+   that is wrong and looks maintained.
+
+   **All three treatments landed as written**, and part 7a is the first of them
+   being built and not described.
+
+   **7a. The specification and the memo, as generated pages. Started 7 September
+   2026 and not finished.** Two generators at the repo root, committed, each
+   with a `--check`. Both are written and both run.
+
+   **What is built.** `gen-spec-pages.js` and `gen-memo-pages.js`, and the
+   twenty spec pages plus a landing page in `api/_content/spec/`. That is the
+   fifth section 16h said the sidebar should be able to take. The build carries
+   them: 30 public pages, 38 developer search entries, 103 pages.
+
+   **It is twenty sections and not eighteen.** The number in this file was
+   written once and never counted: 0, 0b and 0c are three of them. Nothing is
+   told the number now. The generator counts what it finds, so the next section
+   added to the brief gets a page without anybody editing a script.
+
+   **Two defects, both found by generating and both fixed.**
+
+   - **`markdown.js` looped forever on a line of `# `.** The heading rule wants
+     text after the hashes, so a bare hash and a space is not a heading. The
+     paragraph branch below it refuses the same shape in its own exclusion list.
+     `take` consumed nothing, the cursor never moved, and `html` grew until
+     `Array.push` threw `RangeError: Invalid array length` — after five minutes
+     of CPU. **In a browser that is a locked tab**, on any page carrying a stray
+     `# `. Fixed structurally and not for that one line: whatever nothing above
+     handled becomes one paragraph, and the cursor moves.
+   - **`next-steps.md` carries a byte order mark and `careers-gftv-spec.md` does
+     not**, which is why the memo generator was the one that produced the empty
+     heading. With the mark attached the first line does not start with `# `, so
+     the title was never found. Both generators strip it, as `pages.js` already
+     did.
+
+   **`gen-review.js` grew `EXEMPT_TREES`**, a prefix list beside the per-file
+   `EXEMPT`, because a generated tree cannot be listed file by file. The day the
+   brief gains a section quoting 3a, a per-file list is a check failing on a
+   page nobody typed. Same argument `SOURCE_TREES` was added for in part 9.
+
+   **Four decisions, and the second went against the recommendation.**
+
+   - **Twenty pages, the preamble on the landing page.** One chapter, one page,
+     no exception to remember.
+   - **Both source documents are rewritten to pass `check-copy.js`**, in place
+     of exempting the generated trees. That is 1,403 sentences split and 346
+     banned phrases replaced across the brief and this memo. **The concern was
+     put twice and confirmed twice**, and the fact that arrived after the first
+     answer is worth keeping. `check-copy.js`'s own header says "Source
+     comments, READMEs, the specification, the migrations and this file's own
+     tests are not copy and are left alone". Publishing the brief as pages is
+     what pulls it into scope through the back door, and rewriting it inverts
+     that stated design. The exemption stays a small change if anybody reverses
+     it.
+   - **`gen-memo-pages.js --check` reports staleness and does not fail on it.**
+     It fails on a page nobody generated, a missing section, front matter this
+     script would not write. It prints how far behind the file the snapshot is
+     without failing, because a snapshot is supposed to lag and the page says
+     so. A check that is always red is a check people stop reading.
+   - **The twenty one spec pages are translated into 华文.** Exempting them was
+     recommended and declined, so the whole brief is rendered in Singapore
+     Mandarin and kept in step with the English. **It has to come after the
+     English rewrite**, or every paragraph is translated twice.
+
+   **It was committed as `cd2cfa9`, "phase 14 part 10", on 7 September 2026**,
+   part way through the English rewrite. **The number in the log is not the
+   number in this file.** What that commit holds is 7a's work. That is both
+   generators, the twenty one spec pages, the sidebar fixes of part 9a's shape,
+   and the rewrite as far as it had got. **So the `/docs` bot command needs a
+   number that is not 10**, and whoever picks it should read this paragraph
+   first. The log says part 10 is the specification pages.
+
+   **The brief is gitignored, and that was found by this part.** `.gitignore`
+   line 11 is `*spec.md`, under a comment block naming `careers-gftv-spec.md` as
+   a working reference and not part of the deliverable. It was found the way
+   these things are. The generated pages committed and their source did not, so
+   `git status` showed twenty one files a script had written and nothing they
+   came from.
+
+   **Three things follow, and the third is a defect.**
+
+   - **`cd2cfa9` does not carry the rewritten brief.** The committed pages were
+     generated from a file that was not in the repository. That was the same
+     arrangement the memo had, and was not the arrangement anybody chose for the
+     specification. **Part 10e ended it for both.**
+   - **Both generators now degrade instead of crashing.** A fresh clone has no
+     source, so `--check` died on an ENOENT with a stack trace. Section 2's rule
+     applied to a file. It names what is missing, says where it lives, says the
+     committed pages are unchanged, and exits clean under `--check`. **Proved by
+     moving the file away and running it.**
+   - **The brief's own opening line says "it is committed", and it is not.**
+     `the-specification.md` says the same thing to every developer who reads the
+     docs site. Both were false that day. **Both became true when the file
+     moved**, which is part 10e. The instruction of 7 September was to put the
+     brief and the memo in a directory of their own and un-gitignore them. That
+     is why neither sentence has been rewritten: the fix is the move, and
+     correcting the prose first would mean correcting it back.
+
+   **The English rewrite is done. `check-copy.js` reads clean over all nine
+   sources**, 469 findings to zero, across all twenty sections of the brief.
+
+   **华文 is done: all 21 pages.** `gen-review.js` reads **103 pages, every one of
+   them paragraph for paragraph with its English**. The build reports 103 files
+   in zh, 103 ready, 0 pages still English. Part 7a is complete.
+
+   **Three things the checks caught in the 华文 that reading would not have.**
+
+   - **3a's own vocabulary rule fired**, on section 10 and again on 16h. The
+     English says "Simplified Chinese", "Chinese-language search" and "义工 in
+     place of 志愿者", and the obvious rendering of each is a word 3a bans. The
+     brief tripping over its own rule while being translated is the rule
+     working.
+   - **A block count came out wrong three times, and never visibly.** Twice from
+     a blank line carrying whitespace, so `markdownBlocks` never split there and
+     two paragraphs read as one. Once from a blank line the English does not
+     have, which cut a list in two. Nothing on the rendered page shows any of
+     it.
+   - **Check 44 was wrong in a way only this part could expose.** It asked
+     whether *any* translation was dated and skipped the lot if not, which was
+     right while the tree arrived in one commit. With translations landing
+     beside eighty two already pushed, `anyDated` was true and it asserted over
+     the uncommitted ones. Pairing a translation against its English page is
+     wrong the same way in reverse. A page can be committed while a translation
+     written days later is not. **It now asks git directly**, with `git
+     ls-files`, and asserts only over files git has actually seen.
+
+   **One exemption was added and one was declined.** `check-copy.js` gains
+   `docs-site/translations/zh/staff/spec/section-3.md`, beside the guide page
+   that already had one. Section 3a *is* the vocabulary table, so half of its
+   translation is words the check refuses. 16h's single citation of that pair
+   was **not** exempted. The line points at 3a's table instead of reprinting it,
+   which keeps the vocabulary rule tight on a 64 block page.
+
+   **The docs site is installable, asked for on 7 September 2026 and built the
+   same day.** It had a service worker from part 4 and no manifest, which is
+   half of being installable. A browser offers the install when it has both,
+   plus an icon at 192 and 512 in each purpose.
+
+   **`docs-site/public/manifest.json` is this site's own file and not a copy of
+   the portal's.** The two share a mark and share nothing else. An installed
+   documentation site whose `start_url` opened the job board would be the wrong
+   application on somebody's home screen. So it carries its own `id`, its own
+   name and description, and its own shortcuts.
+
+   **Part 2b's own sentence is what had to be repealed.** It copied three brand
+   images. It said of the other four: "`HLC-192`, `HLC-512` and the two maskable
+   variants exist for an installed application icon". It went on: "this site has
+   no manifest and no worker, per phase 13 decision 3". Copying them would then
+   be four files nothing on this site names. Part 4 gave it a worker and this
+   gives it a manifest. So both halves stopped being true, and the four come
+   across through `gen-docs-lib.js` like everything else. **Copied and never
+   linked across**, which is 2b's decision unchanged. Two Vercel projects are
+   two origins, and an installed icon fetched from the other one is a blank icon
+   the day that project moves.
+
+   **Precaching it cost nothing**, which is the build working. `writeWorker()`
+   takes everything under `public/` verbatim, so the manifest and its four icons
+   joined the list by being put there. 59 addresses became 64.
+
+   **The shortcuts are public sections only.** A home screen menu item into
+   `/staff` opens a sign in page for every reader who is not staff. 16a keeps
+   the gate quiet about what it holds. There is a check for it.
+
+   **Seventeen checks, and the file ones are the ones worth having.** A manifest
+   fails silently. A browser that cannot parse it, or that follows an icon `src`
+   to a 404, offers no install and says nothing about why. So every icon it
+   names is resolved against `dist/`, and every shortcut against a page that was
+   built. A real browser at the site root fetches the manifest, parses it, and
+   requests each icon expecting an `image/` content type.
+
+   **`docs-site/sw.js` is at `v8`.**
+
+   **The method that made it tractable is worth writing down.** One by one
+   editing was about six findings a pass. The working shape is a Python script
+   in the scratchpad, holding a list of exact before-and-after pairs. It runs in
+   one go and reports any pair that failed to match. A batch of twenty applies
+   in a second and cannot half apply, because a pair that does not match is
+   named instead of silently skipped. `tests/phase14-test.mjs` fails one check,
+   part 9's "every page is translated into every language on disk". That is the
+   translation above, still owed, and it reads 103 files with 9 not. The memo's
+   own pages and its own rewrite were **10a's**, per part 7's settled decision
+   that the generator is written here and run there. This file moves several
+   times a day, and translating or rewriting it early means doing it twice.
+   **They landed in part 10e instead.**
+
+   **The memo is to be moved into a directory of its own and un-gitignored**,
+   asked for on 7 September 2026, after the rewrite. That changed the argument
+   in `gen-memo-pages.js`'s header, which leaned on the file being invisible to
+   Vercel's checkout. It did not change the staleness design: the file still
+   moves daily whether or not it is tracked.
+
+   - **`careers-gftv-spec.md` becomes 18 pages, in a gated section of their
+     own.** Settled 4 September 2026. `api/_content/spec/`, at the developer
+     tier, which is a **fifth section** in the sidebar beside the four guides.
+
+     **The reason is that `pages.js` refuses anything deeper than a section and
+     a page**, so `developer/spec/*.md` is not a legal path. Two alternatives
+     were offered and both declined. The first is flat `spec-00-read-first.md`
+     names beside the seventeen hand written pages. That makes one sidebar entry
+     of 35 items, with two kinds of page interleaved in it. The second is
+     teaching the loader a third level. That file's own comment says it would
+     quietly turn the sidebar, the pager and the breadcrumbs into a rewrite.
+     **16h already anticipated this**: "the sidebar stays able to take another
+     section later without rework". This is the first thing to ask that of.
+   - **`next-steps.md` becomes its own pages at the seam**, part 10, per the
+     decision above. The generator is written here and run there.
+   - **The page that links them is written already.** `the-specification.md` and
+     `the-working-memo.md` both carried a note saying the rendered pages arrive
+     with this part. 16's cross link rule held: neither pointed at an address
+     that did not exist yet.
+
+8. **The captures and the discovery files. Pushed as `a84170a`, "phase 14 part
+   8", on 5 September 2026, not yet verified against the deployment.** Written 4
+   September 2026 and run 5 September. The Playwright script, its manifest, the
+   docs site's own `robots.txt`, `sitemap.xml` and `llms.txt`. And **not the
+   capture run itself**, which is the one part of this phase that cannot be done
+   from a keyboard alone.
+
+   **Pulling the six portal captures forward was offered and declined**, 3
+   September 2026. They stay here with the staff shots. So the script, the
+   manifest and the scoped Playwright config are written once, against every
+   page that needs one. The six slots part 2 named keep reading as pending until
+   then, which is what 16g's marker is for.
+
+   **Four decisions were put up before it and all four were answered as
+   recommended but the last.**
+
+   - **The machinery now, the captures at the sitting.** The manifest, the
+     script, the config, the scoped `package.json`, the build's refusals and the
+     README section land as a diff somebody can read. The run needs a seeded
+     database and a staff session, which is decision 27's by-hand sitting. The
+     alternative offered was capturing the two shots that need no seed, and it
+     was declined: two committed images prove less than the refusals do.
+   - **The run points at production with the seed in it.** 16g says "a local or
+     staging instance, never against production", and **this build has no such
+     instance**. `seed.mjs` opens by saying so, because `main-site/.env.example`
+     asks for the existing Supabase project. A preview deployment reads the same
+     rows while breaking passkeys. So the sitting opens with `node seed.mjs
+     --yes --anyway`, the shots are taken, and `--clear --yes` closes it.
+     **Deviation 132**, below, is where that is written up.
+   - **The manifest is the 25 slots the pages already carry**, and not 16g's
+     full desktop-and-phone, light-and-dark matrix. That matrix is 100 shots, 75
+     of which nothing points at. A shot nobody points at is a file nobody
+     reviews.
+   - **The discovery files stay inside part 8**, which is the one answer that
+     was not the recommendation. Offering them as 8a was about shipping the half
+     that is not blocked; keeping them here keeps the phase at ten parts.
+
+   **The count is 25 and not the six part 2 named.** That is 6 `portal-*`, 10
+   `poster-*` and 9 `admin-*`, spread over 22 pages in four guides. Every one of
+   them is a picture of `main-site/`. The script lives here because the pictures
+   are for these pages and the tiers are this site's idea; what it photographs
+   is the portal.
+
+   **The gated image path was already built and this is the first thing to go
+   through it.** Part 5 gave `api/content.js` its `readableAsset` half. Since
+   then the build has refused a gated page carrying an absolute image, and a
+   public page carrying a bare name. Nothing in that had to be written again,
+   which is what "the first exercise of the gated image path" turned out to
+   mean.
+
+   **Four files under `docs-site/scripts/`, and the fourth is the one that could
+   have broken a deployment.**
+
+   - **`screenshots.manifest.js`**, 16g's manifest as data. That is path, actor,
+     viewport, theme, and the element to wait for. Then the element to wait for
+     the *absence* of, a named routine, a clip selector, and the masks. **The
+     prefix decides the tier and the directory**, and the build checks the two
+     agree.
+   - **`capture.mjs`**, which signs in once per actor and replays the cookies.
+   - **`playwright.config.js`**, the determinism: a frozen clock, a stylesheet
+     that stops everything moving, `en-GB`, and Asia/Singapore.
+   - **`package.json`, carrying `"type": "module"`, and it has to.** Vercel
+     installs `docs-site/package.json` and never walks into a subdirectory,
+     which is 16g's scoping and the whole reason this file exists. But Node
+     reads a module's type from the *nearest* `package.json`, and
+     `scripts/build.js` is a `.js` file in the same directory. Without that one
+     key the Vercel build stops on its first import. Found while writing it, not
+     while deploying it, and there is a check for it.
+
+   **The clock is frozen and not the dates masked**, which is the choice 16g
+   leaves open. A masked date leaves a black bar in the middle of a column a
+   guide is explaining. A frozen one leaves the real column reading the same
+   thing on the next run. Playwright's own `clock.setFixedTime` and not a hand
+   written `Date` shim. A label computed during the first paint gets the same
+   answer as one computed after it.
+
+   **Two things no seed can cover, so they are masked**: whoever ran the
+   capture, in the dashboard's top right, and the staff access list. Staff
+   accounts are gftv.asia's and cannot be invented, per 5g, so `/admin/admins`
+   is the live list of real people whatever the seed holds. What the picture is
+   for — the three access states and the second factor column — survives the
+   mask.
+
+   **The recovery code shot registers nothing.** 16g forbids photographing a
+   live code and asks for a seeded fake with a caption saying so. The page's
+   caption already promised the codes were invented. So the routine imports
+   `recovery-codes.js` into the page and calls it with ten literals. The picture
+   is the real dialog and the run writes no account and no code anywhere.
+
+   **The run refuses to start unless the board shows a seeded posting.** Every
+   posting `seed.mjs` writes says SAMPLE POSTING. That is the one thing a page
+   can be asked that tells a seeded board from a real one without a database
+   connection. That is the failure a person is most likely to walk into.
+   Everything looks normal and the pictures are of real applicants, so it is
+   checked and not remembered. `BASE` has no default for the same reason.
+   `gen-screenshots.js` may default to the live portal, because an install shot
+   is of the public board. This script signs in.
+
+   **It swaps the `pending:` markers itself** for every shot it took, and leaves
+   the markers of every shot it missed. Doing 25 markers across 22 files by hand
+   is how a set ships with three pages still saying pending.
+
+   **The build gained the reconciliation, in both directions**. That is what
+   makes a written manifest safe here. This repository's rule is that a list
+   somebody wrote is a list with something missing from it. A screenshot has no
+   filesystem to be derived from before it is taken. So the manifest is the
+   source, and the build is what stops it drifting. A marker naming no entry and
+   an entry no page points at are both failures. Neither half can be added
+   alone. **Proved by breaking it three ways**, each failing with the sentence
+   it should. 16g's own build failure — a gated shot in the public directory —
+   is checked against the disk and not against intent.
+
+   **The scoping rule is `.webp` and that took a second pass.** The first
+   version held *every* image to the manifest and broke
+   `tests/phase13-test.mjs`, whose gated image fixture is a 1x1 `example.png`.
+   Naming the fixture after a real shot was tried and is worse. The file a
+   capture run commits and the file the suite refuses to overwrite would be the
+   same name. The suite would stop running for good the day the shots landed. So
+   the rule is that **a `.webp` is a screenshot and is held to the manifest**.
+   The four other types `ASSET_TYPES` allows are not. "Every screenshot is in
+   the manifest" is what was wanted; "this site may only ever carry screenshots"
+   is not.
+
+   **The three discovery files are generated by the build into `dist/`, and the
+   portal's are functions.** The portal's answer depends on a maintenance switch
+   read from the database, and on the set of published postings. Neither is true
+   here. A page is a committed markdown file, and what is in the sitemap is
+   settled at deploy time. A route would repeat on every request a computation
+   the build already did once. It is also what makes them work. This project
+   rewrites everything that is not `api/` or `assets/` to the shell. The rewrite
+   would swallow `/robots.txt` if Vercel did not match the filesystem first.
+   That is phase 3's rule, used in the right direction for once.
+
+   **What it found is that `/staff` has never been kept out of an index.** The
+   docs site has had no `robots.txt` at all and no global `X-Robots-Tag`, and
+   every gated address answers 200. The shell is served at all of them and fills
+   itself in from `api/content`, which is where the gate is. So a crawler
+   fetching `/staff/admin/daily-run` has been getting a 200 with the shell's own
+   generic card since the site went up. **Not a leak** — there is no content in
+   that answer — and worth closing all the same. Fixed here with both
+   instruments, because a `Disallow` is a request not to crawl and is not an
+   instruction not to list. A URL somebody linked to from elsewhere can be
+   listed on the strength of the link. There is no fetch, and so no chance to
+   read anything. That is the portal's own argument for keeping a header beside
+   its robots.txt. `--only=discovery` compares the two halves in both
+   directions.
+
+   **`llms.txt` is generated and the portal's is hand written**, and the
+   difference is the number of pages. The portal has five and a paragraph. This
+   site has thirty that are already grouped, titled and summarised in front
+   matter. A hand written copy would be the same information typed twice, with
+   nothing comparing them. It says the staff half exists and says it is not
+   listed. A model that knows four guides exist and can read three will say so,
+   which beats one concluding the staff guides were never written.
+
+   **The checks after it.** The docs build clean at 30 public pages, with 25
+   slots still pending and 58 precached addresses. `check-copy.js` at **6,125
+   strings** clean, and `check-i18n.js` clean at 271 keys each side.
+   `gen-review.js` clean, `check-precache.js` clean on both halves, and
+   `gen-docs-lib.js --check` current at 43 files. `embed-tests.mjs --check`
+   current at 16 scripts. And **`tests/phase14-test.mjs` at 440**: 194, plus a
+   `captures` section of 225 and a `discovery` section of 21. The first of those
+   is large because most of it runs per shot. That is the name against the tier,
+   the tier against the directory, and every `#id` in the manifest against the
+   portal.
+
+   **`tests/phase13-test.mjs` reads 3,199 passed, 0 failed**, and check 24 is
+   the reason the number is not what part 7 recorded. "Every committed page has
+   a date" was the predicted failure four parts running, and part 7's push
+   discharged it.
+
+   **The check worth naming out of the 52** reads every `#id` the manifest waits
+   on. It looks for each one in `main-site/`. A renamed id over there is a
+   capture run that times out at 2am with the seed already written. This is the
+   only thing that catches it before the sitting starts.
+
+   **`docs-site/sw.js` is at `v4`.** No `main-site/` file moved, so the portal's
+   worker is unchanged at `v131`.
+
+   **Four concerns were put up when the part was finished, 4 September 2026, and
+   all four were answered the way they were recommended.** The mask stays, and
+   the six public shots stay in the precache with their size judged after the
+   first run. Dark mode is judged when there are images to look at. And the one
+   that changed the code: **the script gets a `--dry-run`, and gets executed
+   before the sitting.**
+
+   **Two defects were found by reading it again while writing those up, and both
+   would only ever have shown in a run.**
+
+   - **Every mask would have been hot magenta.** Playwright's default
+     `maskColor` is `#FF00FF`, and seventeen staff shots carry at least one
+     mask. `MASK_COLOR` is now `--surface-active` flattened, so a mask reads as
+     a blank field and not as an error somebody forgot to fix.
+   - **The suggestion layer would never have drawn.** `offerAnnotationLayer` in
+     `shell.js` returns immediately unless `hasStaffHint()` or `hasHelperHint()`
+     is true. Those are hints `api.js` writes only after an account page has
+     read the roster. That is deliberate, so every page of the site does not
+     spend a request asking whether this reader is a helper. A fresh context has
+     neither, so `annotate.js` is never imported and there is no underline to
+     photograph. The routine sets `gftv-careers.staffSeen` as well now. The hint
+     is not the gate: the endpoint is still asked and still answers `can: false`
+     to anybody who may not use the layer.
+
+   **Then it was run, 5 September 2026, and the pipeline works.** `--dry-run
+   --allow-unseeded --only=portal-login-desktop-light` against the live portal
+   produced a **2880x1800 webp at 65 KB** of the sign in page. Right size, right
+   mode, nothing mid-animation, correct name, correct directory, and nothing in
+   the repository touched. That is the browser launch, the frozen clock, the
+   still-CSS, the mask colour, the sharp encoding and `filesFor` all exercised
+   for the first time.
+
+   **`portal-search-desktop-light` timed out in the same run, and that is the
+   wait doing its job.** The live board has zero published postings, so there
+   was no `.job-card` to wait for. Checked and not assumed: `#results` exists
+   and drops `aria-busy` correctly, and `/api/public/jobs.json` returns nothing.
+   The shot needs the seed, which is what the manifest says.
+
+   **What the run found that reading could not: 1440 is wide for the applicant
+   pages.** The sign in form is a centred column about 420px across. So two
+   thirds of that frame is empty, and the form lands small inside an article.
+   **`clip: '#main'` was tried and is worse.** An element screenshot captures
+   the element's own box, and the sticky header draws over the top of it. So the
+   heading came out sliced in half. The real question is whether `desktop`
+   should be narrower for the centred applicant pages, while the dashboard's
+   tables keep the width. **That is one decision to take with all six portal
+   shots in front of you, and not six guesses from one page.** It waits for the
+   capture run, and the manifest says so at the entry.
+
+   **`sharp` is pinned at `^0.35.0` and not `^0.33.5`**, which is where it was
+   written. `npm audit` reported a high severity libvips advisory against
+   everything below 0.35. Bumped and reinstalled; the audit is clean and the two
+   calls this script makes are unchanged across the major. **The install is 38
+   MB and not the several hundred a browser would be.** Playwright keeps
+   browsers in a shared directory outside any project, and the root has already
+   put one there for `tests/`. The README said 400 MB until the install proved
+   otherwise.
+
+   **What part 8 does not do, said plainly.** Twenty four of the 25 slots still
+   read as pending and will until the sitting runs `capture.mjs` against a
+   seeded board. The one that has been captured went into a temporary directory
+   and was thrown away. **Nineteen of the routines have never run**, because
+   every one of them needs either the seed or a staff session. What has been
+   proved is the pipeline end to end on one shot. `--list` runs in a clone with
+   nothing installed, and every `#id` the manifest waits on exists in the portal
+   today. And the build refuses each of the five things it is meant to.
+9. **华文, for all of it. Written 6 September 2026, uncommitted at the time of
+   writing.** All 82 pages, both halves of the site, plus the plumbing that had
+   never been built. That is two tables, the build's database connection, and
+   the read path. Then the per-language search indexes, and the notice on a page
+   nobody has translated.
+
+   **Four decisions were put up before it and three were answered as
+   recommended.** The one that was not is the size of the part. It was offered
+   as 9 plus a 9a, plumbing and the public 30 against the gated 52. The answer
+   was **all of it as part 9**. So this is one part and one diff, 82 pages and
+   54,000 words of English behind them.
+
+   **The second decision was re-asked**, because the first framing was not plain
+   enough to choose from. Where the 华文 is authored: **files, with the database
+   as a copy the build writes**. That is deviation 133, and
+   `scripts/translations.js` opens with the whole argument.
+
+   **The third settles the question 16e left open.** It asks "whether the public
+   half should fetch its translation in the browser instead", and calls it phase
+   14's to settle. 16e adds that "it trades a rebuild for a request on every
+   page view". It fetches, and the service worker caches it. So a public page in
+   华文 goes through `api/content` exactly as a gated page does. That is 16e's "a
+   reader must not be able to tell which pipeline a page came from". It holds
+   for the drawing as well as the layout.
+
+   **The fourth was multi-select and everything was taken**: the bot's mirror
+   table, a 华文 half to the search index, and `gen-review.js` covering the
+   guides. That last one is phase decision 1's second half, discharged.
+
+   **What the reader gets.** The globe in the header now changes the guide and
+   not just the chrome. The sidebar's titles, the article, its on-page contents,
+   the previous and next links and the search index all come from the language
+   they chose. The page does not reload. A page with no translation is shown in
+   English under a callout saying so, per 3a, and is in that language's search
+   index in English. A reader searching a word that is on the screen in front of
+   them should not be told it appears nowhere.
+
+   **Migration `042` creates two tables and a view, and it was applied by hand
+   on 6 September 2026.**
+
+   - **`gftvjobs_docs_translations`** holds every language but English, for
+     every page, gated ones included, and carries no `access` key per 16e.
+   - **`gftvjobs_docs_pages`** holds the English of the **public** pages only,
+     mirrored one direction for readers outside Vercel. A check constraint
+     refuses a `/staff` path.
+   - **`gftvjobs_docs_public`** is the view over both, and it is the part worth
+     reading the migration for. **It inner joins them**, so a gated page's 华文
+     joins to nothing and cannot appear. The Telegram bot's `/docs` reads the
+     view and holds no tier logic of its own. That **discharges the worry
+     section 2 has carried since 3 September**. The worry was that "the tier
+     rule is implemented twice, once in reader.js and once in Python". The
+     copies could disagree. There is no second copy to disagree.
+
+   **The build now needs the database, which is what 16e said it would.** It
+   upserts the tree into the translations table, mirrors the public pages, and
+   deletes what no longer has a file. It upserts before deleting, so a renamed
+   page is never in the table under neither name. With no credentials it stops
+   and names both variables. `--no-database` is the only way past, and prints a
+   banner saying what the output is missing. It **is refused on Vercel**,
+   because a deployment is where nobody sees a banner. `tests/phase13-test.mjs`
+   passes that flag, which is what keeps its own rule true.
+
+   **The English changed in two places, and both were this part's to change.**
+   `api/_content/index.md` opened "These guides are in English today", which
+   part 9 is what made untrue. And **3a still said the staff half of the docs
+   site stays English**, which 16f overruled on 3 September and nobody went back
+   for. The paragraph now carries the correction and the date, so 3a and 16f
+   cannot be read against each other.
+
+   **`gen-review.js` grew the largest section it has.** 4,598 entries against
+   the 2,191 it had, because the guides are 2,407 of them. That is every page,
+   title and summary, and then paragraph by paragraph beside its English. **The
+   tree is declared as a tree and not as 82 filenames**, in `SOURCE_TREES`. A
+   list somebody wrote goes stale the first time a page is added. Eleven files
+   gained 华文 in a comment and are exempt with a reason each.
+
+   **All 82 pages line up paragraph for paragraph with their English**, which
+   the generator reports and would name the exceptions of. That is the
+   structural check that the translations kept the documents' shape. The tables,
+   the callouts, the fenced blocks and the numbered steps are all where they
+   were.
+
+   **`check-copy.js` reads a ninth source** and holds the new tree to 3a's
+   vocabulary table. It found seven things while the pages were being written,
+   every one of them 中文 where 华文 belonged or 文档 where 文件 did. **One page is
+   exempt and it is the page whose subject is the rule**. The Singapore Mandarin
+   page in the translations guide is 3a's table translated, so half of it is
+   words this build refuses. The exemption is one path with a reason, and the
+   check fails if that path ever stops existing.
+
+   **The checks after it.** The docs build clean at 30 public pages and 82
+   translations. `check-copy.js` at **6,211 strings** clean over nine sources,
+   and `check-i18n.js` clean. `check-precache.js` clean on both halves,
+   `gen-docs-lib.js --check` current at 43 files, and `embed-tests.mjs --check`
+   current at 16 scripts. `gen-review.js` clean at 4,598 entries. And
+   **`tests/phase14-test.mjs` at 490 passed, 0 failed, 1 skipped**: 440 plus a
+   `translations` section of 51.
+
+   **The one skip is predicted, and it is check 24's shape arriving again.** A
+   translation's date comes from git, and a file git has never seen carries
+   none. So the check that every translation has one skips while the tree is
+   uncommitted, and asserts from the push onwards.
+
+   **`tests/phase13-test.mjs` is 3,199 passed, 0 failed**, twenty seven of them
+   against the deployment, and unmoved by this part. The page count did not
+   change, because a translation is not a page.
+
+   **`docs-site/sw.js` is at `v5`** and **`main-site/sw.js` at `v132`**, the
+   second because `main-site/api/_lib/supabase.js` gained the two table names.
+
+   **Two things it fixed that were not its own.** `migrations/README.md` had no
+   row for `041`, which part 4a never added; part 9 wrote both `041` and `042`
+   into it. And `tests/phase13-test.mjs` ran the docs build with no flag, which
+   this part would otherwise have broken.
+
+   **Four concerns were put up when the part was finished, 7 September 2026, and
+   two were answered as recommended.** The other two were answered in the
+   person's own words, and both of those changed the code.
+
+   - **"Do whatever the main site also does"**, about a 华文 reader watching a
+     public page's English be replaced. The portal's answer was already written
+     down in `main-site/index.html`'s pre-paint script. Hold the page hidden
+     until the swap, and release it after 1200ms whatever happens. The reason:
+     "a blank site is a worse failure than a flash of English". So the article
+     takes the same hold, the same technique — `visibility`, so layout is
+     computed and nothing jumps — and the same valve. **One CSS rule, which is
+     the only CSS this part adds.**
+   - **The dates.** The site now takes the later of a translated page's two
+     dates. That matches the `greatest()` the view already applied, so one page
+     cannot be dated twice. The build writes each translation's own git date
+     under a `zh:/path` key in `updated.json`. A page path always opens with a
+     slash, so the two cannot collide.
+   - **"Remind the person editing the page to also check the other languages
+     translations"**, which is not the build warning that was offered. So there
+     is no detection: the reminder is in the README section somebody edits from,
+     and in the developer guide's habits, in both languages. **The declined
+     option is written down beside it.** A build that fails on a one word typo,
+     until somebody re-translates a page, is a build people learn to work
+     around. So the next person to want detection knows it was considered.
+   - **Run the real build**, which is the one that has not happened. See below.
+
+   **What part 9 does not do, said plainly.** **Nothing has been written to the
+   database yet.** `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` are not on this
+   machine. `main-site/.env.local` holds the test credentials and neither of
+   those two. So every run has been `--no-database`: the two tables are created
+   and empty, and the first deploy is what fills them. **The upsert, the delete
+   sweep, the mirror and the view have never executed against Postgres.** Until
+   then the site serves English to a 华文 reader with the notice on it. That is
+   the honest degradation, and exactly what the read path does when the database
+   cannot be reached. **The reviewer's round trip is still owed** and is now 82
+   pages larger. And **入队 reads as 少先队入队 in some Mainland contexts.** Whether it
+   does so for a Singapore reader is the judgement that goes to them with the
+   pages. If they say it does, part 4a's account is where to start reading.
+10. **The seam, split in two on 7 September 2026.** It was one part and it is
+    now **10, the bot, and 10a, the prose and the flip**. The two halves are
+    Python and English, they fail differently and they are read differently. A
+    single commit carrying a new bot command and a rewritten README is a commit
+    nobody can review as one thing.
+
+    **10 is the bot, and it is built.** `/docs` against `gftvjobs_docs_public`
+    and against neither table. Then the start message's docs link, and
+    `commands.py`'s tenth entry with the three documents that carry the list.
+    And the strings in both languages. New file: `telegram-bot/docs.py`, the
+    reader and the renderer. **24 checks in a `docs-command` section**, and the
+    suite reads **547 passed, 0 failed, 0 skipped**.
+
+    **The tier story is that there is no tier code.** `docs.py` reads the view
+    and `supabase.py` names it in `TABLES`. Neither table under it appears as a
+    value anything can resolve. Check 4 asserts that as a table value and not as
+    a word, because the comment beside the entry names both on purpose.
+
+    **`/docs` is the one list command that answers a stranger.** Every other one
+    reads somebody's own account and refuses without a link. The guides are the
+    public tier, the view holds nothing else, so there is nothing to scope by. A
+    linked account still gets its own language.
+
+    **It obeys no feature switch**, and that is a deliberate `feature=None`
+    beside nine commands that have one. A reader turned away from the manual
+    during an outage is a reader turned away from the page explaining the
+    outage. `start` obeys nothing for the same reason.
+
+    **Three things the renderer found by being run over all 103 real pages.**
+
+    - **The pager handed back a 12,165 character message.** Telegram's cap is
+      4096. Breaking on headings and then on paragraphs is not enough. Section
+            6's schema list is one continuous run of bullets, with no blank line
+            anywhere in it. It now falls back to lines and then to a hard cut.
+            **All 230 messages now fit and every tag balances**, which is the
+            other half: an unclosed `<b>` is a message Telegram refuses.
+    - **Relative links were not links.** The guides link to each other by
+      address, `[Linking your account](/bot/linking)`. That is right on the
+      site, and is not a URL in a chat. A relative href is joined to `DOCS_URL`,
+      and with no base the anchor is dropped and **the words are kept**.
+    - **`markdown.js`'s own lesson arrived again.** These files are wrapped at
+      eighty columns, and sending them line for line put a ragged column in a
+      window that is already narrow. Lines inside a paragraph are joined, which
+      is the rule the site states in as many words.
+
+    **`DOCS_URL` is optional**, like `DONATION_URL` and for 16's reason: a link
+    must not ship before the thing it points at. Without it `/docs` still
+    answers, because it reads Supabase and not the site. What goes missing is
+    the start button, the "read this on the site" link, and a relative anchor.
+    **Phase 13 lost a fortnight to a required variable nobody had set**, and
+    that is why this one cannot stop the bot. A malformed value is still
+    reported, and reported *before* the raise, which is where the first draft
+    put it wrongly.
+
+    **One thing it does not do, and it is the view's shape.** The section menu
+    sorts by slug, so the bot guide comes before the portal guide, while the
+    site's sidebar orders by the `order` front matter. `gftvjobs_docs_pages`
+    carries no `order` column, so the bot cannot know it. The two ways to fix it
+    are a migration adding the column, or a hardcoded order in Python. The
+    second is exactly the second copy this part exists to avoid. Left as slug
+    order, written down here.
+
+    **It has never run against Telegram.** The whole flow was driven end to end
+    against a stubbed view and a fake event. That is index to section to page,
+    the callback registry round trip, the pagination, and a malformed path
+    refused before it became a filter. What is untested is Telethon actually
+    sending these messages, which is decision 27's by-hand sitting.
+
+    **10a is everything else, and it is built.** `checkEnv()` called on both
+    sites, item 30's named list of the writes that leave this build,
+    `main-site/README.md`, the root README, and the checks. **23 checks in a
+    `reach` section**, and the suite reads **570 passed, 0 failed, 0 skipped**.
+    The flip is not here: the webhook notice goes in front of it.
+
+    **Item 29 is closed, and the reason it had never been done is worth
+    keeping.** `checkEnv()` reported `TELEGRAM_BOT_USERNAME` missing on a
+    perfectly healthy portal. `KNOWN` is the documentation list, and that one is
+    read through `optionalEnv` with a default. **An `ok` that is false in the
+    ordinary state is an `ok` nobody can build a check on**. That is very likely
+    why a function written for exactly one outage was called by nothing, while
+    that outage ran for a fortnight. An `OPTIONAL` set fixes it, and `ok` is now
+    true exactly when the deployment is configured.
+
+    **The call site is a health route on each site**, `api/public/health` on the
+    portal and `api/health` on the docs site. Not generated. The two import
+    their own `env.js`, whose `KNOWN` lists differ, and a shared copy would have
+    to be told which site it was on.
+
+    **It answers a count and never the names.** `{ ok, missing }` where
+    `missing` is a number. The names are in `.env.example` in a public
+    repository so naming them would leak little. It would still be publishing
+    which part of a live deployment is broken, to whoever asks first. The names
+    go to the runtime log, which is where the original `SITE_URL` stack trace
+    already was and where nobody was looking. **The point is not a better error
+    message. It is a check that can go red without anybody looking**, and
+    `--only=live` asking as a stranger is exactly what this route is for.
+
+    **Item 30 is closed as decided: the list is built.** `GFTV_ASIA_WRITES` sits
+    beside `HELLO_WRITES_ENABLED` and names three writes across five routes.
+    They are `password_hash` from `account` and `reset-password`, and
+    `totp_secret` from `totp` and `danger`. The third is
+    `gftvhello_backup_codes`, from `recovery-codes` and `danger`. That last is
+    the fourth path the hold never covered.
+
+    **The check reads the routes' own claims and not the list's word for it.**
+    Item 30's observation is that the code always said this correctly. The audit
+    row records `reaches: 'gftvhello_backup_codes'`, and only the prose count
+    was wrong. So the check extracts every `reaches:` claim from
+    `api/auth/staff/` and compares the two sets **in both directions**. Nothing
+    claimed is unlisted, nothing listed has stopped claiming it, and each entry
+    names exactly the routes that perform it. **It was proved by dropping a
+    route from the list and watching check 12 fail.**
+
+    **Keying it on the response flag would have been wrong**, and that is
+    check 13. `forgot-password.js` answers `reaches_gftv_asia: true` and writes nothing at all. It issues a reset ticket, and tells the reader whose password is about to change. The write happens in `reset-password`.
+
+    **`main-site/README.md` opened "Current phase: 6 of 15" and now opens 14.**
+    The paragraph under it is rewritten as an account of what is actually live.
+    The root README's `check-copy.js` row said "3,536 strings today" where the
+    script now reads about 6,500 over nine sources. Both new generators are
+    documented there, and the bot is ten commands everywhere that file counts
+    them.
+
+    **The sidebar fix was going to ride in 10 and became part 9a instead**,
+    pushed as `e86f53b` on 7 September 2026. It was offered as a 9a, and the
+    answer was to push it with part 10. Then the tree was committed before part
+    10 was written, which settled it back to 9a. A commit landing on its own
+    cannot be named for a part that does not exist yet. The account of it stays
+    here, under the part it was going to belong to.
+
+    **What it was.** Reported from the live site. Open a section in the docs
+    sidebar, change language, and the section headings stop responding until the
+    page is reloaded by hand. `drawSidebar` replaced the mount's innerHTML and
+    then added its delegated click handler. And **the mount outlives the
+    redraw**, so the language change, which refetches and redraws the sidebar,
+    left two handlers on one element. One click ran both: the first opened the
+    section and the second read the attribute the first had just written and
+    closed it again. `addEventListener` de-duplicates a function reference and a
+    fresh arrow function is not one.
+
+    **It reads as intermittent because an odd number of handlers works.** A
+    third language change makes it behave again, which is worth knowing before
+    anybody tries to reproduce it by pressing the control once.
+
+    **The same shape was found beside it and fixed with it.** `drawAccount`'s
+    two `document` listeners were added on every redraw too. Each copy but the
+    newest closed over nodes that had already been thrown away. Nothing a reader
+    could see was wrong, which is the reason to fix it now and not later. Both
+    are pulled out into `wireSidebar()` and `wireAccount()`, called once beside
+    `wireMenu()`. The account handlers look their nodes up when the event fires,
+    instead of holding them.
+
+    **Four checks, and they were proved against the defect.**
+    `tests/phase14-test.mjs` 26a to 26d, in the `browser` section. The sidebar
+    redrew in the new language, the section starts closed, it opens on a click,
+    and it closes again. **Pressing once proves nothing**, so the sequence draws
+    twice and then presses. The stand-in server's `/api/nav` now answers with
+    one section whose title differs by locale, where it used to answer with no
+    sections at all. That is why the suite had nothing to say about the one
+    control in there. **26c was confirmed failing on the unfixed shell and
+    passing on the fixed one**. That is the only way to know a new check is
+    worth its line.
+
+    **Check 37 was rewritten because it would have failed next.** It asserted
+    the literal `careers-gftv-docs-phase14-v5`, which is honest on the day part
+    9 ships and wrong on every day after. The sidebar fix took the worker to
+    `v6`, and this was the only thing in either suite that objected. It now
+    reads the number and asserts it has not gone backwards from part 9's floor.
+
+    **`docs-site/sw.js` is at `v6`.** No `main-site/` file moved, so the
+    portal's worker stays at `v132`.
+
+    **Two stale things are waiting in 10a, both found while writing other parts
+    and both left deliberately.** `main-site/README.md` opens "Current phase: 6
+    of 15", eight phases behind the root README, found by part 7. The paragraph
+    under it is a phase-shaped account of the whole portal, which is this part's
+    work and not a one line fix. And the root README's `check-copy.js` row says
+    "3,536 strings today" where the script now reads **6,211 over nine
+    sources**. Part 8 found it at 6,125, and part 9's ninth source moved it
+    again. Both parts touched that table for their own reasons and left the
+    number alone instead of doing half a README pass in the wrong part.
+
+    **Two of the three READMEs are no longer waiting.** Part 9 wrote
+    `docs-site/README.md`'s build, translation and pre-deploy sections and added
+    `041` and `042` to `migrations/README.md`, which had no row for either. What
+    is left here is `main-site/README.md` and the root one.
+
+    **What the log actually holds between `cd2cfa9` and `102e6fe`.** Five
+    commits, and their messages are not what this file calls those parts.
+    `cd2cfa9` "part 10" and `a1c2b0a` "part 10a" are 7a. That is both
+    generators, the twenty one spec pages, and the English rewrite as far as it
+    had got. `c292a55` "part 10b" is the rest of that rewrite plus the docs
+    manifest's four icons. `8896377` "part 10c" and `102e6fe` "part 10d" are the
+    华文 for the spec pages, and 10d carries the bot's `/docs` and the seam with
+    them. **Read the paragraph above before picking the next letter.** The log
+    and this list disagree from `cd2cfa9` onwards, and nothing can fix that now.
+
+    **10e is the memo's own pages, the move, and one defect the move exposed. 8
+    September 2026.** Four decisions were put up before it and all four
+    answered. The number is 10e, the nine pages are translated into 华文, and the
+    move happens in this part. And the memo is rewritten to pass `check-copy.js`
+    instead of being exempted from it.
+
+    **The move is `reference/`.** `careers-gftv-spec.md` and `next-steps.md`
+    both live there and both are committed, per the instruction of 7 September.
+    Two sentences that were false became true by it. One is the brief's own
+    opening line saying it is committed; the other is `the-specification.md`
+    saying the same to every developer. Neither was rewritten while it was
+    false, because the fix was the move.
+
+    **The defect it exposed is that `gen-spec-pages.js` and `gen-memo-pages.js`
+    were gitignored too**, by `gen-*.js`. Nobody had added the negation the
+    other four generators have. So 7a committed twenty one pages generated from
+    a file no clone held, using a script no clone held either. This file said
+    "two generators at the repo root, committed". Both are in `.gitignore` as
+    `!` lines now, with the account beside them.
+
+    **The memo now passes `check-copy.js`, and that was the size of the part.**
+    999 sentences over the 25 word cap and 176 uses of the banned phrase, across
+    6,511 lines. The alternative was exempting the memo tree, which
+    `gen-review.js` already describes as "not copy in any language". It was
+    declined: these pages are published and a reader meets them.
+
+    **A re-wrap followed, and it is a script that refuses.** Every edit landed
+    inline, so 901 lines ended up over eighty columns and one was 876 characters
+    long. The rewrapper compares each block with its rewrapped self on
+    whitespace-collapsed content, and leaves anything that differs alone. It
+    refuses any line a wrapper would turn into a list marker or a table row. It
+    checks the whole file the same way before writing. It rewrapped 730 blocks
+    and refused 5, all five being a sentence that would have started a line with
+    a number and a full stop.
+
+    **The re-wrap found five more of the banned phrase.** They had been wrapped
+    across a line break for months, so `check-copy.js` never saw them. Its
+    pattern is one line at a time, and "rather" and "than" were on different
+    ones. Joining the lines is what made them visible. That is a smaller version
+    of the rule this file keeps arriving at. A check sees the shape it was
+    given, and not the thing itself.
+
+    **The number in the log is 10e and the number in this file is 10e.** That is
+    the first time since `cd2cfa9` it has been true.
+
+    **10f is four things a reader asked for, 8 September 2026.** Portal and bot
+    work, split off 10e for the reason 10 was split from 10a. A commit carrying
+    nine generated memo pages and a Telegram keyboard is a commit nobody can
+    review as one thing. Numbered at the asker's direction.
+
+    **The `/docs` pager is three seats and never two.** The first page reads
+    Last, page, Next; the last page reads Previous, page, First; every other one
+    reads Previous, page, Next. The seat that has nowhere to go wraps instead of
+    disappearing. The row does not move under a thumb that is already resting on
+    it. Somebody who has read to the end of a nine part page can get back to the
+    start without scrolling up to the menu.
+
+    **The middle seat says where the reader is and goes nowhere.** Telegram
+    gives an inline button no way to be inert, so it answers with the same "4 of
+    9" the message already carries. **The numbers ride in the callback
+    payload**, which is what makes that free. The alternative is reading the
+    page back out of Supabase and paginating it again, to learn a number the
+    button had when it was drawn.
+
+    **The navigation buttons carry emoji in both languages**, which is the other
+    half of the same request. They are `◀️ Previous`, `Next ▶️`, `⏮️ First`,
+    `Last ⏭️`, `↩️ Back to the guides` and `📄 4/9`. The arrow is the half a
+    reader sees first, and on a phone often the only half. A Chinese label and
+    an English one are different widths, and the arrow is the same in both.
+
+    **`helper.lede` was being shown to a helper**, in the box that opens when
+    they select wording and offer a correction. The line naming where the words
+    are printed the dictionary key for an interface string. That says nothing to
+    the person being asked what is wrong with it, and reads as a fault on the
+    page. A posting field was already named properly beside it. **Nothing is
+    lost by dropping it.** The key still travels as `target_key`, and the review
+    queue draws it twice. That is where somebody about to change a string needs
+    it, and this is where somebody about to describe a problem does not.
+
+    **English is a grantable helper language now**, asked for so a wrong English
+    string can be fixed by the people who find it. It was excluded on the
+    argument that `014` refuses a translation row for the default language. An
+    English helper would hold a role over nothing. That reads the role as the
+    translation queue alone, and it is not. `gftvjobs_translation_helpers` is
+    also what `annotator()` reads to decide who may suggest a correction in
+    place. A helper granted English has no translations to draft and every
+    English string on the site to correct.
+
+    **The route agrees with the page, and the route is what decides.**
+    `grantable` and `helperLocale()` both accept the default language now.
+    `admin.grantHelperBody` says in both languages what the role means, when the
+    language is the one everything is translated from.
+
+    **One check asserted the old rule and now asserts the new one**, phase 8's
+    78, which reads the roster's `grantable` list. It runs against the
+    deployment, so it is owed after the push and not before it.
+
+    **The bot guide moved with the pager**, in English and in 华文. The page
+    describing Previous and Next would otherwise be describing a keyboard that
+    no longer exists. Three checks were added to `docs-command`, 22 to 24e. They
+    are the wrap at both ends, the middle seat carrying its total and going
+    nowhere, and every navigation label carrying its emoji.
+
+**The webhook confirmation notice is not a part**, per the decision of 1
+September 2026. It is its own commit, numbered the way `2c27a2b` was. It is
+portal and bot work, and this phase's subject is prose. **Where it falls was
+settled on 7 September 2026: after 10a and before the flip.** So the phase's
+remaining order is **7a, 10, 10a, the notice, then the flip**. 10a's own list
+ends at the checks and not at the flip. The flip is the last thing that happens,
+and the notice is in front of it. That is phase 13's walk, lift, then flip, in
+this phase's shape. The forty cases phase 11 part 5 owes are re-walked at
+decision 27's by-hand sitting, which is already owed and already opens with a
+seed.
+
+### Part 1 in detail, because it is the one that is not prose
+
+**What was found, 3 September 2026.** `gftv-theme.md` is applied to the docs
+site as a token contract and **not as the chrome it also specifies**. Phase 13
+and section 5 item 27 both recorded the first half and called the second half
+the specification. That was wrong, and item 27 carries the correction.
+
+- `theme.css` and `theme.js` are generated in, the tokens apply, and part 7
+  measured every component in all four combinations. **That part is real.**
+- **`icons.js` is generated into the docs site and its shell uses it zero
+  times.** `docs.css` defines no `.icon-btn` at all.
+- The mode control is `<button class="docs-btn docs-btn-quiet" id="docsMode">`
+  with the word "Light" or "Dark" in it. The language control is a bare
+  `<select>`.
+- `gftv-theme.md` is not only colour: **its section 3 is HTML**, prescribing the
+  modal markup verbatim. That is `.modal-backdrop`, `.modal.glass-card`,
+  `role="dialog"`, an `.icon-btn small` close, and Mode and Colour theme
+  sections. Its non-negotiable rules say a reader opts into dark "explicitly in
+  the theme modal". Its acceptance checklist has **"theme button icon matches
+  the active mode"**. That presumes an icon button this site has not got.
+
+**Two decisions, both settled 3 September 2026 with the conflict on the table.**
+
+- **Extract and generate, one implementation.** The two modals live inside
+  `main-site/assets/js/shell.js`, and the docs site has its own `shell.js` by
+  design. So they come out into their own module for `gen-docs-lib.js` to copy.
+  That is decision 1's pattern, applied to a file that was never split that way.
+  `docs.css` defines `.icon-btn` and the modal classes in its own language. That
+  is decision 8's adapter working exactly as it did for the nine settings
+  panels. Writing docs-native modals was offered and declined: a second
+  implementation of a control `gftv-theme.md` prescribes exactly is the
+  duplication decision 1 exists to prevent.
+- **Both axes, overruling 16d.** Mode *and* colour theme, as the theme file's
+  markup prescribes. 16d gives this header "the light and dark toggle" and no
+  colour control. **This is the third edit this build has made to the
+  specification**, after part 6a's language overrule. The argument is that the
+  `hello` palette is already generated into this site. Part 7 already measured
+  every component against it in all four combinations, so nothing is unproven.
+  It lights up a palette that is currently paid for and unreachable. Section 5
+  item 27's "nothing is owed unless somebody wants the choice to carry" is
+  answered: somebody does.
+
+**What the part covers, surveyed 3 September 2026 and smaller than it looks.**
+The survey is written down because two of its three findings remove work that
+the plan above assumed:
+
+- **No new CSS.** `theme.css` already defines `.icon-btn`, `.modal`,
+  `.modal-backdrop`, `.swatch`, `.mode-toggle`, `.mode-btn` and `.locale-btn`,
+  and **it is already generated into `docs-site/`**. That site has been shipping
+  the styles for controls it never built. That is the same half-application this
+  whole part is about, seen from the stylesheet's end.
+- **One missing dependency, and it is portable.** The two modals are built by
+  `createDialog` from `dialog.js`, which the docs site does not have.
+  `dialog.js` imports `i18n.js` and `icons.js` and nothing else, both already
+  generated, so it goes across as an `Identical` file with no transform rule.
+  **`danger-confirm.js` builds its own `<dialog>` element** instead of using it,
+  which is why the docs site has worked without it until now.
+- **The four functions come out of `main-site/assets/js/shell.js`** into a new
+  `assets/js/chrome-modals.js`: `renderThemeModal`, `renderLanguageModal`,
+  `wireThemeModal`, `wireLanguageModal`. They already address their buttons as
+  `#themeButton` and `#languageButton` through `document.querySelector`. So
+  **the docs header uses those same ids**, and the module needs no parameter for
+  it. Identical means identical.
+
+So the work is the extraction, and two entries in `gen-docs-lib.js`. Then the
+header markup in `docs-site/shell.html`, swapping a text button and a `<select>`
+for the palette and globe icon buttons. Then `hydrateIcons` called in the docs
+shell for the first time, and the dictionary keys both modals need in
+`docs-site/assets/i18n/`, which `check-i18n.js` will name. Then retiring the
+`header.mode*` keys nothing will use any more. And checks that the docs header
+carries both controls, and that the `hello` palette is reachable from it.
+
+**The portal must come out of this unchanged**, which is the risky half.
+`tests/phase12-test.mjs` is the file that says so, and the extraction moves code
+out of the file that draws every page's header.
+
+**Two parts are large enough to be worth watching.** Part 4 at 19 pages is more
+than any phase 13 part carried. Part 6 has to render this specification and this
+memo as pages. Splitting either into two was offered and declined. If part 4
+runs long, splitting it at the boundary between postings and applications is the
+seam that was already identified.
+
+### The decisions this phase owes
+
+They were listed so the phase would start by settling them instead of
+discovering them. **Decisions 1 and 4 are settled and built; 2 and 3 are still
+open.**
+
+1. **How a guide's translation is authored and reviewed. Settled by part 9, 6
+   September 2026, and both halves are built.**
+
+   **Authored as files**, under `docs-site/translations/<locale>/`, keyed by the
+   page's own address, upserted into `gftvjobs_docs_translations` by the build.
+   Deviation 133 is the whole argument, including what it costs.
+
+   **Reviewed on the page `gen-review.js` already writes.** It grew a section
+   for the guides: every page, its title and summary, then paragraph by
+   paragraph beside its English, at 2,404 entries. The tree is declared as a
+   tree and not as 82 filenames. A page added later is on the reviewer's page,
+   without anybody remembering to say so. It reports any page whose two halves
+   stop lining up paragraph for paragraph; all 82 line up today.
+
+   **The round trip is still outstanding and is now larger**, which is the part
+   nothing here discharges. It has been with the reviewer since 31 August and
+   the 82 pages go with it.
+2. **Whether the guides are versioned against the phase that built the
+   feature.** A guide describing a screen that changes in 15 is a guide nobody
+   notices is stale.
+3. **Whether `--only=walk` belongs in a phase file**, from section 3's new rule.
+   The probes that checked item 24's walk live in a scratchpad. Every step of a
+   by-hand walk leaves a row that a script can read.
+4. **What the docs site's `sw.js` decision becomes**, and it is two questions
+   and not one. Phase 13 decision 3 said no worker while the content was five
+   placeholder pages. **Seventy six pages is the case that was deferred**, and
+   decision 3's own reason now argues the other way. A stale gated page is worse
+   than a missing one. A staff member following a procedure from a cache after
+   the step changed is the failure that reasoning was about.
+
+   **If there is a worker there is an update bar**, and `update-bar-spec.md` is
+   portable by its own first lines. It says "drop it into any site that ships a
+   service worker". The portal already implements its honest option: nothing
+   calls `skipWaiting()` in install or activate, and `offline.js` posts
+   `skip-waiting` only when a reader presses Reload. So this is a second
+   instance of decision 1's question: one implementation generated into both
+   sites, or two. That is the fourth time, alongside the official banner in
+   section 5 item 28.
+
+   **And it drags check-precache.js's second half with it**. That check is about
+   the portal today. A docs worker means a precache list on this site that
+   nothing yet compares against the files on disk.
+
+### Before the phase is called done
+
+- **`node docs-site/scripts/build.js`**, from `docs-site/`, which is the one
+  check that is also the deploy. **It needs the database, as of part 9**, which
+  is where that stopped being a forward looking sentence. It writes the two
+  documentation tables, and refuses to run without `SUPABASE_URL` and
+  `SUPABASE_SERVICE_KEY`. On a clone with neither, `--no-database` builds the
+  files alone and prints a banner saying what is missing. It is refused on
+  Vercel.
+- **`node gen-docs-lib.js --check`**, which fails when a change lands in
+  `main-site/api/_lib/` or `main-site/assets/js/` and stops there. **As of part
+  2b it also covers three images at the portal's root**. So a rebranding that
+  changes `favicon.ico` or `HLC-main.png` is caught here, instead of leaving the
+  docs site on the old mark.
+- **`python commands.py --check`**, from `telegram-bot/`. Three documents as of
+  part 3, the third being the guide's command reference on the docs site.
+- **`node check-i18n.js`**, both sites. **`node check-copy.js`**, which reads
+  both content trees and is the check this phase leans on hardest.
+- **`node gen-review.js`**, which fails on any file shipping 华文 that is on
+  neither of its lists.
+- **`node check-precache.js`**, unless decision 4 above gives the docs site a
+  worker, in which case it grows a second half.
+- **`node tests/phase13-test.mjs`**, **3,199** as of part 7, twenty seven of
+  them against the deployment. It was 677 at the end of phase 13, 1,321 after
+  part 2 was pushed and 1,977 after part 3. The number moves with the page
+  count, because the responsive section runs per page. A part that adds fourteen
+  pages adds around 650 checks. **It takes upwards of half an hour now.** Run
+  `--only=live` after every docs deploy, and the whole thing once per part.
+
+  **Check 24 fails while a part sits uncommitted**, every time, and it is the
+  predicted failure and not a defect. `scripts/build.js` dates a page from git,
+  and a page git has never seen carries no date on purpose. It read 1,976 and 1
+  before `12ec9de` and **3,198 and 1 before part 7 was committed**, and the push
+  discharges it in both cases.
+- **`node docs-site/scripts/embed-tests.mjs --check
+  docs-site/api/_content/developer/test-scripts.json`**, from the repo root and
+  new as of part 7. It fails when a script in `tests/` has moved and the
+  committed copy the developer guide serves has not been rewritten. **Editing
+  `tests/phase14-test.mjs` is a change to `tests/`**, so this is the one check
+  in the list whose own suite can invalidate it.
+- **`node tests/phase14-test.mjs`**, **483** as of part 9. Needs no credential,
+  no database and no network, and writes nothing. But the `browser`, `contrast`,
+  `a11y`, `worker`, `install` and part of `developer-guide` read
+  `docs-site/dist/`. So run the build first, or they skip with a sentence saying
+  so. **`--only=install` is the one that runs a service worker**, in a real
+  Chromium against the stand in server. It is the only check in either suite
+  that does.
+
+  **It skips exactly one check while part 9 sits uncommitted**. That is the same
+  predicted failure phase 13's check 24 has, and for the same reason. A
+  translation's date comes from git, and a file git has never seen carries none.
+
+  **It can be run beside `tests/phase13-test.mjs`, as of part 6.** That suite
+  plants a fixture page and image inside `api/_content/admin/` and removes them
+  at the end. An overlapping run used to read a fifteenth admin page and a ninth
+  screenshot slot. Check 62 skips the two fixture names by name now.
+- **`node tests/phase12-test.mjs --only=contrast`** whenever `theme.css` moves,
+  which part 1 is the reason to say out loud. That file is generated into both
+  sites, so a token edit made for one of them lands on the other.
+- **`node tests/phase12-test.mjs`** in full, at **554 passed, 0 failed, 6
+  skipped**, re-run after part 4 pulled `offline.js` in half and unchanged by
+  it. `tests/phase10-test.mjs` was re-run for the same reason and is **127
+  passed, 0 failed**. It is the portal's own offline suite, so it is the check
+  that the refactor did not move the worker underneath it.
+
+  **The six skips are the same six as of part 2a**. They are the four that need
+  staff or applicant credentials, the sitemap comparison that needs a posting,
+  and the service page preview. `--only=seam` is 49 of those. **Run the whole
+  suite and not the seam alone after a phase flips**. Two of its checks had been
+  failing since phase 13 shipped, and nobody had run it.
+  `tests/phase10-test.mjs` and `tests/phase11-test.mjs` are at **127** and 89.
+- ~~**The bot's tier logic against the site's**, if `/docs` is built~~. ~~It is
+  the test that does not exist yet, and is the price of that decision.~~
+  **Discharged by part 9 instead of paid.** `gftvjobs_docs_public` inner joins
+  the translations to the public mirror, so a gated page cannot appear in the
+  view at all. The bot reads the view and holds no tier logic, which leaves
+  nothing for a second copy to disagree with. Part 10 builds `/docs` against
+  that view and against neither table.
+- **Phase 12's owed items**, in section 5. They are part 4's round trip, part
+  2's by-hand half, phase 11's 29 step walk, and the seed re-cleared after
+  decision 27's sitting. None of them gate this phase and none of them go away.
+
+---
+
+## 3. Rules that are load bearing
+
+Breaking one of these is how a defect gets built and not found.
+
+- **A change to `main-site/api/_lib/` is half a change**, from phase 13 part 1.
+  The docs site holds generated copies of fourteen of those modules and six
+  staff auth routes, so the other half is `node gen-docs-lib.js`. `--check` is
+  what fails when it was not run. **Nothing under `docs-site/api/_lib/` or
+  `docs-site/api/auth/staff/` is ever edited**: every file there opens with a
+  banner naming its source. An edit is undone by the next run. The rules the two
+  sites genuinely differ by are in the generator with reasons attached. A rule
+  whose text stops appearing stops the run instead of producing a copy that has
+  lost the difference. **As of part 4 it covers `assets/js/`, `assets/css/` and
+  `assets/fonts/` as well**, so a change to `theme.css` is half a change too.
+  **Seven files in those directories are this site's own**, and they are named
+  in `OWN`. Those are `tiers.js`, `pages.js` and `reader.js`, the gate. Then
+  `docs.css`, `shell.js` and `markdown.js`, the shell; and `generated.js`, which
+  reads what part 5's build left behind. Each opens by saying so. A file that is
+  neither generated nor declared still fails.
+- **`gftvhello_users` is written from one file and two columns, and there is no
+  third**, from phase 13 part 6. `api/_lib/staff-account.js` on both sites, and
+  `password_hash` per 5g and `totp_secret` per decision 7. Section 2 permits the
+  challenge, trusted device and backup code rows the login flow owns and nothing
+  else on that table. **The rule is checked and not remembered**:
+  `tests/phase13-test.mjs --only=account` greps both projects and fails on a
+  second writer or a third column. A fourth caller is a decision and not a
+  patch, because the consequence reaches gftv.asia and nobody there is asked.
+- **A count that could not be read is `null`, and `null < 3` is `true`.** Phase
+  13 part 6, and it is the oldest rule in this file meeting the language it is
+  written in. `codeCounts` answers `null` for a table it could not read, and six
+  places derived "running low" from a `<`. Every one of them would have told
+  somebody they were nearly out of the only way back into their account. That
+  was at the moment nothing could be read at all. `codesLow()` is the answer,
+  and a page drawing `?? 0` is the same defect wearing a different face.
+- **A gated page in the static tree is a leak, and it is checked in both
+  directions**, from phase 13 part 3. Anything under `docs-site/content/` is
+  world readable whatever the interface does, so a page whose `access` is not
+  `public` refuses to load there. A `public` page under
+  `docs-site/api/_content/` refuses too, because it is a page nobody can find.
+  16e gives the `access` key one job and this is what makes it the only thing
+  deciding either question. **A page above the reader's tier answers 404 and
+  never 401.** The miss and the refusal are one value inside `pages.js`, so that
+  nothing downstream can tell them apart.
+- **A file based dynamic route is a framework's feature, and neither project
+  here is a framework.** `api/content/[...page].js` shipped in part 3, answered
+  404 to every request on the deployment for two parts, and looked perfect
+  locally. In a bare `api/` project Vercel binds nothing from `[param]` into
+  `req.query` and does not match a catch-all past one segment. **Every route in
+  this repository is a plain function**, addressed explicitly, the way the
+  portal's have been since phase 1. And the sharper half: **a stand in server
+  that is more capable than the platform hides exactly this.** So the one in
+  `tests/phase13-test.mjs` answers the path shape with the platform's own 404.
+- **Ask the deployment.** Phase 3's rule — a route returning 200 is not evidence
+  its rewrite works — has now cost four defects. The fourth was found because
+  somebody looked at the live site for ten minutes. A part that has only run
+  locally is a part that has not run.
+- **What the docs project serves is what its build copied**, from phase 13 part
+  5. `docs-site/vercel.json` carries `buildCommand` and `outputDirectory`, and
+     `dist/` is the whole of that site's public surface. Neither content tree is
+     in it, so a page cannot be reachable as raw markdown beside the page built
+     from it. A new file in the project is not a new URL. **`dist/` and
+     `api/_generated/` are gitignored and a local preview needs the build run
+     first.**
+- **A gated image is a bare file name and a public one is an absolute path**,
+  and each refuses the other at build time. 16e's "a gated page with a public
+  screenshot is a leak with extra steps" is a build failure, in both directions.
+  A rule only stated in prose is a rule somebody follows until the afternoon
+  they are in a hurry. **An asset is gated at its section's level**: there is
+  nowhere in a `.png` for an `access` key.
+- **The two search indexes meet in the reader's browser and nowhere else.** The
+  public one is a static file, the gated ones are one per tier, and
+  `api/search-index.js` sends the tiers at or below the reader's own. There is
+  no server side merge to get wrong, which is 16e's warning designed out and not
+  tested for.
+- **A flag set at the top of an async function is not a lock**, from part 5's
+  first defect. `loadIndex` set `loaded = true` and then fetched. So the call a
+  keystroke later returned instantly with an empty index, and the first search
+  anybody ran answered "nothing matched". Memoise the promise, not a boolean.
+  The same family as "a fixed wait after a click is a race".
+- `api/_lib/admin-jobs.js` has its own column list and does not import
+  `job-detail.js`'s. The public allowlist exists so a public payload cannot be
+  widened by an edit to shaping code.
+- **Five things write `applied_at` and `cooldown_until`.** They are a confirmed
+  application, a withdrawal, an explicit waive, and **as of phase 9 the webhook
+  and the manual link beside it**. Those last two are the first that are not a
+  person. A sixth ends a cooldown without writing either column — deleting the
+  tracking row takes them with it. **Phase 10 does not add a seventh**: a queued
+  offline answer is pending until the server confirms it.
+- **A cooldown already being served never moves.** `confirmApplication` writes
+  both dates unconditionally, which is right for an applicant clicking Yes and
+  wrong for a webhook. Section 13 step 5 says to set them "if they are not
+  already set". The guard is in `confirmFromWebhook`, not in `apply.js`.
+- **A new view needs `revoke` and `security_invoker = on`, every time**, in the
+  file that creates it. Migration `035` closed the four that existed.
+- **A file at a path a function serves wins, silently.** Vercel matches the
+  filesystem before it consults rewrites, so `main-site/robots.txt` and
+  `main-site/status/index.html` both had to be *deleted* for their functions to
+  run at all. That is phase 12 parts 5 and 7, and phase 3's rule for the third
+  time. The two checks that catch it are in the `discovery` and `status`
+  sections, and they assert an absence. **Deleting a page also breaks whatever
+  was reading the filesystem to find it.** Four things could not resolve
+  `/status` afterwards, and all four now render it from the same module the
+  function does.
+- **A new table needs neither**, and gets `enable row level security` as it
+  always has. RLS reaches a table and does not reach a view.
+- **The defence is RLS plus the shape of PostgREST, not RLS alone.**
+- **An authenticated response never enters the Cache API.** Phase 10's version
+  of the same instinct, and the reason is the same one: this origin is shared
+  with the other GFTV apps.
+- **A response carrying `private` or `no-store` never enters the Cache API
+  either.** This is the sharper half, because the two routes it catches look
+  public from inside a worker. `api/job-page.js` and `api/public/job.js` both
+  answer `private, no-store` with `Vary: Cookie` for an archived posting. That
+  renders only for an applicant with history, and for a staff preview.
+  `isCacheable()` in `sw.js` is the single place that decision is made.
+- **A switch has to work in both directions, and the off direction is where that
+  gets forgotten.** `sw.js` handles `/api/public/feature-status` above its own
+  kill switch and acts on the switch's edges and not on every request. That is
+  the difference between a switch and a one way door. Deviation 89. Anything
+  that turns a subsystem off has to leave itself a way of hearing that it has
+  been turned back on.
+- **A Supabase Storage URL is never cached at all.** `sw.js` does not intercept
+  cross origin requests, which is how that holds without a special case. The
+  reason is the dashboard, not the applicant: it renders other people's faces,
+  and a cache-on-use rule could not tell those from the reader's own. The
+  reader's own avatar is a blob in IndexedDB, wiped with the rest of their data.
+- `unavailable()` fails open. A settings blip must not take the site down.
+- **`unavailable()` in a cron is not the same call as in a route.**
+  `api/cron/daily.js` calls `isFeatureOff` and **records a run that says it was
+  switched off.** A scheduler is not reading the 503, and the panel would
+  otherwise say "no run" for both an admin's decision and a broken schedule.
+- The denylist in `maintenance.js` is checked when an override is *read* as well
+  as when one is written.
+- `featureOverrides` ignores anything whose phase has not shipped.
+- **The set is frozen the moment a task is sent.**
+- **Answers are validated against the set stored on that task.**
+- **A count that could not be read is `null`, never `0`.** `api/admin/me` set
+  this; `lastRun` extends it to three states. The reason: "the table could not
+  be read" and "there has never been a run" are different claims. Only one of
+  them is ours to make.
+- **`ts_headline` is the only field the browser assigns as markup.**
+- **Run `node check-i18n.js` before shipping.** Anything calling `t()` outside
+  `translateDom` must re-run on `gftv:localechange`, or it renders a raw key.
+- **Bump `sw.js`.** Every change to `main-site`, not once per phase. At `v96`,
+  and **phase 9's commit is the one that proved the rule needs saying.** It
+  changed twenty-odd files under `main-site/` and left the version alone.
+- **Never call an async handler bare from a listener.** `runAction` exists in
+  `admin-shell.js`, in `admin-job-editor.js`, and in `account-shell.js`.
+- **Anything reading a module level cache has to be sure something filled it.**
+- **A fixed wait after a click is a race, not a delay.**
+- **The rate limit is checked before the role**, so a spent bucket answers 429
+  to something it would have refused with 403.
+- **A fill and the text on it are a pair, and the pair is named.**
+  `--brand-dark` goes with `--brand-on`, `--danger` with `--danger-on`.
+  **`--brand` and `--brand-text` are not a pair**: the first is the brand colour
+  and the second is accent text for a page background. Putting one on the other
+  gave the sidebar badge 1.10:1 in hello dark. Anything painting a fill takes
+  the `-on` token that belongs to it.
+- **A probe measures what is in it, and a list of components is a list somebody
+  wrote.** The `contrast` section passed 26 checks while a badge sat at 1.10:1
+  and a primary button at 3.51:1. Neither was in the probe, and a fill with a
+  label on it was a shape nothing asked about. **When a check is a list, the
+  question to ask it is what shape is missing**, not whether the entries pass.
+  **The same rule reaches a page as well as a check**: `zh-review.html` named
+  fifteen dictionary groups. It rendered 223 of 1,728 interface strings for nine
+  phases, while counting all 1,728 in its own header. **Derive the list from the
+  thing, and let the written one decide order and not membership.**
+- **A term is not a word in a language that puts no spaces between words.** 选中文字
+  is "select text" and contains 中文, which means nothing of the sort. A check
+  that looks for a term by substring reports a finding that is not there. It bit
+  from the other direction in part 1, where `split(/\s+/)` counted a sixteen
+  character Chinese tag name as one word. It read every wrapping Chinese label
+  as a cramped control. **Anything measuring 华文 by matching characters needs its
+  exceptions written down beside it.**
+- **A space sits between Latin and Han, and never between Han and Han.** The
+  review page's footer stated it from phase 3 and nothing measured it until part 4. By then 国际兽视 had been spaced like a Latin word in three places.
+- **Two files that say they carry the same sentence need a check across the
+  boundary.** `strings.py` reproduces `feature.unavailable` and
+  `feature.maintenance` exactly as the dictionaries have them. Somebody turned
+  away by a button and then by a command must be told the same thing twice and
+  not two different things. `check-i18n.js` covers the site and cannot see a
+  Python file, so nothing checked the claim for a whole phase. In the same pass
+  the bot turned out to say 志愿性质 where the site says 义务性质 about the same roles.
+- **There are three border tokens and the difference is what they are drawn
+  around, not how heavy they look.** `--border` separates things that are not
+  controls and is faint on purpose. `--border-strong` is emphasis — a hover, a
+  selected state, a table header rule, a badge. **`--border-control` is the edge
+  of a control**, clears 3:1 in all four combinations by construction, and is
+  the only one 1.4.11 reaches. **A hover is not a component boundary**, which is
+  what the first shape of phase 12 part 3 got wrong. It raised `--border-strong`
+  for the switch track's sake and re-weighted twenty one rules that had failed
+  nothing.
+- **A colour is measured after the page has settled, and a translucent one is
+  composited before it is compared.** Both halves were found by the check
+  reporting an impossibility and not a finding. A custom property flips on the
+  instant and a `background-color` eases over `--transition`. So for 220ms a
+  theme switch really is one mode's text on the other's background. And half
+  this palette carries an alpha, so comparing the token's own rgb with the page
+  is a pass for a border nobody can see.
+- **`vercel.json` cannot carry a comment.** It is schema validated and an
+  unknown key fails the deploy. So the reasoning for the `crons` and `functions`
+  entries lives in the header of `api/cron/daily.js` instead. Do not put one
+  back.
+
+### What phase 9 added to the list
+
+- **A secret is compared before the body is read.** Both new endpoints do this,
+  and putting a rate limit in front of it would add a table read to every
+  unauthenticated request. That makes the endpoint cheaper to flood, not harder.
+- **The webhook answers 200 to a database failure.** Section 13 step 7, and it
+  is the opposite of every other route here. The reason is in the file at
+  length, because somebody will otherwise "fix" it.
+- **The submission row is written first and the match attached last.** That
+  ordering is the recovery story: a confirmation that throws leaves the row in
+  the unmatched list. An admin sees it there, and linking it re-runs the
+  confirmation. Matching on insert would leave a row that looks handled and is
+  not.
+- **A form check that learned nothing writes nothing.** Not `ok`, not `error`.
+  See deviation 55.
+- **The webhook's caller has no locale**, so everything it writes picks English
+  deliberately. Nothing it writes is read by an applicant.
+
+### What phase 9's verification run added to the list
+
+- **Waiting for an element that is in the static markup is waiting for
+  nothing.** The sibling of "a fixed wait is a race", and it bit twice as hard.
+  It fails in the direction that looks like a product defect. The box was there,
+  empty, and the check dutifully reported a working panel as broken. **Wait for
+  the content, not the container**, on anything a page fills after a fetch.
+- **A `requireEnv` at module level runs before `--only=` is read.** An offline
+  section documented as needing no credentials still exited on a missing
+  password. Anything a section flag is supposed to make optional has to be read
+  after the flag, not above it.
+- **A 401 and a 503 from the same endpoint are a diagnosis.** Phase 9's two
+  machine endpoints answer 503 when the secret is not configured and 401 when it
+  is configured and wrong. Keep that split in anything new: it is the difference
+  between "nobody set the variable" and "your copy of it is stale". It saves a
+  trip to a dashboard nobody should need.
+
+### What phase 10 added to the list
+
+- **A failed request is a third state.** `applicantSession` answered `{ user:
+  null }` for both "nobody is signed in" and "we could not ask". Both dashboards
+  then threw a signed in person out to a sign in page that could not load
+  either. `unreachable` on the session, and only a real signed out answer
+  redirects. The same shape as `null` versus `0` for a count.
+- **A null answer is never an instruction to delete anything.** Section 14 says
+  wipe on logout; the obvious reading wipes when the session request fails,
+  which offline is every single time. That deletes the applicant's own copy at
+  exactly the moment it is the only one they have. Only an explicit sign out and
+  a mismatched user id wipe. **A failure to ask is not an answer.**
+- **Three reasons a control can be disabled, and they never share a sentence.**
+  Not built, switched off, and needs a connection. The third is about the reader
+  and not about us.
+- **Two things doing one job is how the sentences drift apart.** Deviation 87:
+  an orphaned earlier draft of the same module was found in the tree. The two
+  good ideas in it were taken, and the file was deleted and not kept.
+- **A duplicated rule needs a check that the two copies still agree.** `sw.js`
+  carries a second copy of the queue's verdict rule because a worker cannot
+  import a module. Two checks exist only to catch the pair drifting. That
+  includes the Background Sync tag, where a mismatch is a queue that silently
+  never flushes.
+- **Anything that turns a subsystem off has to leave itself a way of hearing
+  that it has been turned back on.** Deviation 89.
+
+### What phase 11 part 1 added to the list
+
+All four were found by running the code once before it went anywhere near the
+VPS. In a component with no scripted checks that is the whole of the safety net.
+
+- **`sqlite3.executescript` commits whatever transaction is open before it runs
+  a line.** A migration written as one script inside an explicit `begin` is not
+  inside the transaction it appears to be inside. The commit that follows fails
+  with "no transaction is active", and a failure halfway leaves the schema
+  changed and the version not. `db.py` stores each migration as a tuple of
+  statements and executes them one at a time instead. `pragma user_version` is
+  written inside the same transaction, which is what makes a failed migration a
+  no-op.
+- **An empty string is a real answer, and `or` reads it as a missing one.**
+  `text()` fell back to English for any key whose translation was deliberately
+  empty. The one that exists today is the separator between two sentences on one
+  line. That is a space in English and nothing at all in 华文. So the fallback put
+  a gap in the middle of a Chinese sentence. Membership, not truthiness. The
+  same shape as **a count that could not be read is `null`, never `0`.** The
+  absence of a value and a value that happens to be empty are different claims.
+- **A module named after a standard library one shadows it for every library in
+  the process.** The bot's directory is first on `sys.path`, so `locale.py`
+  would have been handed to anything importing the standard `locale`. The
+  failure would have arrived weeks later inside somebody else's code looking
+  like anything but a naming decision. It is `lang.py`.
+- **What a menu says and what actually answers come from one list.** Telegram's
+  command menu is registered at startup from `commands.py`, `start` prints from
+  it, and `setup.md` carries the same lines for BotFather. A command's
+  availability is read from the handler registry the dispatcher itself uses, so
+  the message cannot describe a bot that does not exist. Deviation 91's second
+  failure, designed out and not tested for.
+- **A list pasted into a document is a second copy, so it is generated and
+  checked.** `setup.md` has to carry the command block as text. Somebody pastes
+  it into BotFather from there, and a document that says "run this script
+  instead" is a document that gets skipped. So `python commands.py` prints it
+  and **`python commands.py --check setup.md` fails if the document has
+  drifted**, in either language. The same shape as `check-i18n.js` and
+  `check-precache.js`. It is also the shape of phase 10's two checks that the
+  worker's duplicated verdict rule still matches `queue.js`.
+
+### What phase 11 part 3 added to the list
+
+- **A secret nothing can deliver is a secret nothing should generate.** The site
+  cannot reach Telegram. So a code it produced would have to cross
+  `gftvjobs_telegram_tokens` in the clear to reach the thing that can. The
+  generator moved to the side that sends. The general shape is worth keeping:
+  when a value must stay hashed at rest, ask which process is allowed to know
+  it. Put the generation there instead of moving the plaintext to it.
+- **A cap counted after the answer is a cap a dropped request walks past.**
+  `attempts` on a code row is incremented before the bcrypt comparison, not
+  after. The same instinct as the rate limiter checking a lock before doing the
+  work and not after.
+- **A GET that spends a credential has to survive being fetched by a machine.**
+  Unfurlers, link checkers and mail scanners fetch URLs and carry no cookies. So
+  the magic link refuses without its nonce **and leaves the token unspent**. A
+  version that spent it would look exactly like a broken bot and would be
+  reported as one.
+- **Both directions of a security switch revoke trusted devices, not just off.**
+  5d lists unlinking and disabling. Enabling is the one that matters more: a
+  browser trusted while the factor was off would otherwise walk straight past
+  the factor being switched on. Doing it on the way in is also what makes an
+  unlink from inside the chat safe. That is without the bot reaching a table
+  section 15 never named.
+- **A switch that would lock somebody out is not the same as a switch that turns
+  a feature off.** `telegram_2fa` gates the one tap link, the `/code` command
+  and the settings panel, and deliberately does not gate the code push inside
+  `api/auth/applicant/login.js`. The account it would affect is one that has
+  already typed its password correctly and asked for two steps.
+- **Two runtimes sharing a hash format need a check that they still agree.** The
+  bot writes bcrypt in Python and the site reads it with bcryptjs. The failure
+  is a correct code refused at a login form with nothing in any log. So
+  `--only=seam` verifies a real Python hash with the site's own `verifySecret`
+  instead of asserting the two are compatible. The same family as phase 10's two
+  copies of the queue's verdict rule.
+
+### What phase 11 part 4 added to the list
+
+- **A claim is a lease, not a transfer, and a lease nobody sweeps is a row that
+  is stuck for ever.** The conditional claim stops two instances sending one
+  message and does nothing at all about the instance that claims a batch and is
+  then killed. Anything that takes ownership of a row has to answer what happens
+  when the owner disappears. The answer here is a five minute lease and a sweep
+  that counts the lost attempt.
+- **A backoff belongs where the process can honour it, and a queue state is not
+  a schedule.** Putting a failed row back to `queued` with a "try again in
+  fifteen minutes" would need the claim to express that, and PostgREST cannot.
+  So the next pass would send it immediately and the backoff would be a comment.
+  The row stays `claimed`, which is the honest word for a row this process owns,
+  and SQLite carries the time. Section 15 asks for exactly this shape for flood
+  waits and it is the right shape for every retry.
+- **A cap counts what the row cost, not what we cost it.** A delivery Telegram
+  refused counts against a row's attempts; a flood wait does not. That is the
+  bot being told to slow down. Spending a row's attempts on our own pacing would
+  eventually mark a perfectly good notification `failed` for being queued on a
+  busy afternoon.
+- **Two deployments and one table: name what you can handle, never what you
+  cannot.** The claim filters on the kinds this build can render, so a kind a
+  newer site queues is never claimed and waits instead of failing. This is the
+  general answer to what phase 11 knew about itself before it started. There is
+  no single deploy landing both halves. It is worth reaching for wherever two
+  halves of this build ship apart.
+- **A queue is the only thing the portal can see of a process it does not
+  deploy.** Everything before this phase reported on itself. The drain runs on a
+  VPS, so the panel infers. Rows moving means it is alive, and an oldest queued
+  row half an hour old means it probably is not. That is why the time is carried
+  and not folded into a count, and it is the shape phase 12's status page needs
+  anyway.
+
+### What phase 11 part 5 added to the list
+
+- **Delivery belongs to the act, not to the caller.** Every task raised queues
+  its notification from inside `raiseTask`, so a raise site written in a later
+  phase cannot forget to tell anybody. Reach for this wherever a second channel
+  is added to something that already writes a record. The failure mode of the
+  other arrangement is silence, and silence is not reported.
+- **The absence of a value and a falsy value are different claims**, for the
+  third time in this build. `null` versus `0` for a count, an empty translation
+  read as a missing one. And now a notify column a select did not name being
+  read as a switch somebody turned off. Membership, or an explicit `is False`,
+  every time a default matters.
+- **What a message is rendered from is copied at queue time, not read at send
+  time.** The row then says what was sent and not what would be sent now. The
+  process on the VPS needs no reach into a table section 15 never gave it.
+- **A stored button meaning is a verb and a subject, never a value.** "Toggle
+  invitations for this account" survives every restart and every flip from
+  another device. "Set invitations to off" is wrong the first time somebody uses
+  two devices, and stays wrong for ever.
+- **A write from a button in an old message is filtered on the state it
+  assumed.** The decline updates only a row still `invited` or `seen`. An
+  invitation the poster withdrew last week cannot be declined by a tap today.
+  The same shape as the outbox claim and the token spend. The filter is the
+  check, and there is no read in front of it to go stale.
+
+### What phase 11 part 6 added to the list
+
+- **The narrowest thing that can answer the question is the one to ask.** The
+  bot holds a key that bypasses every policy in the schema, and `/jobs` is
+  answered by a public endpoint that holds none. Reach for this wherever a
+  process with a powerful credential needs an ordinary fact. The question was
+  "what is on the board", and the board is public.
+- **A count that could not be established is not zero.** For the fourth time.
+  This one arrives as a missing header and not as a missing row. `count()`
+  answers `None` when PostgREST sends no `Content-Range`, and `/tasks` says it
+  could not check instead of saying nothing is waiting. The list is now `null`
+  versus `0`, an empty translation read as a missing one, and a notify column a
+  select did not name. And now this.
+- **A read answers about now and a queued message answers about then.** Both
+  rules are correct and they contradict each other on paper. What decides is
+  whether somebody is standing there. Deviation 107 froze a payload because
+  nobody is, and a command reads the tables because somebody just asked.
+- **Two runtimes naming one enum need a check that they use the same words.**
+  The bcrypt seam again, in the ordinary case and not the cryptographic one. The
+  nine status words exist in `strings.py` and in the site's dictionaries, and a
+  check compares them value by value in both languages. The failure is nobody's
+  fault and nobody's alarm, which is what makes it worth a check.
+- **A list that offers a button must only list things the button can act on.**
+  `/invites` filters on the same two statuses the decline button writes through.
+  So it cannot produce a row whose own button answers "there is nothing here".
+  The general shape: a list and the action on its rows share one definition of
+  what belongs in it.
+
+### What phase 11 part 7 added to the list
+
+- **A check that found nothing to look at is not a pass.** `--check` compares a
+  document against the generated list. The natural implementation compares
+  whatever copies it finds, which answers "clean" for a document that has lost
+  the list entirely. A document with no copy at all now fails by name. Deviation
+  90 said this about `--only=` with a section name that does not exist. It is
+  the same failure in a smaller place, and both times the wrong answer was the
+  reassuring one.
+- **A generated list needs one check per shape it was copied into.** `setup.md`
+  carries the block verbatim because somebody pastes it; the README carries a
+  table because somebody reads it. Checking the second against the first would
+  have meant generating a table nobody wanted. So what is checked there is the
+  half that drifts, the names and their order. The prose beside each name is
+  left to a person.
+- **The parts describe what they built; only the seam re-reads what was said
+  about the whole.** Four documents had drifted by part 7. Every one of them had
+  drifted in a sentence written by an earlier part about the phase and not about
+  a file. Nobody re-reads an opening paragraph while shipping a feature.
+  Deviation 90's "a seam finds what a part cannot", one phase later and in prose
+  and not in checks.
+
+### What phase 11 part 2 added to the list
+
+- **A page test that leaves service workers on is testing two things at once.**
+  Every page here registers one, and an active worker answers from its own
+  precache, where Playwright's `page.route` never sees the request. A stubbed
+  `build-status.json` silently stopped arriving after a reload. So the gate
+  check failed against a copy of the real file, and whether it happened at all
+  depended on how fast the worker installed. `serviceWorkers: 'block'` on any
+  context that is not testing the worker. What it does is phase 10's file's job.
+- **`.modal` matches the shell's own dialogs on every page.** The theme and
+  language modals are in the static markup. A selector that loose reads a colour
+  picker and reports a confirmation dialog as missing its wording. The same
+  family as "waiting for an element that is in the static markup is waiting for
+  nothing". Name what is specific to the thing under test, which here is
+  `.danger-dialog`.
+- **A devDependency for verification is not a dependency.** `jsqr` decodes what
+  the encoder produced and never reaches a browser or the site's own
+  `package.json`. The rule that matters is which `package.json` it lands in.
+
+### What the flip to `shipped` added to the list
+
+- **Assert the computed style, not the attribute**, on anything a stylesheet
+  written for something else can reach. `theme.css` strokes every `svg` with currentColor for the icon set. The QR's viewBox is measured in modules, so a 1.75 unit stroke flooded it. The three checks reading the path data and
+  the `fill` attributes all passed against a page that was a solid block.
+  Deviation 115. Same family as "waiting for an element in the static markup is waiting for nothing". It is a check agreeing with the source while the page is
+  wrong.
+- **A QR is black on white in every theme.** It is thresholded by a camera, not
+  read by a person, so the reader's theme is none of its business. The rule
+  generalises to anything a machine reads off the screen.
+- **A presentation attribute loses to a stylesheet**, which is why the fix is a
+  CSS rule and not tidier attributes in `drawQr`.
+
+### What parts 6c and 6d added to the list, 30 August 2026
+
+- **A message written at `DOMContentLoaded` is written before the dictionary has
+  landed.** `t()` answers with the key until it does, so `auth.magicOff` printed
+  as its own name on `/login`. It is the one message on that page written before
+  anybody clicks anything. That is why nothing else on the site showed it, and
+  in English nothing hid it. **Paint anything rendered before an interaction on
+  `gftv:localechange`**, which fires when the dictionary applies and again on
+  every switch, and not on a timer.
+- **"The box is visible" is not "the sentence is right".** Check 41 asserted the
+  message box was on screen, which was true the whole time it was wrong. It
+  waits for the dictionary's own sentence now, and it was proved both ways.
+  Deviation 115's shape in a second place, four days later.
+- **A shared error code needs the branch on the client, not just the detail on
+  the server.** `unavailable()` has answered `NOT_YET_AVAILABLE` with a
+  `details.reason` separating "switched off" from "never built" since phase 8.
+  `translateError` keyed on the code alone, so a feature an admin had turned off
+  told people it had not been built yet. That is the one pair of sentences 0c
+  exists to keep apart. The information was in the payload and nothing read it.
+- **The tone follows the wording.** A feature an admin has just switched off
+  comes back as `callout warn` and not as a red danger callout. The person
+  reading it is very often the person who flipped the switch. It still keeps
+  `role="alert"`: the action did not happen.
+- **A decision written out fourteen times is one that gets made differently in
+  one of them.** `adminApiError(error)` picks the tone in one place, and the 55
+  hand written copies now call it. The roughly 15 sites that pass a sentence the
+  page wrote itself are left alone: those are not API failures.
+- **A thing that could not be done is not a yes**, for the fifth time in this
+  build. `trustApplicantDevice` returned nothing, so a failed insert was still
+  reported as `device_trusted`.
+
+### What phase 12 part 1 added to the list
+
+- **A control added later is not covered by the rules written for the ones
+  before it.** `.site-nav a` and `.site-nav .nav-signout` were given
+  `white-space: nowrap` and `width: auto` on the desktop row, with a comment
+  explaining precisely what happens without them. `.nav-suggest` arrived
+  afterwards for 7i's layer, matched neither selector, and reproduced the exact
+  failure the comment described. **Grep for the rule, not for the bug.** When
+  adding a sibling to a list of selectors, the question is which rules its
+  siblings are already in.
+- **A named width is named because that is where it breaks.** The toggle stood
+  two lines high at 1024 and was perfect at 768 and at 1440. So a pass at "a
+  phone and a laptop" would have shipped it. Section 3 lists six widths and the
+  one that found this is the boundary where the layout changes shape.
+- **Measure the union of what is on screen, never the sum of what exists.** The
+  landscape check added up everything pinned and reported more pinned space than
+  the viewport has, which is not a finding but an impossibility. A closed off
+  canvas drawer is full height, `position: fixed`, and neither hidden nor
+  displayless. It is simply off the left edge and costs nothing.
+- **A result that cannot be true is a broken measurement, and it is worth saying
+  so out loud.** 436px of a 375px viewport is the tell. The temptation is to
+  widen the threshold until it passes.
+- **In a phase of sweeps, prove the pass can fail before trusting that it
+  passed.** A wide element and a narrow table cell were injected into the real
+  page to see both rules fire. The 华文 run asserts it is rendering 华文. A Chinese
+  pass that quietly measured the English page reports the same clean six as a
+  correct one.
+- **A word count is an English measurement.** 华文 has no spaces, so every Chinese
+  label is one word and any rule shaped like "three words or fewer" matches all
+  of them. Four Han characters is about a word. The same trap waits for anything
+  counting words, characters or line breaks, and Malay and Tamil arrive in phase
+  15.
+- **A page measured with nothing on it proves the chrome.** The layout that
+  matters is the one holding a full page of the longest thing an admin can type.
+  A check that renders an empty state and reports six clean widths is measuring
+  the easy case. Fixtures carry the limits, not the averages.
+- **"Too small" is a floor in the factory, not a rule in the stylesheet.** Every
+  icon is built by one function, so one `Math.max` covers the whole build
+  including the icons written into innerHTML strings. A CSS `min-width` would
+  have covered what CSS can see and left the rest.
+- **Protecting the thing is not protecting the box it sits in.** `theme.css`
+  gave every symbol `flex: none` and the wrapper around it was still a
+  shrinkable flex item. Once the wrapper shrinks `max-width: 100%` crushes the
+  symbol with `height: auto` following. Whenever a rule protects an element, ask
+  what its parent does under pressure.
+- **Measure before answering "why is it like that".** Nothing was squeezing the
+  icons: they were drawn at the sizes they asked for. The fix that a squeeze
+  would have needed is not the fix this needed, and one probe separated them.
+
+### What phase 12 part 2 added to the list
+
+- **A finding on every page is a finding about the check.** Part 1's version was
+  436px of a 375px viewport; part 2's was every link in the admin sidebar
+  reported as focusable inside `aria-hidden`. That was on six pages in two
+  languages. The panel was `inert`. That takes an element out of the tab order
+  and out of the accessibility tree and is invisible to `checkVisibility`.
+  Before fixing what a sweep reports everywhere, ask whether the sweep can see
+  what the build actually does.
+- **Correct in the markup and wrong in the document.** The skip link is the
+  first body child on every page in the build and was the third or fourth thing
+  Tab reached. Three separate things prepended themselves above it. Nothing that
+  reads the source can find this, and it is the general shape of every defect a
+  page assembles at runtime.
+- **`aria-hidden` on a panel that is still tabbable is a contradiction, not an
+  omission.** The page has told a screen reader the subtree is not there and
+  left the keyboard able to walk into it. Any panel that closes by moving off an
+  edge needs `inert` or `visibility: hidden`; a transform is not hiding.
+- **A `visibility` transition with a duration is still `hidden` at progress
+  zero.** So a panel that focuses its first control the instant it opens focuses
+  nothing at all, and the focus stays on the button behind it. Hidden late and
+  shown at once — `visibility 0s linear <duration>` closed, `visibility 0s`
+  open. **The filter sheet had been failing this since it was built.** It looked
+  correct because Escape put the focus back where it already was.
+- **A live region inserted with its content already inside it announces
+  nothing.** There has to be a change to announce, so the region goes on the
+  page empty and is written a frame later. And the region is the sentence, not
+  the bar around it: controls inside a live region are read out again every time
+  it is touched.
+- **Beside is not attached.** A reason rendered next to a disabled control is a
+  reason a screen reader cannot connect to it. `aria-describedby`, added and
+  removed one token at a time so a second description is never overwritten.
+- **A list of `h3` rows under an `h1` skips a level.** It is the commonest
+  outline defect in this build, and five pages had it. A visually hidden `h2` is
+  a structural fix and belongs in the accessibility part and not the polish one.
+- **An empty list passes every rule there is.** Five account pages came back
+  clean on a freshly registered account and three of them failed the moment it
+  had rows. Part 1 said fixtures carry the limits and not the averages; the
+  account sections cannot choose their fixtures. So the credential has to be
+  given content and the run has to print how much it found. **A clean sweep over
+  an empty dashboard is a clean sweep over an empty dashboard.**
+- **A control taken out of the tab order still matches the build's own
+  `FOCUSABLE` list.** `input:not([disabled])` does not care about
+  `tabindex="-1"`, so a focus trap built on that list walks through things a
+  reader cannot reach. Anything asking a question about the tab order has to ask
+  it the tab order's way.
+- **A guard that refuses is only proved by watching it refuse.** The delete
+  ritual was walked once with the wrong username and once with the wrong
+  password before it was walked properly. The 401 with the account still
+  standing afterwards is the check. A destructive action tested only by
+  succeeding has had its guards assumed.
+
+### What phase 12 part 5 added to the list
+
+- **A rewrite only runs when nothing on disk answers first.** Phase 3's rule
+  said a route returning 200 is not evidence its rewrite works; this is the same
+  fact from the other end. `/robots.txt` was a file for eleven phases, and
+  putting one back would silently retire the function that replaced it. Anything
+  rewritten to a function needs the file of that name gone, and a check that it
+  has not come back.
+- **One decision written in two files needs a check that they agree.** This is
+  the third shape of it in the build, after phase 10's duplicated verdict rule
+  and phase 11's two runtimes sharing a hash. Whether this site may be indexed
+  is `INDEXING` in `api/_lib/discovery.js` *and* the global `X-Robots-Tag` in
+  `vercel.json`. A robots.txt asks a crawler not to fetch, and only the header
+  reaches a URL it already knows. Neither half works alone, so the check is that
+  they say the same thing.
+- **A switch whose off state is cached by somebody else is a one way door.** A
+  crawler keeps `robots.txt` for about a day. Switching indexing off by writing
+  `Disallow: /` would take a day to undo and would delist nothing that was
+  already listed. What the switch does instead is remove the pointer and take
+  the sitemap out of service. **Ask who holds the copy before deciding what an
+  off switch writes.**
+- **A file every crawler reads has to be answerable when the environment is
+  not.** `robots.txt` falls back to a hardcoded origin instead of throwing. A
+  5xx there means "do not crawl this site for now" to every major crawler. The
+  failure mode is silent, site wide, and caused by a missing variable and not by
+  anything a reader did. **Ask what a caller does with a 5xx before deciding
+  that failing loudly is the safe direction.**
+- **A `lastmod` nobody measured is not today.** A posting with no `updated_at`
+  is listed with no date and not with the date of the run. That is the status
+  page's "never draw a green day that was not measured" arriving before that
+  page is built. The only static page with a date is `/status`, and it has one
+  because it renders `build-status.json` and nothing else.
+- **A feature an admin can see owes its sentence before the flip, not after.**
+  Phases 9 and 10 both wrote `featureWhere.*` in a hurry once the switch had
+  appeared on `/admin/maintenance`. The check now asks it of every flippable
+  feature whose phase has shipped **or is building**. The exemptions are named
+  and verified in both directions, so an unwritten sentence is found while there
+  is still a part to write it in.
+
+### What phase 12 part 6 added to the list
+
+- **A duplicate that has been removed comes back by somebody writing the next
+  one.** Four copies came out in this part — two modal shells, three `runAction`
+  bodies, six tab strip keyboards. Nothing about the code that remains stops a
+  seventh strip from carrying its own arrow keys. **A deduplication needs a
+  check that counts.** That is what half of the `polish` section is: source
+  checks asserting there is still one of each.
+- **A hand-rolled focus trap is not what a modal needs, and never was.** The
+  trap `dialog.js` had fired only on Tab from the first or last item, and
+  filtered on `offsetParent !== null`. That is not the same question as "can
+  this take focus". `showModal()` makes everything outside the dialog **inert**,
+  which is a different and larger claim: not focusable *and* not in the
+  accessibility tree. A screen reader could read the entire page under an open
+  modal for eleven phases and nothing on screen said so.
+- **Making one thing modal makes everything else inert, including the things you
+  did not convert.** The scope this part started with — one shell, not three —
+  was reasonable and was wrong. A plain div appended to the body while a modal
+  `<dialog>` is open is unclickable and painted underneath it. **A partial
+  migration to a stronger primitive breaks whatever was left behind.** The way
+  to find out is to open the two together and ask `elementFromPoint`, not to
+  read both files.
+- **A check that hangs on the defect it is looking for is not a check.** The
+  nesting probe awaited a promise the inert panel could never resolve, so the
+  run stopped instead of reporting. Anything a check waits on has to be
+  something the failure still produces.
+- **A transition that a `display: none !important` sits on top of has never
+  run.** `.modal-backdrop.hidden` carried opacity and transform transitions
+  since phase 1, and `.hidden` in the utilities beat both. So every modal in the
+  build cut instantly while the stylesheet described 220ms. **A stylesheet is
+  not evidence that an animation happens**, and the tell was that nobody had
+  ever noticed either way.
+- **A control that declares what it needs beats a control that names it.**
+  `data-feature-write` says "this writes"; the page it is on says which feature
+  that is. Writing the key into the markup would have put one decision in two
+  places. That is the failure this build has hit more often than any other.
+- **The right instrument for a colour question is rarely a contrast ratio.**
+  Three were tried on the switch: contrast against the card threw away the hue,
+  which is the only thing separating the two states. Chroma of the composite
+  measured the card and not the control. Chroma of the declared fill times its
+  alpha is the colour the control itself adds. **Ask what the defect actually is
+  before reaching for the number that is already there** — both states passed
+  1.4.11 the whole time.
+- **A check that cannot fail on the current deployment must skip, not pass.**
+  `polish-live` measures a *subtraction*, and every route it asks about answers
+  correctly whether or not the rewrites were removed. It is gated on a file part
+  6 adds, so a clean run against the old deployment is impossible and not
+  misleading. The same shape as `discovery-live`, and for the same reason.
+
+### What phase 12 part 7 added to the list
+
+- **A gap in the data is data, and three separate files have to agree not to
+  fill it in.** The probe writes nothing it could not send and backfills
+  nothing. The daily view manufactures no row for a day nobody probed. The page
+  draws a missing day as unknown and not as either state. Any one of the three
+  quietly closing the gap would produce a page that looks better and knows less.
+  None of them would fail anything. **The general form: a system that reports on
+  itself needs its "no answer" state defended at every layer that touches the
+  data.** Every layer has a plausible-looking way to make it disappear.
+- **A page that reports on a system must be sceptical of its own freshness.**
+  The failure 0c exists to prevent is not a wrong colour, it is "all systems
+  operational" printed because nothing could be reached. Every row behind that
+  sentence is a row that says everything was fine — just an hour ago. The
+  headline asks how old its evidence is before it asks what its evidence says.
+- **Cache-first is right for a shell and wrong for an answer.** `/status` was
+  precached for eleven phases while it was a static shell that fetched its own
+  data. Turning it into a server rendered page silently turned the same entry
+  into a frozen status page served to people who are online. **When a route
+  changes from a shell to a rendered answer, its caching is part of the
+  change.** That is in the worker and at the edge both.
+- **Deleting a file breaks whatever was quietly resolving it.** Moving one page
+  into a function broke four things that were reading the filesystem to decide
+  what the site serves. Those were the precache checker, two test servers and
+  the theme capture. Every one of them failed in a way that looked like a fault
+  in the page and not in the reader. The fix in all four was to render from the
+  module the deployment renders from.
+- **A number two files both need is imported, not repeated.** The sweep's ninety
+  days is the page's `DAYS`. Part 1 did the same with `MIN_SIZE`, and the
+  failure it prevents here is specific. A sweep set shorter than the window
+  would empty the left hand end of every bar, while the page went on labelling
+  it ninety days.
+- **A list that exists in three languages needs a check that reads all three.**
+  The four probe targets are in JavaScript, in Python and in a SQL check
+  constraint. Phase 11 learned this with `commands.py`. What is new is that one
+  of the three copies is the database, which refuses a name nobody agreed to
+  instead of reporting it.
+- **Two states that differ only in hue are one state.** Part 3 found this
+  measuring a switch; it applies to any drawn indicator. A partly measured day
+  is a shorter square as well as a lighter one, and the check measures the
+  height and not the colour.
+- **Render the page and look at it, even when every check passes.** The four
+  plates found a state that vanished into its own background. An hour after a
+  rewrite they found a sentence explaining a mechanism that no longer existed.
+  Both were invisible to every check in the file. A check knows what it was told
+  to ask and a stale explanation answers all of them correctly.
+- **A reported defect is a place to measure, not a thing to fix.** "The label
+  exceeds its box on hover" measured as 12px of padding on both sides with
+  nothing clipping at any width. What was true was that the pill was tight and
+  the icon made one side look tighter. Fixing the reported bug would have been
+  fixing something that was not happening. The real change, 4px, is one nobody
+  would have asked for in those words.
+- **The shape of what you store is a decision about what you can honestly say.**
+  A row per check and a row per outage cost different amounts, and that is the
+  small half. The row per outage can be *closed by an observed success*, so the
+  page states a real duration. The row per check could only be closed by
+  failures stopping, so every length was a floor. **Cheaper and truer are not
+  usually the same choice, and when they are it is worth noticing why.** The
+  expensive shape was storing the answer to a question nobody asks: what
+  happened at 03:47 on a Tuesday when everything was fine.
+- **Any roll-up has to carry its own coverage.** "This day was fine" without how
+  much of the day was watched is the fabrication 0c forbids. It is a smaller
+  disguise than a green day drawn over no data. The counters are not a
+  statistic, they are the licence to draw the square.
+- **`revoke ... from public` takes the implicit grant with it, so the one role
+  that needs it is granted back by name.** 035 was a view running as its owner;
+  this is a function every role can execute by default. The general rule is the
+  same and is worth stating once more. **In this schema a new object is open
+  until a line closes it, and the line belongs in the file that creates it.**
+- **A check that cannot observe what it is asking about passes for the wrong
+  reason.** `s-maxage` never reaches a browser: Vercel consumes it and rewrites
+  the header. Reading it back proved nothing either way. The fix was to ask the
+  system for something it actually emits: a second request that comes back a
+  cache hit. **Before asserting a header, look at one.**
+- **Scope a count to the thing being counted.** A legend carries one swatch of
+  every state by definition, so an unscoped selector reported coverage on a page
+  built to refuse to overstate coverage. The tell was on screen the whole time:
+  the same page said "Last check recorded never".
+- **A compound check needs a message that names which half failed.** "The tag
+  went away after the delete was cancelled" was printed because a modal count
+  was wrong. It sent somebody looking for a data-destroying bug in a shipped
+  admin page. One message for two conditions is a message that is sometimes a
+  lie.
+- **A page nobody can reach yet gets no sweep by default.** Every accessibility
+  and responsive section in this phase walks a list of routes, and a page that
+  is not on the list is not measured. That is exactly the state a page built
+  behind a gate is in. The pass has to be written into the part that builds it.
+  **Phase 13 builds an entire site behind a gate**, so this is the line from
+  part 7 most likely to be needed again.
+
+### What phase 12 part 8 added to the list
+
+- **A list in a document is compared against the thing it lists, in both
+  directions, or it is decoration.** `migrations/README.md` stopped at `033` and
+  four files were in the directory and in nobody's list, including the one this
+  phase wrote. The same shape as `gen-review.js` rendering 223 of 1,728 and a
+  probe measuring 26 colours. **What a hand written list is missing is invisible
+  from inside it.**
+- **A document can name a file the repository does not have.** Three of the six
+  scripts the root README told a reader to run were matched by the root's
+  throwaway-script ignore patterns. `gen-review.js` was tracked only because
+  somebody had force added it once. **The check has to ask git, not the
+  filesystem**, because the filesystem being asked is always the one machine
+  where the file exists.
+- **There is one database, so "local testing" writes to the live site.** Every
+  row `seed.mjs` creates says SAMPLE in the language it is written in. The
+  accounts are at a domain that can never resolve, and the script refuses to
+  write while the site may be crawled. **A guard in code beat a sentence in a
+  README**, because the sentence had been in one for five parts by then.
+- **The state a script refuses to create is the state it must always be able to
+  undo.** `--clear` is never refused, whatever `INDEXING` says. A guard that
+  blocks the cleanup as well as the mess is a guard that gets bypassed.
+
+### What phase 13 part 7's walk added to the list
+
+The walk in section 5 item 24, done 3 September 2026. **Four of its five
+findings were invisible to every check in this repository.** That is the
+argument for the sitting and not an argument about any of them.
+
+- **A variable in `.env.example` is not a variable that is set.** `SITE_URL` was
+  documented from part 1 and was never added to the `careers-gftv-docs` Vercel project. So `/api/auth/staff/account` and `/api/auth/staff/passkeys` answered **500 to every staff account from part 6 until it was found**. Those are the two routes on that site that call `relyingParty()`. Everything else answered 200. The
+  settings page drew one error callout where nine panels go.
+
+  **`checkEnv()` exists in `env.js` and nothing calls it.** It was written for
+  exactly this and has never run. A health endpoint, or one call at boot, turns
+  a fortnight of silence into a line naming the variable. The error message was
+  perfect and nobody was reading the logs.
+
+  **And `--only=live`'s 27 checks passed throughout**, because every one of them
+  asks as a stranger. A section that only knows how to be a stranger cannot see
+  a signed in page. That is the blind spot item 24 was written about.
+- **A 200 is not a page.** `https://gftv.asia/account` answered 200 while
+  serving a one page app's catch all. Status codes cannot tell a route from a
+  fallback, so **a cross site link is checked by opening it**. It is pinned by
+  asserting the exact address afterwards.
+- **A constant governs the table it is named for and no other.**
+  `HELLO_WRITES_ENABLED` holds `gftvhello_users`; the backup code set writes
+  `gftvhello_backup_codes` and was never behind it. The count "three writes
+  reach gftv.asia" was wrong for a fortnight. The route itself said so in its
+  header, its audit metadata and its response flag. **A fact stated in several
+  places and counted in none is a fact nobody has counted.**
+- **The label is read; the consequence line is read only if somebody stops.**
+  "Sign out everywhere" left the current browser signed in and said so exactly,
+  in the confirm dialog. It was still a surprise. Where the two can disagree,
+  the behaviour follows the label.
+- **Every step of a by-hand walk leaves a row, so a walk can be checked.** A
+  passkey, a code set, a trusted device, an enrolment: each is observable from
+  outside. **Three times during this sitting the walk was reported done and the
+  rows said otherwise.** Twice that was because the wrong account was being
+  looked at and once because a deployment was still building. The probes are in
+  the scratchpad and not in `tests/`. The next phase should decide whether a
+  `--only=walk` section that reads this state belongs in the phase file.
+
+### Traps the next phase should still know about
+
+- **`gftvjobs_analytics` is append only and the funnel counts every row.**
+- **Do not sweep `gftvhello_sessions`.** Section 11 says so and deviation 54
+  goes one step further than it.
+- **The three test buckets bite.** `admin` is 200 an hour per staff account,
+  `report` is 12 an hour **per address**, `adminDelete` is 10 an hour. Phase 9's
+  own run is light — three postings, about fifteen writes. It was re-run three
+  times inside one hour on 26 August 2026 without trouble.
+
+---
+
+## 4. Deviations from the phase plan, and why
+
+Numbering continues across phases. Phases 4 to 6's thirty one were dropped when
+phase 7 rewrote this file. Phase 7's start at 32, phase 8's at 49, phase 9's at
+54, phase 10's at 64 and ran to 90. **Phase 11's start at 91.**
+
+32. **The dashboard has no header of its own.**
+33. **Two roles, and no permission system.**
+34. **An admin only control is absent, never disabled.**
+35. **A `forms.gle` short link is accepted as an application form.** A *prefill
+    map* on a URL that cannot carry one is refused with a field error.
+37. **The bucket tabs are All plus all nine statuses.**
+39. **`/admin/security` is not absorbed into the dashboard shell.**
+40. **`api/admin/maintenance` is not admins only.** **Reversed on 4 September
+    2026 by deviation 130.** 10 item 2 names the maintenance switches as an
+    admin's, and this deviation had not been read against it.
+41. **A status change and its note are one request; a note on its own is
+    another.**
+42. **`published_at` is written once and never rewritten.** The cron's
+    auto-close does not touch it.
+43. **Archived goes back to closed, not straight to published.**
+44. **The editor is one column.**
+45. **Nothing in an admin table wraps except a title.**
+46. **One duration for everything that opens**, held in `--transition` at 0.22s.
+47. **Moving between two pages of one area cross-fades.**
+48. **Preview opens the real posting page in a new tab**, `private, no-store`
+    with `Vary: Cookie`. Dropping that last line would make it a real leak.
+49. **Permanent deletion asks for the caller's own password.**
+50. **Bulk deletion of tracking rows, on `/admin/applications`.**
+51. **A team or tag translation has no draft state.**
+52. **Staff read the annotation layer; helpers write to it.**
+53. **"By word" is by character in Chinese.**
+
+### Phase 9's
+
+54. **`gftvhello_sessions` is not swept at all**, not even for expiry. Section
+    11 permits "normal expiry cleanup" and forbids going beyond it; this stops
+    one step short of what it permits. Those rows belong to every GFTV app on
+    the same staff accounts, and an expired one costs nothing. Deleting rows we
+    did not create, on a schedule nobody else agreed to, is the kind of
+    helpfulness that becomes somebody else's outage. `gftvhello_totp_challenges`
+    **is** swept, because section 11 names it outright and a challenge row is
+    spent within minutes.
+
+55. **The form health check is a GET that reads the page, and a page it does not
+    recognise writes nothing at all.** Section 11 offers "a HEAD or lightweight
+    GET", and a HEAD cannot do the job. Of the three states it names, a deleted
+    form 404s. A closed one and a private one **both answer 200**. So the check
+    reads the body and matches wording, in English and in both Chinese scripts.
+    A page that loads and matches nothing leaves `form_check_state` exactly as
+    it was.
+
+    **That last clause is the whole design.** Everything here is pattern
+    matching against wording Google owns and may change without telling anybody.
+    The failure to plan for is not "the check breaks" but "the check quietly
+    starts lying". Keeping the previous state makes a rewording degrade to no
+    new information, which is visible. Writing `ok` would turn every closed form
+    green on the same morning and nobody would ever know. **Verified with fakes
+    on 26 August 2026, all nine cases. Never verified against a real form**, and
+    section 5 item 13 is why.
+
+56. **`form_checked_at` is when a result was last *established*, not when the
+    form was last looked at.** An unchanged result writes nothing, so a form
+    healthy since August carries an August date. The reason is local.
+    `gftvjobs_jobs` has a touch trigger on `updated_at`, and the admin list
+    sorts by it. Phase 12's sitemap will take its lastmod from it. A daily write
+    to every published posting would move all of them every morning. That is the
+    exact churn migration `009` avoided when it backfilled only unindexed rows.
+    The question that date looks like it answers, *is the check even running*,
+    is answered by the run record on the overview instead.
+
+57. **The unmatched list and the manual link are their own route,
+    `api/admin/submissions`, and they are admins only.** Section 13 step 6 says
+    to surface the list "in the admin analytics page", which is where it is
+    drawn. It is not served from `api/admin/analytics.js`, because that file
+    opens by saying it has no POST and is right.
+
+    **Admins only is the sharper half.** 8.4 is deliberately open to job
+    posters, and the stated reason is that the funnel is counts and nothing on
+    the page names an applicant. Every row of this list is a real person's email
+    address, so it breaks exactly that property.
+
+58. **The last run is stored in `gftvjobs_cron_runs`, not in the settings row.**
+    This corrects part 3 of phase 9's own plan. The table has existed since
+    migration `012`, is already in `T` as `cronRuns`, and was created for
+    section 11's last line by name. It has exactly the right columns.
+
+    Worth keeping as an instance of the rule phase 8 left behind, pointing the
+    other way. **Grep for the thing that would have to read it, and grep for
+    what already exists, before writing that something needs building.**
+
+59. **The cron answers 200 even when a task failed**, with the failures named in
+    the body. The caller is a scheduler whose only reaction to a non-200 is a
+    red mark in Vercel's dashboard. That is the one place section 11 already
+    says not to rely on.
+
+60. **The sweep covers four tables section 11 does not list.**
+    `gftvjobs_passkey_challenges` and `gftvjobs_login_challenges` did not exist
+    when it was written. `gftvjobs_rate_limits` is swept because migration
+    `012`'s own comment says it is, with a day of slack past the longest window.
+
+61. **The daily schedule is 18:00 UTC**, which is 02:00 the next morning in
+    Singapore. Section 11 says only "daily". **Still never observed firing** —
+    see section 5 item 14.
+
+62. **Linking a submission by hand is audited**, as `SUBMISSION_LINKED`. The
+    second deliberate exception to phase 7's "editing wording is not an audit
+    event". An admin is asserting that two different email addresses are the
+    same person, on their own judgement. The consequence is that somebody's
+    application reads as submitted and their reapply cooldown starts.
+
+63. **There is no per-posting "self reported" badge.** What serves section 13's
+    fallback is already on the page. That is the permanent `rateIsFloor` callout
+    and `yes_by_source`. That bucket has counted nothing since phase 8 drew it,
+    and **now has data, as of the 26 August run**.
+
+### Phase 10's
+
+64. **The icon plate goes yellow and `theme_color` stays white.** They answer
+    different questions and the answers differ. `background_color` is the splash
+    screen behind the icon, so it matching the plate is the whole point of
+    recolouring. `theme_color` is the title bar of the installed app. `theme.js`
+    overwrites `meta[name=theme-color]` a moment after launch with the page
+    background for the resolved theme. That is `#ffffff` for the default classic
+    light. Setting it yellow would put a flash of the wrong colour on every
+    single launch.
+
+65. **Every icon in the site is generated, and the source is not one of them.**
+    `gen-icons.js` writes `HLC-main`, 512, 192, 180, both maskable variants, and
+    `favicon.ico` from `HLC-source.png` at the repo root. That is outside
+    `main-site/`, so it is version controlled and never deployed. **The
+    separation is load bearing.** `HLC-main.png` is one of the outputs. A script
+    reading it would have destroyed the only copy of the mint original on its
+    first run. The plate colour could never be changed again.
+
+    The recolouring is not a colour swap. The plate carries soft drop shadows
+    that are dark green and not mint. So every background pixel is matched as
+    *mint at some brightness* and written back as *yellow at that same
+    brightness*. The fill runs inwards from the border, so anything matching but
+    not joined to the edge is left alone. 80.2% of the master was replaced; a
+    flat match would have caught 68% and left the shadows behind as smudges.
+
+    **`HLC-180.png` is new and is the apple-touch-icon in all 33 places.** iOS
+    ignores the manifest's icon list entirely and reads that tag. Every page
+    pointed it at the 2250 square master: 574 KB fetched to draw a home screen
+    icon 180 pixels wide.
+
+66. **The install screenshots show the dev seed, and that is honest and not
+    good.** They are real captures of `/search` on production, so every card
+    reads SAMPLE POSTING, NOT A REAL OPENING. **Section 5 item 6 gains a second
+    consequence.** Deleting the seed means rerunning `node gen-screenshots.js`,
+    or the install dialog advertises postings that no longer exist.
+
+    Two things learned writing that script are worth keeping. The wait for
+    `.job-card` **matched the four loading skeletons**, which carry the same
+    class. It photographed a board of grey bars under the words "Loading roles".
+    That is phase 9's "wait for the content, not the container", arriving from a
+    completely different direction on the first day of phase 10. It waits for
+    `#results` to drop `aria-busy` now. And **the narrow shot is captured at 360
+    CSS pixels at a device pixel ratio of 3, not at a 1080 pixel viewport.** The
+    first is what a phone shows, and the second is a desktop layout squeezed
+    into a tall window. Chrome checks the declared size against the real one and
+    drops a mismatch silently.
+
+67. **Three of the four caches are not versioned, and that is the point.**
+    `careers-gftv-shell-{VERSION}` is dropped on activate and refilled from the
+    network, which is the whole update mechanism. `careers-gftv-public`,
+    `careers-gftv-postings` and `careers-gftv-state` survive it. A posting
+    somebody opened and a board they last loaded are **data, not build output**.
+    Emptying them on every deploy would clear the board for a reader who happens
+    to be offline on a day something shipped. During a build that deploys ten
+    times in a phase that is not a rare case.
+
+    The activate handler works from an **allowlist** instead of deleting
+    everything that is not the current shell. Two reasons. The three above have
+    to survive, and the pass through worker this replaces deleted every cache on
+    the origin. On a domain shared with the other GFTV apps that was never a
+    safe thing to do.
+
+68. **The kill switch costs no extra request.** Decision 7 said the worker reads
+    the maintenance overrides on navigation, which sounded like one more fetch
+    per page. It is not: every page already fetches `/api/public/feature-status`
+    on load, and that endpoint is `no-store` and therefore network only anyway.
+    The worker simply **reads the answer on the way past** and keeps it in the
+    state cache. Offline there is no answer and the last one stands, which is
+    the same direction that endpoint already fails in — everything on.
+
+69. **`install` switched off is a 404 on `/manifest.json`.** The obvious
+    implementation, removing the `<link rel="manifest">`, would have to reach
+    thirty three HTML files and the server rendered posting page. It would not
+    stop a browser that had already read the manifest. A 404 is what actually
+    stops the install being offered. Its honest limit is that an app already
+    installed keeps working, which no switch of any kind could change.
+
+70. **`404.html` and `placeholder.html` are deliberately not precached.**
+    Neither is ever navigated to by address: Vercel serves the first for an
+    unknown path and rewrites unbuilt routes to the second. Offline the worker
+    cannot tell an unknown path from an unbuilt route from a page nobody has
+    opened yet. **`/offline` is the honest answer to all three**. Both are named
+    in `check-precache.js`'s `EXPECTED_ABSENT` with that reason, so the "not
+    precached" listing stays worth reading.
+
+    `HLC-main.png` is absent for a different reason: 574 KB that only a crawler
+    fetches. The two maskable icons are absent because the launcher reads those
+    at install time and not through the worker.
+
+71. **The two connection wordings are one bar, not two.** Offline outranks
+    unreachable, which outranks the update prompt, and only the highest is
+    drawn. Two bars stacked above the header stops being "unobtrusive", which is
+    the word section 14 uses. The consequence to know: **an update prompt raised
+    while somebody is offline is not shown until they are back online.** That is
+    the right way round, because accepting it reloads the page.
+
+    The two connection states are **not dismissible** and the update prompt is.
+    Section 14 says the banner goes when connectivity returns, not when somebody
+    closes it. A dismissed offline banner would be a reader wondering why
+    nothing works with nothing on screen to say why.
+
+72. **`api.js` announces, and `offline.js` listens.** A DOM event pair,
+    `gftv:apireached` and `gftv:apifailed`, and not `api.js` calling into the
+    banner. `api.js` is imported by nearly every page module. Giving it an
+    import that reached back into the shell would be a cycle waiting to happen.
+    It is the same shape as `gftv:localechange`, which the build already uses
+    for exactly this reason.
+
+    **`reached` means an HTTP response arrived, whatever its status.** A 503
+    from a maintenance switch is the site answering, and a banner claiming
+    otherwise would turn a deliberate outage into a suspected one. An aborted
+    request announces nothing: that is the page changing its mind, not the
+    network failing.
+
+73. **Registration moved from the markup into a module, and that is what makes
+    the prompt possible at all.** Thirty three HTML files and `page-shell.js`
+    each carried their own `navigator.serviceWorker.register('/sw.js')`. That
+    was right while registering was the whole of it, and wrong the moment there
+    was something to prompt about. **The prompt needs the registration object,
+    and an inline script in the markup has nowhere to hand it to.**
+
+    It registers on `load` and not immediately. The install fetches a hundred
+    files, and starting that while the page is still fetching its own makes a
+    first visit slower for nothing.
+
+    **This changed the `worker` section of the test, and the change is the
+    proof.** Its check 23 posts `skip-waiting` by hand, and once `offline.js`
+    was on the page that message caused a real reload mid-poll — the section
+    threw. The reload is the feature. `until()` now treats a destroyed execution
+    context as "not yet" and not as an error. In this phase the page genuinely
+    can reload underneath a poll. A harness that threw on it would be reporting
+    the feature as broken *because it works*.
+
+74. **The user id is part of the key, not a field beside it.** `mine` has a
+    keyPath of `['userId', 'kind']`, so a read for one applicant cannot return
+    another's row **even if the wipe failed**. Section 14 asks for a store
+    "keyed by their user id" and the literal reading is the better one. The wipe
+    is the policy, and the compound key is what makes the policy hard to get
+    wrong. Checked directly — reading a stored row under a different id answers
+    null.
+
+75. **A null session wipes nothing, and this is the one that would have been a
+    real defect.** Section 14 says to clear on logout, and the obvious
+    implementation is "no user in the session, so clear". That is wrong here in
+    a way that only shows up offline. **The session request fails every single
+    time there is no connection.** So a page loaded offline would report no
+    user, and delete the applicant's saved roles, applications and tasks. That
+    copy is the only one they have.
+
+    So only two things wipe: an explicit sign out, and `syncUser` finding a
+    different id. A failure to ask is never an answer.
+
+76. **The wipe is ordered before any write by the module, not by its callers.**
+    `shell.js` starts `syncUser()` without awaiting it, deliberately, because
+    nothing on screen should wait for it. So a page module could reach a write
+    first. Every read and write in `idb.js` waits on one internal gate that
+    `syncUser` chains onto. That makes "wipe the database before writing
+    anything" a property of the file and not a habit of its callers. Check 49 is
+    that race run on purpose.
+
+    The same instinct as **"anything reading a module level cache has to be sure
+    something filled it"**, one layer down. It is not enough for the ordering to
+    be right today in the two places that happen to call it.
+
+77. **The board keeps its own copy, and does not rely on the response cache.**
+    The worker caches `/api/public/search` by URL, so a reader offline under
+    filters they have never used before would get nothing at all. Section 14
+    asks for "the last successful result set, including its filters", which is
+    one thing and not one per query. So `search-page.js` keeps exactly that in a
+    **`public` store in IndexedDB**. It is a fourth store, taking no user id and
+    **not cleared by `wipeAll`**. Signing out must not take the board away from
+    the signed out reader still holding the phone.
+
+    **Two sentences, not one.** If the saved filters match what was asked for it
+    says the board is from a date; if they do not, it says so outright. Showing
+    somebody who searched for "camera" a board that was never about cameras and
+    calling it merely old is a quiet lie. It is the sort that survives for
+    months because nothing about it looks wrong.
+
+    **Only a network failure falls back.** A 500 or a 503 is the site answering.
+    Putting yesterday's board in place of an error would hide a real fault
+    behind stale data. It is the same instinct as deviation 55's "a check that
+    learned nothing writes nothing".
+
+78. **The worker keeps a posting index, and membership is not part of it.** The
+    fallback page has to list postings by name, and a name is inside the cached
+    document. So `sw.js` reads the inlined `#jobData` payload at cache-write
+    time and keeps `path -> { titles, cachedAt }` in the state cache.
+
+    **What it deliberately does not keep is which postings are held, or in what
+    order.** That stays with the postings cache, whose `keys()` order `touch()`
+    already maintains as least recently viewed. Two sources of truth for
+    membership is how a list ends up offering a posting that was evicted an hour
+    ago. So the index is pruned to match after every trim, and a posting held
+    with no index entry is skipped and not listed unnamed.
+
+    Reading the payload and not the `<title>` tag is what makes the list
+    bilingual. The tag carries the English title only, and the payload carries
+    every language the posting is ready in.
+
+79. **The last-updated line appears only while offline.** Section 14 asks that
+    "any cached view carries a quiet last updated timestamp". Taken literally
+    that would mean the line on every posting on every view. Stale while
+    revalidate means the cached copy is served first every single time. A marker
+    that flashes for 200ms on a page that is about to be correct is noise. Noise
+    is what nobody reads by the second week.
+
+    So it is drawn when `navigator.onLine` is false, on both connection events,
+    so it appears and goes without a reload. And **only when the worker actually
+    reports a time**. "Saved at some point" is not worth saying. A page that
+    showed the current time for something it had never stored would be the exact
+    mistake the line exists to prevent.
+
+80. **A failed session request is a third state, and the build had only two.**
+    `applicantSession` answered `{ user: null }` for both "nobody is signed in"
+    and "we could not ask", and every caller read it as signed out. Offline that
+    request fails **every single time**, so `mountAccountPage` sent an applicant
+    from their own dashboard to `/login`. That is the one page in the build that
+    cannot work without a connection, reached by a redirect that could not load
+    either. **Phase 10 part 3's run found it and part 7 closes it**, with an
+    `unreachable` flag, and only a real signed out answer redirects.
+
+    The same shape as a rule the build already had: **a count that could not be
+    read is `null`, never `0`.** "The table could not be read" and "there has
+    never been a run" are different claims. So are "we could not ask who is
+    signed in" and "nobody is".
+
+81. **The offline account area authenticates nothing and does not pretend to.**
+    The profile kept on every successful mount draws the identity and lets the
+    three pages read their own rows. Every endpoint still checks the real
+    cookie. An applicant reading this offline sees what they already had and can
+    change nothing. That is why part 9's honest disabling is the other half of
+    this and not decoration on top of it.
+
+    **The header falls back with it.** A page listing somebody's own
+    applications under a "Sign in" link is the site disagreeing with itself
+    about who is looking at it. A reader has no way to tell which half is right.
+
+82. **A page that never loaded has nothing saved, and says so.** `pageData`
+    answers null when there is no copy and the page shows its ordinary error. An
+    empty list under a "saved on your device" line would tell somebody they have
+    no applications. The truth is that this device has never seen them. **Only a
+    network failure falls back at all**: a 500 or a 503 is the site answering.
+
+83. **A queued answer is an eighth state on the Apply control, not a variant of
+    an existing one.** It resolves above `pending`, `applied` and `cooldown`.
+    Above `pending` because the row genuinely is still pending on the server and
+    asking again would be asking a question they have already answered. It is
+    above the other two because **neither has been earned by anything but a
+    local queue entry**. Section 14 says a queued answer is pending until the
+    server confirms it, and this is what that looks like on screen.
+
+    **`apply-dialog.js` deliberately does not dispatch `gftv:applychange` when
+    it queues.** That event is what moves the control to applied and puts the
+    cooldown date on the page. `queue.js` is the only place it is dispatched for
+    a queued answer, and only on the server's reply. That keeps the settled rule
+    intact: five things write `applied_at` and `cooldown_until`, and an offline
+    answer is not a sixth.
+
+84. **The verdict rule exists twice, and one of the two copies is checked
+    against the other.** Background Sync runs in the worker, a worker is a
+    classic script and cannot import `queue.js`. The alternative is the worker
+    asking an open page to flush. That defeats the entire point of Background
+    Sync, which is flushing when no page is open. So `sw.js` carries the
+    minimum: read, send, keep or drop.
+
+    Duplication is a real cost and this is the repo's existing answer to it. The
+    pre-paint theme script duplicates two constants from `theme.js` for the same
+    reason. What is new is that **two checks exist only to catch the pair
+    drifting**, including the Background Sync tag itself. A tag that differs
+    between the two files is a queue that never flushes in the background, with
+    nothing on screen to say so.
+
+85. **A flush stops at the first network failure.** The rest will fail the same
+    way, so continuing would spend one request per waiting action to learn what
+    the first one already said. A burst of parallel writes from a phone that has
+    just come back is exactly the shape that meets a rate limit. This would then
+    read that as a reason to retry, in a loop. The queue is sent serially and in
+    order for the same reason.
+
+86. **There are three reasons a control can be disabled, and the third does not
+    borrow the first two's machinery.** `build-status.js` says in as many words
+    that there are two and that they are never conflated. They are a feature
+    that has not shipped, and one an admin has switched off. Offline is a
+    different kind of claim again. **It is about the reader and not about us.**
+    Nothing is broken, nothing is unbuilt, and it will work in a moment. Sharing
+    the mechanism would have meant sharing the wording. So `data-needs-network`
+    is its own attribute and `.offline-hint` its own class, and neither pass
+    knows the other's sentences.
+
+    Two consequences, both checked. **A control already disabled for another
+    reason keeps that reason.** Telling somebody to wait for their connection
+    when what they are waiting for is phase 11 is the wrong sentence. And
+    **coming back online re-enables only what offline disabled**, and only when
+    nothing else still holds it down. The two passes run in whichever order
+    their promises land. Re-enabling on our own reason alone would leave a live
+    control in front of an endpoint that answers 503. That second one was wrong
+    in the first draft, and a comment claiming it was fine was wrong with it.
+
+87. **An orphaned earlier draft of this part was found in the tree and merged
+    and not left.** `main-site/assets/js/needs-network.js`, 129 lines, untracked
+    and referenced by nothing. It is an earlier attempt at exactly this, with
+    the same "third reason" framing and the same resolution order. It had been
+    sitting there since before phase 10 started.
+
+    Two things in it were better than what had just been written, and both are
+    now in `offline.js`. The first is **`'disabled' in el`**, because setting
+    that property on an anchor does nothing at all. It would leave a live link
+    claiming to be disabled. The second is **the visible hint as opt in**, via
+    `data-needs-network-hint`. That way the avatar's Choose and Remove sitting
+    side by side do not put the same sentence on screen twice. The file is
+    deleted: two modules doing one job is how the sentences drift apart. That is
+    the exact failure the deviation above it is about.
+
+88. **The dashboard draws no sidebar offline, not just no data.** The obvious
+    reading of "cache its shell only" is that the chrome is safe and the tables
+    are not. It is not: **the sidebar is built from the caller's role and access
+    flags, and those are exactly what could not be read.** A job poster shown an
+    admin's sidebar would be a dashboard drawn from a guess about who somebody
+    is. That is the single thing this phase is most careful not to do. So the
+    notice replaces everything and `mountAdminPage` returns null, which stops
+    every page module before it asks for anything.
+
+    It also stops the dashboard redirecting to `/admin/login` on a network
+    failure. It is the same defect as deviation 80 on the applicant side, found
+    in the same place and fixed the same way.
+
+89. **The kill switch was a one way door, and the seam is what found it.**
+    Decision 7's whole argument is that a bad service worker outlives its own
+    fix. The thing serving the broken copy is the thing you would have to reach
+    to replace it. The switch as part 3 built it had exactly that shape in
+    reverse. `handle()` read the switches and, with `offline` off, returned the
+    network for **every** request, including `/api/public/feature-status`. So
+    the worker stopped listening the moment it was switched off. No admin could
+    ever switch it back on, on any device that had visited while it was off,
+    across every later deploy. Three changes, all in `sw.js`:
+
+    - **`feature-status` is handled above the kill switch.** It costs nothing:
+      that endpoint is network only in both states and caches nothing either
+      way.
+    - **The caches are dropped and refilled on the edge, in
+      `rememberSwitches`.** Dropping per request raced the refill that switching
+      it back on starts — same page load, requests still in flight, last one
+      wins. That race is what made check 124 fail on the first run, and it would
+      have been invisible in production. An admin flips the switch back, the
+      reader's phone looks fine because the site is reachable, and offline
+      quietly never returns. Nothing can fill a cache while the switch is off,
+      so one drop on the edge is enough.
+    - **The refill exists at all**, because `install` is the only other thing
+      that ever fills the shell. Without it the switch was reversible on paper
+      and not on the phone until some later deploy happened to install a new
+      worker. Install now skips the precache while the switch is off, instead of
+      fetching a hundred files to be thrown away.
+
+    The rule this is an instance of is one the build already had, arriving from
+    a new direction. **A flag nothing enforces is the failure this build keeps
+    hitting.** A flag that can only be enforced in one direction is the same
+    failure wearing a switch.
+
+90. **A seam finds what a part cannot, and this one is the proof.** Every part
+    checked what it had just built, and the two things nothing checked were the
+    two that belong to no part. The first is **part 1's install surface**, which
+    landed before the test file had a browser-free section to put it in. The
+    second is **the kill switch**, which part 3 built and part 3's own run had
+    no way to drive. Flipping it needs an API answer to stub.
+
+    Neither gap looked like a gap. The count went up every part: 25, 39, 51, 61,
+    74, 90, 100. A rising count is exactly what a phase looks like when it is
+    being checked properly. **`--only=` with a name that does not exist now
+    exits 1 and lists the sections**, for the same reason. It ran nothing and
+    reported a clean pass, which in a phase whose every failure is silent is the
+    worst possible default.
+
+### Phase 11's
+
+91. **The bot has no scripted checks, and is checked by a person against a
+    checklist.** Settled 27 August 2026, and it is a deliberate departure from
+    every phase since 7, each of which left a `tests/phaseN-test.mjs` behind.
+    The site half of this phase is unaffected and keeps the Playwright habit; it
+    is the Python on the VPS that is checked by hand.
+
+    **The cost is specific, not general, and it is worth naming and not waving
+    at.** Two failures are what a script would have caught here, and neither
+    announces itself:
+
+    - **A double send after a restart**, which only appears when two instances
+      are polling. That is exactly the state a tmux restart that did not kill
+      cleanly leaves behind. Nobody notices in testing because one instance is
+      the normal case.
+    - **Drift between what `start` lists and what actually works**, which grows
+      silently over six parts and is the first thing a new reader sees.
+
+    **So both are designed out and not tested for**, and these are requirements
+    on the parts and not aspirations:
+
+    - **The claim is one statement, and correctness comes from the database.** A
+      single conditional update moving rows from `queued` to `claimed`,
+      returning the rows it moved. A second instance claiming the same batch is
+      impossible and not unlikely. **Nothing reads then writes.** If a part is
+      tempted to select first and update after, that part is wrong, and no
+      amount of manual checking would have caught it.
+    - **One source of truth for the command list.** What `start` prints, what
+      `setup.md` gives BotFather, and what the bot actually registers come from
+      one list in one file. Phase 14's guide takes the same list. The same
+      instinct as `check-i18n.js` and `check-precache.js`: the drift a person
+      cannot see is the one worth making structurally impossible.
+    - **The drain logs what it claimed, sent, skipped and failed**, per run.
+      With no test the log is the only account of what happened.
+      `gftvjobs_notifications` keeps the row states as the durable half.
+
+    **The checklist itself is part 7's**, in `telegram-bot/README.md` beside the
+    one phase 10 wrote for Android and iOS. Section 5 item 7 already says what
+    to expect from this arrangement. **There is no regression suite here**, and
+    with the bot there is now a component with no automated coverage at all.
+    That is the trade, made knowingly.
+
+92. **A bot command is gated on being built, not on its phase having shipped.**
+    The obvious reading of 0c is that a command follows `isFeatureShipped` the
+    way a button on the site does. It cannot, and the reason is a loop.
+    `telegram_link`, `telegram_2fa`, `telegram_notifications` and `invites` all
+    stay unshipped until phase 11 itself is flipped. The phase cannot be flipped
+    until the bot has been walked through by hand, per deviation 91. And a bot
+    that refused every command until the flip could not be walked through at
+    all.
+
+    So `handlers.py` asks two questions in order. **Is it built**, which is
+    whether a handler is in the registry the dispatcher itself uses, and nothing
+    else. **Then, has an admin switched its feature off**, which only means
+    anything for something already shipped, exactly as on the site. The two
+    sentences are never mixed: an unbuilt command gets the phase one, and a
+    switched off one gets the maintenance one. Telling somebody a feature they
+    used last week arrives in phase 11 would be a lie about a shipped feature.
+
+    **The site's own gate is untouched**, which is what keeps this honest and
+    not convenient. The Link control in account settings is still disabled to
+    everybody until the phase ships, so no ordinary applicant reaches a half
+    built command. Somebody who deliberately messages the bot during the build
+    reaches one that works, and that is the entire point.
+
+    One consequence worth writing down: **a command's switch is not always the
+    bot's own key.** `/jobs` obeys `job_search`, because an admin taking the
+    board down has to take the bot's copy of it down too. It would be a poor
+    kind of consistency for the site to say the board is off while the bot
+    cheerfully lists postings from it. `start` obeys nothing at all: an
+    explanation of what this is has to survive every feature in it being off.
+
+93. **Nothing in this repository starts, stops or knows about tmux.** Settled 28
+    August 2026 with the operator, who manages the session. There is no
+    `restart.sh` and no systemd unit, and section 15's tmux arrangement stands
+    as written.
+
+    What deviation 91 actually needed was not automation. It was that **"the old
+    one is definitely dead" stops being a judgement call.** A restart that does
+    not kill cleanly leaves the old process answering commands with last week's
+    code. The symptom is a reply that was going to arrive anyway. So the check
+    moved into the bot: `lock.py` takes an exclusive advisory lock at startup. A
+    second instance does not wait, does not retry and does not steal it. It
+    prints the pid holding the lock and exits 3.
+
+    Three things about it that are deliberate. **The lock is released by the
+    kernel**, `kill -9` included, so there is never a stale lock file to clear
+    by hand. That failure mode is what makes people delete lock files as a
+    habit, and thereby delete the protection. **Reading the pid is allowed to
+    fail** and never replaces the refusal. `flock` on the VPS leaves the file
+    readable, and the Windows fallback used while developing locks the byte
+    range and refuses the read. The first version turned a clear refusal into a
+    traceback about a permission error on a lock file. And **it is the second
+    defence, not the first.** Two instances cannot double send a notification,
+    because part 4's claim is one conditional update. This covers the different
+    problem of an old process still answering.
+
+### Phase 11 part 2's
+
+94. **The QR is encoded in this repository, and the alternative was never a
+    shortcut.** The obvious way to draw one is to hand the URL to an image
+    service and get a PNG back. That URL contains a single use linking token,
+    which is a credential for somebody's account. So the shortcut sends a
+    credential to a company with no relationship to this project, and it lands
+    in an access log. There is no version of that which is acceptable, and it is
+    written down here because it looks harmless.
+
+    So `api/_lib/qr.js` is a byte mode encoder at error correction level M for
+    versions 1 to 9. That covers 180 bytes against the roughly 75 a t.me link
+    with a token needs. It answers **a matrix of '0' and '1' and not markup or
+    an image.** `telegram-link.js` builds one SVG path from it with DOM calls.
+    Assigning server markup would break the rule that `ts_headline` is the only
+    thing this build ever assigns that way. An image would be a second thing to
+    cache and precache.
+
+    **The verification is the part worth copying.** A QR with a wrong mask, a
+    wrong block interleave or one flipped module still looks exactly like a QR.
+    The failure is somebody's phone quietly not scanning it. So `jsqr`, an
+    independent decoder, is a devDependency at the repo root beside playwright,
+    and the `qr` section round trips every version through it. **It never
+    reaches a browser and is not a dependency of the site.** The `panel` section
+    then does the same to the page. It reads the `d` attribute back out of the
+    drawn SVG, rebuilds the matrix from it and decodes that. The encoder and the
+    path builder are two separate places this can be wrong, and only one of them
+    is covered by testing the encoder.
+
+    Written from the standard and correct on the first run, which is worth
+    recording honestly and not as a boast. It is what having an oracle from the
+    start buys, and the tables in that file are the half that cannot be derived.
+
+95. **The linking token is claimed before the link is written**, which is the
+    reverse of section 15 step 3's order. That step lists writing the link row
+    and marking the token used afterwards. `spend_link_token` does the second
+    first, in one conditional update filtered on unused and unexpired. It only
+    writes the link if that update returned a row.
+
+    The reason is the same one the outbox claim has. Two people opening the same
+    deep link in the same second must not both be handed an account. The only
+    thing that can decide which of them owns it is the database. **Nothing reads
+    then writes.**
+
+    The cost is real and is the right way round. A failure after the claim burns
+    the token, and the person is told to ask for another. A spare token is ten
+    minutes of nothing; a double link is a unique constraint violation somebody
+    unpicks by hand.
+
+    Two smaller decisions inside the same flow. **Starting a new code spends the
+    outstanding one.** A person who opens the settings page three times is not
+    leaving three live credentials for their own account in a table. Only the
+    newest QR works, which is also what somebody looking at two screens expects.
+    And **an already linked Telegram account is told so before the token is
+    touched.** Tapping an old link twice does not burn a fresh one to be told
+    something that could have been read first.
+
+### Phase 11 part 3's
+
+96. **The bot generates the login code, and section 15 reads as though the
+    portal does.** "The portal sends a six digit code to the applicant on
+    Telegram" is 7g's wording and 15's, and the portal cannot. Nothing on the
+    site's side can reach Telegram, which is the phase's founding rule. So
+    whatever sends the message is the only thing that can know what it says, and
+    migration 011 stores hashes and never a code.
+
+    What the site writes is a *request*: a row with `purpose = login_code`, five
+    minutes, and `token_hash` set to a sentinel. The bot claims it, generates
+    six digits, writes back the bcrypt hash, and sends. **The plaintext exists
+    in one process and one chat message and is never logged.** The alternative
+    was the site generating a code and passing it to the bot through the table
+    in the clear. That is the one thing the column comment forbids.
+
+    Two consequences to know. **`requirements.txt` has a third dependency**,
+    `bcrypt`, at the same cost factor as the site's bcryptjs. The two read each
+    other's `$2a$` and `$2b$` prefixes, checked in `--only=seam` against a real
+    Python hash and not asserted. And **`/code` does not go through the loop.**
+    The person is in the chat and the bot is already holding the message. A
+    round trip through a table to talk to itself two seconds later would be a
+    round trip for nothing.
+
+97. **One column carries two meanings, and no migration was added for it.**
+    `gftvjobs_telegram_tokens.token_hash` is `not null`, so a request that has
+    no code yet still needs a value in it. It holds `pending:` and 18 bytes of
+    randomness until the bot claims the batch. Then `sending:` and its own
+    randomness while it is being worked on, and the bcrypt hash afterwards.
+
+    **It is safe because a bcrypt hash always starts `$2`**, so a sentinel and a
+    real hash can never be confused. The bot's claim is one conditional update
+    filtered on the prefix, a whole batch in one statement. That is what makes
+    the claim atomic. `verifyLoginCode` treats a row still carrying the sentinel
+    as a wrong code deliberately. Telling somebody their code exists but has not
+    been sent yet is a distinction only an attacker benefits from. Check 47
+    exists because the sentinel is written in one language and matched in
+    another.
+
+98. **A magic link fetched without the nonce cookie is refused and not spent.**
+    Section 15 asks for the browser binding and this is the branch it does not
+    mention. Unfurlers, link checkers and the scanner in front of a corporate
+    mailbox all fetch URLs and none of them carries cookies. Spending the token
+    on one of those would burn somebody's one tap sign in before their thumb
+    reached it. The symptom would be indistinguishable from a broken bot.
+
+    **A wrong nonce is different and is spent.** That link has demonstrably been
+    somewhere it should not have been. The refusal is a redirect to `/login`
+    carrying a reason, not a JSON error. A person opened it with a whole
+    browser, and a page of JSON is not an answer. The sentence names the code as
+    the way through, which is on their phone already. It is also the second
+    deliberate exception to phase 4's HEAD rule, and for the same reason phase
+    9's cron is the first. A HEAD here would be a request to sign somebody in
+    with the answer thrown away.
+
+99. **Turning the second factor on revokes every trusted device, and 5d only
+    asks for that when it goes off.** Off is the direction 5d lists, along with
+    unlinking, and both are implemented. On is the addition, and it is the one
+    that matters. A browser trusted while the factor was off would otherwise
+    walk straight past the factor the moment it was switched on.
+
+    It also closes a hole the site could not otherwise reach. **The bot's own
+    `/unlink` cannot revoke a trusted device** without the service key touching
+    `gftvjobs_trusted_devices`. That is not a table section 15 names, and
+    widening what that key reaches is the thing this phase is most careful
+    about. Revoking on the way *in* means nothing trusted before the factor
+    existed survives it, whichever end the unlink happened at.
+
+    Part 2's unlink changed with this, and its comment said the opposite. That
+    was right while nothing depended on the link and wrong the moment a second
+    factor did.
+
+### Phase 11 part 4's
+
+100. **An abandoned claim is requeued with the attempt counted, and section 15
+     does not say what to do with one.** It describes the claim and the retries
+     and stops there. From inside one healthy process there is no such thing as
+     a claim nobody owns. There is here: a tmux restart between the claim and
+     the send leaves rows `claimed` with nothing coming for them. That is the
+     same failure as the queued row nobody drains that rule 3 exists to prevent.
+
+     Settled 29 August 2026 with the operator: **requeue, then fail.** The other
+     answer, marking a stale claim `failed` outright, is the only one that can
+     never send a message twice. It buys that by dropping a notification every
+     time the process stops at the wrong moment. A duplicate invitation is a
+     cost paid in the open; a message nobody received is not. Telegram is a
+     second channel and not the record, so the portal still has it.
+
+     Three parts, all deliberate. **The lease is five minutes** against a batch
+     that takes seconds, so a slow pass is never swept out from under itself.
+     **The sweep runs on the first pass as well as every fifteenth.** The claims
+     worth recovering are exactly the ones the previous process left. And **a
+     row waiting out a backoff is not abandoned.** The sweep asks SQLite what
+     this process is still holding, or patience would read as death.
+
+101. **A retrying row stays `claimed`, and the schedule that says when lives in
+     SQLite.** The obvious implementation puts it back to `queued` with a time
+     it may next be tried. PostgREST's claim cannot express "queued and not
+     before this", so the very next pass would take it. The backoff would be a
+     comment and not a delay. `claimed` is also the honest word: the row is
+     owned, this process is going to try it again, and nothing else should touch
+     it.
+
+     **Durable and not in memory**, which is the half worth keeping. A bot
+     restarted a minute into a fifteen minute backoff should carry on waiting.
+     It should not start the fifteen minutes again, and certainly not send
+     immediately. Section 15 asks for SQLite scheduling for flood waits and the
+     same mechanism answers every retry, which is one mechanism instead of two.
+
+102. **A flood wait pauses the whole drain and costs the row nothing.** Telegram
+     is rate limiting this bot and not refusing this message. So the pause is
+     global, and is written to SQLite so a restart cannot walk past it. The row
+     is given a time and not an attempt. Counting it would let a busy afternoon
+     mark good notifications `failed`.
+
+     Two smaller pieces. **The rest of the interrupted batch is given the same
+     time.** It is not left claimed with nothing holding it until the lease runs
+     out. And **the pause is a few seconds past what Telegram asked for.**
+     Coming back at the exact second is how one flood wait becomes two.
+
+     The security loop does the opposite and should. A login code that met a
+     flood wait is dropped. By the time Telegram lets us talk again the five
+     minutes are gone, and the person has used `/code` or a backup code.
+
+103. **A kind the bot cannot render is never claimed.** The claim filters on the
+     kinds `RENDERERS` holds. So a row queued by a newer site sits `queued` and
+     untouched until somebody pulls the bot that knows what it is. Section 2 set
+     this problem out before the phase started. Every kind has to be one an
+     older bot can leave alone safely, and this is where it is decided.
+
+     **Leaving it queued is the point, and it is not the same as leaving it
+     queued forever.** Rule 3's queue nobody drains is about a row that can
+     never be sent to anybody. This is a row that will be sent as soon as the
+     halves match. The panel shows it as a queue that has stopped moving, which
+     is exactly what it is.
+
+104. **The outbox panel is on `/admin` and names nobody.** Section 15 says a
+     failed row is left "for an admin to see" and does not say where. The honest
+     reading is the overview and not `/admin/maintenance`. It is the same kind
+     of thing as the cron panel already there. It is a process with no reader,
+     reporting to the page somebody opens in the morning.
+
+     **It names no applicant, and that is what keeps it where it is.** `/admin`
+     is open to job posters, and deviation 57 made phase 9's submissions list
+     admins only for exactly this reason. Every row of that list was an email
+     address. A kind, an error, a time and an attempt count are enough to act
+     on. The account behind a row is one query away for somebody allowed to make
+     it. The test checks this against a payload that carries an applicant id
+     anyway.
+
+     One thing on it is not a count. **The oldest queued row is carried as a
+     time.** The drain runs on a VPS this repository does not deploy to and
+     cannot ask anything of. A queue that has stopped moving is the only
+     evidence the portal ever gets that the bot is not running.
+
+105. **The drain obeys the maintenance switch and the security loop does not**,
+     and the two sentences are worth keeping apart. `telegram_notifications`
+     switched off stops the drain claiming anything, and the rows stay `queued`
+     instead of being skipped. A maintenance switch is a pause, and switching it
+     back on has to deliver what waited. That is deviation 89's rule about a
+     switch that only works in one direction, arriving from a third direction.
+
+     `security.py` reads no switch at all, because the person there has already
+     typed their password correctly and asked for a second step. Refusing to
+     deliver their code would not degrade a feature; it would lock them out.
+
+106. **Raising a task is what queues a notification, instead of each raise site
+     queueing its own.** Section 15 describes the site writing a row when it
+     invites somebody, and read literally that is a queue call in `invites.js`.
+     A second is in `admin-applications.js`, and a third wherever the next phase
+     raises a task. Each one correct, and the third one missing for a month
+     before anybody notices. A task that appears on the dashboard and sends
+     nothing looks exactly like a working feature.
+
+     So the mapping from task type to notification kind lives in
+     `admin-tasks.js` and every raise gets delivery without asking. The cost is
+     that the kind is decided by the type and not by the caller. That is why the
+     two interesting types are named explicitly and everything else is
+     `task_raised`. A message saying something is waiting is true of every task
+     by definition, so the default is safe in the direction defaults have to be.
+
+107. **The payload is a copy of what was true when the row was queued.** The
+     drain could read the posting when it comes to send. The message would then
+     be about a role renamed twenty seconds ago by an editor who has no idea
+     somebody is being written to. The site writes the role, the department and
+     the note into the outbox row instead, and the bot reads no postings table
+     at all.
+
+     The same instinct as a question set frozen at raise time, and it buys the
+     same thing. The record says what was sent and not what would be sent now.
+     It also keeps the bot's reach into the shared database to the tables
+     section 15 names, which matters because that key is on a VPS.
+
+108. **A column PostgREST did not return is not a switch somebody turned off.**
+     The toggle check is `link.get(column) is False` and not a falsy test. A
+     link row read by an older select, which named no notify columns, reads as
+     "no answer" and the message goes. The opposite reading is the worse failure
+     by a distance. A missing column would silence an entire kind for everybody,
+     and it would do it without an error anywhere. A skipped row is a perfectly
+     ordinary thing for the drain to write.
+
+     This is `null` versus `0` for a count, and the empty string that `or` read
+     as a missing translation, arriving a third time. **The absence of a value
+     and a value that happens to be falsy are different claims.** This build has
+     now been bitten by treating them as one in three separate files.
+
+109. **A toggle button's stored meaning is the kind, never the value.** The
+     three buttons under `/notify` are redrawn after every tap, and the obvious
+     shape stores "set invitations to off" in the registry. That button is then
+     wrong the moment anybody flips the switch from another device, and it is
+     wrong for ever. Section 15 requires the registry to outlive restarts.
+
+     So the payload says which switch the button is attached to and the value is
+     read live at click time. It has a second consequence worth the space. The
+     callback id can then be derived from the account and the kind instead of
+     being random. So redrawing the keyboard reuses three rows instead of
+     writing three more on every tap.
+
+110. **Declining an invitation writes to `gftvjobs_invites` and leaves the task
+     alone.** The task on `/account/tasks` is the record that this person was
+     invited, and that does not stop being true when they say no thank you. What
+     changes is the invite's status, which is what an admin reads.
+
+     The write is one conditional update filtered on the status still being
+     `invited` or `seen`. That is what makes a button in a month old message
+     safe. An invite the poster has since withdrawn, or one the applicant has
+     since applied through, is answered without being written. `declined` is one
+     of the two states migration 008 defined and phase 8 deliberately left
+     unwritten. It said at the time that it was phase 11's, because only
+     Telegram can offer a button that means it. `seen` is still unwritten: a
+     message delivered to a chat is not a message read, and this build does not
+     claim otherwise.
+
+### Phase 11 part 6's
+
+111. **`/jobs` asks the site and not the database, and section 15 would allow
+     either.** The bot holds a service key and the postings table is right
+     there. So reading it is the obvious implementation, and it is the wrong one
+     twice over.
+
+     **Once for correctness.** *Which postings are live* is a real question with
+     an answer already written. That answer is published, unexpired, ready in
+     this language, newest first, resolved through `gftvjobs_search_jobs`.
+     Writing it again in Python would be a second implementation kept in step by
+     nobody. The way it would fail is a bot confidently listing a role the board
+     stopped showing last week.
+
+     **Once for reach.** Section 15 names what the key is for: accounts, links,
+     tokens, invites and the outbox. `/api/public/jobs.json` needs no credential
+     at all, can never change anything, and is the endpoint section 4 already
+     published for anybody aggregating openings. The narrowest thing that can
+     answer a question is the one to ask, and here it is also the one that
+     cannot drift.
+
+     The honest cost is that `/jobs` has nothing to say when the site is
+     unreachable. That is why `feed.py` keeps its last copy for a bad minute. It
+     is also why a feed that could not be read says so instead of reporting an
+     empty board.
+
+112. **A command reads the tables now; a notification is a copy of then.** Part
+     5 settled the opposite and both are right. That is worth writing down,
+     because the two rules look like a contradiction sitting one file apart.
+
+     Deviation 107 froze the role, the department and the note into the outbox
+     row at queue time. So a message cannot be about a posting renamed twenty
+     seconds before it went out, and the drain needs no reach into a postings
+     table. Nobody is standing there. **A command is the other case entirely.**
+     Somebody has just asked what their applications are doing. Answering from a
+     copy taken weeks ago would be answering a question they did not ask. So
+     `/applications` and `/invites` read, and the invite notification stays a
+     copy.
+
+113. **The nine application status words are a second copy of the portal's, and
+     the copy is checked and not trusted.** The alternative was sending the
+     enum, which is what the column holds. `under_review` on somebody's phone is
+     a database detail leaking into a sentence about them.
+
+     So `strings.py` carries the words `status.*` carries in `en.json` and
+     `zh.json`, and **check 80 compares them value by value in both languages**.
+     The failure it exists to catch is silent and slow. Somebody rewords "Not
+     this time" on the site, and the bot keeps saying what it always said. One
+     application is described two ways to one person. Same family as the bcrypt
+     seam and phase 10's two copies of the queue's verdict rule.
+
+     **An unknown status says where to look instead.** The check constraint can
+     gain a value in a later phase, and this process is pulled by hand. An
+     unknown enum falls back instead of being refused. A chat window inventing a
+     sentence about somebody's application is the one fallback that would not be
+     acceptable.
+
+114. **Every list draws five and then points at the portal, and `/tasks` draws
+     no list at all.** Section 15 asks `/applications` for "the applicant's own
+     application list", and the literal reading is every row.
+
+     A chat window is not a dashboard. Twenty applications in one message is a
+     wall somebody scrolls past on the way to the portal. The whole list is
+     already there, with the buckets and filters 7g built for it. Five and a
+     count of the rest answers the question actually being asked, which is
+     whether anything has moved.
+
+     **`/tasks` is the sharpest version of the same thing, and section 15 asks
+     for it outright**: a count and a link. A task can carry a frozen question
+     set that has to be answered accurately, and the page renders it properly. A
+     chat paraphrasing a request somebody must answer exactly would be the worst
+     of both. `render_task` reached the same conclusion in part 4 from the other
+     direction.
+
+115. **A stylesheet written for icons reached a symbol that is not an icon, and
+     three checks watched it happen.** Found by looking at `/account/settings`
+     on 29 August 2026, minutes after the flip made the panel reachable at all.
+     The QR rendered as a solid block: navy on white in the light theme, pale
+     grey on white in the dark one, unscannable in both.
+
+     `theme.css` sets `stroke: currentColor` and `stroke-width: 1.75` on every
+     `svg`, for the icon set, which is the whole reason the icons work. **Stroke
+     is an inherited property, and one unit in this viewBox is one module.** So
+     every module in the symbol was outlined at nearly two modules wide, and the
+     light ones closed up. The white plate took a dark border from the same
+     rule. `drawQr` had it right the whole time — `fill="#000000"` on the path,
+     `fill="#ffffff"` on the rect. And **a presentation attribute loses to a
+     stylesheet**, which is the half of the cascade that made this invisible in
+     the source.
+
+     Three things follow, and the third is the one worth carrying:
+
+     - **The opt out lives in `app.css`, not in `theme.css`.** The icon rule is
+       correct for icons and this is the exception, so `.telegram-qr svg, *`
+       clears the stroke and pins the two colours. **A QR is black on white in
+       every theme and at every brightness.** A scanner thresholds the image,
+       and the reader's theme is none of its business.
+     - **`sw.js` to `v96`.** A stale worker serving `v95`'s `app.css` would keep
+       drawing the block for anybody who already has the site.
+     - **Checks 15, 16 and 17 all passed against the broken page**, which is
+       what makes this a rule and not a fix. They read the path data and the
+       `fill` attributes — the model of the symbol, which was never wrong.
+       Checks 18 and 19 read `getComputedStyle` instead, in both themes, and 18
+       fails on the tree without the rule. **Assert the computed style, not the
+       attribute, on anything a stylesheet written for something else can
+       reach.** The sibling of phase 9's "waiting for an element in the static
+       markup is waiting for nothing". Both are a check that agrees with the
+       source while the page is wrong.
+
+### Phase 11 part 7's
+
+116. **The seam changed code, and it was supposed to be documents.** Part 7 is
+     the READMEs and the checklist, and it ends with `commands.py` reading a
+     second document. The reason is what part 7 was for. The bot README's
+     command table is a **third** copy of the one list deviation 91 made
+     structurally single, after `commands.py` itself and `setup.md`'s blocks. It
+     had been sitting there uncheckable since part 1.
+
+     **Writing the checklist is what made that visible.** The checklist is the
+     document that says what a person should see, and the table is the document
+     that says what they can ask for. The two are read together or not at all.
+     Leaving it would have meant a seam that wrote down a drift it had just
+     found and did nothing about it.
+
+     Twenty lines, one file, no new dependency, and `--check` still exits 0 or 1
+     with the same words. **The rule it is worth keeping is the smaller one.** A
+     list that is generated into one document and typed into another is not one
+     list, however clearly the docstring says it is.
+
+### Phase 12's
+
+117. **Layout is measured in one theme, not the four section 12 asks for.**
+     Settled 30 August 2026. The two axes — `data-color-theme` and `data-mode` —
+     change colours and nothing else: no font, no size, no spacing, no
+     breakpoint. A layout that holds in one holds in all four. Walking six
+     widths, seven pages and two languages through four combinations is 336 page
+     loads to re-measure numbers that cannot have moved.
+
+     **What the combinations do change is contrast**, which is the thing this
+     reduction would actually lose. That is not deferred. It is part 3, it is
+     measured and not looked at, and section 8 item 9 has been carrying it since
+     phase 10. **The reduction is in what layout means, not in what the phase
+     covers.**
+
+118. **The responsive and AA pass covers the portal, and the docs site's moves
+     to phase 13.** Settled 30 August 2026. Section 12 says both sites;
+     `docs-site/` is a scaffold with no pages until phase 13. A pass over an
+     empty frame proves the frame, then phase 13 fills it with the content that
+     was never checked. That is the wrong order and a false sense of coverage in
+     between.
+
+     **Recorded and not quietly narrowed**, on the same reasoning as part 7's
+     deferred drain cases. The gap is written into section 6 as phase 13's
+     inheritance, so what is inherited is a task and not a surprise.
+
+119. **Part 4 built a check, and the plan gave it a round trip.** Settled 31
+     August 2026. Section 12 asks for "a read through of every dictionary by
+     someone who reads that language". Section 2 accordingly had part 4 as an
+     envelope. Generate the page, send it, apply what comes back. What it
+     actually needed first was a page worth sending. `zh-review.html` was
+     rendering 223 of 1,728 interface strings and none of the bot's. So the read
+     through as planned would have taken a reader's afternoon and covered an
+     eighth of the Chinese in the build. And **nobody on either end would have
+     known**, because the page counted the full number in its own header.
+
+     **So the part is a generator, a check and a round trip and not a round
+     trip.** The check is the smaller half and the one that pays later. Five
+     rules over all 1,929 pairs decided four findings without a reader. The
+     coverage half means the next file that ships 华文 either goes on the page or
+     is exempted with a reason somebody wrote.
+
+     **The deviation worth naming is the shape, not the extra work.** A task
+     whose deliverable is somebody else's judgement still has a deliverable of
+     its own, and it is the thing they are given. Part 3 had already said this
+     about a probe; part 4 says it about a page.
+
+120. **The probe's table is not the table section 6 specifies, and this is the
+     first time this build has changed a specified schema.** Settled 31 August
+     2026 with part 7, decision 23. Section 6 names one table,
+     `gftvjobs_status_checks`, with a row per request: "id, target, ok,
+     status_code, duration_ms, error, checked_at". Section 15 says to record
+     each check into it and section 11 says to sweep it at ninety days, "about
+     six thousand rows a day".
+
+     **The specification's own arithmetic is the argument against it.** Six
+     thousand rows a day is half a million over the ninety days 0c draws. On the
+     free tier this project runs on, that is a large fraction of the budget
+     spent recording that nothing happened. **What is built instead is two
+     tables.** One is a day per target counting what was watched. The other is a
+     row per outage, opened by the first failed check and closed by the first
+     one that succeeds.
+
+     **It keeps every promise the specification makes and one it could not.**
+     0c's rules survive intact. A day nobody probed has no row and draws as
+     unknown, a percentage is printed with its coverage, and nothing is
+     backfilled. The day counters are what preserve them. "This day was fine"
+     without how much of it was watched would be the same fabrication in a
+     smaller disguise. What the specified shape could *not* do is state a real
+     outage duration. Failures alone can only be closed by failures stopping, so
+     every length would have been a floor. An outage row is closed by an
+     observed success.
+
+     **This is a deviation and not an interpretation**, which is why it is
+     written here and not absorbed. Section 6 names a table this build does not
+     create. Section 11's sweep is now a much smaller one than the sentence that
+     asks for it describes. And section 15's "record the status code, the
+     duration, and whether it succeeded" is honoured as counters and a worst
+     case, and not per request. **The specification was reconciled instead of
+     being left to drift**, settled the same day. Sections 6, 11 and 15 and 0c's
+     probe list now describe the two tables and the function. A line in section
+     6 records what the shape was and why it changed. 0c's rules are untouched,
+     because the new shape was built to keep every one of them.
+
+121. **There are six READMEs and section 2 allows five, and the seed script is
+     Node where section 6 would have made it SQL.** Both settled with part 8 on
+     31 August 2026, and they are recorded together. The pass that found the
+     first is the one that had to decide the second.
+
+     **`tests/README.md` is the sixth**, added when the phase files became
+     something a person other than their author would run. It was never written
+     down as a deviation until now. Section 2: "Four READMEs, and only these
+     four plus the one in `migrations/`. Do not scatter a README into every
+     subdirectory". The rule's purpose is intact: six is not scattering, and
+     each one says what lives in its directory. But the count is wrong, and the
+     `seam` section now asserts exactly these six. So a seventh is a finding and
+     not a habit.
+
+     **The seed script is `seed.mjs` and not a numbered file.** Section 6 says
+     all DDL is numbered SQL and section 17 asks for a seed script without
+     saying what it is written in. Every other piece of data in this build
+     arrives as SQL. This one cannot. 16g wants screenshots taken while signed
+     in as invented people. An account is a bcrypt hash `api/_lib/password.js`
+     would accept, and Postgres cannot produce one. So the seed is Node,
+     importing the site's own client and its own hashing instead of
+     reimplementing either. `migrations/README.md` says so where somebody would
+     look for it. **Nothing about the migration rules moves**: this creates no
+     schema, records nothing in `gftvjobs_migrations`, and touches no reference
+     data.
+
+122. **The portal's staff sessions are not in `gftvhello_sessions`, and 5a says
+     they should be.** Settled 31 August 2026, after phase 12 shipped and before
+     phase 13 started, as migration `038` and **`2c27a2b`, "phase 12 part 8a"**.
+     Applied, deployed, and confirmed the same evening by signing in to both
+     sites.
+
+     **What was reported.** A staff session on the portal did not last more than
+     about a day with "stay signed in" ticked for 30 days. Signing in on one
+     site ended the session on the other.
+
+     **What was measured before anything was changed**, which is the part worth
+     keeping. The portal issues exactly what it promises. `stay_signed_in: true`
+     produced a cookie whose `Expires` was 30.00 days out, and a row whose
+     `expires_at` read the same. Both were confirmed against the deployment with
+     a real sign in. It deletes a staff session row in three places and no
+     others. Those are a logout, a row found genuinely expired on read, and
+     `invalidateAllSessions`. **That last is never called for the staff realm
+     anywhere in the codebase**. The daily cron excludes that table by name with
+     section 11's rule written beside it. So nothing here shortens or deletes
+     those rows, and the two sites nevertheless ended each other's sessions.
+
+     **What was left was the table.** One set of rows, two applications, and the
+     other one applying its own rules to rows it did not create. 5a's sentence
+     is "the existing `gftvhello_users` and `gftvhello_sessions` tables, so the
+     same accounts that sign in at gftv.asia work here". And **the accounts half
+     is what that is for.** Sharing the session rows was a consequence of the
+     sentence and not a requirement of it, and it is the consequence that was
+     undone. `gftvhello_users` is still the one source of who a staff member is,
+     still read only.
+
+     **The specification had already reached this answer for the third site.**
+     5h gives the docs site its own cookie and its own table. The reason: "so a
+     docs sign in is never mistaken for a gftv.asia one". It is also "separate
+     from any portal staff session so signing out of one site does not sign you
+     out of the other". Three sites, three session tables, one set of accounts.
+     The portal was the one that never got it, and `038` creates its table
+     alongside the docs site's. That is instead of making phase 13 write a near
+     identical file a week later.
+
+     **What it cost**: every portal staff session ended once, on the deploy. The
+     rows in `gftvhello_sessions` were not copied across, because writing rows
+     into the other site's table is precisely what this change exists to stop.
+
+     **And one thing it found on the way past.** `034` and `037` never recorded
+     themselves in `gftvjobs_migrations`. So the only record of what has been
+     applied was two rows short since 30 August. They are backfilled by `038`
+     and not by editing two applied files. The rule that caught it is part 8's:
+     **a list is compared against the thing it lists, in both directions.** This
+     one had never been compared at all.
+
+123. **An admin can edit an applicant's details, and 8.9 does not have that
+     action.** Added 31 August 2026 because it was asked for, after phase 12
+     shipped and before phase 13 started. The brief gives that page search,
+     deactivation, deletion, a password, a forced reset and an unlink, and
+     stops. Five editable fields — username, email, display name, phone,
+     language — is new surface and not an interpretation of an existing line.
+     That is why it is here.
+
+     **It is written to the page's own rules and not to new ones.** Admins only,
+     a required reason, an audit row, and the same validators the applicant's
+     own edit uses. An admin typing somebody's email is not a reason to accept
+     an address its owner could not have typed. Uniqueness is checked before the
+     write and again by the constraint underneath it. Between the two there is a
+     moment where somebody else can register the same address.
+
+     **Two of the five are login identifiers and that is the whole of the revoke
+     rule.** A username or an email moving under somebody ends every session and
+     trusted device, exactly as the three assisted actions above it do. A
+     display name, a phone number or a language does not. Signing an applicant
+     out over a corrected capital letter teaches an admin to avoid the page. The
+     response names which happened, so the page can say "they have been signed
+     out" in the same breath as "saved". That is instead of leaving an admin to
+     hear it from the person they edited.
+
+     **Nobody is notified, and that is consistency and not convenience.**
+     Settled with the request. Nothing on this page tells an applicant anything
+     today, and an admin setting their password does not either. This build
+     sends no email at all, so the only channel is Telegram and only for a
+     linked account. A notice here alone would leave the *password* action as
+     the quietest thing on the page. What the applicant has instead is the value
+     on their own account page. There is an audit row naming the admin, the
+     reason, and both sides of every field that moved. **If a security notice is
+     ever built, it covers all of 8.9's actions and not only this one.**
+
+     **And the Telegram identity is shown, read only.** 8.9 says to verify
+     identity out of band before unlinking, and the `@name` is not what to
+     verify against. Its owner changes it whenever they like, and somebody else
+     can take the old one. The numeric id is the account, and it crosses to the
+     browser as a string because ids past 2^53 do not survive JSON as numbers.
+
+124. **A bad day on the status page opens the outage that made it bad.** Asked
+     for on 1 September 2026 as "any colour other than green or white". It is
+     hoverable and clickable, with an overview of that day's incidents and a
+     jump to the entry. Part 7 built the bars as ninety inert squares, so this
+     is an addition to a shipped page and belongs here beside deviation 123.
+
+     **The colour is what makes a square eligible and not what makes it a
+     link.** A working day and a day nobody measured lead nowhere, which is the
+     request as given. The three that are left are partly measured, degraded and
+     down. They lead somewhere only when the panel below is actually drawing an
+     outage for that target on that day. **A degraded day whose failures were
+     too few to list, or whose outage the cap held back. It stays a coloured
+     square with its sentence on hover and no link.** A link that scrolls to
+     nothing is worse than no link, on the one page whose subject is not
+     claiming more than it can show. The shortened list is computed once in
+     `renderServiceBody` and shared with both, so the bars and the panel cannot
+     disagree about which outages exist.
+
+     **An id derived from the incident and not from its place in the list.** An
+     index is stable inside one response and meaningless in a link somebody
+     copies: the tenth outage today is a different outage tomorrow. Target plus
+     start is unique, because migration `037`'s function extends the open row
+     instead of opening a second one.
+
+     **`role="img"` had to become `role="group"`.** A role of img makes its own
+     contents presentational, so focusable children inside one are a defect
+     whatever they look like. The bar keeps its tabindex, so a scrolling region
+     is still reachable without a pointer. A screen reader reaching the few days
+     that are events can now act on them. That is better than part 7's ninety
+     squares, which said nothing individually.
+
+     **Three things only looking found**, which is part 3's lesson for the
+     fourth time. The hover ring was being painted over by the neighbouring
+     squares, because it is drawn 1px outside a square with 1px of gap either
+     side. It read as a line down one edge until the hovered square was given a
+     stacking context. The jump landed the entry under the sticky header until
+     `scroll-margin-top`. And relaxing the link rule on purpose to watch the
+     checks fail made the section *throw* instead of reporting. That is how
+     `incidentId` learned to read through nothing. An id for an incident that is
+     not there should be a useless id and never an exception. That page has a
+     floor under it precisely because it must work while things are going wrong.
+
+     **And the phase's own Chinese guard caught the note written for it
+     yesterday.** It found `运营` where Singapore usage is `营运`, in phase 12's
+     shipped note. Nine new checks in `status`, five more in `a11y` that drive a
+     real click. The file reads 554 passed, 0 failed, 6 skipped offline.
+
+### Phase 13's
+
+125. **Trusted devices cannot be "listed per site", and 5f asks for exactly
+     that.** Phase 13 part 2, 1 September 2026. The sentence is 5f's. Trusted
+     devices are "listed per site with a label saying which". The reason 5f
+     gives: "the token cookie is host scoped and trusting the portal does not
+     trust the docs site".
+
+     **The first half is built and the second cannot be.** Trust really is per
+     site. `gftv_docs_device` is host scoped, so a browser trusted on the portal
+     answers the second factor again here. The two are earned separately. But
+     both sites write `gftvhello_trusted_devices`, which has no label column and
+     no site column. Section 2 forbids adding either to a `gftvhello_` table. So
+     each site's list shows rows the other created, and a revoke here revokes
+     there.
+
+     **One way to buy the label was available and was declined.** The token
+     could have carried a `docs:` or `portal:` prefix in front of its 32 random
+     bytes. That means no schema change, existing rows migrating on rotation,
+     and every row readable. What that costs is semantics inside a bearer token,
+     in a table gftv.asia also writes and this build does not control. All to
+     make a settings page tidier. The entropy would have been untouched and the
+     risk was not the entropy. The risk is that this project would be choosing a
+     format for a value another application also stores.
+
+     **What ships is the sentence instead**, in the header of
+     `trusted-devices.js` on both sites and in `docs-site/README.md`. The list
+     is the account's trusted devices, and not this site's. Part 6 says it on
+     the page. A list that quietly implied a scope it does not have is the
+     failure this build keeps naming. It is a page claiming more than it can
+     show.
+
+     **The passkey half of the same problem went the other way**, and the
+     difference is whose table it is. `gftvjobs_staff_passkeys` is this build's,
+     so migration `039` adds the column and 5f gets its answer there.
+
+126. **The calling session was kept by "sign out everywhere", and 5f does not
+     say to keep it.** Phase 13 part 7e, `643c7dd`, 3 September 2026. It is
+     recorded here because the deviation was the *original* behaviour, and it
+     was never written down. `danger.js` passed `{ keepSessionId:
+     session.sessionId }` and argued for it in a comment. Somebody who has just
+     typed a username, a password and a fresh code is looking at the page.
+     Throwing them out to prove the action worked costs them a sign in.
+
+     **It was found by pressing the button**, during item 24's walk, by somebody
+     who expected the name on it to be true. That is the whole argument against
+     the original choice. **The label is what a person reads, and the
+     consequence line is what they read only if they stop to.** 5f lists the
+     action as "sign out everywhere" with no exception.
+
+     **And the reason it matters is who presses it.** Somebody reaching for a
+     danger zone has usually lost a device. The session that has to end is the
+     one they cannot press a button from. A button that spares the browser in
+     front of you is a button that spares exactly the session that was never the
+     problem.
+
+     What ships: no `keepSessionId`, a `signed_out` flag on the response, and
+     the page following it to the sign in page. The cookie now names a row that
+     is gone. `load()` would answer 401 and leave somebody looking at a settings
+     page that cannot read anything.
+
+127. **5f asks for a link to where the profile fields are edited, and there is
+     no page to link to.** Phase 13 part 7a, 3 September 2026. Both sites sent
+     staff to `https://gftv.asia/account`, which **answers 200**. gftv.asia is a
+     one page app with a catch all, so it served the same shell as every other
+     address. The reader landed on the wrong view.
+
+     **Nothing here could have caught it.** The status code is fine, the fetch
+     succeeds, and a link checker sees a working link. It shipped from part 6
+     and was found by a person clicking it. That is the second thing this walk
+     found that no file in this repository could have.
+
+     What ships is the root, `https://gftv.asia`. That is the only address in
+     that site's own markup, and it cannot rot the way a deep link into a client
+     routed app does. **A deep link was offered and declined** for want of an
+     addressable account view. If one ever exists, checks 167 and 167a are where
+     the pin goes.
+
+     **Phase 14's start at 128.**
+
+128. **Three controls in `theme.css` were on the separator token and needed the
+     control one, so 1.4.11 was not met in either modal on either site.** Phase
+     14 part 1, 3 September 2026, found by `tests/phase14-test.mjs
+     --only=contrast` on its first run.
+
+     `.mode-btn`, `.swatch` and `.locale-btn` are each a translucent `--surface`
+     fill with a 1px `--border` round it. So **the line is the whole of what
+     says a control is there**. And `--border` measured 1.23:1 to 1.70:1 against
+     the modal, against 1.4.11's 3:1. Now `--border-control`, which lands
+     between 3.3:1 and 3.6:1 everywhere.
+
+     **The fix is a token that already existed and says what it is for in as
+     many words.** Phase 12 part 3 created `--border-control` for exactly this.
+     It is "the edge of a control, where a reader has to be able to find the
+     control at all. 3:1 in all four combinations" — and applied it to the
+     switch track. These three were left on `--border` because **the two modals
+     were not in that pass's fixture**. That is item 27's lesson arriving from
+     inside the same stylesheet: a pass measures what it is pointed at.
+
+     **It is a portal defect as much as a docs one.** `theme.css` is generated,
+     so both sites carried it for eleven phases and both are fixed by the one
+     edit. `tests/phase12-test.mjs --only=contrast` is 35 passed after it.
+
+     **What is left advisory, with its numbers printed**: `.swatch-dot`'s ring,
+     at 1.81:1 to 2.47:1. It is a sample of the palette it names and the name is
+     beside it in words, so the dot identifies nothing on its own. The selected
+     swatch is carried by a fill, a border and a containment ring.
+     `--only=contrast`'s `statesInHue` check proves that in every combination,
+     and not in the one somebody looked at.
+
+129. **The docs site shipped a whole phase with no icons and no link card, and
+     nothing here looked.** Phase 14 part 2b, 3 September 2026, found by a
+     person pasting both sites into a chat window and comparing the two
+     previews.
+
+     `docs-site/shell.html` carried `charset`, `viewport`, a title, a
+     description, `theme-color` and two stylesheets. No `<link rel="icon">`, no
+     `apple-touch-icon`, no `og:` or `twitter:` tags, no canonical. And the
+     directory held no image of any kind. So a tab drew the browser's blank page
+     icon, and a shared link previewed as a title with nothing beside it.
+
+     **The cause is the thing this site's whole generator exists for.** The HLC
+     set sits at `main-site/`'s root, and Vercel builds each project from its
+     own root directory. So `/HLC-main.png` on the docs origin is an address
+     that answers nothing. Phase 13 built the head from the portal's in every
+     respect that a stylesheet or a script cares about. The four lines that are
+     only ever read by something that is *not* a browser were the ones nobody
+     copied.
+
+     **Why no check caught it.** `--only=live`'s 27 checks ask for pages and
+     read what a reader gets. `gen-docs-lib.js --check` compares the files it
+     was told about, and nobody had told it about an image. There is no check in
+     this repository that opens a page and asks whether it can be shared. That
+     is the same shape as item 29: a failure visible only to something outside
+     the build. **The fix moved the images under `--check`**, so at least the
+     drift half is now structural. The three files are `ASSETS` entries with a
+     `to` of `public/`, and a rebranding at the portal fails the check here.
+
+     **What is still not checked is the head itself.** A future edit can delete
+     the `og:` block and nothing fails. The exception is `scripts/build.js`,
+     which refuses to build without the canonical link, because it reads the
+     origin off it. That one line is load bearing by accident of being useful,
+     and it is the only part of this that cannot silently vanish.
+
+130. **A job poster could close the whole board, rename the portal and switch
+     any shipped feature off. 10 item 2 says both pages are admins only.** Phase
+     14 part 5, 4 September 2026, found by reading the dashboard against the
+     specification in order to describe it.
+
+     10 item 2's list of what only an admin may do names five things. Three were
+     enforced: deleting a posting, the applicant accounts page, and granting
+     portal access. **The other two were not enforced anywhere.**
+     `/admin/settings` and `/admin/maintenance` were in the poster's sidebar as
+     ordinary links, and `api/admin/settings.js` and `api/admin/maintenance.js`
+     guarded with `requireStaff`. So a job poster could set the portal title,
+     rewrite the home page copy and choose the featured roles. They could change
+     the reapply waiting period, and **close applications across the entire
+     board**. They could switch off any feature that has shipped, on both sites,
+     with nothing turning it back on by itself.
+
+     **Neither was a hole somebody had reasoned about.** The sidebar's own
+     comment cites 10 item 2 by number for the two items it does mark
+     `adminOnly`. That is what makes this an omission instead of a decision. The
+     rule was read, quoted, and applied to half the list. Both pages shipped in
+     phase 8, so it stood for six phases.
+
+     **Fixed in part 5**, at the asker's direction. A guide describing the
+     settings page to a job poster would have been this build teaching somebody
+     to use a control that was never theirs. Two `adminOnly: true` entries,
+     `requireStaff` to `requireAdmin` in both routes. The overview banner keeps
+     its sentence for a poster and loses its link to the page. Reading is
+     refused as well as writing: reading the settings page is how somebody would
+     learn the board is closed.
+
+     **Why no check caught it.** `tests/phase7-test.mjs` asserted the opposite
+     in as many words. Check 4 reads "a job poster still reaches postings,
+     tracking, teams, tags **and maintenance**". It was written when phase 7
+     shipped `/admin/maintenance` and before 8.10 and 8.12 existed as pages. A
+     check can hold a mistake still. That assertion is now the pair that refuses
+     both routes with 403, and `--only=boundary` reads the same rule off the
+     source. The next removal of a guard fails without a credential.
+
+     **One item on that list was left exactly as it is.** The fifth is "mark a
+     translation ready, per 7i", and 7i's own sentence is about a **translation
+     helper** and not about staff. A job poster who cannot tick ready on their
+     own posting cannot publish it in two languages at all. That is most of what
+     parts 5 and 6 of the editor are for. The job editor's tick stays open to
+     any staff account, `api/translations/helper.js` still has no `is_ready` in
+     it anywhere. The poster guide says so in those terms. **If that reading is
+     wrong it is a one line change**, and this paragraph is where to start.
+
+131. **Four strings told a helper that only an admin can publish their work, and
+     any job poster can.** Phase 14 part 6, 4 September 2026, found the same way
+     130 was: by reading the screens in order to describe them.
+
+     `admin.helpersNote`, `admin.helperCannotPublish`, `helper.whatSavingDoes`
+     and `helper.draftUntilReady` all say an admin marks a translation ready.
+     `api/admin/jobs.js` guards with `requireStaff` and its only `isAdmin`
+     branch is the delete path, so **a job poster ticks ready like anybody
+     else**. The brief agrees with the strings and not with the build, at 971,
+     1146 and 1592.
+
+     **This is deviation 130's last paragraph seen from the other end.** Part 5
+     settled that the tick stays open to any staff account and that the brief is
+     not amended for it. Nobody looked at what the interface was telling helpers
+     about that same tick, and it was telling them something the routes do not
+     do.
+
+     **Why it matters more than a wrong word.** The sentence is the reason the
+     role can be granted before trust is. It promises a helper's draft is read
+     by somebody before it reaches a reader. That promise is still kept, by
+     staff and not by an admin. A helper who was told admin and watches a poster
+     publish has been told something untrue about how their work is reviewed.
+
+     **Fixed in part 6**, at the asker's direction and against the two
+     alternatives. Those were writing the guide to match the strings, and
+     guarding `is_ready` with `requireAdmin`. The four strings say staff, in
+     both languages. `helper.gateBody` was left alone because granting the role
+     really is admins only.
+
+     **And the brief was amended, which part 5 declined to do.** Put up as a
+     concern when part 6 finished and answered the same day. 971, 1146 and 1592
+     say staff now, each carrying the date and this deviation's number. 7i's
+     reason for the gate is untouched because it is still true. Part 5's answer
+     was for the behaviour alone; four strings telling a helper something untrue
+     about how their work is reviewed is what changed it.
+
+     **So every copy agrees except the phases that shipped under the old one.**
+     The routes, both dictionaries, both guides and the brief. If the tick is
+     ever narrowed to admins, this paragraph is where to start.
+
+132. **The capture run points at production, and 16g says never to.** Phase 14
+     part 8, 4 September 2026, put up as a decision before anything was written
+     and answered that day.
+
+     16g's third bullet: "It runs on demand against a local or staging instance,
+     never as part of the Vercel build and never against production. Vercel
+     cannot run browsers on a build anyway, and production holds real applicant
+     data." The first half is kept in full. The last clause is the one that
+     cannot be.
+
+     **There is no instance to run against, and `seed.mjs` opens by saying so.**
+     `main-site/.env.example` asks for the existing GFTV Supabase project and
+     not a new one, so "local testing" and "the live site" are the same rows. A
+     preview deployment reads the same database and breaks passkeys on top of
+     it. So it is honest to 16g's letter and to none of its reason. Building a
+     second Supabase project to satisfy one bullet in one phase was not offered.
+     A second database is a decision about the whole build.
+
+     **So the run is production with the seed in it**, which is decision 27's
+     sitting. `node seed.mjs --yes --anyway` opens it, the shots are taken, and
+     `--clear --yes` closes it.
+
+     **What makes that safe is checked and not remembered**, which is the only
+     reason this is a deviation and not a hole:
+
+     - **The run refuses to start unless the board shows a seeded posting.**
+       Every posting the seed writes says SAMPLE POSTING, and that is what is
+       looked for. This is the failure a person actually walks into — everything
+       looks normal and the pictures are of real applicants.
+     - **The two things no seed can cover are masked.** Those are whoever ran
+       the capture, and `/admin/admins`, which is gftv.asia's realm and the one
+       table this build may only read, per 5g.
+     - **The nineteen staff shots are gated at the tier they were taken at**, so
+       the readers are the same staff whose dashboard it is. The six public ones
+       are of the applicant's own half of the portal.
+
+     **What it costs, plainly**, and it is the same cost the docs README already
+     records for the seed. The portal's sitemap is cached an hour at the edge. A
+     sample posting seeded and cleared inside the hour can still have been
+     handed to a crawler. Keeping the window short is the only control anybody
+     has.
+
+     **The brief is not amended.** 16g's sentence is right about what it is
+     asking for and this build cannot give it. A bullet rewritten to say
+     "production, carefully" would read as guidance to the next project that
+     copies this file. The check in the script is the durable half.
+133. **The 华文 of every guide is authored as files, and 16e says it lives in
+     Supabase.** Phase 14 part 9, 6 September 2026, put up as a decision before
+     anything was written and answered that day, twice. It went up once as four
+     options, and once again in plain terms when the first framing was not clear
+     enough.
+
+     16e: "translations live in Supabase, and the English stays in the files.
+     The file is the base row and every other language is a row in a table".
+     **What it does not say is where a translation is written before it gets
+     there**, and eighty two pages have to be written somewhere.
+
+     **So the tree is the authoring source and the table is a copy the build
+     writes, one direction.** `docs-site/translations/zh/`, keyed by the page's
+     own address, upserted into `gftvjobs_docs_translations` on every deploy
+     with deletions included. It is exactly the arrangement section 6 already
+     gives `gftvjobs_docs_pages`, applied to the other table.
+
+     **The serving path is unchanged and that is the half that keeps 16e true.**
+     `api/content.js` reads the row and never the file, so the ready flag is
+     what decides, and the fallback to English is where 16e puts it. A
+     translation helper surface built later is a write to a row this site
+     already reads. Nothing about the reader's experience differs from what 16e
+     describes.
+
+     **What it buys**, and this is the argument that won:
+
+     - **A translation is a diff.** The 华文 sits beside the English in one
+       commit. The reviewer who has had a round trip outstanding since 31 August
+       is sent a branch instead of eighty two rows.
+     - **A wipe costs nothing.** Drop both tables and the next deploy refills
+       them, which is what made migration `042`'s rollback block safe to write.
+     - **The table cannot drift from the tree**, because the build makes it
+       match every time it runs.
+
+     **What it costs, plainly.** Changing one word is a commit and a deploy, and
+     a volunteer translator with no access to this repository cannot fix
+     anything themselves. That is a real loss against the arrangement 16e
+     imagined. There a helper edits a row, and the gated half picks it up on the
+     next request. Nothing edits those rows today, so what is lost is a surface
+     that does not exist. Whoever builds it re-reads this entry first, because
+     on that day this decision is the thing standing in front of it.
+
+     **The alternatives, both declined.** One script holding all eighty two
+     translations, run once by hand. That is the same duplication with no
+     per-page history, and a file that drifts from the table the first time
+     somebody edits a row. And authoring straight into the database, which keeps
+     16e's letter exactly and would have put 54,000 words where git has never
+     seen them.
+
+     **The brief is not amended.** 16e is right about the serving path and this
+     part implements it. What the part adds is an answer to a question 16e does
+     not ask. `docs-site/scripts/translations.js` opens with the whole of it, so
+     the argument is beside the code and not only here.
+134. **`gftvjobs_docs_pages.updated_at` is nullable and section 6 says not
+     null.** Phase 14 part 9, 6 September 2026, and it is a one line deviation
+     with a deployment-shaped reason.
+
+     Section 6 gives the table. "`gftvjobs_docs_pages`: page_path text pk, title
+     text not null, summary text null, body text not null, updated_at
+     timestamptz not null."
+
+     **The column is a page's own last change, taken from git.** This build
+     already has a standing rule about that value, stated twice in
+     `scripts/build.js`. A page git cannot date carries no date at all, and
+     nothing is allowed to fill it in. There are two honest ways to arrive at
+     one, and neither is rare. They are a page that has never been committed,
+     and a page older than the clone. **The second happens on the deployment and
+     not on a laptop**, because Vercel clones shallowly. That is precisely where
+     a not null violation would stop a deploy that is otherwise correct.
+
+     So the two candidates were to invent a date or to allow none. Inventing one
+     means the column reads "when this page last changed" and holds "when it was
+     last deployed". That is the build claiming a page was reviewed on the day
+     it happened to be pushed. Allowing none means the bot draws no date,
+     exactly as the site does for the same page.
+
+     **`gftvjobs_docs_translations.updated_at` is nullable for the same
+     reason**, and section 6 does not constrain that one. It would otherwise
+     have defaulted to `now()`. Every row would then claim to change on every
+     deploy. Every translated page would have a date that moves on its own,
+     through the view.
+
+     **Section 6 is amended in the migration and not in the brief.** The
+     reasoning is about how Vercel clones, and belongs beside the table it
+     changes. `042`'s header carries it in full.
+
+---
+
+## 5. Carried forward, still open
+
+1. **`036_function_search_path.sql` is written and has never been applied.** All
+   24 `gftvjobs_` functions were created without a `search_path` of their own.
+   **It is hardening, not a hole** — what a mutable search_path endangers is a
+   `SECURITY DEFINER` function and nothing in this schema is one. Worth doing
+   anyway because twenty four standing warnings is where the next real critical
+   goes unnoticed.
+
+   The path is `public, extensions, pg_catalog` and **the middle one is load
+   bearing**: `gftvjobs_search_jobs` and `gftvjobs_suggest` call
+   `word_similarity()` unqualified. **After applying it, check the typo path on
+   `/search`**, not just the ordinary one.
+
+   **`041_mandarin_portal_name.sql` was applied on 4 September 2026** and is off
+   this list. It moved `gftvjobs_settings.portal_title`'s Chinese half to
+   国际兽视入队平台. The portal's home page now carries the new name in the largest
+   words on it. The rest of both sites already did. It fired only on the exact
+   string `018` wrote, so it was safe to run twice and safe to run late. It left
+   an admin's own edit alone. **What is not proved is the home page itself**:
+   the change is in the database and nobody has loaded `/?lang=zh` since.
+
+2. **The Chinese has not been read by a fluent speaker**, and it is 1,987
+   entries. Those are 1,728 interface keys, the 41 phase names, descriptions and
+   shipped notes, the 55 seeded and hero strings, and the bot's 105. **Phase 12
+   part 4 built the whole package on 31 August 2026.** `node gen-review.js`
+   writes all of it to one page, so nothing has to be handed over separately any
+   more. `node tests/phase12-test.mjs --only=zh` has already decided everything
+   a machine can. **What is still owed is a person.** The largest untested thing
+   in the build, and it has been since phase 3.
+
+   **Three things to send with it now.** The portal's new Mandarin name,
+   国际兽视入队平台, and specifically whether 入队 reads as 少先队入队 to a Singapore reader.
+   It should not, but that is exactly the judgement being asked for. Part 4a is
+   the account of why the name changed. Then the open question, whether a
+   documentation site is 文档 in Singapore usage — refs S344, S349, S1474, P36,
+   P37 and P38. And part 4 changed 21 strings from 志愿者 to 义工 by the project's
+   own rule. That is the term for the translation helper role throughout, so it
+   is worth their confirming and not assuming.
+
+   **Phase 13 part 6 added about 90 strings after the package went out**, on 2
+   September 2026. So what the reviewer holds is short by that many, and
+   `gen-review.js` now writes 2,113 entries against the 1,987 they were sent.
+   **Settled: let the round trip finish and send part 6's after it.** Replacing
+   a package somebody may be part way through is worse than a second short pass.
+   There is a second pass coming regardless: phase 14 lands 76 pages of guide. A
+   hand assembled delta was declined for the reason this file keeps giving. A
+   list somebody wrote is a list with something missing from it, and
+   `gen-review.js` writes one page and not diffs.
+
+   **Phase 11 made it worse in a way part 4 has now covered.** A bot message is
+   written in the language on the account, so the Chinese goes into a channel
+   nobody is reading over anybody's shoulder. All 105 of those strings are on
+   the page.
+
+3. **Staff trusted devices and the POST revoke controls are untested.**
+   `gftvhello_totp_challenges` has no `id` at all, and
+   `gftvhello_trusted_devices` names its token column `device_token`. Both are
+   recorded in `HELLO` at the top of `session.js`, which phase 9's sweep reads
+   instead of hardcoding a column name.
+
+4. **Revoking `gftvjobs_admin_access` underneath a live session** has not been
+   observed.
+
+5. **The old test accounts are still there.** Twenty five matching `smoketest-%`
+   and `smoke-p7-%`, plus **three `smoke-p9-%` from the three runs on 26 August
+   2026**.
+
+   ```sql
+   select id, username, created_at from gftvjobs_users
+   where username like 'smoketest-%' or username like 'smoke-p%'
+   order by created_at;
+   ```
+
+6. **Done, 31 August 2026. The dev seed is deleted and the board is empty.**
+   Kept and not removed, because everything below is what a *re*-seed costs and
+   decision 27 says there will be one.
+
+   It went the same evening the site was opened to search engines, in the order
+   part 8 spent two parts insisting on. The live state was measured afterwards.
+   `/sitemap.xml` lists the five static pages, and `/api/public/jobs.json`
+   answers zero postings. `--only=discovery-live` reads 8 passed, 0 failed, 1
+   skipped. The skip is the check that compares the sitemap against the feed,
+   which says two empty lists agree about nothing instead of passing. And
+   `--only=status-live` reads 13 passed, 0 failed, 0 skipped.
+
+   **The original entry follows, because it is the instructions for putting a
+   board back.** Every title and body says SAMPLE POSTING in both languages. The
+   delete block at the bottom of `migrations/dev-seed-jobs.sql` removes them.
+   **Delete them before this is a real site.**
+
+   **As of phase 10 part 1 that delete has a second step.** The two install
+   screenshots in `manifest.json` are real captures of `/search` and show the
+   seed. Run `node gen-screenshots.js` after clearing it, or the install dialog
+   advertises postings that no longer exist. See deviation 66.
+
+   **And as of phase 12 part 5 it has an order.** The sitemap lists every
+   published posting, so the seed is in it, and part 8 opens indexing. **The
+   seed goes before that flip, not after it.** Otherwise the first thing a
+   crawler fetches is nine postings marked SAMPLE POSTING with a `lastmod` on
+   each.
+
+   **Part 8 built the command and the guard, 31 August 2026, and the clearing
+   itself is still owed.** `node seed.mjs --clear --yes` from the repo root
+   removes these nine and the eight `seed.mjs` writes itself. It needs
+   `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` in `main-site/.env.local`. The
+   delete block at the bottom of `dev-seed-jobs.sql` is still there for somebody
+   who would rather paste SQL. **`seed.mjs` refuses to write while `INDEXING` is
+   true**, so the order is enforced by the script and not remembered. Clearing
+   is never refused, because the state it declines to create is the state it
+   must always be able to undo. Then `node gen-screenshots.js`, per the
+   paragraph above, and decision 25 is why an empty board is the right board
+   today.
+
+   **And clearing it empties three surfaces that still owe a by-hand session.**
+   A posting deleted takes its applications, tasks, ratings, saved rows and
+   analytics with it. So `/admin`, the pipeline and `/admin/analytics` all go
+   empty, and items 8 and 17 below and part 2's remaining half have nothing to
+   walk. **Decision 27: the sitting opens with `node seed.mjs --yes --anyway`
+   and closes with `node seed.mjs --clear --yes`.** `--anyway` is needed because
+   indexing is on by then. The cost of that window is a sitemap cached an hour
+   at the edge. That is the price of not holding the phase open for a session
+   that has been owed since 29 August.
+
+7. **The kept-checks decision, and its cost.** The phase files live in `tests/`
+   with their own README. **Do not read this as "there is a regression suite".**
+   Nothing runs them on a push, which is why item 10 below went unnoticed for
+   three days.
+
+   **Phase 11 goes further and has none at all for the bot**, by decision. See
+   deviation 91 for what is built differently to pay for that. From here on the
+   honest summary is: the portal has phase files nobody runs automatically, and
+   the bot has a checklist and a person.
+
+8. **Phase 10's deployment checks are still owed, and it is `shipped` anyway.**
+   **Folded into phase 11's by-hand walk on 29 August 2026**, item 17, and not
+   carried to phase 12. The device is already out for the bot, and this phase
+   touched three of the pages the worker precaches. This item used to record
+   that phase 9 shipped the honest way round, verified first and flipped after.
+   Phase 10 reopened it by doing the reverse on 27 August 2026. What holds and
+   what does not:
+
+   - **The scripted half is done and is the strong half.** 125 checks across
+     nine sections, all passing, needing no deployment, no credentials and no
+     network. `node check-i18n.js` and `node check-precache.js` both clean.
+   - **What is owed is everything a script cannot do**, which section 14 asks
+     for by name. That is a real Android install to a home screen, the offline
+     paths in Chrome, and the fallback page on **iOS Safari**. There service
+     worker support is real but stricter. `main-site/README.md`'s offline test
+     checklist is the list, and item 10 on it is the pair of switches.
+   - **Flip `offline` and `install` on `/admin/maintenance` against a device
+     that already has the worker**, and flip both back. The script drives both
+     edges locally. Only this proves an admin can reach a worker already on
+     somebody's phone, and that is the entire reason the switch exists.
+     Deviation 89 is why the second direction is the one to watch.
+   - **The flip did have its own consequence, and it was handled.** `offline`
+     and `install` appear on `/admin/maintenance` the moment the phase reads
+     `shipped`. Both needed a `featureWhere.*` description written for them
+     first, exactly as `cron` and `form_webhook` did in phase 9. Both were
+     written before the flip. **Confirming they read On on the live page is
+     still part of what is owed.**
+
+9. **8.9's account panel has no filter on its activity list.** It shows the last
+   25 audit rows, and a working helper pushes their own security events off the
+   bottom within an afternoon. The fix is a filter, or a cap per action, on
+   `accountActivity` in `api/_lib/admin-applicants.js`.
+
+10. **`tests/phase7-test.mjs` can no longer delete anything.** Deviation 49
+    replaced the typed slug with the caller's own password. Phase 7's file still
+    sends `{ action: 'delete', id, confirm: slug }` at lines 428, 622, 649,
+    2584, 3446, and 3456. So **its cleanup leaves SMOKE P7 postings behind as
+    drafts**. The fix is a `password: STAFF.password` on each call and the
+    removal of the `confirm` line. `tests/cleanup-smoke.mjs` had the identical
+    fault and was fixed on 25 August 2026. Phase 9's file was written with the
+    password from the start.
+
+11. **A third guard is still owed on the verification files: stop early on the
+    first 429.** Two exist — cleanup unpublishes every posting before it does
+    anything else, and the run prints what it will spend against each ceiling.
+    Phase 9's run is light enough never to have hit it, which is not the same as
+    the guard existing.
+
+12. **Phase 9's unmatched submissions are left behind on purpose**, and there
+    are now three runs' worth from 26 August 2026. They carry the run's
+    timestamp and sit in the list on `/admin/analytics`; deleting them would
+    need a route that exists for no other reason. Clearing them is a `delete
+    from gftvjobs_form_submissions where email like '%@example.invalid'`.
+
+13. **Every published posting's application form is unusable, and that is
+    expected.** The 26 August run recorded `forms_checked: 9` and
+    `form_checks_failed: 9`, because the dev seed points at forms that have
+    never existed. **The one template Google Form has still not been made**, per
+    section 8 item 12. Until it is, deviation 55's wording matching has been
+    proved against fakes and never against Google.
+
+14. **Nobody has watched the schedule fire.** Only Vercel's dashboard says it
+    did. The entry only takes effect on a production deployment, and the first
+    firing after the 26 August deploy is due at 18:00 UTC. The last-run panel on
+    `/admin` is what makes a dead schedule visible without going there. It
+    currently shows the run the verification triggered by hand, not a scheduled
+    one. **Check the panel on 27 August**: if `started_at` is still the 26th,
+    the schedule is not firing.
+
+15. **`tests/phase10-test.mjs` has an intermittent pair, checks 70 and 71.**
+    Seen on 28 August 2026: both failed in a full 125 check run and both passed
+    on their own with `--only=account`. They passed again in a clean full run
+    immediately after, with the same tree. They are the two that open a page and
+    wait a fixed 2000ms before asserting. That is the build's own rule about a
+    fixed wait being a race, arriving from inside its own test file. **The fix
+    is to wait for `#accountCached` to have content and not for a timer.** It is
+    the same correction phase 9's verification run made for the cron panel.
+    Until then, a failure on exactly those two under load is not a regression,
+    and anything else in that section is.
+
+16. **The Apps Script has never run.** `apps-script/careers-form-webhook.gs` is
+    written and section 13's setup is in the root README. It has a
+    `testCareersWebhook` that proves the secret and the URL without anybody
+    filling in a form.
+
+17. **Phase 11 is `shipped` and the by-hand walk has not been done.** Flipped on
+    29 August 2026 after part 6, deliberately and for a better reason than phase
+    10's item 8 above. Every Telegram control is gated on that one word, so the
+    walk deviation 91 asks for cannot happen against a `building` tree. That
+    does not make the walk any less owed, and it is the *only* coverage the
+    Python has.
+
+    - **The sitting opens with a seed and closes with a clear**, added 31 August
+      2026 as decision 27. Part 8 empties the board. So the dashboard, the
+      pipeline and the analytics page have nothing on them until `node seed.mjs
+      --yes --anyway` puts a board back. `node seed.mjs --clear --yes` takes it
+      out again at the end. Three of the five things this session covers are
+      writes against real rows, and there are none until that first command
+      runs.
+    - **Phase 10's owed deployment checks are folded into this walk**, settled
+      29 August 2026 — section 5 item 8. The device is out for the bot anyway
+      and this phase touched three precached pages. So the Android install and
+      the iOS Safari fallback are part of the same session. The `offline` and
+      `install` switches in both directions are too, and not phase 12's
+      inheritance.
+    - **It has started, and it has already paid for itself.** The first look at
+      `/account/settings` after the flip found the QR unscannable in both
+      themes, which no scripted check on this tree could see. Deviation 115.
+    - **What it covers.** Link, unlink, a code, and a magic link opened in the
+      wrong browser. Then all four list commands, one notification of each of
+      the three kinds, the `/notify` toggles both ways, and the invite decline
+      button.
+    - **Then the four switches on `/admin/maintenance`**, which appear there for
+      the first time with this flip and now have their `featureWhere` sentences.
+      Confirm all four read On, and flip one off and back on — deviation 89's
+      direction is still the one to watch.
+    - **The drain under stress is deferred, decided 30 August 2026.** The
+      restart mid-drain, the stale claim sweep, the maintenance pause and a row
+      reaching `failed` are not being walked for now. The portal has little
+      traffic, and so few rows are ever in flight to lose. **Recorded and not
+      quietly dropped**, because the risk it covers arrives with the next deploy
+      and not with the next applicant. A restart at the wrong moment is the one
+      failure nothing else here would catch. Deviation 91 is the only reason
+      that is acceptable. The claim makes a double send impossible, so what is
+      untested is whether a row is *lost* and not whether one is sent twice.
+      **Two of the five cost under a minute and do not depend on traffic.** They
+      are that a killed process leaves no stale lock, and that the maintenance
+      switch pauses and not skips. Worth doing whenever the bot is next
+      restarted by hand.
+    - **Part 7 has turned the walk into the written checklist**, on 30 August
+      2026 as `7b0a3fa`. It was written from what the walk had found and not
+      from the plan. That is 29 steps in `telegram-bot/README.md`, with the
+      deferral above written into it as a stated gap. Its two cheap cases are
+      promoted to steps 3 and 27. **What is left is walking it.**
+    - **It is walked before the by-hand half of phase 12 part 2**, settled 30
+      August 2026 and narrowed the same day. Part 2's scripted half went first
+      because it needs no device and no person, and it has been written: four
+      sections, nine findings, all fixed. **What still waits on this sitting is
+      everything part 2 cannot script.** That is the bulk bar, the question
+      composer, the annotation sheet, the handoff modal, the account picker and
+      the job editor's `<details>`. All of those are writes against the real
+      database. Three debts, one sitting: items 8 and 17 and the rest of part 2.
+    - **Everything else on the phase's own before-it-is-done list is
+      discharged**, so the walk is genuinely the only thing outstanding. `node
+      check-i18n.js` is clean and `sw.js` is at `v97`. `node
+      tests/phase10-test.mjs` reads 125 passed and `node tests/phase11-test.mjs`
+      reads 89. `telegram-bot/setup.md` was re-read by part 7 with the two stale
+      passages gone.
+
+18. **Done, 31 August 2026. `037` is applied and the probe is running.** Kept
+    here and not deleted, because what it proved is worth having written down.
+
+    The migration went in by hand right after part 7 was pushed, and `python
+    probe.py` started on the VPS the same afternoon. Its first line was `wrote 4
+    checks, 0 failed, slowest 610ms`, which is more than a probe working. **It
+    is the only evidence that the plpgsql function is correct**, because
+    `gftvjobs_status_record()` had never been executed by anything until that
+    moment. `--only=status-live` then read 13 passed, 0 failed, 0 skipped, with
+    4 of 360 days carrying data.
+
+    **The two queries are still the way to look at it.** They are here for the
+    next person, and not for a job that is outstanding:
+
+    ```sql
+    select target, day, checks, failures, slowest_ms, last_checked_at
+    from gftvjobs_status_days order by day desc, target;
+
+    select target, started_at, last_failed_at, ended_at, failures, status_code
+    from gftvjobs_status_incidents order by started_at desc;
+    ```
+
+    The first gains four rows on the first cycle and counts upward; the second
+    is empty while everything is answering. The probe's own log says `wrote 4
+    checks` on a good cycle and names the failure on a bad one. A permissions
+    problem or a bad cast is one line and not a silence.
+
+    **One thing changes the day the seed is cleared, and it is not a fault.**
+    `job_page` is picked from the live feed, so an empty board means that target
+    is not probed at all and its days read unknown. The probe logs `the feed
+    carries no postings, so the posting page is not probed`, and writes nothing
+    for it. That is decision 22, and the honesty rule working and not failing.
+    The other three targets carry on. It stops the day there is a published
+    posting again.
+
+19. **`seed.mjs`'s write path has never run against a database.** Decision 28,
+    31 August 2026. The clear half is exercised the moment the dev seed goes.
+    The eight upserts and the account insert with its bcrypt hash have not been.
+    Nor have the composite conflict targets, `job_id,locale`,
+    `applicant_id,job_id` and `job_id,applicant_id`.
+
+    **The first thing that depends on it is phase 14's capture run**, and the
+    by-hand sitting in decision 27 gets there sooner. Whoever runs it first
+    should expect to debug it and not to use it. The failure to look for is an
+    `on_conflict` that does not match a real unique constraint. Those three
+    pairs were read out of migrations `006`, `007` and `014`, and not observed.
+    Everything else in the script has been driven — the refusals, the plan, the
+    environment loading — by `tests/phase12-test.mjs --only=seam`.
+
+20. **Done, 31 August 2026. The staff session move is applied, deployed and
+    proved on both sites.** Kept and not deleted, because what it proved is the
+    whole of the change.
+
+    Migration `038` went in by hand before the code that reads it. That is the
+    opposite order from the rest of this build, and the right one here. A deploy
+    in front of the migration is a staff sign in that fails on a missing table.
+    The code is **`2c27a2b`, "phase 12 part 8a"**, pushed the same evening.
+    **Both sides work**: a portal sign in and a gftv.asia sign in now coexist.
+    That is the one thing nothing in this repository could have checked for
+    itself.
+
+    **What that confirms, beyond the report going away.** The embed from
+    `gftvjobs_staff_sessions` to `gftvhello_users` resolves over the new foreign
+    key. So PostgREST picked up the relationship without anything being reloaded
+    by hand. The diagnosis was right, and that was not free. The portal was
+    measured innocent first, and the fix was to a table and not to any line of
+    code that had been suspected.
+
+21. **Done, 1 September 2026. `039_passkey_site.sql` is applied.** Kept and not
+    deleted, because the order it went in is the thing worth remembering.
+
+    Phase 13 part 2. It adds `registered_on` to both passkey tables so 5f can
+    say which site a passkey was registered from. Nothing in the schema could
+    answer that once 5e gave the two sites one relying party id.
+
+    **It went in before the code that reads it is deployed.** That is the same
+    order `038` needed, and the opposite of the rest of this build.
+    `api/_lib/webauthn.js` names the column in its select list and writes it on
+    every insert. So a deploy in front of the migration would have been a
+    passkey list that 400s and a registration that fails. Nothing else about a
+    passkey changed, and no account had to re-enrol.
+
+    **The default backfilled every existing row as `portal`, which was provably
+    correct only until the docs site registers one.** That is why it was part
+    2's file and not part 6's, where the page that reads it is built. The window
+    it was aiming at is now closed and not still open.
+
+22. **Done, 1 September 2026. `tests/phase10-test.mjs` had a flaky section and
+    now does not.** Kept and not deleted, because what it turned out to be is
+    worth more than the fix.
+
+    "The applicant's own pages with no connection", checks 70 and 71. They are
+    "my applications opens offline from its own copy" and "outstanding tasks
+    opens offline from its own copy". **Two failures in nine runs**, and the
+    second sighting is what made it a finding. Two adjacent checks failing rules
+    out one bad assertion, and points at the section's shared setup. Eight clean
+    runs after the fix, against 8/8 for the section run on its own before it.
+    That is why it looked like a machine problem for a day.
+
+    **The cause is a real ordering fact about the product, and the product is
+    right.** `pageData` in `account-shell.js` calls `putMine` and deliberately
+    does not await it. The page has its data, and a reader is not made to wait
+    on a write to their own device. So the copy lands a moment *after* the page
+    draws. The test treated "the loading row has gone" as "the copy exists". It
+    navigated away inside that gap, and left the next page nothing to open
+    offline. Nobody using the site can move that fast.
+
+    **Two fixes, and only the second one was the fix.** The first replaced the
+    two `waitForTimeout` sleeps with waits on `#accountCached`. That is section
+    3's "a fixed wait after a click is a race, not a delay", correctly applied.
+    It still failed two runs in ten, because it was waiting on the wrong side of
+    the gap. The second waits on `readMine(id, kind)` itself, at the point the
+    copy is made.
+
+    **So the rule that mattered was phase 9's, not phase 12's**: assert the
+    thing, not the thing beside it. A wait that is not a sleep can still be a
+    wait on a proxy. This file had both mistakes stacked one on the other.
+    `until` takes an argument now, which is what let the predicate name the user
+    and the store instead of guessing at the DOM.
+
+23. **Done, 2 September 2026. The docs site's routing fix is on the deployment
+    and answers.** `api/content.js` replaced `api/content/[...page].js`, which
+    had answered 404 to every request since part 3, and `tests/phase13-test.mjs
+    --only=live` reads 20 passed, 0 failed against
+    `docs.careers.globalfurry.tv`. The three assumptions that came with it are
+    facts now. `outputDirectory: dist` leaves `api/` as functions,
+    `includeFiles` reaches `api/_generated/`, and the build command runs before
+    the functions are packaged. Part 5's account has what each proof was.
+
+24. **Done, 3 September 2026. The walk happened, and it paid for itself four
+    times.** Kept and not deleted, because what it found is the argument for the
+    next one.
+
+    **What was proved, scripted, against both deployments.** The staff sign in
+    works on the docs site, and the session reads back. `/api/nav` names no
+    staff page to a stranger, and names the staff half a moment later with a
+    session. `/api/search-index` goes from an empty list to five entries, all
+    under `/staff`. A gated page renders as a page and not as the stranger
+    state. And **the nine panels draw from real rows on both sites**, in the
+    same order with the same ids. That is decision 8 holding on the platform.
+
+    **What was proved by a person, on their own staff account.** A passkey
+    registered at `DOCS_URL` and verified under the portal's relying party id,
+    then renamed. Then both code sets, a danger zone action, and all three
+    second factor forms. And the whole of 5g, ending in a sign in at gftv.asia.
+
+    **The four findings, none of which a file here could have made:**
+
+    - **`SITE_URL` was missing on the docs Vercel project**, and the settings
+      page had answered 500 to every staff account since part 6. Item 29.
+    - **The gftv.asia link pointed at a path that answers 200 and is not a
+      page.** Deviation 127, fixed in part 7a as `5270412`.
+    - **"Sign out everywhere" did not.** Deviation 126, fixed in part 7e as
+      `643c7dd`.
+    - **A fourth write reaches gftv.asia and the hold never covered it.** Item
+      30.
+
+    **The order held: walk, lift, then flip.** `HELLO_WRITES_ENABLED` went
+    `true` after the half that could happen with it on, because the other half
+    cannot happen until it does. The three routes refuse before anything else
+    they do. Both deployments were confirmed carrying the lift before the phase
+    was flipped. **The portal was still building when it was first asked.** That
+    is the third time in one sitting that asking twice was the difference
+    between a fact and an assumption.
+
+    **The original entry follows, because it is what the next walk copies.**
+
+    **The staff sign in has still never run anywhere but a laptop.** Parts 1, 2
+    and 6 are the whole of `api/auth/staff/` and the 5f settings suite. The
+    `live` section asks the deployment nothing about them because everything it
+    asks, it asks as a stranger. **Part 7 owes a signed in pass.** Sign in
+    against the deployment with a real staff account, in all three second factor
+    forms. Then open a gated page, a gated image and `/api/search-index`, and
+    see the staff half of each. The one thing 5e most needs proved is in there.
+    That is an assertion made against `DOCS_URL` verifying under the portal's
+    relying party id. It is the check part 2 named and could not run.
+
+    **Part 6 made this list longer and not shorter**, and every item on it
+    writes something. The settings suite has never touched a database: the 22
+    checks in the `account` section are the real modules and the real
+    stylesheets over fixtures. What is owed, in the order that costs least if
+    something is wrong:
+
+    **This is its own short sitting**, settled 2 September 2026. It is thirty
+    minutes at a laptop with a real staff account: no phone, no second device,
+    no seeded board. That is what keeps it out of decision 27's sitting, which
+    needs all three and has been owed since 29 August. Folding this in would
+    make the hold wait on things it does not need. **`040` is applied and both
+    sites are deployed, so nothing blocks it.**
+
+    **It was to happen before part 7 and it did not**, decided 3 September 2026
+    with the choice on the table. Part 7 is the seam and the pass deviation 118
+    handed over, and not one check in it needs a session. So waiting would have
+    been an afternoon of idle time on work that does not depend on the answer.
+    **What part 7 therefore did not do is the lift and the flip**, which are the
+    two things that genuinely do. `HELLO_WRITES_ENABLED` is still `false`, and
+    phase 13 still reads `building`. Check 166 is what keeps that pair honest:
+    the phase may not read `shipped` while the writes are held. So the order
+    below is unchanged and is now the whole of what is left.
+
+    **Three paths are switched off until the walk reaches them**, per decision 11. So the order below is also the order the hold is lifted in. Walk the read half and the `gftvjobs_` half, flip `HELLO_WRITES_ENABLED` in
+    `api/_lib/staff-account.js`, then walk the three that reach gftv.asia.
+    **The flip is a commit, and `--only=account` names in its own output which state the hold is in.** So a tree with it lifted and the walk not done is
+    visible and not assumed. `--only=live` asks the deployment the same
+    question, which is check 127. **Checks 127 and 128 were rewritten on
+    3 September 2026** when the lift made them assert the wrong direction. They now read the constant the way check 166 does, and require the deployment to
+    agree with the tree, in whichever state that is. The failure they catch is
+    the one this sitting actually hit — one project deployed and the other not.
+
+    **And the flip to `shipped` waits for all of it**, settled the same day:
+    walk, lift, then flip. Phase 9's order, which this file calls the honest
+    one. Phase 11 flipped first for a real reason. Every Telegram control was
+    gated on that word, so the walk could not happen against a `building` tree.
+    **Nothing here is gated on it**, so there is no reason to repeat phase 10's
+    order. A phase reading `shipped` on `/status` while three panels read
+    "switched off" is a strange thing to advertise.
+
+    - **The read half first.** Open `/admin/security` and `/account` signed in
+      and see nine panels drawn from real rows on both. This is also where item
+      26 below is answered.
+    - **A passkey renamed and removed, and the authenticator app set up and
+      removed.** The second of those writes `gftvhello_users.totp_secret` for
+      the first time in this build's life. So **check the gftv.asia sign in
+      afterwards**. That is the one thing nothing here can check for itself and
+      is the same sentence deviation 122 ended with.
+    - **Both code sets generated**, and the backup set is gftv.asia's table.
+    - **One danger zone action**, walked through all four panels.
+      `revoke_devices` is the cheapest to undo.
+    - **The whole of 5g**, which is the only path in the build that changes a
+      credential without the old credential. That is a recovery code, a second
+      factor, a new password, and then a sign in with it at gftv.asia as well as
+      here.
+
+25. **Done, 2 September 2026. `040` is applied and part 6 is on both
+    deployments.** Kept and not deleted, because what it proved is worth having
+    written down.
+
+    `gftvjobs_staff_password_resets` went in by hand before the deploy, the same
+    order `038` and `039` needed. That is the opposite of the rest of this
+    build, because both forgot password pages insert into it on their first
+    step.
+
+    **What the deployment then answered, as a stranger and with no credential.**
+    `--only=live` reads **27 passed, 0 failed** against
+    `docs.careers.globalfurry.tv`. Part 6's own seven of those close the
+    questions this part could not answer on a laptop:
+
+    - **The three new addresses are served, and by the shell.** `/login`,
+      `/account` and `/forgot-password` all answer 200 through the catch-all
+      rewrite. That is 16d's "the two pages with no article render inside the
+      same shell" holding on the platform and not only in a stand in.
+    - **Every module those pages import is in `dist/`.** Ten of them, eight
+      generated and two this site's own. A page that is served and whose module
+      the build did not copy is a blank content column and an error only the
+      console sees. That is exactly what part 6's breadcrumbs defect looked like
+      locally.
+    - **The hold is on, on both sites.** `/api/auth/staff/forgot-password` and
+      `/api/auth/staff/reset-password` answer 503 with `reason: "held"` on the
+      portal and on the docs site. **A constant meant to ship `false` that
+      shipped `true` would be three credential paths live and unwalked, and
+      nothing else would have said so.**
+    - **A stranger is refused before the hold is ever mentioned**, because
+      `requireStaff` runs before `held()` on the settings routes. A 503 to
+      somebody with no session would be the site describing its own internals to
+      anybody who asked.
+
+    **This is part 5a's habit applied one part later.** The checks above were an
+    afternoon of `curl` first, and they are a section now. So the next docs
+    deploy asks them again for free.
+
+26. **Done, 3 September 2026. Both column names are right.** The account route
+    answers `display_name: "test123"`, `email: "test123@gmail.com"`, `available:
+    true` on both sites. So the two assumptions from section 5a hold, and the
+    degraded path below was never taken. **The fallback stays.** What made it
+    worth writing was not this answer, but the one that came back wrong in phase
+    12 part 8a.
+
+    **The original entry follows.**
+
+    **Two columns on `gftvhello_users` have never been read by anything.** 5f's
+    profile panel is the first thing to want them: `display_name` and `email`.
+    Phase 13 part 6, 2 September 2026.
+
+    `HELLO` at the top of `session.js` is the whole reason this is an item and
+    not a line of code somebody wrote confidently. Every name this repo uses
+    against a `gftvhello_` table started as an assumption from section 5a. One
+    of them was wrong, and a staff sign in failed on the live site because of
+    it. These two are the same kind of assumption. PostgREST answers a select
+    naming a column that does not exist with a 400 for the whole query.
+
+    **So the code already survives being wrong.** `staffProfile` answers
+    `available: false` and the page draws the username plus the sentence sending
+    the reader to gftv.asia. That is where 5f sends them for those fields
+    anyway. What is owed is one look at the page while signed in, as part of
+    item 24. If the two rows read "Could not be read", the column names are
+    wrong and the fix is one file.
+
+27. **The docs site starts at its own theme defaults and cannot do otherwise.**
+    Found 2 September 2026 by somebody asking whether `gftv-theme.md` reaches
+    that site. It does: `theme.css` and `theme.js` are generated into it. So the
+    tokens, the two axis attributes and phase 12 part 3's AA measurements all
+    apply there without being measured twice. **What does not carry is the
+    reader's choice.** localStorage is per origin, `docs.careers.globalfurry.tv`
+    is not `careers.globalfurry.tv`, and the only thing that would cross is a
+    cookie on `.globalfurry.tv`. 5h forbids that outright, because the parent
+    domain carries other GFTV apps.
+
+    So the docs site is always `classic` and always starts light, whatever
+    somebody chose on the portal. **The `hello` palette is generated in,
+    measured, and unreachable from that site's chrome.** That was measured for
+    real as of part 7. Its `contrast` section walks every component of this site
+    in all four combinations, and not in the two a reader can reach. The
+    argument for spending that is that the palette is a control away. Finding
+    out then would mean finding out with 76 pages of guide already written. That
+    follows from 16d giving its header a light and dark toggle and no colour
+    control, so it is the specification and not an oversight. But it was written
+    down in `shell.js` as the opposite, in a comment claiming a reader keeps
+    their portal choice. The comment is corrected; the behaviour was always
+    this.
+
+    **Nothing is owed unless somebody wants the choice to carry**, and that is a
+    decision and not a fix. The only ways across are a query parameter on every
+    cross link, which puts a preference in a URL, or a shared cookie. 5h rules
+    that out. Worth raising in phase 14, when the two sites start linking to
+    each other in earnest.
+
+    **Corrected 3 September 2026, and the correction is the interesting half.**
+    Everything above about the *choice not carrying* still holds. What was wrong
+    is the sentence calling the unreachable palette "the specification and not
+    an oversight". That read `gftv-theme.md` as a colour token contract, and
+    **it is also a chrome specification**. Its section 3 prescribes the theme
+    modal's markup verbatim. Its non-negotiable rules say a reader opts into
+    dark "explicitly in the theme modal". Its acceptance checklist expects a
+    theme button whose icon tracks the mode. The docs site has none of that. It
+    has a text button and a bare `<select>`. There is no `.icon-btn` in
+    `docs.css`, and **`icons.js` is generated in and used zero times by the
+    shell**.
+
+    So the theme was applied halfway and this item recorded the half that was
+    done. **Phase 14 part 1 is the other half**, and the colour axis is being
+    exposed with it. 16d is overruled deliberately, because the palette is
+    generated in and already measured. Somebody did want the choice.
+
+    **The lesson is narrower than "check harder".** Two checks read
+    `gftv-theme.md`. The contrast section measures its tokens, and
+    `--only=account` fails on a class neither docs stylesheet defines. Both
+    passed throughout, because **a measurement of the components that exist
+    cannot see a component that was never built.** The same shape as
+    `--only=live` asking as a stranger and never seeing the 500.
+
+    **Closed 3 September 2026 by phase 14 part 1**, and the lesson above was
+    paid off the same day. The docs header carries `#themeButton` and
+    `#languageButton` as `.icon-btn`s, `chrome-modals.js` is generated into both
+    sites, and the `hello` palette is reachable. `tests/phase14-test.mjs
+    --only=browser` check 16 is the one that presses the swatch. **What the
+    choice not carrying costs is unchanged and is not a job.** The reader still
+    starts at `classic` light in English on this origin, and the two controls
+    are how they say otherwise, once. `language.description` on the docs site
+    says so in the modal, which is the one place a reader is asking the
+    question.
+
+    **And the new components were measured the moment they existed**, which is
+    the lesson's other half. `--only=contrast` walks both modals in all four
+    combinations, and it found deviation 128 on its first run.
+
+28. **The official site banner covers the docs site too**, and this is a note
+    and not a job. `gftv-official.md` lists `docs.careers.globalfurry.tv` among
+    the official subdomains. Its acceptance checklist says the banner is
+    "present on every page, above the header, with no close control anywhere".
+    So when section 8 item 5 is finally built it is built twice: once in the
+    portal's shell and once in the docs shell. Or once and generated, which is
+    decision 1's question again.
+
+    **It still waits on the same two things.** Every phase shipped, and the
+    trusted sites page existing, because the link must not ship before the page
+    does. Recorded here so that whoever builds it does not discover the second
+    site on the day.
+
+29. **Closed by phase 14 part 10a, 7 September 2026.** `checkEnv()` is called by
+    a health route on each site, and the reason it had never been called is the
+    part worth keeping. It reported `TELEGRAM_BOT_USERNAME` missing on a healthy
+    portal, because `KNOWN` is the documentation list and that one is optional.
+    An `ok` that is false in the ordinary state is one no check can be built on.
+    An `OPTIONAL` set fixes it. The route answers a count and logs the names. A
+    missing variable is now something `--only=live` can go red on, while still
+    asking as a stranger.
+
+    **The original entry follows.**
+
+    **Done, 3 September 2026. `SITE_URL` is set on the docs Vercel project.**
+    Kept and not deleted, because the shape of the outage is worth more than the
+    fix, which was one variable and a redeploy.
+
+    **The docs settings page answered 500 to every staff account from part 6
+    until it was found.** `relyingParty()` reads `SITE_URL`; exactly two routes
+    on that site call it, `account` and `passkeys`. Exactly those two returned
+    500 and everything else returned 200. Vercel's runtime log named the
+    variable in the first line of the stack. That is section 2's rule working
+    perfectly for a fortnight with nobody reading it.
+
+    **Three things kept it invisible.** The page's own failure state is honest
+    and quiet — one callout saying the settings could not be loaded, which looks
+    like a bad moment. `--only=live`'s 27 checks all ask as a stranger. And
+    `checkEnv()`, written for precisely this, **is called by nothing**.
+
+    **What is owed is not this variable.** It is one call to `checkEnv()` from
+    somewhere a deploy touches, on both sites. Phase 14 inherits it, and the
+    argument for spending twenty minutes on it is worth stating. This is the
+    second environment problem in two phases to be found by a person and not by
+    a check. Deviation 122 was the first.
+
+30. **A fourth path reaches gftv.asia and nothing gates it.** Found 3 September
+    2026 while walking item 24, and left as it is on purpose.
+
+    `POST /api/auth/staff/recovery-codes` with `set: "backup"` writes
+    `gftvhello_backup_codes`. `recovery-codes.js` calls no guard, so it has been
+    live on both deployments since part 6 while `HELLO_WRITES_ENABLED` held the
+    other three.
+
+    **It is arguably correct.** The hold lives in `staff-account.js`, which is
+    the module for `gftvhello_users`. The backup codes table is a different one
+    that the login flow already writes. It is one of the four writes section 2
+    permits. Nothing about the placement is an accident.
+
+    **What was wrong was the count, everywhere it appeared.** "The three writes
+    that reach gftv.asia" appears in this file, in the constant's docstring and
+    in the check's comment. The route always said otherwise. Its header names
+    the table, its audit row records `reaches: 'gftvhello_backup_codes'`, and
+    its response carries `reaches_gftv_asia: true`. So this is not a thing the
+    code hid. **Four statements of a fact and no count of it.**
+
+    **What phase 14 should decide.** Whether a single named list of the writes
+    that leave this build belongs somewhere a check can read. `PUBLIC_COLUMNS`
+    and `KNOWN` are lists a check reads. A fifth will be added one day by
+    somebody who greps for the constant and finds it does not apply.
+
+    **Decided on 7 September 2026, and built in part 10a the same day.**
+    `GFTV_ASIA_WRITES` names three writes across five routes, beside
+    `HELLO_WRITES_ENABLED`, with a check in both directions. Every route
+    claiming `reaches_gftv_asia` is on the list, and nothing on the list has
+    stopped claiming it. That is `INDEXING`'s shape and `PUBLIC_COLUMNS`'s
+    shape, and it is the answer to the thing that actually went wrong here. That
+    was not the fourth write, but the count of it being stated four times and
+    checked none.
+
+31. **Done, 3 September 2026, in part 2. The home page no longer promises
+    offline support as unbuilt.** Found while writing part 2's offline page,
+    which describes the same feature as working, because it is.
+
+    `home.offlineBody` in both dictionaries reads "Offline support is still
+    being built. When it arrives, postings you have opened stay readable with no
+    connection, and Careers@GFTV installs to a home screen like an app". It is
+    rendered at `main-site/index.html:256`. It has been wrong since 27 August.
+    The Chinese is the same sentence.
+
+    **Nothing checks a promise about the future.** `check-copy.js` reads that
+    string and has no rule that could catch it. `check-i18n.js` compares the two
+    dictionaries against each other and both say the same wrong thing. The only
+    thing that finds this is somebody writing the guide to the feature and
+    reading the home page afterwards, which is what happened.
+
+    **What it took.** The key in `en.json` and `zh.json`, and the English
+    fallback inside `main-site/index.html` that a reader sees before the
+    dictionary arrives. And `sw.js` to `v128`. Leaving it for later was offered
+    and was not taken. The docs page saying the opposite is
+    `/portal/offline-and-installing`. Two GFTV pages disagreeing about whether a
+    feature exists is worse than a part touching a second site.
+
+    **Nothing on the deployment is proved yet**, since this is in the working
+    tree with the rest of part 2.
+
+32. **Done, 3 September 2026. Six shipped features had no "where is it"
+    sentence, and the switch for five of them reached nothing.** Found by
+    running `tests/phase12-test.mjs` in full for the first time since phase 13
+    flipped. **It was not the plain language pass's doing**: `git show HEAD` has
+    no `featureWhere` key for any of the six either.
+
+    **Settled as six `DENYLIST` entries**, the way `seed` is on that list, after
+    the three options were put up. The maintenance page now shows each as
+    permanently unavailable with the reason. An admin looking for the switch
+    learns there is no switch, instead of flipping one that changes nothing.
+    `docs_site`, `docs_staff_login`, `admin_docs_content`,
+    `translation_helper_guide` and `admin_docs` are the five entries. They are
+    there because the docs site is a separate deployment that fetches
+    `feature-status` nowhere. `admin_docs` is a `vercel.json` redirect, which
+    consults nothing. `staff_recovery_codes` is there on its own merits, beside
+    the applicant set that has been on the list since phase 7.
+
+    **Wiring the docs site to the switch was offered and was not taken.** The
+    comment above the entries says so and says what to delete when somebody does
+    it. The denylist is 16 keys and the discovery section is 59 passing.
+
+    **One thing the entries are not covered by.** `check-copy.js` does not read
+    `DENYLIST`, so those six sentences are user facing English that no check
+    measures. They were written under the cap by hand.
+
+    The keys are `docs_site`, `docs_staff_login`, `admin_docs_content`,
+    `staff_recovery_codes`, `admin_docs` and `translation_helper_guide`. They
+    became visible on `/admin/maintenance` the moment phase 13 read `shipped`
+    and phase 14 read `building`. The check that says every visible feature owes
+    a sentence has failed since.
+
+    **Writing six sentences is not the whole of it**, which is why this is an
+    item and not a commit. `docs-site/` reads no maintenance switch anywhere:
+    nothing in its functions or its shell fetches `feature-status`. So flipping
+    `docs_site` off today changes nothing on the site it names. The three honest
+    ways out are a `DENYLIST` entry with the reason, the way `seed` has one. The
+    others are making the docs site read the switch, or a sentence that says the
+    switch is a note to staff. **The first is the cheapest and the second is the
+    one that makes the control true.** Choosing is somebody's call and not a
+    script's.
+
+    **Two other things surfaced in the same run, and both were false alarms that
+    took a fix each.**
+
+    - **`/admin/security` failed the live rewrite check**, and the page was
+      fine. `tests/phase12-test.mjs` looked for the marker `staffSecurityPage`,
+      which that page has never carried: the deployment and the working tree
+      both say `id="staffAccount"`. The test was wrong from the day phase 13
+      added the route to that list. Marker corrected, section passing at 7.
+    - **`maintenance.js` named a guard that does not exist.** Its header said
+      "requireFeature below is the shared guard every flippable route calls". A
+      grep for `requireFeature` across `main-site/` returned that comment and
+      nothing else. **The guard is real and is called `unavailable`**, and
+      twenty three route files import it, so off does mean off including the
+      API. A rename left the comment behind. Comment corrected, and it now says
+      what happened so the next grep does not raise the same alarm.
+
+33. **Done for the job poster, 4 September 2026, against the deployment carrying
+    `04261b4`. Still owed for the admin.** Deviation 130's fix, asked as the two
+    people it is about. Numbered at the end because every item here is referred
+    to by number elsewhere in this file.
+
+    **The poster half passed**: `node tests/phase7-test.mjs --only=setup,access`
+    with `STAFF_USER` set to `POSTER_USER`, reading **36 passed, 0 failed, 4 not
+    run**. Signed in as an account `/api/admin/me` reports as `admin: false,
+    editor: true`, both routes answer **403**. Staff access, Applicant accounts,
+    Settings and Maintenance are all absent from the sidebar.
+
+    **The admin half cannot be scripted with what this repository has.**
+    `STAFF_USER` has an authenticator app, `signInStaff` types a username and a
+    password and nothing else, and the run stops on "One more step". So **an
+    admin opening `/admin/settings` and `/admin/maintenance` has not been
+    observed since the change.** The only claim behind it is that `requireAdmin`
+    is `requireStaff` plus `is_admin`. It is one sitting of about thirty seconds
+    and it goes with the sitting section 5 already owes.
+
+    **Two things were fixed to get the poster half to run at all**, and both
+    were the suite being older than the build:
+
+    - **The access section threw before it reached the role checks.** It held
+      `['admin_analytics', 'admin_invites', 'admin_settings']` as the features
+      that have not shipped. That was true the day phase 7 shipped and false
+      since phase 8. It clicked one of them by name. It now reads the disabled
+      items off the sidebar and skips with a sentence when there are none. That
+      is 0c's own rule that nothing hardcodes a phase.
+    - **The new pair sat after an early return.** `if (!target) return` fires
+      when there is no posting to aim a delete at. With the board empty, per
+      decision 25, that is the ordinary state. **The first run reported neither
+      route**, and it reported it as a pass. Both route checks are now above it.
+
+    A check that cannot run reads exactly like a check that passed, which is the
+    same lesson as the assertion this deviation started from.
+34. **The admin guide has never been served from the deployment.** Phase 14 part
+    6, owed the moment it is pushed, and it is item 33's shape for the other
+    tier. Put up as a concern and answered on 4 September 2026: owe it.
+
+    Three things to ask, in this order:
+
+    - **A stranger gets 404** from `/api/content` on `/staff/admin` and on three
+      pages under it. 404 and never 401, per 16e.
+    - **A job poster gets 404 on the same four**, which is the half that is new.
+      Part 5 proved a poster is *given* twenty pages; nothing has yet proved a
+      poster is *refused* a page one tier above them. The fourteen pages this
+      part wrote are the first content that asks the question.
+    - **An admin gets all fourteen**, each answering 200 with its title,
+      `access: admin`, its markdown, and a date. That is check 24's date
+      arriving from git through the build.
+
+    The poster half is scriptable the way item 33's was: `POSTER_USER` signs in
+    with a password alone. The admin half runs into the same authenticator app
+    that stopped item 33 and belongs in the same sitting.
+
+35. **The developer guide has never been served from the deployment, and its
+    download has never run behind the real gate.** Phase 14 part 7, owed the
+    moment it is pushed. It is item 34's shape with one thing on top of it that
+    no local check can reach.
+
+    - **A stranger and a job poster both get 404** on `/staff/developer` and on
+      three pages under it. That is item 34's question for the tier above.
+    - **An admin gets all seventeen**, each with its title, `access: developer`,
+      its markdown and a date.
+    - **`the-test-scripts` carries its `data` field**, with sixteen scripts in
+      it, and **`/api/content?path=/staff/developer/test-scripts.json` answers
+      404 to that same admin session.** That is the decision the whole mechanism
+      rests on, and it has only ever been asked of the loader in process.
+    - **One download, pressed by a person**, on the real page. The browser check
+      drives the module directly against a synthetic payload; nobody has yet
+      clicked the button on a page the gate served.
+
+    It belongs in the same sitting as items 33 and 34, and behind the same
+    authenticator app.
+
+---
+
+## 6. Inherited by later phases
+
+- **The maintenance switches need no migration, now or later.**
+- **~~Phase 11's webhook confirmation notice~~ was settled by phase 13 and is
+  not a decision any more, it is work.** Deferred three times: 29 August, phase
+  12's section 2, then phase 13's. **Settled on 1 September 2026: build it, in
+  its own commit, numbered the way `2c27a2b` was.** Declining it was on the
+  table and was not taken. The confirmation is the one status change the portal
+  makes on somebody's behalf, and it stays the one they hear nothing about. It
+  has moved into section 2 as phase 14's, with its cost. That cost is a fourth
+  `KIND`, a renderer in `outbox.py`, and a fourth notify column with a migration
+  for it. Phase 11 part 5's forty cases are re-walked with it.
+- **~~The applicant's guide to the bot~~ is section 2's**, moved there 3
+  September 2026 with the rest of phase 14's inheritance.
+- **~~Phase 13 inherits the docs site's responsive and accessibility pass~~,
+  deviation 118. Discharged 3 September 2026** by part 7. That is most of what
+  took `tests/phase13-test.mjs` from 129 checks to 677: every page in both trees
+  at six widths in both languages. Its contrast section measures this site's
+  components in all four theme combinations and not the two a reader can reach.
+- **~~Everything phase 13 inherits~~ was worked from section 2 and is done.**
+  That is the two tables in migration `038`, the duplicated session helpers, the
+  gate, and the settings suite mounted twice. The two content pipelines and the
+  pass above are in it too. **`embed-tests.mjs`'s output is the one that carried
+  over** — decision 6 settled where it goes. The page that reads it is phase
+  14's, so it is in section 2 now.
+- **~~`/docs`, a tenth bot command~~ is section 2's**, moved there 3 September
+  2026. All four of its decisions and both of the costs they carry went with it.
+- **~~What phase 14 inherits, beyond the guides themselves~~ is section 2's**,
+  moved there the same day. That is the docs site's own discovery files, the
+  Playwright capture script, and the bot's start message finally carrying a docs
+  link.
+- **What phase 15 inherits.** Malay and Tamil: a row in `gftvjobs_locales`, a
+  dictionary file, and the content. No schema change, per 3a. **And the
+  switchover of `/status` happens by itself the day 15 reads `shipped`.**
+  `everyPhaseShipped()` is what decides which of the two pages that address
+  serves. Nothing to remember, which was the point of building it that way.
+- **The official site banner is the last thing in the build**, section 8 item 5.
+  The trusted sites page it links to still does not exist, and the link must not
+  ship before the page does. **As of phase 13 it is two banners and not one.**
+  `gftv-official.md` names `docs.careers.globalfurry.tv` among the official
+  subdomains and asks for the banner on every page. So the docs shell needs it
+  as well as the portal's. One implementation or two is decision 1's question a
+  third time. Section 5 item 28.
+
+---
+
+## 7. Decisions settled, so they are not reopened
+
+| Decision | Settled as |
+|---|---|
+| Language in the URL | No. `localStorage` only. `gftvjobs_users.locale` decides which form a handover opens, not what a page renders in. |
+| Content translation shape | Base rows hold the default language; every other language is a row in a translation table. |
+| Non default language search | `pg_trgm` substring matching. |
+| Publishing untranslated | Allowed, badged. Half translated is forbidden. |
+| Interface strings | Stay as JSON files. **No interface string editor, ever**, per 7i. |
+| Chinese variety | Singapore Mandarin, 华文. `zh-Hans-SG` on the document; the locale code is `zh`. |
+| Names | GFTV is 国际兽视. The portal is 国际兽视入队平台. |
+| Rate limiting | Table backed. Fails open if its own table is unreadable. |
+| Admin access | The `gftvjobs_admin_access` overlay. `gftvhello_users` is never written to. |
+| Password minimum | 10 characters. Length only. |
+| Second factor | Passkeys in both realms, plus TOTP for staff. Telegram joins in phase 11. |
+| Destructive calls | POST with an action, not DELETE with a body. |
+| Auth events are audited | No IP addresses, and a failed write never fails the request. |
+| Pay | Every posting is unpaid today. `is_paid` per posting. |
+| One browse surface | `/search` is the listing and the results page. |
+| Search engine indexing | Blocked entirely until phase 12. |
+| Reapply cooldown | A setting, not a constant. Zero switches it off; existing dates are ignored and not cleared, and a cooldown already being served never moves. |
+| The posting page is the one server rendered route | And stays it. The reason is link embeds. |
+| A posting's canonical address is its uuid | The slug is a 301 alias, generated once. |
+| The form URL is never in a public payload | Three allowlists: `PUBLIC_COLUMNS`, `APPLY_COLUMNS`, and the editor's own. |
+| Embeds are always English | A crawler has no `localStorage`. |
+| Archived postings | Render only for an applicant with history, read only. Draft 404s for everybody. |
+| **No answer means no** | `did_apply` starts false and only a positive confirmation changes it. **The webhook is the one exception**, per section 13 step 5, recording `answer_source` of `webhook` when it overrides. Proved on production 26 August 2026. |
+| **A tracking row never moves backwards** | `RESETTABLE` for a start click includes `rejected`; `CONFIRMABLE` for a confirmed Yes does not, so a webhook cannot reopen a rejected row. |
+| **A status change never touches the cooldown** | Only a confirmed application, a withdrawal, an explicit waive, and phase 9's two. A rejection is not a waive. **A queued offline answer is not a seventh.** |
+| **A posting is never deleted to take it down** | And **never auto-closed without a closing date**: section 11, and 8.1 has drawn the badge for it since phase 7. |
+| **A question set is frozen once sent** | A posting's template is copied onto each task. |
+| **Deleting an account keeps its analytics rows** | With `applicant_id` null. Do not add a cascade. |
+| **There is no danger zone verify-password route** | The destructive endpoint verifies the password in the same request. |
+| **Off means off, including the API** | `unavailable()` beside `settings.js`. **Except in a cron**, which records that it was off instead. |
+| **An invite is delivered as a task** | Telegram is a second channel in phase 11, never the first. |
+| **A shortlist is an invite row nobody was told about** | One table, one `unique (job_id, applicant_id)`. |
+| **Only an admin sets `is_ready`** | Access can be granted before trust is. |
+| **A helper is granted per language** | One row per language, never a boolean. |
+| **Annotations and form reports are one queue** | Distinguished by `origin`. |
+| **A helper's edit is audited and an admin's is not** | And phase 9's manual submission link is the second exception, for its own reason. |
+| **A view is revoked from `anon` and set `security_invoker = on`** | In the file that creates it. |
+| **A table keeps its default grants, and RLS is the answer** | |
+| **`pg_trgm` stays in `public`** | |
+| **The tracking row carries the applicant's email and phone** | Settled 25 August 2026. |
+| **An unknown enum falls back instead of being refused** | And the payload names what it actually used. |
+| **A machine caller is authenticated by a shared secret, compared timing safe, before the body is read** | Settled 26 August 2026 for both phase 9 endpoints. There is no session to check and `requireStaff` is meaningless; **an absent header is never treated as "this must be the scheduler"**, because Vercel sends nothing at all when `CRON_SECRET` is unset. |
+| **A check that learned nothing writes nothing** | Settled 26 August 2026 for the form health check. Not `ok`, not `error`. See deviation 55. |
+| **An authenticated response is never cached by the browser either** | Settled for phase 10 by specification 14: the Cache API is per origin and this origin is shared with the other GFTV apps. The applicant's own data lives in IndexedDB keyed by user id and is wiped on logout and on a mismatched login. |
+| **A response carrying `private` or `no-store` never enters the Cache API** | Settled 26 August 2026. `isCacheable()` in `sw.js` is the single place it is decided, and the routes it catches look public from inside a worker. |
+| **A failed request is a third state, and never a No** | Settled 27 August 2026 across both dashboards. "We could not ask who is signed in" and "nobody is" are different claims, as are "the table could not be read" and "there has never been a run". |
+| **A wipe is ordered by the module, not by its callers** | `idb.js` gates every read and write on one internal promise, so "wipe before writing anything" is a property of the file and not a habit of the two places that happen to call it today. |
+| **The reader's own copy is not the site's cache** | The saved board and the applicant's own rows live in IndexedDB and survive a deploy; the shell cache is versioned and does not. Postings and public answers are data, not build output. |
+| **A switch works in both directions or it is not a switch** | Settled 27 August 2026 by deviation 89. Whatever turns a subsystem off keeps a way of hearing that it has been turned back on, and acts on the edge and not on every request. |
+| **The site never calls the bot** | Section 15, and phase 11's version of "off means off": the site writes a row into `gftvjobs_notifications` and returns. Nothing awaits a Telegram send inside a request. |
+| **A bot command is available when it is built, not when its phase has shipped** | Settled 28 August 2026, deviation 92. The registry the dispatcher uses is the check. The site's own controls stay gated on `shipped` exactly as before, and the two sentences, unbuilt and switched off, are never mixed. |
+| **Before a link there is no account, so the bot answers in the language Telegram says** | Settled 28 August 2026. Mapped by prefix onto the locales in `build-status.json`, English when nothing matches. The account's locale wins the moment there is one. |
+| **The bot reads the live site's build status, and the checkout only when it cannot** | Settled 28 August 2026. The deployed site is what the applicant is looking at; the copy beside the bot is the one thing guaranteed not to be. The maintenance overrides have no offline half and fail open, as the site's do. |
+| **The commands and the drain are one process, and the probe is not** | Settled 28 August 2026. One Telethon session for one bot token, and safety against a double send comes from the conditional claim and not from the process count. Phase 12's probe stays separate because it has to survive Telethon being wedged. |
+| **Nothing in the repository manages tmux, and the bot refuses to start twice** | Settled 28 August 2026, deviation 93. The session is the operator's. An exclusive lock, released by the kernel, exit 3 naming the pid that holds it. |
+| **A credential never leaves this build to be rendered** | Settled 28 August 2026, deviation 94. The linking QR is encoded here because the deep link contains a single use token, and an image service would put it in somebody else's access log. |
+| **An unlink skips queued rows and never touches claimed ones** | Settled 28 August 2026, decision 3. The bot re-reads the link immediately before each send, which is what closes the rest of the window. Nothing is deleted: a row marked `skipped` says something a missing row does not. |
+| **A token is claimed before the thing it authorises is written** | Settled 28 August 2026, deviation 95. One conditional update decides who owns it. Burning a token on a failure is cheaper than two people being handed one account. |
+| **A claim is a lease, and an abandoned one is requeued once and not failed** | Settled 29 August 2026, deviation 100. Five minutes, the attempt counted, `failed` when the attempts are spent. A duplicate is a cost paid in the open and a message nobody received is not. |
+| **A retrying row stays `claimed` and SQLite says when it may be tried** | Settled 29 August 2026, deviation 101. A queue state is not a schedule: `queued` with a not-before is something the claim cannot express, so the backoff would be a comment. Durable, so a restart does not restart the wait. |
+| **The claim names only the kinds this build can render** | Settled 29 August 2026, deviation 103. The site deploys itself and the bot is pulled by hand, so a kind an older bot has never heard of has to be one it leaves alone and not one it fails. |
+| **Raising a task is what queues the notification** | Settled 29 August 2026, deviation 106. One mapping from task type to kind, inside `raiseTask` and `raiseTasks`, so a raise site added later cannot deliver nothing. `info_request` and anything new default to `task_raised`. |
+| **Only the decision notice is an `application_status_changed`** | Settled 29 August 2026. An accept or a reject with the message its poster wrote. A status moved without one stays as silent in Telegram as it is on the dashboard. |
+| **The notify toggles live in `/notify` and nowhere else** | Settled 29 August 2026. Section 15 puts them in the chat and the columns are on the link row; three switches on `/account/settings` as well would be two places writing one row. |
+| **The bot renders from the payload and never from the postings table** | Settled 29 August 2026, deviation 107. The role, the department and the note are copied into the outbox row when it is queued, so the message says what was true then and the service key's reach stays where section 15 put it. |
+| **A column a select did not name is not a switch turned off** | Settled 29 August 2026, deviation 108. `is False`, never a falsy test. The third time this build has had to separate an absent value from a falsy one. |
+| **Declining writes to the invite and leaves the task standing** | Settled 29 August 2026, deviation 110. One conditional update filtered on `invited` or `seen`, so a button in an old message cannot rewrite an invite that was withdrawn. `seen` stays unwritten: delivered is not read. |
+| **`/jobs` reads the site's public feed, never the postings table** | Settled 29 August 2026, deviation 111. One implementation of which postings are live, resolved into the reader's language by the site's own rules, and nothing added to what a service key on a VPS can reach. A feed that could not be read is never an empty board. |
+| **A command answers about now; a notification is a copy of then** | Settled 29 August 2026, deviation 112. Deviation 107 froze the outbox payload because nobody is standing there. Somebody typing a command is, so `/invites` and `/applications` read the current rows. |
+| **A role is named to an applicant in the language they read the portal in** | Settled 29 August 2026. Base row plus a translation marked ready, blank falling back, exactly as `jobSummaries` resolves it. The invite notification is the deliberate exception and stays a copy of the stored title. |
+| **`/tasks` counts what `/account/tasks` counts** | Settled 29 August 2026. Open tasks plus unanswered apply prompts derived from `gftvjobs_analytics`, filtered on `apply_click` and `pending`. A count that disagrees with the page it links to is a disagreement nobody reports, because both numbers look like answers. |
+| **A switched off feature says so, and never that it was not built** | Settled 30 August 2026. `translateError` branches on `details.reason` before it keys on the code, and the maintenance sentence carries the admin's note as typed. Amber and not red, through one `adminApiError` helper: the person reading it is usually the person who flipped the switch. |
+| **A login code is copied by Telegram, not by the bot** | Settled 30 August 2026. The payload rides with the button, so the tap never reaches the bot and it is the one button in the build needing no SQLite row. The constructor is imported behind a guard: an older Telethon sends the message without it instead of failing a sign in. |
+| **A modal that improves a good answer is never a gate in front of it** | Settled 30 August 2026. The device nickname is asked for after the row is written with its automatic label, so skip, Escape, the backdrop and a failed save all carry on into the account. Applicant realm only, and renaming is the one action on that endpoint that does not ask for the password. |
+| **The drain under stress is not walked, and the gap is written down** | Settled 30 August 2026. A restart mid drain, the stale claim sweep and a row reaching `failed` all need rows in flight this portal does not have. The claim makes a double send impossible by the query, so what is untested is whether a row can be *lost*. Named in the checklist as a gap and not left silent. |
+| **The status words in a chat are the portal's own, and the copy is checked** | Settled 29 August 2026, deviation 113. Nine words in `strings.py`, compared value by value against `status.*` in both dictionaries. An unknown status says where to look instead of inventing a sentence about somebody's application. |
+| **A pass with no list is a pass nobody can repeat** | Settled 30 August 2026 for phase 12, and it is why a phase with no new feature is 13 sections of `tests/phase12-test.mjs` and not an afternoon of looking. AA means 1.4.3 *and* 1.4.11: three of the four things part 3 measured are not text, so a text-only reading would have been a colour pass that measured its own labels. |
+| **A failing measurement is fixed in the same part, not tabled** | Settled 30 August 2026. The exception is a brand token: `--brand` and `--brand-dark` come from `gftv-theme.md` and not from this build, so one of those failing is raised before it is changed and the fix is looked for in the component first. |
+| **A day nobody measured is drawn as unknown, and a percentage carries its coverage** | Settled 31 August 2026 with part 7. Nothing backfills, nothing buffers, and an empty recent window reads as `unknown` before anything else is considered — a page that read silence as "no failures" would report all clear precisely when the machine watching it had stopped. |
+| **The probe stores downtime, not checks** | Settled 31 August 2026, decision 23 and deviation 120. A day row per target counting what was watched, an outage row opened by the first failure and closed by the first success. Half a million rows became four a day, and the end of an outage became observed and not inferred. |
+| **A page that is the answer is never served cache first** | Settled 31 August 2026. `/status` is the one entry in `NETWORK_FIRST_PAGES`; every other precached page is a shell that fetches its own data. The offline copy is refreshed on each successful load, so what an offline reader gets is the last state anybody saw, stamped. |
+| **Whether the site may be indexed is one constant with two halves** | Settled 31 August 2026, decisions 3 and 14. `INDEXING` in `api/_lib/discovery.js` and the global `X-Robots-Tag` in `vercel.json` say the same thing in two places, and `--only=discovery` fails when one moves without the other. `robots.txt` falls back to `CANONICAL_ORIGIN` instead of 5xx-ing, because every major crawler reads a failing robots.txt as "do not crawl this site for now". |
+| **`/status` is one address serving two pages, and a derivation decides which** | Settled 31 August 2026, decision 21. `everyPhaseShipped()` answers, so the switchover is a consequence of the last phase flipping and not a task anybody has to remember. The two must never be on screen together. |
+| **A seeded posting is marked in the language it is written in** | Settled 31 August 2026 with the seed script, and it is phase 3's rule made portable: there is one database, so a sample posting sits on the live board, and a row marked only in English reads as genuine to precisely the readers the translation exists for. |
+| **A duplicate across the two Vercel roots is generated, never kept** | Settled 1 September 2026, phase 13 decision 1. A byte comparison was never available, because 5h itself requires the cookie and the table to differ, so the check had to be taught the exceptions either way. Once it is being taught them the transform may as well be the rule, and then the copy cannot be hand edited at all. **A rule that no longer matches stops the generator**, which is the check the duplication actually needed: not whether the two files are the same, but whether the difference between them is still the intended one. |
+| **The relying party id is the portal's host and the expected origin is the site's own** | Settled 1 September 2026 from 5e, and the pair 5e says is worth a test of its own. `SITE_URL` on the docs site names the portal, deliberately. Swapped, it either breaks the docs sign in loudly or accepts an assertion from the wrong origin quietly, and only one of those is noticed. |
+| **Code that reaches another team's site ships switched off until it has run once** | Settled 2 September 2026, phase 13 decision 11. `HELLO_WRITES_ENABLED` holds the password change, the reset and the authenticator app; everything else in 5f is live from the first deploy. **The maintenance switch mechanism cannot express this and it is worth knowing why before anybody tries again**: an override is only a record that an admin turned something *off*, and it is ignored while its phase reads `building`, so a switch would have been inert for the whole window and on at the moment part 7 ships the phase. A constant with two checked halves is `INDEXING`'s shape and is the one that fits. **A held route says `held`**, which is a third sentence under one status code and never the other two: an admin flipped it, a phase has not shipped, or it is built and not offered yet. |
+| **A hold sits where refusing costs the person least** | Settled 2 September 2026. 5g is refused before a recovery code is verified, because refusing after would take a code off somebody already locked out; the danger zone's held action is refused after all three proofs, because somebody who walked four panels deserves to be told which action it was. Same constant, opposite placement, and the difference is who is standing there. |
+| **`gftvhello_users` has exactly two writable columns, in one file** | Settled 2 September 2026, phase 13 decision 7 joining 5g's existing exception. `password_hash` and `totp_secret`, both from `api/_lib/staff-account.js`, both reaching gftv.asia, both behind an audit row written before the write because nothing notifies anybody. Read only was on the table for the second one and was declined for who is standing there: the reader of that panel has lost their phone, and a page that names their second factor and then sends them to another site to turn it off has understood the problem and declined to solve it. **The rule is a grep in the test file**, so a third writer fails instead of being noticed. |
+| **The adapter between two sites is a stylesheet, not a transform** | Settled 2 September 2026, phase 13 decision 8 as it was actually executed. The shared page module writes the portal's class names and `docs.css` defines the same names in the docs site's language, so fourteen generated files needed no rule at all. Rewriting class names in generated JavaScript would have been a second thing to keep in step, and the thing it kept in step was already a stylesheet. `--only=account` fails on a class neither docs stylesheet defines. |
+| **A panel says what its rows know, and never what its name suggests** | Settled 2 September 2026 across three panels of one page. Trusted devices are the account's and trust is earned per site, and both sentences ship or neither does; sessions are the reverse and say so; a session row cannot name a device and the page says that instead of guessing. Decision 10 and deviation 125 are the two arguments and they reach the same place from opposite directions. |
+| **An audit row says which site it came from** | Settled 1 September 2026 for 5f and 5g. One constant per copy of `audit.js`, merged in after the caller's metadata, because the one thing a call site cannot be trusted to remember is the fact that is the same on every call it will ever make. |
+| **A link into another team's site points at its root** | Settled 3 September 2026, found by pressing the button during item 24's walk. `gftv.asia` is a one page app with a catch all, so `https://gftv.asia/account` answered **200** and served the same shell as everything else: a reader on the wrong view, and no status code, fetch or link checker able to say so. Checks 167 and 167a read the `data-account-url` attribute on both sites, and they read the attribute and not the file, because a comment explaining the trap has to be free to name the address it is warning about. |
+| **Sign out everywhere ends the session it was pressed from** | Settled 3 September 2026, reversing an undocumented choice. `danger.js` had kept the calling session on the argument that throwing somebody out to prove the action worked costs them a sign in; 5f says "sign out everywhere" with no exception, and **the person reaching for a danger zone has usually lost a laptop**, so the session that must end is the one they cannot press a button from. The response carries `signed_out` and the page follows it to the sign in page, because the cookie now points at a row that is gone. |
+| **What this build cannot reach, it says before the button is pressed** | Settled 3 September 2026, the other half of the same fix. `gftvhello_sessions` is gftv.asia's table and is not among the four writes section 2 permits, so signing out everywhere cannot end a gftv.asia session and never will. The consequence line and the sessions panel both say so, in both languages, on both sites. Discovering it afterwards is how a reader learns that a security control did less than its name. |
+| **A portable file is applied in full or it is not applied** | Settled 3 September 2026 for `gftv-theme.md`, which had been read as a colour token contract for two phases. It is also a chrome specification: section 3 is HTML, the modal markup is verbatim, "users opt into dark explicitly in the theme modal" is a non-negotiable rule, and the acceptance checklist expects a theme button whose icon tracks the mode. The docs site had the tokens and none of the chrome, and **two checks that read that file both passed**, because a measurement of the components that exist cannot see a component nobody built. |
+| **The colour axis is reachable on both sites** | Settled 3 September 2026, **overruling 16d's header list** and the third edit this build has made to the specification. The `hello` palette was generated into the docs site, measured by part 7 in all four combinations, and unreachable from that site's chrome; a palette that is paid for and cannot be chosen is a cost with no product. Phase 14 part 1 exposes both axes through the theme file's own modal. |
+| **A constant is named for a table, and governs only that table** | Settled 3 September 2026, recorded and not fixed. `HELLO_WRITES_ENABLED` lives in `staff-account.js` and holds the two `gftvhello_users` columns; **regenerating the backup code set writes `gftvhello_backup_codes` and was never behind it**, so "the three writes that reach gftv.asia are switched off" was the wrong count for a fortnight and nothing said so. The route always declared it — its header, its audit metadata and its `reaches_gftv_asia` flag all name the table — which is the point: **a fact stated in four places and counted in none of them is still a fact nobody has counted.** |
+
+---
+
+## 8. Open items, none blocking
+
+0. **The specification was edited on 31 August 2026, which is worth knowing
+   because it is rare.** Decision 23 and deviation 120 replaced
+   `gftvjobs_status_checks` with `gftvjobs_status_days`,
+   `gftvjobs_status_incidents` and `gftvjobs_status_record()`. Five passages in
+   `careers-gftv-spec.md` described the old shape: section 6's schema entry,
+   section 11's sweep line, section 15's recording line, and two lines in 0c.
+   All five now describe what is built, and section 6 carries a short note
+   saying what the shape was and why it changed.
+
+   **0c's rules were not touched and did not need to be.** Every promise that
+   section makes is kept by the new shape. Those promises: never a green day
+   that was not measured, never a percentage over a period with gaps without
+   saying so, never a backfilled row. That is the test any further change here
+   has to pass.
+
+1. **Proxima Nova Medium, Semibold, and Bold.** Only Regular exists. The three
+   `@font-face` blocks are written and commented out in `theme.css`.
+3. **Icon backgrounds. The artwork is still the template's and is not final** —
+   said on 27 August 2026. The plate is GFTV yellow and the splash matches it,
+   done by phase 10 part 1. What is left is the artwork itself, and it comes
+   back the day there is a real one.
+
+   Swapping it is small and is written up in `main-site/README.md` under "Icons
+   and the install manifest". Drop the new square master in as `HLC-source.png`
+   at the repo root, run `node gen-icons.js`, then run `node
+   tests/phase10-test.mjs --only=install`. Nothing references an icon by
+   anything but name, so no page, no manifest entry and no precache line moves.
+
+   **The one thing to decide first is the recolouring pass.** `gen-icons.js`
+   matches the template's mint plate and rewrites it as yellow at the same
+   brightness, shadows included. A master already on the right background wants
+   that pass turned off and not retuned. One on some third colour wants `MINT`
+   pointed at that colour. The `install` section checks sizes, tags and the
+   manifest's own claims, and nothing about the artwork. So it is worth the same
+   after a new icon as before it.
+5. **The official site banner** for when every phase has shipped, specified in
+   `gftv-official.md`. It cannot be dismissible and must never claim the site is
+   safe or verified. The trusted sites page it links to does not exist yet, and
+   the link must not ship before the page does.
+6. ~~**The whole site is blocked from search engines, deliberately and
+   temporarily.**~~ **Opened by phase 12 part 8 on 31 August 2026**, after
+   eleven phases closed. `INDEXING` in `api/_lib/discovery.js` is `true` and the
+   global `X-Robots-Tag` is out of `vercel.json`. The one on `/api/(.*)` is
+   separate and stays. `--only=discovery` fails if either half moves without the
+   other, in both directions, so this does not come back as a half state. Test
+   the tags with `curl`, not by pasting into a chat window: an unfurler reports
+   what it fetched, not what a crawler is told.
+7. **Passkey coverage across GFTV.** One registered here works on
+   `careers.globalfurry.tv` and nowhere else.
+8. **The posting page's JSON-LD has never been checked by Google.** Run it
+   through the Rich Results test when indexing is turned back on in phase 12.
+   **The condition is met as of part 8**, so this is now a job and not a note.
+   It needs a published posting to point the test at, which an empty board does
+   not have. So it waits on the first real posting, and that is the one thing on
+   this list decision 25 made later and not sooner.
+9. ~~**The star colours have not been measured.** Neither have the language
+   state pills, the maintenance switch, or phase 9's four panel tones.~~
+   **Closed by phase 12 part 3 on 30 August 2026.** All four are measured in all
+   four theme combinations by `tests/phase12-test.mjs --only=contrast`. The
+   thresholds are 1.4.3 for text and 1.4.11 for a boundary or a state indicator.
+   It is a check that runs and not a reading somebody took once, so this does
+   not come back the next time a token moves.
+10. **`/admin/docs` points at a host that does not exist.** It is a 302 for that
+    reason, and phase 13 is what makes the destination real.
+11. **Seven of phase 8's ninety nine checks are still unreachable by a script.**
+    Phase 9 leaves one of its own: **item 39, that the second cron run wrote no
+    audit row.** Nothing exposes `gftvjobs_audit_log` for a `system` actor. The
+    query is in the run's output and in `tests/phase9-test.mjs`.
+12. **There is one template Google Form to make**, and it is now the last thing
+    standing between phase 9 and being genuinely proved. The root README's setup
+    section assumes it exists: one form carrying
+    `apps-script/careers-form-webhook.gs` and `PORTAL_SECRET`, copied per
+    posting. Nobody has made it yet. See section 5 item 13.
+

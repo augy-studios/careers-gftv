@@ -136,7 +136,7 @@ decision reviewable a year later.
 stops matching the code. A stale one is worse than none, because it is read with
 the same trust as a current one.
 
-**Write the memo entry as you go.** `next-steps.md` is rewritten at the start and
+**Write the memo entry as you go.** `reference/next-steps.md` is rewritten at the start and
 the end of every phase, and a deviation recorded later is a deviation half
 remembered. See [the working memo](/staff/developer/the-working-memo).
 

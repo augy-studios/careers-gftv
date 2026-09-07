@@ -29,7 +29,7 @@ Telegram caps a message at 4096 characters **after** entity parsing, so
 cannot render.
 
 Pages break on heading boundaries, so a page break never lands mid sentence, and
-each carries a "2 of 5" with Previous and Next. A single section longer than the
+each carries a "2 of 5" and a pager that says which part it is on. A single section longer than the
 budget is split again on paragraph boundaries, because a heading with four
 thousand characters under it has to go somewhere.
 

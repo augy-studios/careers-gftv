@@ -981,7 +981,7 @@ def docs_sections(rows):
     ]
 
 
-def docs_callback_id(ctx, action, path, page, locale, event):
+def docs_callback_id(ctx, action, path, page, locale, event, total=0):
     """A stable id per button, so redrawing a menu does not grow the registry.
 
     Derived the way `notify_callback_id` is and for the same reason: paging
@@ -992,15 +992,21 @@ def docs_callback_id(ctx, action, path, page, locale, event):
     other callback in this file answers about somebody's own account and checks
     who clicked. A guide page is public, so a forwarded message whose button
     still works is a forwarded link to a public page, which is what a link is.
+
+    `total` is carried for the pager's middle button alone, which says where the
+    reader is and goes nowhere. It is in the payload so that answering the tap
+    costs nothing: the alternative is reading the page back out of Supabase and
+    paginating it again to learn a number the button already had when it was
+    drawn.
     """
-    material = f"docs:{action}:{path}:{page}:{locale}"
+    material = f"docs:{action}:{path}:{page}:{total}:{locale}"
     callback_id = hashlib.sha256(material.encode("utf-8")).hexdigest()[:32]
 
     db.remember_callback(
         ctx.conn,
         callback_id,
         "docs",
-        {"action": action, "path": path, "page": page, "locale": locale},
+        {"action": action, "path": path, "page": page, "total": total, "locale": locale},
         chat_id=getattr(event, "chat_id", None),
     )
     return callback_id
@@ -1094,7 +1100,7 @@ async def docs_section(ctx, event, path, locale):
 
 
 async def docs_page(ctx, event, path, page, locale):
-    """One page of one guide page, with Previous and Next where there are more."""
+    """One page of one guide page, with the three seat pager where there are more."""
     try:
         row = await ctx.supabase.docs_page(path, locale)
         fallback = False
@@ -1128,23 +1134,42 @@ async def docs_page(ctx, event, path, page, locale):
     lines.append(parts[index])
 
     buttons = []
-    steps = []
-    if index > 0:
-        steps.append(
-            Button.inline(
-                text("button.docsPrev", locale),
-                f"cb:{docs_callback_id(ctx, 'page', path, index - 1, locale, event)}".encode(),
-            )
+
+    # **The pager is three buttons and never two**, so the row does not move
+    # under a thumb that is already resting on it: the left seat steps back, the
+    # right seat steps on, and the middle one says where the reader is. At the
+    # two ends the seat that has nowhere to go wraps instead of disappearing —
+    # Last on the first page, First on the last — which is the same width, in
+    # the same place, and is what somebody who has read to the end of a nine
+    # part page actually wants next.
+    if total > 1:
+        at_start = index == 0
+        at_end = index + 1 >= total
+
+        back_label = "button.docsLast" if at_start else "button.docsPrev"
+        back_target = total - 1 if at_start else index - 1
+        on_label = "button.docsFirst" if at_end else "button.docsNext"
+        on_target = 0 if at_end else index + 1
+
+        buttons.append(
+            [
+                Button.inline(
+                    text(back_label, locale),
+                    f"cb:{docs_callback_id(ctx, 'page', path, back_target, locale, event)}".encode(),
+                ),
+                # It goes nowhere on purpose. Telegram gives an inline button no
+                # way to be inert, so it answers with the same sentence the
+                # message already carries instead of editing anything.
+                Button.inline(
+                    text("button.docsPage", locale, count=index + 1, total=total),
+                    f"cb:{docs_callback_id(ctx, 'where', path, index, locale, event, total)}".encode(),
+                ),
+                Button.inline(
+                    text(on_label, locale),
+                    f"cb:{docs_callback_id(ctx, 'page', path, on_target, locale, event)}".encode(),
+                ),
+            ]
         )
-    if index + 1 < total:
-        steps.append(
-            Button.inline(
-                text("button.docsNext", locale),
-                f"cb:{docs_callback_id(ctx, 'page', path, index + 1, locale, event)}".encode(),
-            )
-        )
-    if steps:
-        buttons.append(steps)
 
     on_site = ctx.config.docs_page_url(path)
     if on_site:
@@ -1213,6 +1238,18 @@ async def handle_docs_callback(ctx: Context, event, record: dict) -> None:
         await docs_section(ctx, event, path, locale)
     elif action == "page":
         await docs_page(ctx, event, path, int(payload.get("page") or 0), locale)
+    elif action == "where":
+        # The pager's middle button. It edits nothing: the numbers were written
+        # into the payload when the keyboard was drawn, so this is a toast and
+        # not a read.
+        await event.answer(
+            text(
+                "docs.page",
+                locale,
+                count=int(payload.get("page") or 0) + 1,
+                total=int(payload.get("total") or 1),
+            )
+        )
     else:
         await event.answer(text("docs.gone", locale), alert=True)
 

@@ -1799,7 +1799,7 @@
   "admin.tabHelpers": "Helpers",
   "admin.helpersNote": "A helper is an ordinary applicant account granted the right to edit translations in one language. They draft freely and cannot make anything live: only staff mark a translation ready, so access can be granted before trust is.",
   "admin.grantHelper": "Grant the helper role",
-  "admin.grantHelperBody": "Choose the language first, then find the account. A helper edits every translation in that language, on every posting, and cannot make any of them live.",
+  "admin.grantHelperBody": "Choose the language first, then find the account. A helper edits every translation in that language, on every posting, and cannot make any of them live. The default language has no translations to edit; a helper in it can suggest corrections to the wording in place.",
   "admin.helperLanguage": "Language they will help with",
   "admin.colHelper": "Helper",
   "admin.colDrafted": "Drafted",

@@ -73,6 +73,7 @@ nothing is unbuilt, and it will work again in a moment.
 | `docs-site/` | The documentation site for `docs.careers.globalfurry.tv`, four audiences behind one gate, being built in phase 13. Its own Vercel project on the same repo, so it cannot import anything from `main-site/`: what it shares is duplicated into it by `gen-docs-lib.js` and never edited in place. **It is the one directory with a build step**, `docs-site/scripts/build.js`, per 16e. |
 | `apps-script/` | The Google Apps Script that each job's application form runs on submit, per section 13. Not deployed by anything: it is pasted into a form by hand. See [The application form webhook](#the-application-form-webhook). |
 | `tests/` | Playwright checks, run by hand against a deployment. Not a CI suite: they need a staff credential and they write real rows. Phase 10's is the exception and needs neither, because a service worker cannot be checked by asking a deployment anything. |
+| `reference/` | The two documents this build is run from: `careers-gftv-spec.md`, the brief, and `next-steps.md`, the working memo. Nothing reads either at runtime and no page is served from here. They are in the repository as of 7 September 2026, phase 14 part 10e; both were gitignored before that, which is how twenty one pages generated from the brief came to be committed while the brief itself was not. Both are rendered onto the documentation site by a generator at the root. |
 
 Five READMEs, plus the one in `migrations/`, and no others. Each says what
 lives in its directory and how to work with it.
@@ -86,16 +87,23 @@ lives in its directory and how to work with it.
 | [`docs-site/README.md`](docs-site/README.md) | What the docs site covers, adding a page, previewing, and the screenshot capture. |
 | [`tests/README.md`](tests/README.md) | Running the Playwright checks, what a run writes, what it cannot check, and how to write a new phase's. |
 
-## Working references, not in this repository
+## Working references
 
-Four files sit at the repo root on the maintainer's machine and are
-deliberately gitignored. If you have cloned this repository you will not find
-them, and nothing in the build depends on reading them at runtime. They are
-listed here because the source comments refer to them by name.
+Four files the build is run from. **Two of them are in `reference/`** as of
+7 September 2026, and two of them are still only on the maintainer's machine.
+Nothing in the build depends on reading any of them at runtime; they are listed
+here because the source comments refer to them by name, and for the two that
+moved those names are now addresses you can open.
 
-- **`careers-gftv-spec.md`** is the brief for the whole project and the
-  reference for every phase. Where this README and the specification disagree,
-  the specification wins.
+- **[`reference/careers-gftv-spec.md`](reference/careers-gftv-spec.md)** is the
+  brief for the whole project and the reference for every phase. Where this
+  README and the specification disagree, the specification wins. It is rendered
+  as twenty one pages on the documentation site by `gen-spec-pages.js`.
+- **[`reference/next-steps.md`](reference/next-steps.md)** is the working memo
+  alongside the specification, rewritten at the start and end of every phase,
+  and rendered as nine pages by `gen-memo-pages.js`. **It was gitignored until
+  part 10e of phase 14**, which is how those spec pages came to be committed
+  from a file no clone held.
 - **`gftv-theme.md`** is the GFTV theme system shared across the GFTV apps: the
   two axis colour theme and mode model, the token contract, the palette, and
   the WCAG audit. It is implemented in full in
@@ -106,8 +114,6 @@ listed here because the source comments refer to them by name.
   build notice once every phase has shipped: a permanent, collapsible bar
   stating that this is an official GFTV site and teaching a reader how to check
   that themselves. Portable across GFTV projects, like the theme file.
-- **`next-steps.md`** is the working memo alongside the specification,
-  rewritten at the start and end of every phase.
 
 The theme, the palette, and the accessibility rules are all visible in
 `theme.css` and in the comments at the top of it. That file is the practical
@@ -353,8 +359,8 @@ never installed by either deployment.
 | `gen-icons.js` | Every icon under `main-site/`, from `HLC-source.png` at this level. The source is deliberately not one of the outputs. See [`main-site/README.md`](main-site/README.md). |
 | `gen-screenshots.js` | The two install screenshots in the manifest, captured from `/search` on the deployment. Rerun after clearing the seed. |
 | `seed.mjs` | Section 17's seed script, phase 12 part 8. Sample postings, one ready Chinese translation, and two sample accounts for the docs screenshots, all marked SAMPLE and all removable again. `node seed.mjs` says what it would do and writes nothing; `--yes` does it; `--clear --yes` removes it **and the phase 3 dev seed with it**. There is one database, so it refuses to write while `INDEXING` is true rather than putting a sample posting where a crawler can find it. |
-| `gen-spec-pages.js` | `careers-gftv-spec.md` as one page per top level section, written into `docs-site/api/_content/spec/`, which is a fifth gated section beside the four guides. 16h asks for the brief "rendered as pages and not one wall", and it is generated rather than copied because the brief is amended more than once a phase and a docs page somebody forgot is worse than none. It counts the sections it finds rather than being told a number, and it tracks fenced blocks: section 2 pastes a `.env.example` whose every line opens with a `#`, and a splitter going by prefix alone cut the specification in half there. `--check` fails when the file has moved and the pages have not. |
-| `gen-memo-pages.js` | The same for `next-steps.md`, into `api/_content/memo/`. **Its `--check` reports staleness instead of failing on it**, which is the difference between the two files: the brief is committed and amended deliberately, and the memo is rewritten several times a day. A check that is always red is one people stop reading. It fails on what is actually broken, which is a page nobody generated, a missing section, or front matter this script would not write. |
+| `gen-spec-pages.js` | `reference/careers-gftv-spec.md` as one page per top level section, written into `docs-site/api/_content/spec/`, which is a fifth gated section beside the four guides. 16h asks for the brief "rendered as pages and not one wall", and it is generated rather than copied because the brief is amended more than once a phase and a docs page somebody forgot is worse than none. It counts the sections it finds rather than being told a number, and it tracks fenced blocks: section 2 pastes a `.env.example` whose every line opens with a `#`, and a splitter going by prefix alone cut the specification in half there. `--check` fails when the file has moved and the pages have not. |
+| `gen-memo-pages.js` | The same for `reference/next-steps.md`, into `api/_content/memo/`, nine pages. **Its `--check` reports staleness instead of failing on it**, which is the difference between the two files: the brief is amended deliberately a few times a phase, and the memo is rewritten several times a day. A check that is always red is one people stop reading. It fails on what is actually broken, which is a page nobody generated, a missing section, or front matter this script would not write. |
 | `gen-review.js` | `zh-review.html`, every Chinese string in the build side by side with its English, for a fluent reader to go through: the dictionary, the seeded departments and tags, the hero, the phase list and its shipped notes, and the Telegram bot's messages, command menu and profile text. It also reports any file that ships 华文 and is neither one of its sources nor exempt with a reason, and exits non-zero on one, so the next file that puts Chinese in front of a reader cannot quietly miss the round trip. Reads the bot's strings by importing `strings.py` and `commands.py` rather than parsing them, so it needs Python on the path. |
 
 ## Regression testing

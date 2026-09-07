@@ -1799,7 +1799,7 @@
   "admin.tabHelpers": "翻译义工",
   "admin.helpersNote": "义工是获授权编辑某一语言译文的普通申请人账户。他们可以自由撰写，却无法让译文上线：只有员工能标记译文可发布，因此可以先给权限，再谈信任。",
   "admin.grantHelper": "授予义工身份",
-  "admin.grantHelperBody": "先选语言，再找账户。义工可编辑该语言的全部译文，涵盖每一个职位，但无法让任何一条上线。",
+  "admin.grantHelperBody": "先选语言，再找账户。义工可编辑该语言的全部译文，涵盖每一个职位，但无法让任何一条上线。默认语言没有译文可编辑；在默认语言里，义工可以就地对用词提出修改建议。",
   "admin.helperLanguage": "协助的语言",
   "admin.colHelper": "义工",
   "admin.colDrafted": "已撰写",

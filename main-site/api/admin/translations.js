@@ -328,10 +328,17 @@ async function helpers(res, search, source) {
     page_size: size,
     pages: Math.max(1, Math.ceil(total / size)),
     // The languages the role can be granted in, which is every active language
-    // except the default one. The default is what everything is translated
-    // *from*, and 014's own check constraint refuses a translation row for it,
-    // so a helper in English would be somebody with a role over nothing.
-    grantable: locales.filter((locale) => !locale.is_default),
+    // **including the default one**, as of 8 September 2026.
+    //
+    // It used to exclude it, on the argument that 014's check constraint
+    // refuses a translation row for the default language, so a helper in
+    // English would hold a role over nothing. That reads the role as the
+    // translation queue alone, and it is not: `gftvjobs_translation_helpers`
+    // is also what `annotator()` reads to decide who may suggest a correction
+    // in place, per 7i's annotation layer. A helper granted the default
+    // language has no translations to draft and every English string on the
+    // site to correct, which is a role over quite a lot.
+    grantable: locales,
     source_locale: source,
   });
 }
@@ -348,7 +355,10 @@ function helperLocale(wanted, locales) {
   const code = String(wanted ?? '').trim();
   if (!code) return null;
 
-  const found = locales.find((locale) => locale.code === code && !locale.is_default);
+  // The default language is granted like any other, per the note on
+  // `grantable` above. A deactivated one still is not: that would be a role
+  // over a language the site has stopped serving.
+  const found = locales.find((locale) => locale.code === code);
   return found ? found.code : null;
 }
 

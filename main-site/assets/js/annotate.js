@@ -473,10 +473,25 @@ function openPanel(preset = null) {
   panel.querySelector('#annotateNote')?.focus();
 }
 
+/**
+ * Where these words are, in words the person reading them uses.
+ *
+ * **The dictionary key is deliberately not in it.** It used to be, and a helper
+ * opening the box over the lede of their own work area was shown
+ * `helper.lede` — the name this build gives that string, which says nothing to
+ * the person being asked what is wrong with it, and reads as a fault on the
+ * page. A posting field is already named properly by `fieldName`, and this is
+ * the same courtesy for the other target type.
+ *
+ * **Nothing is lost by dropping it.** The key still travels in the payload as
+ * `target_key`, and the queue draws it: `admin-translations-page.js` puts it at
+ * the head of a report and again in the detail panel. That is where somebody
+ * about to change a string needs it, and this is where somebody about to
+ * describe a problem does not.
+ */
 function whereLine() {
   const parts = [current.label];
   if (current.field) parts.push(fieldName(current.targetType, current.field));
-  if (current.targetKey) parts.push(current.targetKey);
   parts.push(t(`language.name_${current.locale}`));
   return parts.filter(Boolean).join(' · ');
 }

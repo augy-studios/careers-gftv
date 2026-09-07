@@ -14,10 +14,10 @@ Re-read the sections relevant to the current phase at the start of that phase. D
 Where this file and anything else disagree, prompt me with the options instead of picking one yourself.
 
 > [!NOTE]
-> These pages are generated from `careers-gftv-spec.md` at the repository root.
-> Edit that file and run `node gen-spec-pages.js`. An edit made here is undone
-> by the next run, and `node gen-spec-pages.js --check` is what fails when the
-> two have parted company.
+> These pages are generated from `reference/careers-gftv-spec.md`, which is in
+> the repository. Edit that file and run `node gen-spec-pages.js`. An edit made
+> here is undone by the next run, and `node gen-spec-pages.js --check` is what
+> fails when the two have parted company.
 
 ## The sections
 

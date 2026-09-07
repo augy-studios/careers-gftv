@@ -843,11 +843,11 @@ function drawAuditPager() {
 /**
  * The one filter this tab has.
  *
- * The same language list the audit offers, and for the same reason: the default
- * language is what everything is translated from, 014 refuses a translation row
- * for it, and a helper in English would hold a role over nothing. Unlike the
- * audit this one has an "any language" option, because the list is of people,
- * not of work, and "who helps us at all" is a question somebody asks.
+ * Unlike the audit this one has an "any language" option, because the list is
+ * of people and not of work, and "who helps us at all" is a question somebody
+ * asks. It also offers the default language, which the audit does not: the
+ * audit lists translations that are missing, and there are none in the language
+ * everything is translated from.
  */
 function drawHelperFilters() {
   const select = document.querySelector('#helperLocale');
@@ -868,9 +868,21 @@ function drawHelperFilters() {
     .join('');
 }
 
-/** Every language somebody can be granted: active, and not the default one. */
+/**
+ * Every language somebody can be granted, which is every active one.
+ *
+ * **The default language is in the list as of 8 September 2026.** It was left
+ * out because 014 refuses a translation row for it, so an English helper would
+ * have had an empty queue. That is still true and is no longer the whole role:
+ * the same table decides who may suggest a correction in place, so a helper
+ * granted English can fix the English wording where it is wrong, which is the
+ * one thing nobody could do before.
+ *
+ * The route agrees, and it is the route that decides: `grantable` there is the
+ * same list, and `helperLocale()` accepts the same codes.
+ */
 function grantableLocales() {
-  return adminLocales().filter((locale) => !locale.is_default);
+  return adminLocales();
 }
 
 async function loadHelpers() {

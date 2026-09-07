@@ -2,18 +2,19 @@
 title: The working memo
 access: developer
 order: 3
-summary: What next-steps.md is, why a gitignored file is a deliverable, and how to read a deviation.
+summary: What next-steps.md is, why a working file is a deliverable, and how to read a deviation.
 ---
 
 # The working memo
 
-**`next-steps.md` is the memo the build was run from.** It sits at the
-repository root beside the specification, it is gitignored, and it is rewritten
-at the start and the end of every phase.
+**`reference/next-steps.md` is the memo the build was run from.** It sits beside
+the specification, and it is rewritten at the start and the end of every phase.
+It has been in the repository since 7 September 2026.
 
-If you have cloned this repository you will not find it. That is the point of
-this page. The file dies with the last session unless it is captured. It is the
-only record of why the build looks the way it does.
+If you have cloned this repository you have it. That was not true for the first
+fourteen phases, and this page is where the change is recorded. The file was
+gitignored until part 10e, so it died with the last session unless something
+captured it. It is the only record of why the build looks the way it does.
 
 ## What is in it
 
@@ -36,20 +37,21 @@ thirty of them, numbered, each naming what the brief said, what was built, and
 why. A deviation is not a mistake: it is a decision that departed from the plan
 and was written down instead of being forgotten.
 
-## Why it is gitignored and still a deliverable
+## Why it was ignored, and why it is committed now
 
 **It is a working file and not part of the product**, which is why 0b says to
-ignore it. Committing it would put a document rewritten several times a day into
-every diff, and it would go stale between rewrites.
+ignore it. Committing it puts a document rewritten several times a day into the
+history, and every one of those rewrites is a diff nobody will read.
 
-**But it is the record of how the phases actually went.** Losing it would leave
-the code with no account of its own history. So it is published here, at
-the end of the build, as a snapshot.
+**But it is the record of how the phases actually went**, and that argument won
+on 7 September 2026. Losing it would leave the code with no account of its own
+history. The ignore rule had also produced one concrete failure already: twenty
+one specification pages were committed, generated from a file no clone held.
 
 > [!NOTE]
-> A snapshot, and not a live file. The page carrying it says so. What you read
-> here is the memo as it stood when the build finished, and the working copy on
-> the maintainer's machine moved on afterwards.
+> The pages under this section are still a snapshot, and not the live file.
+> What you read there is the memo as it stood on the day it was captured, and
+> the working copy moved on afterwards.
 
 ## How the handover works
 
@@ -71,13 +73,14 @@ later.
 
 ## Reading it here
 
-**The whole file is reproduced under this section**, generated from the file
-itself, in the same way the specification is. Both are this project's own
-documents, and nothing else holds either.
+**The whole file is reproduced as [the working memo](/staff/memo)**, nine pages
+written by `node gen-memo-pages.js` from the file itself. The specification is
+published the same way. Both are this project's own documents, and nothing else
+holds either.
 
 > [!WARNING]
 > Do not treat the published copy as current. Check the date on the page. If the
-> build is still running, the file at the repository root is ahead of it.
+> build is still running, `reference/next-steps.md` is ahead of it.
 
 **What it is not is a changelog.** `/status` on the portal is the public record
 of what shipped and when, and it is written for somebody using the site. The

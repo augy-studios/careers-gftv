@@ -3080,9 +3080,12 @@ define('translations', 'Part 9: the 华文 tree, the two tables, and what serves
     'part 9 is what made that sentence untrue, so part 9 is what takes it out'
   );
 
+  // The brief moved into reference/ in part 10e, along with the memo. Before
+  // that it was gitignored at the root, which is how twenty one pages generated
+  // from it came to be committed while it was not.
   check(
     "39. 3a no longer says the staff half of the docs site stays English",
-    read(join(REPO, 'careers-gftv-spec.md')).includes(
+    read(join(REPO, 'reference/careers-gftv-spec.md')).includes(
       'That was overruled by 16f on 3 September 2026 and built by phase 14 part 9'
     ),
     '3a and 16f cannot be left saying opposite things about the same pages'
@@ -3829,6 +3832,45 @@ define('docs-command', "Part 10: the bot's /docs, and the view it reads", () => 
     'the table is checked and the sentence beside it is not, so it is the ' +
       'sentence that goes stale'
   );
+
+  /* --- The pager, part 10e ---------------------------------------------- */
+
+  // Three seats, always, so the row does not move under a thumb resting on it.
+  // The two ends are where a two button pager loses a seat, so they are what
+  // this asserts: the first page wraps its left seat to Last, and the last page
+  // wraps its right seat to First.
+  check(
+    '22. the pager wraps at both ends instead of losing a seat',
+    /at_start = index == 0/.test(handlers) &&
+      /at_end = index \+ 1 >= total/.test(handlers) &&
+      /"button\.docsLast" if at_start else "button\.docsPrev"/.test(handlers) &&
+      /"button\.docsFirst" if at_end else "button\.docsNext"/.test(handlers),
+    'a control that disappears at the end of a page is a control somebody ' +
+      'presses by accident on the page after it'
+  );
+
+  check(
+    '23. the middle seat says where the reader is and goes nowhere',
+    /text\("button\.docsPage", locale, count=index \+ 1, total=total\)/.test(handlers) &&
+      /'where', path, index, locale, event, total/.test(handlers) &&
+      /elif action == "where":/.test(handlers) &&
+      /"total": total/.test(handlers),
+    'the numbers ride in the payload, so answering the tap is a toast and not ' +
+      'a second read of the page'
+  );
+
+  // The emoji is the half a reader sees before the word, and on a phone often
+  // instead of it: a Chinese label and an English one are different widths and
+  // the arrow is the same in both.
+  for (const [index, name] of ['Prev', 'Next', 'First', 'Last', 'Back'].entries()) {
+    const key = `"button.docs${name}": "`;
+    const both = strings.split(key).slice(1);
+    check(
+      `24${'abcde'[index]}. ${name} carries its emoji in both languages`,
+      both.length === 2 && both.every((rest) => /[⏪-⏿▶◀↩\u{1f4c4}]/u.test(rest.slice(0, 12))),
+      'a label that is words alone reads as a sentence in a row of arrows'
+    );
+  }
 });
 
 /* -------------------------------------------------------------------------

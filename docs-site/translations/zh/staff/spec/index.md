@@ -12,7 +12,7 @@ summary: 整个项目所依据的需求说明书，每节一页，由原文件�
 这个文件和其他任何说法不一致时，请把几个选项列给我选，不要自己挑一个。
 
 > [!NOTE]
-> 这些页面由代码库根目录的 `careers-gftv-spec.md` 生成。
+> 这些页面由 `reference/careers-gftv-spec.md` 生成，该文件就在代码库里。
 > 请修改那个文件，然后运行 `node gen-spec-pages.js`。在这里改动的内容
 > 会被下一次运行覆盖掉，而 `node gen-spec-pages.js --check`
 > 就是用来在两边不一致时报错的。
