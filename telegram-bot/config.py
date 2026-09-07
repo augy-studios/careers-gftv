@@ -90,6 +90,15 @@ class Config:
     site_url: str
     donation_url: str | None
 
+    # The documentation site, phase 14 part 10. Optional for the same reason
+    # DONATION_URL is: 16's cross link rule says a link must not ship before the
+    # thing it points at, and the honest way to hold that is to draw no link
+    # when nobody has said where the site is. `/docs` still answers without it,
+    # because it reads Supabase and not the site; what goes missing is the
+    # button on `start` and the "read this on the site" line under a block the
+    # chat cannot render.
+    docs_url: str | None
+
     log_level: str
 
     # Bot local paths. All four are gitignored.
@@ -129,6 +138,17 @@ class Config:
         """
         return f"{self.site_url}/jobs/{job_id}"
 
+    def docs_page_url(self, page_path: str) -> str | None:
+        """A guide page's address on the docs site, or None when unconfigured.
+
+        The path is the view's own `page_path`, which always opens with a slash
+        and is the same address the site serves, so this is a join and never a
+        second mapping to keep in step.
+        """
+        if not self.docs_url:
+            return None
+        return f"{self.docs_url}{page_path}" if page_path != "/" else self.docs_url
+
 
 def load_config(env_file: Path | None = None) -> Config:
     """Build the configuration, or raise ConfigError naming every problem."""
@@ -157,6 +177,15 @@ def load_config(env_file: Path | None = None) -> Config:
     if supabase_url and not supabase_url.startswith("https://"):
         problems.append("SUPABASE_URL must start with https://")
 
+    # Optional, so its absence is not a problem to report. A value that is
+    # present and malformed is, and it is checked here rather than after the
+    # raise below, where an appended problem would never be read. The same
+    # trailing slash care SITE_URL gets: every docs link is this joined to a
+    # `page_path` that already opens with one.
+    docs_url = os.environ.get("DOCS_URL", "").strip().rstrip("/") or None
+    if docs_url and not docs_url.startswith(("http://", "https://")):
+        problems.append("DOCS_URL must start with http:// or https://")
+
     if problems:
         raise ConfigError(
             "The bot cannot start with this environment.\n  "
@@ -178,6 +207,7 @@ def load_config(env_file: Path | None = None) -> Config:
         supabase_service_key=os.environ["SUPABASE_SERVICE_KEY"].strip(),
         site_url=site_url,
         donation_url=donation_url,
+        docs_url=docs_url,
         log_level=os.environ.get("LOG_LEVEL", "INFO").strip().upper() or "INFO",
         db_path=BASE_DIR / "bot.sqlite3",
         session_path=BASE_DIR / "careersbot.session",

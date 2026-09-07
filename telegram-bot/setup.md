@@ -129,6 +129,7 @@ tasks - What is waiting for you, and where to answer it.
 applications - Your applications, and where each one stands.
 jobs - The newest openings, with a link to each posting.
 notify - Choose which notifications you receive here.
+docs - Read the guides to the portal and this bot.
 ```
 
 If that block and `python commands.py` ever disagree, the file is right and this
@@ -153,6 +154,7 @@ tasks - 查看有哪些事项待您处理，以及在哪里回复。
 applications - 查看您的申请，以及每份申请的当前状态。
 jobs - 查看最新发布的职位，并附上各职位的链接。
 notify - 选择您希望在这里收到哪些通知。
+docs - 阅读入队平台和这个机器人的使用指南。
 ```
 
 So pasting the English block into BotFather buys one thing: the menu is right

@@ -4,7 +4,7 @@ The Careers@GFTV Telegram bot, `careersgftv_bot`.
 
 **Status: all seven parts of phase 11 are here.** The process starts, holds a
 single instance lock, opens its SQLite database, reads what has shipped and what
-an admin has switched off from the live site, and answers all nine commands.
+an admin has switched off from the live site, and answers all ten commands.
 Linking works from both ends: the site issues a token and shows a QR, and
 `/start <token>` turns it into a link. A login code and the one tap sign in link
 come from a loop of their own, the outbox drain delivers the three notification
@@ -81,7 +81,7 @@ refused at a login form with nothing in any log to explain it.
 
 ## Commands
 
-Nine, and only nine. There is no `help`; `start` carries that content.
+Ten, and only ten. There is no `help`; `start` carries that content.
 
 | Command | What it returns |
 |---|---|
@@ -94,6 +94,7 @@ Nine, and only nine. There is no `help`; `start` carries that content.
 | `applications` | The applicant's own applications and their current statuses. |
 | `jobs` | The newest openings, with buttons through to each posting. |
 | `notify` | Toggles which notification kinds this account receives. |
+| `docs` | Browses the guides with inline buttons and sends a page as text, in the reader's own language. |
 
 **All nine answer, and the not-built-yet half of that machinery is now unused
 rather than removed.** A command with no handler replies with the same sentence
@@ -284,7 +285,7 @@ step 14. About forty minutes.
    file to clear by hand. Cheapest check here, and one of the two the deferral
    below would otherwise have swallowed.
 4. **`/start` from a Telegram account that has linked nothing.** The
-   introduction, all nine commands, a button to the portal, and the donation
+   introduction, all ten commands, a button to the portal, and the donation
    button if `DONATION_URL` is set. **Nothing in the reply names the bot.**
 5. **Type something that is not a command.** One line pointing at `/start`, not
    silence and not an error.

@@ -2,12 +2,12 @@
 title: Command reference
 access: public
 order: 3
-summary: All nine commands, what each one returns, and why there is no help command.
+summary: All ten commands, what each one returns, and why there is no help command.
 ---
 
 # Command reference
 
-Nine commands, and there is no `/help`. The `/start` message carries that
+Ten commands, and there is no `/help`. The `/start` message carries that
 content, so the first thing you send is also the thing that explains the rest.
 
 Typing anything else gets you one line pointing back at `/start`.
@@ -25,6 +25,7 @@ Typing anything else gets you one line pointing back at `/start`.
 | `/applications` | Your applications, and where each one stands. |
 | `/jobs` | The newest openings, with a button through to each posting. |
 | `/notify` | Choose which notifications arrive in the chat. |
+| `/docs` | The guides, browsed here with buttons. |
 
 ## What each one returns
 
@@ -111,6 +112,24 @@ the board cannot disagree about what is live.
 
 Three switches, one per kind of notification, each showing the state it is in
 now. See [Notifications](/bot/notifications).
+
+### /docs
+
+The guides, browsed here with buttons. Pick a section, then a page, and it
+arrives as a message you can read in the chat.
+
+It needs no linked account. These guides are public, and `/docs` only ever
+carries the public ones.
+
+A long page arrives in parts, with **Previous** and **Next** and a "2 of 5". It
+breaks at a heading, so a part never stops mid sentence. Where a page has a
+table, a set of per device instructions, or a screenshot, you get one line
+saying what is there instead. A chat window cannot draw those, and leaving them
+out silently would be a procedure with a step missing. **Read this on the site**
+opens the same page where everything renders.
+
+Pages arrive in your own language where they have been translated, and in
+English with a note where they have not.
 
 ## When a command will not answer
 

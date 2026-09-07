@@ -208,6 +208,7 @@ GET /api/nav                              the sidebar, filtered to whoever is as
 GET /api/content?path=/portal/applying    one page's markdown, if they may read it
 GET /api/content?path=/staff/a/shot.png   an image beside a gated page, same check
 GET /api/search-index                     the gated search index, tier by tier
+GET /api/health                           whether this deployment is configured
 ```
 
 None is cached anywhere shared. Every answer depends on a session cookie, and

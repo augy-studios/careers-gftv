@@ -194,6 +194,46 @@ STRINGS: dict[str, dict[str, str]] = {
         ),
         "list.more": "There are {count} more on the portal.",
         "button.openBoard": "See every opening",
+        # /docs, phase 14 part 10. It needs no linked account: the guides are
+        # the public tier and the view it reads holds nothing else.
+        "docs.intro": (
+            "<b>The guides</b>\n\n"
+            "These are the guides to the portal and to this bot, in the language "
+            "you are reading. Pick a section to see what is in it."
+        ),
+        "docs.section": "<b>{title}</b>",
+        "docs.pick": "Pick a page to read it here.",
+        "docs.unavailable": (
+            "We could not reach the guides just now, so there is nothing to "
+            "show. Please try that again in a moment."
+        ),
+        "docs.empty": (
+            "There is nothing to show here yet. The guides are published with "
+            "the site, so this fills up as pages go live."
+        ),
+        "docs.gone": (
+            "That page is not there any more. Send /docs to see what is."
+        ),
+        "docs.page": "{count} of {total}",
+        # The English notice on a page nobody has translated yet. It is the same
+        # promise the site makes in the same case: the words are English, and
+        # that is said rather than left to be noticed.
+        "docs.english": (
+            "<i>This page has not been translated yet, so it is shown in "
+            "English.</i>"
+        ),
+        # **A block silently dropped is a procedure with a step missing.** Each
+        # of these replaces something a chat window cannot draw, and says what
+        # is there rather than leaving a gap.
+        "docs.hasTable": "<i>[There is a table here. It reads properly on the site.]</i>",
+        "docs.hasTabs": "<i>[There are per device instructions here. They read properly on the site.]</i>",
+        "docs.hasBlock": "<i>[There is a block here that this chat cannot show. It reads properly on the site.]</i>",
+        "docs.hasImage": "<i>[There is a screenshot here. It is on the site.]</i>",
+        "button.docsBack": "Back to the guides",
+        "button.docsPrev": "Previous",
+        "button.docsNext": "Next",
+        "button.docsOnSite": "Read this on the site",
+        "button.docs": "Read the guides",
         "invites.heading": "<b>Your open invitations</b>",
         "invites.row": "<b>{role}</b>",
         "invites.none": (
@@ -381,6 +421,27 @@ STRINGS: dict[str, dict[str, str]] = {
         "list.unavailable": "我们暂时无法连接到求职网站，因此无法显示内容。请稍后再试一次。",
         "list.more": "还有 {count} 项，可以在求职网站上查看。",
         "button.openBoard": "查看全部职位",
+        "docs.intro": (
+            "<b>使用指南</b>\n\n"
+            "这里是入队平台和这个机器人的使用指南，以您正在阅读的语言呈现。"
+            "请选一个部分，看看里面有什么。"
+        ),
+        "docs.section": "<b>{title}</b>",
+        "docs.pick": "选一页就可以在这里阅读。",
+        "docs.unavailable": "我们暂时无法连接到指南，因此无法显示内容。请稍后再试一次。",
+        "docs.empty": "这里暂时还没有内容。指南是随网站一起发布的，页面上线之后这里就会有。",
+        "docs.gone": "那一页已经不在了。发送 /docs 可以看看现在有哪些。",
+        "docs.page": "第 {count} 页，共 {total} 页",
+        "docs.english": "<i>这一页还没有翻译，所以以英文显示。</i>",
+        "docs.hasTable": "<i>[这里有一个表格。在网站上可以正常阅读。]</i>",
+        "docs.hasTabs": "<i>[这里有分设备的说明。在网站上可以正常阅读。]</i>",
+        "docs.hasBlock": "<i>[这里有一个本聊天无法显示的区块。在网站上可以正常阅读。]</i>",
+        "docs.hasImage": "<i>[这里有一张截图。它在网站上。]</i>",
+        "button.docsBack": "返回指南目录",
+        "button.docsPrev": "上一页",
+        "button.docsNext": "下一页",
+        "button.docsOnSite": "在网站上阅读这一页",
+        "button.docs": "阅读使用指南",
         "invites.heading": "<b>您收到的职位邀请</b>",
         "invites.row": "<b>{role}</b>",
         "invites.none": (

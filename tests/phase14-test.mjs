@@ -32,6 +32,7 @@ import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import { join, extname, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -40,6 +41,7 @@ const REPO = join(HERE, '..');
 const DOCS = join(REPO, 'docs-site');
 const MAIN = join(REPO, 'main-site');
 const DIST = join(DOCS, 'dist');
+const BOT = join(REPO, 'telegram-bot');
 
 const ONLY = (() => {
   const arg = process.argv.find((value) => value.startsWith('--only='));
@@ -3129,30 +3131,52 @@ define('translations', 'Part 9: the 华文 tree, the two tables, and what serves
     ? JSON.parse(read(join(DOCS, 'api/_generated/updated.json')))
     : {};
 
-  // **Predicted while the tree is uncommitted, and it is not a defect.** The
-  // dates come from git, and a file git has never seen carries none on purpose
-  // — the same rule phase 13's check 24 states about a page. So this skips
-  // until the translations are pushed and asserts from then on, which is the
-  // shape that stops it being ignored the day it starts mattering.
-  const anyDated = tree.locales.some((locale) =>
-    tree.rows.some((row) => Object.hasOwn(updated, `${locale}:${row.path}`))
-  );
+  // **A translation carries a date exactly when git has seen its own file**,
+  // and that is the whole rule. `scripts/build.js` takes both dates from one
+  // `git log` pass, so an untracked file leaves no key, per phase 13's check 24.
+  //
+  // **This used to ask whether *any* translation was dated and skip the lot if
+  // not.** That was right while the tree arrived in one commit and wrong the
+  // moment part 7a added translations beside the eighty two already pushed:
+  // `anyDated` was true, so it asserted over the new files too and failed on
+  // the predicted gap. Pairing a translation against its English page is wrong
+  // for the same reason in reverse — a page can be committed while the
+  // translation written days later is not. The only honest question is whether
+  // git has this file, so it is asked directly.
+  let tracked = null;
+  try {
+    tracked = new Set(
+      execFileSync('git', ['ls-files', '-z', 'docs-site/translations'], {
+        cwd: REPO,
+        encoding: 'utf8',
+      })
+        .split(' ')
+        .filter(Boolean)
+        .map((path) => path.replace(/^docs-site\//, ''))
+    );
+  } catch {
+    tracked = null; // No git, or no repository. Fall back to skipping.
+  }
 
-  if (!anyDated) {
+  const datedRows = tracked === null ? [] : tree.rows.filter((row) => tracked.has(row.where));
+  const untracked = tree.rows.length - datedRows.length;
+
+  if (datedRows.length === 0) {
     skip(
       "44. the build writes each translation's own date under its own key",
-      'git has not dated the translation tree yet, which is what an uncommitted ' +
-        'file looks like. It asserts once the tree is pushed.'
+      tracked === null
+        ? 'git could not be read here'
+        : 'git tracks no translation file yet, which is what a wholly uncommitted ' +
+          'tree looks like. It asserts once anything is pushed.'
     );
   } else {
     check(
       "44. the build writes each translation's own date under its own key",
-      tree.locales.every((locale) =>
-        tree.rows.every(
-          (row) => row.locale !== locale || Object.hasOwn(updated, `${locale}:${row.path}`)
-        )
-      ),
-      'a page path always opens with a slash, so a locale prefix cannot collide with one'
+      datedRows.every((row) => Object.hasOwn(updated, `${row.locale}:${row.path}`)),
+      'a page path always opens with a slash, so a locale prefix cannot collide with one' +
+        (untracked > 0
+          ? `. ${untracked} untracked file(s) not asserted: git has never seen them, so they carry no date on purpose`
+          : '')
     );
   }
 
@@ -3406,6 +3430,405 @@ define('sidebar', 'The sidebar: its height, its scrolling, and where it sits', a
     await browser.close();
     server.close();
   }
+});
+
+/* -------------------------------------------------------------------------
+ * Part 10a: the two things section 5 asked phase 14 to settle
+ *
+ * Item 29: `checkEnv()` was written for one specific outage and called by
+ * nothing, so the outage ran for a fortnight with a perfect error message in a
+ * log nobody read. Item 30: four writes reach gftv.asia, the count was stated
+ * in four places, and it was checked in none.
+ *
+ * Both answers are the same shape. Make the fact a thing a script reads.
+ * ---------------------------------------------------------------------- */
+
+define('reach', 'Part 10a: checkEnv, and the writes that leave this build', () => {
+  const portalEnv = read(join(MAIN, 'api/_lib/env.js'));
+  const docsEnv = read(join(DOCS, 'api/_lib/env.js'));
+
+  /* --- Item 29 ---------------------------------------------------------- */
+
+  check(
+    '1. checkEnv skips the optional variables',
+    /const OPTIONAL = new Set\(/.test(portalEnv) && /if \(OPTIONAL\.has\(name\)\) return false;/.test(portalEnv),
+    'KNOWN is the documentation list, so TELEGRAM_BOT_USERNAME made ok false on ' +
+      'a healthy portal. An ok that is false in the ordinary state is one no ' +
+      'check can be built on, which is why this function sat uncalled'
+  );
+
+  check(
+    '2. and the docs copy carries the same change',
+    /if \(OPTIONAL\.has\(name\)\) return false;/.test(docsEnv),
+    'a change to main-site/api/_lib/ is half a change until gen-docs-lib.js runs'
+  );
+
+  for (const [index, [label, file]] of [
+    ['the portal', join(MAIN, 'api/public/health.js')],
+    ['the docs site', join(DOCS, 'api/health.js')],
+  ].entries()) {
+    if (!existsSync(file)) {
+      check(`3${'ab'[index]}. ${label} has a health route`, false, file);
+      continue;
+    }
+    const route = read(file);
+
+    check(
+      `3${'ab'[index]}. ${label} has a health route that calls checkEnv`,
+      /import \{ checkEnv \}/.test(route) && /checkEnv\(\)/.test(route),
+      'item 29: one call from somewhere a deploy touches, on both sites'
+    );
+
+    check(
+      `4${'ab'[index]}. and it answers a count, never the names`,
+      /missing: state\.missing\.length/.test(route) &&
+        !/missing: state\.missing[,}\s]/.test(route),
+      'publishing which part of a live deployment is broken, to whoever asks ' +
+        'first, is not what this endpoint is for'
+    );
+
+    check(
+      `5${'ab'[index]}. and writes the names to the log instead`,
+      /console\.error\(/.test(route) && /state\.missing\.join\(', '\)/.test(route),
+      'the same place the original SITE_URL stack trace already was'
+    );
+
+    check(
+      `6${'ab'[index]}. and is never cached`,
+      /'Cache-Control', 'no-store'/.test(route),
+      'a cached answer to "are you configured" is an answer about an earlier deploy'
+    );
+  }
+
+  /* --- Item 30 ---------------------------------------------------------- */
+
+  const staffAccount = read(join(MAIN, 'api/_lib/staff-account.js'));
+
+  check(
+    '7. the writes that reach gftv.asia are one named list',
+    /export const GFTV_ASIA_WRITES = Object\.freeze\(\[/.test(staffAccount),
+    "item 30: a fact stated in four places and counted in none is a fact that drifts"
+  );
+
+  check(
+    '8. and the docs copy carries it too',
+    /export const GFTV_ASIA_WRITES/.test(read(join(DOCS, 'api/_lib/staff-account.js'))),
+    'both sites mount 5f, so both hold the same reach'
+  );
+
+  // The list, parsed out of the source rather than imported: this suite reads
+  // files and never boots either site's module graph.
+  const listed = new Map();
+  for (const entry of staffAccount.matchAll(
+    /reaches: '([^']+)',\s*\n\s*routes: \[([^\]]*)\]/g
+  )) {
+    listed.set(
+      entry[1],
+      [...entry[2].matchAll(/'([^']+)'/g)].map((m) => m[1]).sort()
+    );
+  }
+
+  check(
+    '9. it names the three writes, and the fourth path among them',
+    listed.has('gftvhello_users.password_hash') &&
+      listed.has('gftvhello_users.totp_secret') &&
+      listed.has('gftvhello_backup_codes'),
+    `listed: ${[...listed.keys()].join(', ')}. The backup code set is the one ` +
+      'HELLO_WRITES_ENABLED never covered'
+  );
+
+  // **The route's own claim is the authority.** Item 30's point is that the
+  // code always said this correctly -- the audit row records the table it
+  // reaches -- and only the prose count was wrong. So the check reads those
+  // claims and compares them with the list, in both directions.
+  const claimed = new Map();
+  for (const name of readdirSync(join(MAIN, 'api/auth/staff'))) {
+    if (!name.endsWith('.js')) continue;
+    const source = read(join(MAIN, 'api/auth/staff', name));
+    for (const hit of source.matchAll(/reaches: '(gftvhello[^']*)'/g)) {
+      if (!claimed.has(hit[1])) claimed.set(hit[1], new Set());
+      claimed.get(hit[1]).add(`auth/staff/${name.replace(/\.js$/, '')}`);
+    }
+  }
+
+  const unlisted = [...claimed.keys()].filter((reach) => !listed.has(reach));
+  check(
+    '10. every write a route claims is on the list',
+    unlisted.length === 0,
+    `not listed: ${unlisted.join(', ') || 'none'}`
+  );
+
+  const stale = [...listed.keys()].filter((reach) => !claimed.has(reach));
+  check(
+    '11. and nothing on the list has stopped claiming it',
+    stale.length === 0,
+    `listed but claimed by no route: ${stale.join(', ') || 'none'}. A list that ` +
+      'outlives what it describes is the drift it was written against'
+  );
+
+  const wrongRoutes = [...listed.entries()].filter(([reach, routes]) => {
+    const actual = [...(claimed.get(reach) ?? [])].sort();
+    return actual.join('|') !== routes.join('|');
+  });
+
+  check(
+    '12. and each one names exactly the routes that perform it',
+    wrongRoutes.length === 0,
+    wrongRoutes
+      .map(([reach, routes]) => `${reach}: listed ${routes.join('+')}, actual ${[...(claimed.get(reach) ?? [])].sort().join('+')}`)
+      .join(' / ') || 'none'
+  );
+
+  // forgot-password.js answers reaches_gftv_asia: true and writes nothing at
+  // all: it issues a reset ticket and tells the reader whose password is about
+  // to change. Keying the list on the flag rather than on the write would have
+  // put it on the list, which is why the check above reads `reaches:`.
+  check(
+    '13. a route that only warns about a write is not counted as one',
+    /reaches_gftv_asia: true/.test(read(join(MAIN, 'api/auth/staff/forgot-password.js'))) &&
+      !claimed.has('gftvhello_users.password_hash') === false &&
+      !(claimed.get('gftvhello_users.password_hash') ?? new Set()).has('auth/staff/forgot-password'),
+    'it says what is coming; the write happens in reset-password'
+  );
+/* --- The two READMEs part 7 and part 8 left here ---------------------- */
+
+  const mainReadme = read(join(MAIN, 'README.md'));
+  const rootReadme = read(join(REPO, 'README.md'));
+
+  check(
+    '14. main-site/README.md no longer opens eight phases stale',
+    !/Current phase: 6 of 15/.test(mainReadme) && /Current phase: 14 of 15/.test(mainReadme),
+    'section 2 asks that line to move when a phase ships, and it stopped moving ' +
+      'after phase 6. Found by part 7 and left here deliberately, because the ' +
+      'paragraph under it is a phase shaped account of the whole portal'
+  );
+
+  check(
+    '15. and it no longer says everything else renders the placeholder',
+    /Nothing in this directory renders the placeholder any more/.test(mainReadme),
+    'thirteen phases are live; the placeholder route is 0c\u2019s and is retired at the flip'
+  );
+
+  check(
+    '16. the root README no longer quotes the old check-copy figure',
+    !/3,536 strings/.test(rootReadme) && /nine sources/.test(rootReadme),
+    'part 8 found it at 6,125 and part 9 moved it again; both left the number ' +
+      'alone rather than doing half a README pass in the wrong part'
+  );
+
+  check(
+    '17. both new generators are documented at the root',
+    /`gen-spec-pages\.js`/.test(rootReadme) && /`gen-memo-pages\.js`/.test(rootReadme),
+    'a script nobody has written down is a script the next person re-derives'
+  );
+
+  check(
+    '18. and the bot is ten commands everywhere the root README counts them',
+    !/nine commands/.test(rootReadme),
+    'the count is the thing that goes stale, which is deviation 91\u2019s whole subject'
+  );
+
+  check(
+    '19. the health route is in both site route maps',
+    /api\/public\/health/.test(mainReadme) && /\/api\/health/.test(read(join(DOCS, 'README.md'))),
+    'section 2: update the affected README in the same phase as the change'
+  );
+});
+
+/* -------------------------------------------------------------------------
+ * Part 10: /docs, the tenth command
+ *
+ * **The property worth checking hardest is which table it reads.** Migration
+ * 042 discharges the tier worry by putting an inner join in a view, so the bot
+ * carries no tier logic at all. That holds exactly as long as this file reads
+ * `gftvjobs_docs_public` and never `gftvjobs_docs_translations`, and a change
+ * that widened it would look innocent in a diff.
+ * ---------------------------------------------------------------------- */
+
+define('docs-command', "Part 10: the bot's /docs, and the view it reads", () => {
+  const commands = read(join(BOT, 'commands.py'));
+  const handlers = read(join(BOT, 'handlers.py'));
+  const supabase = read(join(BOT, 'supabase.py'));
+  const docs = read(join(BOT, 'docs.py'));
+  const strings = read(join(BOT, 'strings.py'));
+  const config = read(join(BOT, 'config.py'));
+
+  /* --- The command --------------------------------------------------- */
+
+  check(
+    '1. commands.py carries a tenth command, and it is docs',
+    /name="docs"/.test(commands),
+    'one list, read by start, the menu registration and three documents'
+  );
+
+  check(
+    '2. it obeys no feature switch',
+    /name="docs",\s*\n\s*feature=None,/.test(commands),
+    'a reader turned away from the manual during an outage is a reader turned ' +
+      'away from the page explaining the outage'
+  );
+
+  check(
+    '3. it is registered as a handler and as a callback',
+    /"docs": handle_docs,/.test(handlers) && /"docs": handle_docs_callback,/.test(handlers),
+    'the registry is what decides a command is built, per deviation 92'
+  );
+
+  /* --- The view, and nothing but the view ------------------------------ */
+
+  // **A table value and not the word.** The comment above the entry explains
+  // why neither table under the view is read, and naming them there is the
+  // point of the comment. What must not exist is either of them as something
+  // `TABLES` resolves, which is the only form `select` can reach.
+  check(
+    '4. the bot names the view and neither table under it',
+    supabase.includes('"docs": "gftvjobs_docs_public"') &&
+      !/:\s*"gftvjobs_docs_translations"/.test(supabase) &&
+      !/:\s*"gftvjobs_docs_pages"/.test(supabase),
+    'the inner join is the gate. Reading the translations table directly would ' +
+      'serve the admin guide to anybody who asked'
+  );
+
+  check(
+    '5. and reads it through the two helpers, both scoped by locale',
+    /async def docs_pages\(self, locale: str\)/.test(supabase) &&
+      /async def docs_page\(self, page_path: str, locale: str\)/.test(supabase),
+    'a page and a listing, and no third way in'
+  );
+
+  check(
+    '6. the listing does not pull every page body to draw a menu',
+    /"docs",\s*\n\s*"page_path,title,summary",/.test(supabase),
+    'the whole documentation site over the wire to answer /docs'
+  );
+
+  /* --- What a chat window cannot draw ---------------------------------- */
+
+  for (const [index, kind] of ['Table', 'Tabs', 'Block', 'Image'].entries()) {
+    check(
+      `7${'abcd'[index]}. a ${kind.toLowerCase()} is named rather than dropped`,
+      new RegExp(`"docs\\.has${kind}"`).test(strings),
+      'a block silently dropped is a procedure with a step missing'
+    );
+  }
+
+  check(
+    '8. and the wording lives in strings.py, not in docs.py',
+    !/There is a table here/.test(docs) && /There is a table here/.test(strings),
+    'docs.py holds no copy in either language; `note` is passed in'
+  );
+
+  /* --- Paging ----------------------------------------------------------- */
+
+  check(
+    '9. the budget is under Telegram’s own 4096 cap',
+    /BUDGET = (\d+)/.test(docs) && Number(/BUDGET = (\d+)/.exec(docs)[1]) < 4096,
+    'the header and the "2 of 5" are added after the body is measured'
+  );
+
+  check(
+    '10. an oversized section falls back past paragraphs to lines',
+    /def _split\(/.test(docs) && /chunk\.split\("\\n"\)/.test(docs),
+    "section 6's schema list is one continuous run of bullets with no blank line " +
+      'in it, and a paragraph-only pager handed back a 12,165 character message'
+  );
+
+  /* --- Escaping and links ---------------------------------------------- */
+
+  check(
+    '11. text is escaped before any tag is inserted',
+    /out = html\.escape\(text, quote=True\)/.test(docs) &&
+      docs.indexOf('html.escape(text, quote=True)') < docs.indexOf('_CODE.sub'),
+    'the other order would let a page containing <b> decide how a message is formatted'
+  );
+
+  check(
+    '12. a relative link is made absolute or loses only its anchor',
+    /href\.startswith\(\("http:\/\/", "https:\/\/"\)\)/.test(docs) &&
+      /return label/.test(docs),
+    'the guides link to each other by address, which is not a URL in a chat'
+  );
+
+  check(
+    '13. a path is checked against 042’s own shape before it is a filter',
+    /def is_page_path/.test(docs) && /docs\.is_page_path\(path\)/.test(handlers),
+    'a registry row edited by hand must not become an arbitrary query'
+  );
+
+  /* --- Paragraphs, the lesson markdown.js already learned --------------- */
+
+  check(
+    '14. lines inside a paragraph are joined and not sent as written',
+    /paragraph\.append\(flat\)/.test(docs) && /inline\(" "\.join\(paragraph\), base\)/.test(docs),
+    'these files are wrapped at eighty columns, and sending them line for line ' +
+      'is a ragged column in a window that is already narrow'
+  );
+
+  /* --- The link that was held back since phase 11 ----------------------- */
+
+  check(
+    '15. the start message draws a docs button at last',
+    /text\("button\.docs", locale\), ctx\.config\.docs_url/.test(handlers) &&
+      !handlers.includes('No docs link, deliberately'),
+    "16's cross link rule: the page exists now, so the link may ship"
+  );
+
+  check(
+    '16. and only when DOCS_URL says where the site is',
+    /if ctx\.config\.docs_url:/.test(handlers),
+    'a button built without it would point at nothing'
+  );
+
+  check(
+    '17. DOCS_URL is optional, so a missing one does not stop the bot',
+    !/"DOCS_URL",/.test(config.slice(config.indexOf('REQUIRED = ('), config.indexOf('class ConfigError'))) &&
+      /docs_url: str \| None/.test(config),
+    'phase 13 lost a fortnight to a variable that was required and unset'
+  );
+
+  check(
+    '18. and a malformed one is reported before the raise, not after it',
+    config.indexOf('DOCS_URL must start with') < config.indexOf('if problems:'),
+    'a problem appended after the raise is a problem nobody is ever shown'
+  );
+
+  /* --- Every copy of the list, which is commands.py’s own check --------- */
+
+  let listed = null;
+  try {
+    listed = execFileSync('python', ['commands.py', '--check'], {
+      cwd: BOT,
+      encoding: 'utf8',
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+    });
+  } catch (cause) {
+    listed = `FAILED: ${cause.stdout ?? ''}${cause.stderr ?? ''}`;
+  }
+
+  check(
+    '19. every document carrying the command list is current',
+    typeof listed === 'string' && listed.includes('every copy of the list is current'),
+    String(listed).trim().split('\n').slice(0, 4).join(' / ')
+  );
+
+  /* --- The guide that describes it ------------------------------------- */
+
+  const guide = read(join(DOCS, 'content/bot/commands.md'));
+  const guideZh = read(join(DOCS, 'translations/zh/bot/commands.md'));
+
+  check(
+    '20. the bot guide documents /docs in both languages',
+    guide.includes('### /docs') && guideZh.includes('### /docs'),
+    'a command in the menu and absent from its own reference is the drift ' +
+      'commands.py --check exists to prevent, arriving as prose'
+  );
+
+  check(
+    '21. and no longer says there are nine of them',
+    !/Nine commands/.test(guide) && !/nine commands/.test(read(join(BOT, 'README.md'))),
+    'the table is checked and the sentence beside it is not, so it is the ' +
+      'sentence that goes stale'
+  );
 });
 
 /* -------------------------------------------------------------------------

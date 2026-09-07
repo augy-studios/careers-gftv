@@ -124,6 +124,20 @@ COMMANDS: tuple[Command, ...] = (
             "zh": "选择您希望在这里收到哪些通知。",
         },
     ),
+    # Phase 14 part 10, and the tenth. **It obeys no feature switch**, which is
+    # the deliberate half. Every other command here answers about somebody's
+    # account or about the board, and both of those can be taken down; the
+    # guides are documentation, and a reader turned away from the manual during
+    # an outage is a reader turned away from the page explaining the outage.
+    # `start` obeys nothing for the same reason.
+    Command(
+        name="docs",
+        feature=None,
+        summary={
+            "en": "Read the guides to the portal and this bot.",
+            "zh": "阅读入队平台和这个机器人的使用指南。",
+        },
+    ),
 )
 
 BY_NAME: dict[str, Command] = {command.name: command for command in COMMANDS}

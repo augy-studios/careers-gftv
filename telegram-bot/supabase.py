@@ -71,6 +71,14 @@ TABLES = {
     # They are named here so the reach of this service key is one list.
     "status_days": "gftvjobs_status_days",
     "status_incidents": "gftvjobs_status_incidents",
+    # Phase 14 part 10, migration 042. **A view, and deliberately not either
+    # table under it.** `gftvjobs_docs_public` inner joins the translations to
+    # the public mirror, so a gated page has no mirror row, its 华文 joins to
+    # nothing, and it is not in the view at all. That is why `/docs` carries no
+    # tier logic: not a second copy of the site's rule kept in step with it, but
+    # no second copy. Reading `gftvjobs_docs_translations` here instead would
+    # serve the admin guide to anybody who asked.
+    "docs": "gftvjobs_docs_public",
 }
 
 # What counts as an invitation still worth answering, per migration 008's status
@@ -768,6 +776,34 @@ class Supabase:
                 found[row["job_id"]]["title"] = title
 
         return found
+
+    async def docs_pages(self, locale: str) -> list[dict]:
+        """Every public guide page in one language, for the browse list.
+
+        The body is not selected. A section listing needs a path, a title and a
+        summary, and pulling every page's markdown to draw a menu would be the
+        whole documentation site over the wire to answer `/docs`.
+        """
+        return await self.select(
+            "docs",
+            "page_path,title,summary",
+            {"locale": f"eq.{locale}", "order": "page_path.asc"},
+            limit=200,
+        )
+
+    async def docs_page(self, page_path: str, locale: str) -> dict | None:
+        """One page in one language, or None when the view has no such row.
+
+        **A miss is a page to ask for in English instead**, and never a reason to
+        reach past the view. The row carries English under `locale` of `en`, so
+        the fallback is one more read of the same view rather than a second
+        source with its own rules.
+        """
+        return await self.one(
+            "docs",
+            "page_path,locale,title,summary,body,updated_at",
+            {"page_path": f"eq.{page_path}", "locale": f"eq.{locale}"},
+        )
 
     async def open_task_count(self, applicant_id: str) -> int | None:
         """Admin raised items still waiting, which is half of what /tasks says."""

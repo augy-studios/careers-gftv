@@ -6,15 +6,32 @@ Vercel serverless functions under `api/`.
 Vercel's root directory for this project is set to `main-site`, which is why
 `api/` lives inside this directory and not at the repo root.
 
-**Current phase: 6 of 15, Applicant dashboard.** Live: the shell, the home page,
-`/status`, registering and signing in, passkeys, recovery codes, account
-recovery, trusted devices, `/account/security`, `/admin/security`, the board at
-`/search`, the posting page at `/jobs/{uuid}` with the openings feed and the
-translation report control, and applying, which is the handoff to the Google
-Form, the rating, and the reapply cooldown. Phase 6 adds the rest of the account
-area: `/account`, `/account/applications`, `/account/saved`, `/account/tasks`,
-and `/account/settings` with avatars and the danger zone. Everything else
-renders the placeholder. See [/status](https://careers.globalfurry.tv/status).
+**Current phase: 14 of 15, Documentation.** Thirteen phases are live and this
+one is building.
+
+The public half is the home page, `/status`, the board at `/search` with its
+filters, tags and suggestions, the posting page at `/jobs/{uuid}` with the
+openings feed, `/about` and `/faq`. Then registering and signing in, passkeys,
+both code sets, account recovery and trusted devices. Then applying: the handoff
+to the Google Form, the rating, the reapply cooldown, and the translation report
+control.
+
+The account area is `/account`, `/account/applications`, `/account/saved`,
+`/account/tasks`, and `/account/settings` with avatars and the three step danger
+zone. `/account/security` and `/admin/security` are the shared staff suite, per
+5f.
+
+Behind it, `/admin` is the twelve section dashboard: the overview, the tabbed
+per language job editor, applicant tracking, analytics, invites, departments,
+tags, admin and applicant accounts, settings, the translation queue, and the
+maintenance switches. Phase 9 added the daily cron and the Google Forms webhook,
+phase 10 the service worker and the install manifest, and phase 11 the Telegram
+bot. Phase 12 rebuilt `/status` as a service status page fed by a probe on the
+bot's VPS.
+
+Phases 13 and 14 are the documentation site, which is `docs-site/` and its own
+Vercel project. Nothing in this directory renders the placeholder any more.
+See [/status](https://careers.globalfurry.tv/status).
 
 **Every role listed on this site is voluntary and unpaid**, and the interface
 says so on the home page, the registration page, the footer, the manifest, and
@@ -436,6 +453,7 @@ markup as delivered and does not run JavaScript.
 | `api/admin/applicants` | 8.9's applicant accounts. Admins only, all of it. Deactivate, reactivate, edit details, force a reset, unlink Telegram, set a password, delete | 8 |
 | | **`update_details` is not in 8.9** and was added on 31 August 2026: username, email, display name, phone and language, each validated with the same functions the applicant's own edit uses. **Two of the five are login identifiers**, so changing a username or an email revokes every session and trusted device and the other three do not — the response says which happened so the page can tell the admin. A required reason and an audit row carrying both sides of every field that moved, and no notification to the applicant, which is what every other action on this page already does. | |
 | `api/admin/settings` | 8.10's portal settings, through `putSetting`. The second caller of a helper written in phase 7 for 8.12. **Admins only**, since phase 14 part 5: reading this page is how somebody would learn the board is closed, and writing it is how they would close it | 8 |
+| `api/public/health` | whether this deployment is configured, per section 5 item 29. Answers `{ ok, missing }` where `missing` is a **count**: the names go to the runtime log and never to a caller. It exists so a missing variable is something a check can go red on, which is what the `SITE_URL` outage did not have | 14 |
 | `api/public/site-settings` | the public half of 8.10: the portal title, the hero copy, and the featured roles. Short cache, session free | 8 |
 | `api/public/view` | one `view` analytics row per session per posting, never for a preview and never for a draft. **The one write in the build a caller with no account can make**, so the posting is re-checked server side and it has a rate limit bucket of its own | 8 |
 | | A view row is `response_state: 'answered'`, not `'pending'`. `007`'s pending partial index exists to make the outstanding prompt lookup and phase 9's sweep cheap, and a row in it for every posting anybody opens would make it the largest index in the database and the one thing it must never hold. | |

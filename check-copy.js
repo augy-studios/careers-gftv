@@ -121,6 +121,14 @@ const MANDARIN_EXEMPT = [
     where: 'docs-site/translations/zh/translations/singapore-mandarin.md',
     why: "3a's vocabulary table, translated. The words it bans are its own subject.",
   },
+  // Phase 14 part 7a. The same table again, from the other direction: this is
+  // 3a itself, rendered as a page by gen-spec-pages.js and then translated. The
+  // brief tripping over its own rule while being translated is the rule
+  // working, and the six words in the right hand column are there on purpose.
+  {
+    where: 'docs-site/translations/zh/staff/spec/section-3.md',
+    why: 'Section 3a itself, translated. Its table names six words to use and six not to, so half of it is words this check refuses.',
+  },
 ];
 
 /* -------------------------------------------------------------------------

@@ -99,6 +99,50 @@ import { fail, ERR } from './respond.js';
 export const HELLO_WRITES_ENABLED = true;
 
 /**
+ * Every write in this build that reaches gftv.asia, named once.
+ *
+ * **Section 5 item 30 asked phase 14 to decide whether this should exist, and
+ * this is the decision.** It exists, for the reason the item records: the count
+ * was stated in four places and checked in none, so "the three writes that
+ * reach gftv.asia" stayed wrong for a fortnight while the route itself said
+ * otherwise in three different ways. A fact stated everywhere and counted
+ * nowhere is a fact that drifts.
+ *
+ * It is the shape `PUBLIC_COLUMNS` and `KNOWN` already have in this codebase: a
+ * list a check can read, rather than a sentence a person has to keep true.
+ *
+ * **What belongs here is a write, not a route.** Two routes can perform the
+ * same write -- `account.js` and `reset-password.js` both set
+ * `password_hash` -- and it is the reaching that matters, so the key is the
+ * table and column and the routes are listed under it.
+ *
+ * **`tests/phase14-test.mjs` checks it in both directions.** Every route that
+ * answers `reaches_gftv_asia: true` is accounted for here, and every route
+ * named here still claims it. A fifth write added by somebody who greps for
+ * `HELLO_WRITES_ENABLED` and finds it does not apply is the failure this is
+ * against, and the check is what makes adding one without saying so fail.
+ *
+ * @type {ReadonlyArray<{ reaches: string, routes: string[], why: string }>}
+ */
+export const GFTV_ASIA_WRITES = Object.freeze([
+  Object.freeze({
+    reaches: 'gftvhello_users.password_hash',
+    routes: ['auth/staff/account', 'auth/staff/reset-password'],
+    why: "5g's named exception. Setting a staff password here sets it at gftv.asia, because it is one account, and both flows say so on screen.",
+  }),
+  Object.freeze({
+    reaches: 'gftvhello_users.totp_secret',
+    routes: ['auth/staff/totp', 'auth/staff/danger'],
+    why: 'Enrolling or removing the authenticator app changes the second factor on the shared account, per 5a.',
+  }),
+  Object.freeze({
+    reaches: 'gftvhello_backup_codes',
+    routes: ['auth/staff/recovery-codes', 'auth/staff/danger'],
+    why: 'Regenerating or invalidating the set the login flow owns. This is the fourth write, the one the hold never covered and nothing counted.',
+  }),
+]);
+
+/**
  * Refuse a route that would write gftvhello_users while the hold is on.
  *
  * **Called before anything else the route does**, and in particular before the

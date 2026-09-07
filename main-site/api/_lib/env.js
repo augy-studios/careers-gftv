@@ -66,12 +66,31 @@ export function optionalEnv(name, fallback = null) {
 }
 
 /**
- * Check everything at once. Used by a health endpoint and by local start up
- * so a misconfigured deployment is obvious before anybody hits a route.
+ * Variables that are documented and are not required.
+ *
+ * **This list is the reason `checkEnv()` was never worth calling.** It reported
+ * `TELEGRAM_BOT_USERNAME` missing on a perfectly healthy deployment, because
+ * KNOWN is the documentation list and that one is read through `optionalEnv`
+ * with a default. An `ok` that is false in the ordinary state is an `ok` nobody
+ * can build a check on, and section 5 item 29 is what that cost: a function
+ * written for exactly one outage, called by nothing, while the outage ran for a
+ * fortnight.
+ *
+ * Anything named here must be read with `optionalEnv` and never `requireEnv`.
+ */
+const OPTIONAL = new Set(['TELEGRAM_BOT_USERNAME']);
+
+/**
+ * Check everything at once. Used by the health endpoint on both sites so a
+ * misconfigured deployment is obvious before anybody hits a route.
+ *
+ * **Required variables only**, per OPTIONAL above, so `ok` is true exactly when
+ * the deployment is correctly configured and a check can assert it.
  * @returns {{ ok: boolean, missing: string[] }}
  */
 export function checkEnv() {
   const missing = KNOWN.filter((name) => {
+    if (OPTIONAL.has(name)) return false;
     const value = process.env[name];
     return typeof value !== 'string' || value.trim() === '';
   });

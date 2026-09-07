@@ -196,6 +196,13 @@ const EXEMPT = {
   'main-site/assets/i18n/en.json':
     'Three English strings that deliberately carry 华文 or 国际兽视. Reviewed as part of the interface all the same.',
   'telegram-bot/lang.py': 'A comment about which language an account reads in.',
+  // Phase 14 part 10. Both say the same sentence about the same view, because
+  // it is the sentence the whole tier argument rests on: a gated page has no
+  // mirror row, so its 华文 joins to nothing and is not in the view at all.
+  'telegram-bot/docs.py':
+    'A comment naming the language whose rows the view holds, in the paragraph explaining why /docs carries no tier logic.',
+  'telegram-bot/supabase.py':
+    'The same sentence again, on the TABLES entry that names the view, so somebody reading the map is told why neither table under it is there.',
   'migrations/dev-seed-jobs.sql':
     'The dev seed. Every row says SAMPLE POSTING and the file deletes them again; it goes before this is a real site.',
   'migrations/031_task_questions.sql': 'A comment.',

@@ -45,6 +45,7 @@ import httpx
 from telethon import Button
 
 import db
+import docs
 from build_status import BuildStatus
 from commands import BOT_FEATURE, BY_NAME, COMMANDS, Command
 from config import Config
@@ -176,9 +177,14 @@ async def handle_start(ctx: Context, event, args: str, locale: str) -> None:
     if ctx.config.donation_url:
         buttons.append(Button.url(text("button.donate", locale), ctx.config.donation_url))
 
-    # No docs link, deliberately. The applicant's guide to this is phase 14's on
-    # a site that has nothing on it yet, and section 16's rule is that the link
-    # must not ship before the page does.
+    # **The docs link, held back since phase 11 and drawn from part 10.** 16's
+    # cross link rule is that a link must not ship before the page does, and the
+    # bot guide is live now. It is still conditional, on the same rule read the
+    # other way: DOCS_URL is what says where the site is, and a button built
+    # without it would point at nothing.
+    if ctx.config.docs_url:
+        buttons.append(Button.url(text("button.docs", locale), ctx.config.docs_url))
+
     await event.respond("\n\n".join(parts), buttons=[buttons], link_preview=False)
 
 
@@ -929,6 +935,288 @@ async def handle_jobs(ctx: Context, event, args: str, locale: str) -> None:
     await event.respond("\n".join(lines), buttons=buttons, link_preview=False)
 
 
+# ---------------------------------------------------------------------------
+# docs, part 10's tenth command
+# ---------------------------------------------------------------------------
+
+# **Nothing here checks a tier, and that is the design.** `/docs` reads
+# `gftvjobs_docs_public`, which inner joins the translations to the public
+# mirror, so a gated page has no mirror row and is not in the view at all.
+# Migration 042 carries the whole argument, and the inner join is the load
+# bearing word. There is no second copy of the site's rule in Python to keep in
+# step with it, which is what section 2 of the working memo worried about from
+# 3 September 2026 and what 042 discharged instead of paying.
+#
+# It needs no linked account either. The guides are the public tier and the view
+# holds nothing else, so this is the one list command that answers a stranger.
+
+
+def docs_sections(rows):
+    """The view's flat page list, grouped into its sections.
+
+    A section is a page whose path has one segment, and its pages are the paths
+    under it. The home page belongs to no section and is dropped: it is a
+    landing page for the site and says nothing a chat window needs.
+
+    Derived from the paths rather than configured, so a section added to the
+    site appears here without anybody editing this file.
+    """
+    indexes = {}
+    children = {}
+
+    for row in rows:
+        path = row.get("page_path") or ""
+        if path in ("", "/"):
+            continue
+        parts = path.strip("/").split("/")
+        if len(parts) == 1:
+            indexes[parts[0]] = row
+        else:
+            children.setdefault(parts[0], []).append(row)
+
+    return [
+        (indexes[slug], children.get(slug, []))
+        for slug in sorted(indexes)
+        if children.get(slug)
+    ]
+
+
+def docs_callback_id(ctx, action, path, page, locale, event):
+    """A stable id per button, so redrawing a menu does not grow the registry.
+
+    Derived the way `notify_callback_id` is and for the same reason: paging
+    through a guide redraws the same keyboard many times, and a fresh uuid per
+    tap would write a row per tap for ever.
+
+    **The Telegram account is deliberately not stored on a docs button.** Every
+    other callback in this file answers about somebody's own account and checks
+    who clicked. A guide page is public, so a forwarded message whose button
+    still works is a forwarded link to a public page, which is what a link is.
+    """
+    material = f"docs:{action}:{path}:{page}:{locale}"
+    callback_id = hashlib.sha256(material.encode("utf-8")).hexdigest()[:32]
+
+    db.remember_callback(
+        ctx.conn,
+        callback_id,
+        "docs",
+        {"action": action, "path": path, "page": page, "locale": locale},
+        chat_id=getattr(event, "chat_id", None),
+    )
+    return callback_id
+
+
+async def read_docs_pages(ctx, locale):
+    """Every public page in one language, falling back to English as a whole.
+
+    **The fallback is per request and not per row.** A language nobody has
+    started leaves the view empty for that locale, and a menu half in each
+    language would be worse than a menu in one.
+    """
+    rows = await ctx.supabase.docs_pages(locale)
+    if not rows and locale != DEFAULT_LOCALE:
+        rows = await ctx.supabase.docs_pages(DEFAULT_LOCALE)
+    return rows
+
+
+async def docs_index(ctx, event, locale, *, edit):
+    """The section list, which is what `/docs` opens on."""
+    try:
+        rows = await read_docs_pages(ctx, locale)
+    except (SupabaseError, httpx.HTTPError) as cause:
+        log.error("could not read the guides: %s", cause)
+        await docs_say(event, text("docs.unavailable", locale), None, edit=edit)
+        return
+
+    sections = docs_sections(rows)
+    if not sections:
+        await docs_say(event, text("docs.empty", locale), None, edit=edit)
+        return
+
+    buttons = [
+        [
+            Button.inline(
+                shorten(str(index.get("title") or index["page_path"])),
+                f"cb:{docs_callback_id(ctx, 'section', index['page_path'], 0, locale, event)}".encode(),
+            )
+        ]
+        for index, _ in sections
+    ]
+
+    await docs_say(event, text("docs.intro", locale), buttons, edit=edit)
+
+
+async def docs_section(ctx, event, path, locale):
+    """One section's pages, as a button each."""
+    try:
+        rows = await read_docs_pages(ctx, locale)
+    except (SupabaseError, httpx.HTTPError) as cause:
+        log.error("could not read the guides: %s", cause)
+        await event.answer(text("docs.unavailable", locale), alert=True)
+        return
+
+    slug = path.strip("/")
+    index = next((row for row in rows if (row.get("page_path") or "") == path), None)
+    pages = [row for row in rows if (row.get("page_path") or "").startswith(f"/{slug}/")]
+
+    if index is None or not pages:
+        await event.answer(text("docs.gone", locale), alert=True)
+        return
+
+    buttons = [
+        [
+            Button.inline(
+                shorten(str(row.get("title") or row["page_path"])),
+                f"cb:{docs_callback_id(ctx, 'page', row['page_path'], 0, locale, event)}".encode(),
+            )
+        ]
+        for row in pages
+    ]
+    buttons.append(
+        [
+            Button.inline(
+                text("button.docsBack", locale),
+                f"cb:{docs_callback_id(ctx, 'index', '/', 0, locale, event)}".encode(),
+            )
+        ]
+    )
+
+    heading = text("docs.section", locale, title=html.escape(str(index.get("title") or "")))
+    summary = html.escape(str(index.get("summary") or "").strip())
+    body = join(locale, heading, summary) if summary else heading
+
+    await event.answer()
+    await event.edit(
+        join(locale, body, text("docs.pick", locale)),
+        buttons=buttons,
+        link_preview=False,
+    )
+
+
+async def docs_page(ctx, event, path, page, locale):
+    """One page of one guide page, with Previous and Next where there are more."""
+    try:
+        row = await ctx.supabase.docs_page(path, locale)
+        fallback = False
+        if row is None and locale != DEFAULT_LOCALE:
+            row = await ctx.supabase.docs_page(path, DEFAULT_LOCALE)
+            fallback = row is not None
+    except (SupabaseError, httpx.HTTPError) as cause:
+        log.error("could not read a guide page: %s", cause)
+        await event.answer(text("docs.unavailable", locale), alert=True)
+        return
+
+    if row is None:
+        await event.answer(text("docs.gone", locale), alert=True)
+        return
+
+    sections = docs.render(
+        str(row.get("body") or ""),
+        note=lambda kind: text(f"docs.has{kind.title()}", locale),
+        base=ctx.config.docs_url,
+    )
+    parts = docs.paginate(sections)
+    total = len(parts)
+    index = max(0, min(page, total - 1))
+
+    lines = [f"<b>{html.escape(str(row.get('title') or ''))}</b>"]
+    if fallback:
+        lines.append(text("docs.english", locale))
+    if total > 1:
+        lines.append(text("docs.page", locale, count=index + 1, total=total))
+    lines.append("")
+    lines.append(parts[index])
+
+    buttons = []
+    steps = []
+    if index > 0:
+        steps.append(
+            Button.inline(
+                text("button.docsPrev", locale),
+                f"cb:{docs_callback_id(ctx, 'page', path, index - 1, locale, event)}".encode(),
+            )
+        )
+    if index + 1 < total:
+        steps.append(
+            Button.inline(
+                text("button.docsNext", locale),
+                f"cb:{docs_callback_id(ctx, 'page', path, index + 1, locale, event)}".encode(),
+            )
+        )
+    if steps:
+        buttons.append(steps)
+
+    on_site = ctx.config.docs_page_url(path)
+    if on_site:
+        buttons.append([Button.url(text("button.docsOnSite", locale), on_site)])
+
+    buttons.append(
+        [
+            Button.inline(
+                text("button.docsBack", locale),
+                f"cb:{docs_callback_id(ctx, 'section', '/' + path.strip('/').split('/')[0], 0, locale, event)}".encode(),
+            )
+        ]
+    )
+
+    await event.answer()
+    await event.edit("\n".join(lines), buttons=buttons, link_preview=False)
+
+
+async def docs_say(event, body, buttons, *, edit):
+    """Answer a command, or edit the message a button was on."""
+    if edit:
+        await event.answer()
+        await event.edit(body, buttons=buttons, link_preview=False)
+    else:
+        await event.respond(body, buttons=buttons, link_preview=False)
+
+
+async def handle_docs(ctx: Context, event, args: str, locale: str) -> None:
+    """The guides, browsed with buttons. Phase 14 part 10.
+
+    **This is the one list command that answers a stranger**, because the view
+    it reads carries the public tier and nothing else. There is no link check
+    and nothing to scope by an account.
+
+    A linked account still gets its own language, the same way every other
+    command here does: the choice on the account beats whatever Telegram says
+    the client is set to.
+    """
+    link = await current_link(ctx, event)
+    if link is not None:
+        applicant = await safe_applicant(ctx, link["applicant_id"])
+        locale = account_locale(applicant, locale)
+
+    await docs_index(ctx, event, locale, edit=False)
+
+
+async def handle_docs_callback(ctx: Context, event, record: dict) -> None:
+    """A guide button coming back: a section, a page, or back to the index.
+
+    The path is checked against migration 042's own shape before it is used as
+    a filter, so a registry row edited by hand cannot turn a button into an
+    arbitrary query.
+    """
+    payload = record["payload"]
+    locale = payload.get("locale") or DEFAULT_LOCALE
+    action = payload.get("action")
+    path = payload.get("path") or "/"
+
+    if not docs.is_page_path(path):
+        await event.answer(text("docs.gone", locale), alert=True)
+        return
+
+    if action == "index":
+        await docs_index(ctx, event, locale, edit=True)
+    elif action == "section":
+        await docs_section(ctx, event, path, locale)
+    elif action == "page":
+        await docs_page(ctx, event, path, int(payload.get("page") or 0), locale)
+    else:
+        await event.answer(text("docs.gone", locale), alert=True)
+
+
 def status_word(status: str | None, locale: str) -> str:
     """What to call an application's status, or where to look instead.
 
@@ -1032,6 +1320,7 @@ HANDLERS = {
     "applications": handle_applications,
     "jobs": handle_jobs,
     "notify": handle_notify,
+    "docs": handle_docs,
 }
 
 # The same idea for buttons. A callback row's `kind` decides what runs, so a
@@ -1041,4 +1330,5 @@ CALLBACKS = {
     "unlink": handle_unlink_callback,
     "notify": handle_notify_callback,
     "decline_invite": handle_decline_callback,
+    "docs": handle_docs_callback,
 }
