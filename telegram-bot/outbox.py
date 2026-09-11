@@ -244,6 +244,45 @@ async def render_decision(ctx, row: dict, applicant: dict | None, locale: str, l
     return Rendered("\n".join(lines) + footer(locale), buttons)
 
 
+async def render_confirmed(ctx, row: dict, applicant: dict | None, locale: str, link: dict) -> Rendered:
+    """The portal marked an application submitted on the applicant's behalf.
+
+    Phase 14's fourth kind. Section 13 step 5: the application form's webhook,
+    or an admin linking an unmatched submission by hand, confirms an application
+    the applicant may have answered No to, let time out, or never clicked apply
+    for at all. It is the one status change the portal makes without the person,
+    and until this message it was also the one they heard nothing about.
+
+    **It says what was recorded and never why the form said so.** The payload
+    carries the role and whether an earlier answer was overridden; the answers
+    on the form never left Google, per section 10, and this process has nothing
+    to say about them. An override is named, because "we recorded that you
+    applied" to somebody who clicked No is a sentence that owes its reader the
+    reason. The role title is the posting's own, in the language it is stored
+    in, exactly as an invite's is.
+    """
+    payload = row.get("payload") or {}
+    role = payload.get("job_title")
+    overrode = payload.get("overrode")
+
+    lines = [text("notify.confirmedHeading", locale)]
+    if role:
+        lines.append(text("notify.confirmedRole", locale, role=html.escape(str(role))))
+    lines.append("\n" + text("notify.confirmedBody", locale))
+    if overrode in ("no", "timeout"):
+        lines.append(text(f"notify.confirmedOverrode.{overrode}", locale))
+
+    buttons = [
+        [
+            Button.url(
+                text("button.openApplications", locale),
+                f"{ctx.config.site_url}/account/applications",
+            )
+        ]
+    ]
+    return Rendered("\n".join(lines) + footer(locale), buttons)
+
+
 # One entry per kind this build can actually send. **The claim reads this
 # dictionary**, so adding a kind here is the whole of making it deliverable, and
 # leaving one out is the whole of making an older bot leave it alone: a kind a
@@ -253,13 +292,14 @@ RENDERERS = {
     "invite": render_invite,
     "task_raised": render_task,
     "application_status_changed": render_decision,
+    "application_confirmed": render_confirmed,
 }
 
 
 def footer(locale: str) -> str:
     """The unsubscribe hint section 15 asks for on the bottom of every one.
 
-    On the three real kinds and not on the test message, which is what the
+    On the four real kinds and not on the test message, which is what the
     absence of a `NOTIFY_COLUMN` entry means: a hint pointing at a switch that
     does not govern the message it is printed under would be a lie in small type.
     """
@@ -562,7 +602,7 @@ class OutboxLoop:
             return True
 
         applicant = await self.safe_applicant(applicant_id)
-        locale = self.locale_for(applicant)
+        locale = self.locale_for(applicant, link)
 
         try:
             rendered = await render(self.ctx, row, applicant, locale, link)
@@ -719,7 +759,15 @@ class OutboxLoop:
             log.warning("could not read an applicant while draining: %s", cause)
             return None
 
-    def locale_for(self, applicant: dict | None) -> str:
-        """The account's own language. Nobody is typing, so there is no other."""
+    def locale_for(self, applicant: dict | None, link: dict | None = None) -> str:
+        """The account's own language. Nobody is typing, so there is no other.
+
+        Unless the chat chose one with /language, phase 14: that choice is
+        kept against the Telegram user in SQLite and it governs everything the
+        bot says, a notification included. The link is what names the user.
+        """
+        chosen = db.chat_locale(self.ctx.conn, (link or {}).get("telegram_user_id"))
+        if chosen in STRINGS:
+            return chosen
         stored = (applicant or {}).get("locale")
         return stored if stored in STRINGS else DEFAULT_LOCALE

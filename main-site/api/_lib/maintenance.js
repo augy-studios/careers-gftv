@@ -135,6 +135,11 @@ export const DENYLIST = Object.freeze({
   // Not a docs site key, and here on its own merits: the reason the applicant
   // set above is on this list is the reason the staff set is.
   staff_recovery_codes: 'Part of getting a staff account back, exactly as the applicant codes above are.',
+  // Phase 15's one key, 11 September 2026, found the day phase 14 flipped and
+  // 15 became visible on the maintenance page. A language is a dictionary file
+  // and a row in gftvjobs_locales, and no route consults a switch to serve one;
+  // taking a language away is a deploy, not a flip. The same argument as `seed`.
+  more_languages: 'A language is a dictionary and a locale row, and nothing consults a switch to serve one. Removing one is a deploy, not a flip.',
 });
 
 /** Whether a feature key may be flipped at all. */

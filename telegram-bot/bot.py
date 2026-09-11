@@ -63,18 +63,27 @@ COMMAND = re.compile(r"^/([A-Za-z][A-Za-z0-9_]*)(?:@[A-Za-z0-9_]+)?(?:\s+([\s\S]
 USER_AGENT = "careers-gftv-bot"
 
 
-async def resolve_locale(event, status: BuildStatus) -> str:
+async def resolve_locale(event, status: BuildStatus, conn=None) -> str:
     """Which language to answer in, for somebody who may not be linked.
 
-    Part 2 puts the linked account's own locale in front of this. Until then,
-    and forever for anybody who has linked nothing, it is the language their
-    Telegram client is set to. See lang.py.
+    Three answers, in order. **A language chosen for this chat with /language
+    wins over everything**, phase 14, and it is read here so that every reply
+    the dispatcher sends starts in it. Then part 2's rule: the linked account's
+    own locale, which `account_locale` in handlers.py puts in front of the
+    fallback once a command has read the account. And for anybody who has
+    chosen nothing and linked nothing, the language their Telegram client is
+    set to. See lang.py.
     """
     supported = await status.locales()
     # Only languages this file actually carries copy for. The site can ship a
     # locale before the bot does, and answering in a language with no strings
     # would render English with a Chinese heading on top.
     usable = tuple(name for name in supported if name in STRINGS) or (DEFAULT_LOCALE,)
+
+    if conn is not None:
+        chosen = db.chat_locale(conn, getattr(event, "sender_id", None))
+        if chosen in usable:
+            return chosen
 
     sender = None
     try:
@@ -144,7 +153,7 @@ def build_dispatcher(ctx: Context, log: logging.Logger):
     """The one message handler. Every command is routed from `commands.py`."""
 
     async def dispatch(event) -> None:
-        locale = await resolve_locale(event, ctx.status)
+        locale = await resolve_locale(event, ctx.status, ctx.conn)
         message = (event.raw_text or "").strip()
         match = COMMAND.match(message)
 

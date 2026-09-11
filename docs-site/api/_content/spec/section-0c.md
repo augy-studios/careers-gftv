@@ -9,24 +9,24 @@ summary: Each phase gets pushed to GitHub and deployed to production as it finis
 
 Each phase gets pushed to GitHub and deployed to production as it finishes. The site is live and usable from phase 3 onward while later phases are still unbuilt. So the interface has to be honest about what is not there yet.
 
-### Rules for shipping mid build
+## Rules for shipping mid build
 
 - `main` is always deployable. A phase lands as a branch merged when it works, never as a half finished commit on `main`.
 - The full migration set from phase 1 is run on day one, so the database runs ahead of the interface. That is deliberate. It means a feature switching on in a later phase needs no new SQL.
 - Never ship a control that calls an endpoint that does not exist yet. Unbuilt features are shown in the disabled state described below, and the click handler does nothing but explain.
 
-### Build status source of truth
+## Build status source of truth
 
 - One file, `main-site/assets/build-status.json`, holding the phase list. Each entry has a number, a short name, a status of `shipped`, `building`, or `planned`, and a plain description. Alongside it, a map of feature keys to phase numbers, for example `saved_jobs: 6`, `telegram_2fa: 11`, `offline: 10`.
 - Everything else reads from that file. Flipping a phase to `shipped` is the only edit needed when it goes live, and no copy anywhere hardcodes a phase number.
 - The Telegram bot and the docs site read the same file, so the three stay in step.
 
-### How it appears
+## How it appears
 
 - **Site wide notice.** A slim, dismissible bar at the top reading that Careers@GFTV is being built and released in phases, with a link to the status page. Dismissal is remembered locally and resets when a phase ships. Keep it quiet, one line, no colour shouting.
 - **Disabled controls.** Any control for a feature that has not shipped stays visible and disabled, and is never hidden. The reason goes on it: "Will be available in Phase 5. Sorry for the inconvenience caused." Use that wording exactly, with the phase number pulled from the feature map. Hiding it teaches people the feature does not exist; showing it disabled tells them it is coming.
 
-### Maintenance switches
+## Maintenance switches
 
 A second reason a control can be disabled, added 21 August 2026 and built in phase 7, per 8.12. A feature that has shipped can break, or need taking down while something is fixed. Until now the only lever for that was a deploy.
 
@@ -42,19 +42,19 @@ A second reason a control can be disabled, added 21 August 2026 and built in pha
 - **Telegram bot.** A command whose backing feature has not shipped replies with the same sentence, instead of failing or going quiet.
 - **Docs site.** Any page documenting an unshipped feature carries a note callout at the top with the same sentence. So the documentation can be written ahead of the build without misleading anyone.
 
-### Retiring it
+## Retiring it
 
 When every phase is `shipped`, remove the notice bar and the placeholder route handling. Leave `build-status.json` in place, since the same mechanism will be useful for whatever comes after, and keep the shipped notes on it as the changelog.
 
 **`/status` is repurposed and not retired**, and this is the one part of the build status mechanism that outlives the build. Once nothing is unbuilt, the question the page answers changes. It goes from "what is not here yet" to "is it working right now". That is the question people actually arrive at a status page with. Added 26 August 2026, and specified in full below.
 
-### The service status page, after the build
+## The service status page, after the build
 
 Modelled on how Atlassian's status pages read: a headline state, a component list, uptime history, and past incidents. Public, unauthenticated, still linked from the footer.
 
 **The one rule everything else here follows: the page never claims to know more than it does.** A status page that says "all systems operational" because it could not reach anything is worse than no page. That is the specific failure mode this section exists to prevent. Every panel below distinguishes three states, not two: working, not working, and no answer.
 
-#### Four panels
+### Four panels
 
 1. **The headline.** One sentence and one colour: everything is working, something is degraded, or something is down. Derived, never typed by hand, so it cannot disagree with the panels beneath it.
 
@@ -66,7 +66,7 @@ Modelled on how Atlassian's status pages read: a headline state, a component lis
    - **Declared.** An admin flipped a feature off and on again. The start, the end, the note, and the duration, all derivable from the `FEATURE_DISABLED` and `FEATURE_ENABLED` audit rows that already exist. 8.12 logs both directions for exactly this reason: an outage nobody recorded the end of is one nobody can measure.
    - **Observed.** The probe could not reach something, with nobody declaring anything. These are the ones worth having, because they are the outages nobody was awake for.
 
-#### The probe, and why it is not on Vercel
+### The probe, and why it is not on Vercel
 
 **A status page hosted on the thing it monitors is useless during the outage it exists to report.** That is the whole reason Statuspage is a separate service, and it is not a problem that can be solved by being careful.
 
@@ -78,14 +78,14 @@ So the probe runs on the Debian VPS that already hosts the Telegram bot, per sec
 - **A probe that cannot reach Supabase writes nothing and says nothing.** It does not retry into a backlog and it does not buffer locally. A gap in the data is an honest gap, and the page draws it as "no data" and never as either state.
 - **The bot is not the monitor.** It does not message anybody about a failed probe. Alerting is a separate decision with a separate on-call story attached, and it is out of scope here. What this buys is a page somebody can look at, which is what was asked for.
 
-#### What the page must not do
+### What the page must not do
 
 - **Never show a green day it did not measure.** A day with no probe data is drawn as unknown, in a neutral colour, and the legend names that state.
 - **Never compute a headline uptime percentage across a period with gaps** without saying what the coverage was. "99.9% over 90 days" from 60 days of data is a fabrication with a decimal point on it.
 - **Never report on the docs site or the Telegram bot from this page** unless they are probed too. A component list that quietly covers only the portal, while looking like it covers the project, is the same lie in a different shape.
 - **Keep it readable with no JavaScript and no session**, and cache it briefly at the edge. It is the page people load when things are going wrong, and it should be the cheapest page on the site.
 
-#### When
+### When
 
 The probe, the table, and the rebuilt page belong to **phase 12**. They sit alongside the other things that only make sense once the build is finished. The switchover itself is dropping the phase list from the page. It is gated on every phase being `shipped`, so the two halves can be built and then turned over, and never raced.
 

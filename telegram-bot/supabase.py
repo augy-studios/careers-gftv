@@ -99,29 +99,38 @@ OPEN_TASK_STATUSES = ("open", "awaiting_admin")
 # they had thirty outstanding tasks.
 APPLY_CLICK = "apply_click"
 
-# Every column a link read hands back. **The three notify columns are read
-# everywhere the link is**, because the drain's toggle check and the /notify
-# command are the same question asked from two directions, and a select that
-# named them in one place and not the other would answer "off" for a kind
-# somebody had switched on. Migration 011 defaults all three to true.
-LINK_COLUMNS = (
-    "id, applicant_id, telegram_user_id, telegram_username, twofa_enabled, linked_at, "
-    "notify_invite, notify_task_raised, notify_application_status_changed"
-)
-
-# Which column carries the toggle for each notification kind, per migration 011.
-# **One dictionary, read by both sides of the toggle**: the drain checks it
-# before it sends and `/notify` writes through it, so the switch somebody flips
-# and the switch that is honoured are the same column by construction. A kind
-# missing from here is a kind nobody can silence, which is what a security
-# message is and what the test message from account settings is.
+# Which column carries the toggle for each notification kind, per migration 011
+# and, for the fourth, 043. **One dictionary, read by both sides of the
+# toggle**: the drain checks it before it sends and `/notify` writes through it,
+# so the switch somebody flips and the switch that is honoured are the same
+# column by construction. A kind missing from here is a kind nobody can silence,
+# which is what a security message is and what the test message from account
+# settings is.
+#
+# **Adding a kind here is a migration first and a pull second.** `LINK_COLUMNS`
+# below names every column in this dictionary, and PostgREST answers a select
+# naming a column the table does not have with a 400 for the whole query. A bot
+# carrying a column the database lacks cannot read a link at all.
 NOTIFY_COLUMN = {
     "invite": "notify_invite",
     "task_raised": "notify_task_raised",
     "application_status_changed": "notify_application_status_changed",
+    "application_confirmed": "notify_application_confirmed",
 }
 
 NOTIFY_COLUMNS = frozenset(NOTIFY_COLUMN.values())
+
+# Every column a link read hands back. **The notify columns are read everywhere
+# the link is**, because the drain's toggle check and the /notify command are
+# the same question asked from two directions, and a select that named them in
+# one place and not the other would answer "off" for a kind somebody had
+# switched on. They are derived from the dictionary above rather than typed
+# again, so a kind added there is read here without a second edit. Migrations
+# 011 and 043 default all four to true.
+LINK_COLUMNS = ", ".join(
+    ("id", "applicant_id", "telegram_user_id", "telegram_username", "twofa_enabled", "linked_at")
+    + tuple(NOTIFY_COLUMN.values())
+)
 
 
 def now_iso() -> str:

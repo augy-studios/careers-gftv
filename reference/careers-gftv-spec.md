@@ -334,6 +334,7 @@ The portal is available in English and Chinese. Only one language is shown at a 
 | 营运 | 运营 | operations |
 | 摄影棚 | 录影棚 | studio |
 | 文件 | 文档 | document, in the paper sense |
+| 合约 | 合同 | contract. In `gen-review.js` since phase 12 and added here on 11 September 2026, when the two lists were found to differ |
 
 The language names itself 华文 in the switcher. The document is tagged `zh-Hans-SG` and not `zh-Hans`, since that is what the copy actually is. Prefix matching means anything keyed on `zh` or `zh-Hans` still applies. The font stack lists Simplified Chinese faces only: a traditional face would render the wrong character forms where the two sets differ.
 
@@ -1363,6 +1364,8 @@ Build a Telegram bot in a new `telegram-bot` directory in this same repo. Base i
 - `applications` - the applicant's own application list and current statuses.
 - `jobs` - the newest openings, with buttons through to each posting.
 - `notify` - toggle which notification kinds this account receives.
+- `docs` - browse the guides and read a page in the chat. Added by phase 14 part 10 on 7 September 2026. It reads the public pages through the view in section 6 and obeys no feature switch.
+- `language` - choose the language this chat is written in, in front of the account's own setting, which stays the default. Added by phase 14 on 11 September 2026, deviation 136.
 
 No `help` command. `start` carries that content.
 
@@ -1385,7 +1388,7 @@ No `help` command. `start` carries that content.
 
 - The site never calls the bot. It writes a row into `gftvjobs_notifications` and returns.
 - The bot polls that table every 15 to 30 seconds. It claims a batch by moving rows from `queued` to `claimed` in a single conditional update, so two bot instances cannot double send. It sends, then marks `sent` or `failed` with the error and an attempt count. Retry failures a few times with backoff, then leave them `failed` for an admin to see.
-- Three kinds, all shipping in the first version: `invite`, `task_raised`, and `application_status_changed`. Security messages such as a password reset or a new trusted device are sent directly and never queued. They are not subject to the `notify` toggles, since silencing them is what an attacker would want. An applicant with no Telegram link gets their rows marked `skipped`, instead of left queued forever.
+- Three kinds, all shipping in the first version: `invite`, `task_raised`, and `application_status_changed`. Security messages such as a password reset or a new trusted device are sent directly and never queued. They are not subject to the `notify` toggles, since silencing them is what an attacker would want. An applicant with no Telegram link gets their rows marked `skipped`, instead of left queued forever. **A fourth kind, `application_confirmed`, was added by phase 14 on 11 September 2026, deviation 135.** It is section 13 step 5's confirmation, the one status change the portal makes on the applicant's behalf. It has a `notify` toggle like the other three.
 - Respect the `notify` toggles per kind, and always include an unsubscribe hint in the footer of a notification.
 - Keep Telegram rate limits in mind. Pace sends, and handle flood wait errors by rescheduling in SQLite, instead of sleeping the whole worker.
 

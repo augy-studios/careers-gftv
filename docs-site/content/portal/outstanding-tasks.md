@@ -82,10 +82,11 @@ you answer it.
 
 ## Telegram gets a copy, and never the only copy
 
-If you have linked Telegram, three kinds of message can arrive there too:
-invitations, things waiting for you, and updates on your applications. Each of
-the three can be switched off with `/notify`. Everything sent to Telegram is
-also here, so nothing ever arrives only in a chat.
+If you have linked Telegram, four kinds of message can arrive there too.
+They are invitations, things waiting for you, updates on your applications,
+and an application recorded from the form. Each of the four can be switched
+off with `/notify`. Everything sent to Telegram is also here, so nothing ever arrives
+only in a chat.
 
 ## Offline
 

@@ -387,11 +387,20 @@ export async function setTwofa(applicantId, enabled) {
  * adding a kind here is an obvious act rather than a string typed at a call
  * site. `tests/phase11-test.mjs` reads this object and the bot's dictionary and
  * fails when they disagree.
+ *
+ * **The fourth is phase 14's, 11 September 2026.** Section 15 names three, and
+ * `application_confirmed` is the one status change the portal makes on
+ * somebody's behalf: the form webhook, or an admin linking a submission by
+ * hand, marking their application submitted. Every other change here is one the
+ * applicant made or was written to about, and this one they heard nothing
+ * about. Deferred three times and settled 1 September 2026; the account is in
+ * `reference/next-steps.md` section 2.
  */
 export const KIND = Object.freeze({
   invite: 'invite',
   taskRaised: 'task_raised',
   applicationStatusChanged: 'application_status_changed',
+  applicationConfirmed: 'application_confirmed',
 });
 
 /**

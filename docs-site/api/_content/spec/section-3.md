@@ -14,7 +14,7 @@ summary: The portal is available in English and Chinese.
 - **Anything that waits shows that it is waiting.** Never a frozen screen and never a bare empty container. Use the loading primitives in `gftv-theme.md`. That is a spinner where the result has no shape yet, and skeletons where the shape is known. Both carry the 250ms delay, so a fast response is never seen to load at all. Pair every indicator with text a screen reader can announce, since an animation announces nothing. This applies to the search results, a posting loading, the apply handoff, and every admin table.
 - Mobile first, not desktop with a phone afterthought. Both the portal and the docs site in section 16 must be fully usable on a small screen. Phase 12 checks that, so it is never assumed.
 
-### 3a. Languages: English, Mandarin, and whatever comes next
+## 3a. Languages: English, Mandarin, and whatever comes next
 
 The portal is available in English and Chinese. Only one language is shown at a time. This is not a partial translation of a mostly English site. Every posting, every interface string, every static page, and the admin dashboard exist in both.
 
@@ -28,6 +28,7 @@ The portal is available in English and Chinese. Only one language is shown at a 
 | 营运 | 运营 | operations |
 | 摄影棚 | 录影棚 | studio |
 | 文件 | 文档 | document, in the paper sense |
+| 合约 | 合同 | contract. In `gen-review.js` since phase 12 and added here on 11 September 2026, when the two lists were found to differ |
 
 The language names itself 华文 in the switcher. The document is tagged `zh-Hans-SG` and not `zh-Hans`, since that is what the copy actually is. Prefix matching means anything keyed on `zh` or `zh-Hans` still applies. The font stack lists Simplified Chinese faces only: a traditional face would render the wrong character forms where the two sets differ.
 
@@ -59,7 +60,7 @@ If any of that becomes a problem, the fix is a `?lang=` parameter carried alongs
 
 This paragraph used to say that the staff half of the docs site stayed English. It asked for a note at the top of it saying so. **That was overruled by 16f on 3 September 2026 and built by phase 14 part 9**, which translated all eighty two pages. The whole documentation site is translated, staff half included. The correction is made here so that 3a and 16f cannot be read against each other. The link preview line on a posting stays English wherever it is shared, per 4 and the poster guide. The thing that unfurls a link has no language to offer.
 
-### Responsive requirements
+## Responsive requirements
 
 Applies to `main-site` and `docs-site` alike.
 
@@ -74,7 +75,7 @@ Applies to `main-site` and `docs-site` alike.
 - Forms use appropriate `inputmode` and `autocomplete` values, and inputs are at least 16px so iOS does not zoom on focus.
 - Test at 320, 375, 414, 768, 1024, and 1440. Check both orientations, both themes, and both light and dark mode.
 
-### 3b. Plain language, on both sites
+## 3b. Plain language, on both sites
 
 Added 3 September 2026. **Every word on both sites is written for somebody with no technical knowledge who wants to find a role and apply for it.** That reader is the test, in English and in 华文 alike. It applies to the portal, the documentation site, the phase list on `/status`, and the bot's own messages.
 

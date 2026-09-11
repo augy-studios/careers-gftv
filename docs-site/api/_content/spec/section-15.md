@@ -9,7 +9,7 @@ summary: Build a Telegram bot in a new telegram-bot directory in this same repo.
 
 Build a Telegram bot in a new `telegram-bot` directory in this same repo. Base it on the scripts in `main-site`, so the two agree on the schema and the flows. It runs on my Debian 13 VPS under tmux, with GitHub for version control.
 
-### Build conventions
+## Build conventions
 
 - Telethon, Python. Not python-telegram-bot, not aiogram.
 - Bot username is `careersgftv_bot`. Never mention the bot's name inside any command text or reply.
@@ -20,7 +20,7 @@ Build a Telegram bot in a new `telegram-bot` directory in this same repo. Base i
 - Prefer rich formatted replies over plain text. Avoid em dashes, and rephrase instead of leaving a sentence that only worked with one.
 - Any knowledge base content, if it ever becomes relevant, comes from an open source REST API and never a hardcoded list.
 
-### Commands
+## Commands
 
 - `start` - what the bot does, the full command list, and buttons linking to the web app and the donation link. Also handles the deep link payload from `t.me/careersgftv_bot?start=<token>` for account linking and for one-tap code delivery.
 - `link` - begin linking this Telegram account to a portal account, for someone who found the bot before the site.
@@ -31,10 +31,12 @@ Build a Telegram bot in a new `telegram-bot` directory in this same repo. Base i
 - `applications` - the applicant's own application list and current statuses.
 - `jobs` - the newest openings, with buttons through to each posting.
 - `notify` - toggle which notification kinds this account receives.
+- `docs` - browse the guides and read a page in the chat. Added by phase 14 part 10 on 7 September 2026. It reads the public pages through the view in section 6 and obeys no feature switch.
+- `language` - choose the language this chat is written in, in front of the account's own setting, which stays the default. Added by phase 14 on 11 September 2026, deviation 136.
 
 No `help` command. `start` carries that content.
 
-### Linking flow
+## Linking flow
 
 1. The applicant clicks "Link Telegram for 2FA" in account settings. The site creates a `gftvjobs_telegram_tokens` row with purpose `link`, stores the hash, and shows the deep link and QR.
 2. They open the deep link, which sends `/start <token>` to the bot.
@@ -42,28 +44,28 @@ No `help` command. `start` carries that content.
 4. The settings page is polling and flips to linked without a refresh.
 5. Tokens expire in ten minutes and are single use. A token that is already used, expired, or unknown gets a clear message and no detail about why.
 
-### Login codes and magic links
+## Login codes and magic links
 
 - `code`, or the button on the 2FA prompt, issues a six digit code. It is valid for five minutes, single use, and stored hashed, with an attempt cap.
 - The magic link variant sends a one tap button that signs the applicant in directly. Treat it as a full login and not a second factor, because that is what it is. Bind it to the browser that requested it. Store a nonce in a cookie at request time and check it on consumption, so a forwarded link is useless to anyone else. Keep its lifetime to five minutes.
 - Never send a code or link to a Telegram account that is not currently linked to the account being signed into.
 - Rate limit per account and per Telegram user, and back off after repeated failures. Never silently ignore them.
 
-### Notifications
+## Notifications
 
 - The site never calls the bot. It writes a row into `gftvjobs_notifications` and returns.
 - The bot polls that table every 15 to 30 seconds. It claims a batch by moving rows from `queued` to `claimed` in a single conditional update, so two bot instances cannot double send. It sends, then marks `sent` or `failed` with the error and an attempt count. Retry failures a few times with backoff, then leave them `failed` for an admin to see.
-- Three kinds, all shipping in the first version: `invite`, `task_raised`, and `application_status_changed`. Security messages such as a password reset or a new trusted device are sent directly and never queued. They are not subject to the `notify` toggles, since silencing them is what an attacker would want. An applicant with no Telegram link gets their rows marked `skipped`, instead of left queued forever.
+- Three kinds, all shipping in the first version: `invite`, `task_raised`, and `application_status_changed`. Security messages such as a password reset or a new trusted device are sent directly and never queued. They are not subject to the `notify` toggles, since silencing them is what an attacker would want. An applicant with no Telegram link gets their rows marked `skipped`, instead of left queued forever. **A fourth kind, `application_confirmed`, was added by phase 14 on 11 September 2026, deviation 135.** It is section 13 step 5's confirmation, the one status change the portal makes on the applicant's behalf. It has a `notify` toggle like the other three.
 - Respect the `notify` toggles per kind, and always include an unsubscribe hint in the footer of a notification.
 - Keep Telegram rate limits in mind. Pace sends, and handle flood wait errors by rescheduling in SQLite, instead of sleeping the whole worker.
 
-### Invites over Telegram
+## Invites over Telegram
 
 - When an admin invites an applicant to a posting, the site writes the invite row and queues an `invite` notification.
 - The message names the role and the department, and includes the admin's note if there is one. It carries buttons to view the posting and to decline. Declining writes back to `gftvjobs_invites`.
 - An applicant with no linked Telegram still sees the invite in the portal on `/account/tasks`. Telegram is a delivery channel and never the only record.
 
-### The status probe
+## The status probe
 
 Added 26 August 2026, built in phase 12, and it has nothing to do with Telegram. It lives here because of where it runs, and not because of what it does. The status page in 0c needs a prober outside Vercel, and **this VPS is the only thing in the whole architecture that is**. A loop that makes four requests a minute does not deserve a second machine. Beside it is a process already running, already holding the Supabase credentials, and already in this repository.
 
@@ -74,7 +76,7 @@ Added 26 August 2026, built in phase 12, and it has nothing to do with Telegram.
 - **A failure to reach Supabase writes nothing.** No local buffer and no backfill on reconnect. A gap is drawn on the page as unknown, which is true. A backfilled row timestamped an hour late is not.
 - **It is not a command and it is not in the command list.** Nothing about it is visible in Telegram at all.
 
-### Environment
+## Environment
 
 Add to the bot's own `.env.example`, documented the same way as the site's:
 

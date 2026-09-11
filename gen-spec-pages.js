@@ -120,9 +120,31 @@ export function readSpec(source) {
     sections: sections.map(({ number, heading, lines: body }) => ({
       number,
       heading,
-      body: body.join('\n').trim(),
+      body: liftHeadings(body.join('\n').trim()),
     })),
   };
+}
+
+/**
+ * Raise every heading in a section's body by one level.
+ *
+ * A section is `## N.` in the brief and becomes the page's `#`, so the `###`
+ * under it has to become `##` or every page skips a level from h1 to h3.
+ * `tests/phase13-test.mjs`'s accessibility pass found that on every generated
+ * page on 11 September 2026, the first full run since the pages existed. The
+ * same function is in gen-memo-pages.js for the same reason, and the 华文
+ * pages under docs-site/translations/ carry the lifted levels by hand.
+ */
+export function liftHeadings(body) {
+  let fenced = false;
+  return body
+    .split('\n')
+    .map((line) => {
+      if (/^\s*(```|~~~)/.test(line)) fenced = !fenced;
+      if (fenced) return line;
+      return line.replace(/^(#{3,6}) /, (match, hashes) => `${hashes.slice(1)} `);
+    })
+    .join('\n');
 }
 
 /* -------------------------------------------------------------------------

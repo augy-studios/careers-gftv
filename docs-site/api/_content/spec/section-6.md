@@ -9,7 +9,7 @@ summary: Do not modify any existing gftvhello_* table.
 
 Do not modify any existing `gftvhello_*` table.
 
-### Migrations
+## Migrations
 
 All DDL ships as numbered SQL files in a `migrations/` directory at the repo root. I run them by hand, in order, pasting each one into the Supabase SQL editor. There is no CLI, no automated runner, and no migration framework.
 

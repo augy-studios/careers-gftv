@@ -87,7 +87,7 @@ Answers come back on the tracking row beside the question each one answers, and 
 
 Every admin API route must verify the staff session server side and re-check the access flag on each request. Never trust a client-side role value.
 
-### 8a. Admin documentation (moved to the docs site)
+## 8a. Admin documentation (moved to the docs site)
 
 **This section used to specify an in-portal manual at `/admin/docs`, served from `main-site/api/_admin-docs/`. It does not any more.** The staff documentation lives on the docs site, per section 16, and the page list that was here has moved to 16h.
 

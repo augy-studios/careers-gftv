@@ -2,12 +2,12 @@
 title: Command reference
 access: public
 order: 3
-summary: All ten commands, what each one returns, and why there is no help command.
+summary: All eleven commands, what each one returns, and why there is no help command.
 ---
 
 # Command reference
 
-Ten commands, and there is no `/help`. The `/start` message carries that
+Eleven commands, and there is no `/help`. The `/start` message carries that
 content, so the first thing you send is also the thing that explains the rest.
 
 Typing anything else gets you one line pointing back at `/start`.
@@ -26,6 +26,7 @@ Typing anything else gets you one line pointing back at `/start`.
 | `/jobs` | The newest openings, with a button through to each posting. |
 | `/notify` | Choose which notifications arrive in the chat. |
 | `/docs` | The guides, browsed here with buttons. |
+| `/language` | The language this chat is written in. |
 
 ## What each one returns
 
@@ -110,7 +111,7 @@ the board cannot disagree about what is live.
 
 ### /notify
 
-Three switches, one per kind of notification, each showing the state it is in
+Four switches, one per kind of notification, each showing the state it is in
 now. See [Notifications](/bot/notifications).
 
 ### /docs
@@ -133,6 +134,18 @@ opens the same page where everything renders.
 
 Pages arrive in your own language where they have been translated, and in
 English with a note where they have not.
+
+### /language
+
+One button per language the bot speaks, and one to follow your portal account
+again. Tap a language and everything the bot says from then on is in it: the
+guides, the replies, and the notifications. Your language on the portal does
+not change.
+
+You do not need a linked account. Until you choose, the chat follows the
+language on your portal account, or the language of your Telegram app if
+nothing is linked. Choosing is remembered here, in the chat, so unlinking and
+linking again does not lose it.
 
 ## When a command will not answer
 

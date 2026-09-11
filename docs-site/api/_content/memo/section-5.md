@@ -889,6 +889,8 @@ summary: 24 gftvjobs_ functions were created without a search_path of their own.
       clicked the button on a page the gate served.
 
     It belongs in the same sitting as items 33 and 34, and behind the same
-    authenticator app.
+    authenticator app. **Phase 8's check 78 joined it on 11 September 2026**:
+    the helpers roster is admins only, so the poster cannot read `grantable`
+    for it. Section 1's phase 14 entry has the account.
 
 ---

@@ -35,7 +35,18 @@
 //   **The caller has no locale.** Every other write in this build inherits one
 //   from a session. Everything written here is read by staff — an event row note
 //   on the admin timeline, an audit row — so it is English, deliberately and not
-//   by omission. Nothing here writes anything an applicant reads.
+//   by omission. Nothing here writes anything an applicant reads. **The one
+//   exception is the outbox row**, added 11 September 2026: the bot renders it
+//   in the language on the applicant's account, and the payload carries the
+//   posting's own title untranslated, exactly as an invite's does.
+//
+//   **A confirmation that changed something tells the applicant, once.** The
+//   webhook is the one status change the portal makes on somebody's behalf, and
+//   until phase 14 it was also the one they heard nothing about. So a
+//   confirmation that moved a row queues `application_confirmed`, and a second
+//   delivery that finds everything already set queues nothing: the guard is
+//   the same `cooldown_kept` that keeps the dates still. Delivery belongs to
+//   the act, so it is in confirmFromWebhook and not at its two call sites.
 //
 //   **A duplicate delivery is not an error.** The unique constraint on
 //   (job_id, form_response_id) from migration 008 is the idempotency, in the
@@ -53,6 +64,7 @@ import {
   fetchApplication,
   writeApplicationEvent,
 } from './apply.js';
+import { KIND, queueNotification } from './telegram.js';
 
 /** Postgres unique violation, which is step 3's duplicate delivery. */
 const UNIQUE_VIOLATION = '23505';
@@ -200,7 +212,8 @@ export async function matchApplicant(email) {
  *   application_id: string|null,
  *   application_status: string|null,
  *   application_created: boolean,
- *   cooldown_kept: boolean
+ *   cooldown_kept: boolean,
+ *   notified: boolean
  * }} ConfirmationResult
  */
 
@@ -226,6 +239,7 @@ export async function confirmFromWebhook(jobId, applicant) {
     application_status: null,
     application_created: false,
     cooldown_kept: false,
+    notified: false,
   };
 
   /* The analytics half. ------------------------------------------------- */
@@ -340,7 +354,46 @@ export async function confirmFromWebhook(jobId, applicant) {
   result.application_id = application.id;
   result.application_status = application.status;
 
+  /* The notice. ----------------------------------------------------------- */
+
+  // Only when this call changed something. A second delivery, or a manual link
+  // of a submission the applicant had already confirmed themselves, finds both
+  // halves settled and must not write a second message about it: `cooldown_kept`
+  // is exactly "the tracking row already said applied", and the analytics half
+  // says whether the answer moved. The row is queued whether or not the account
+  // has a Telegram link, per queueNotification, and the bot marks it skipped.
+  const changed = result.analytics_updated || !result.cooldown_kept;
+  if (changed) {
+    result.notified = await queueNotification(applicant.id, KIND.applicationConfirmed, {
+      job_id: jobId,
+      job_title: await postingTitle(jobId),
+      application_id: application.id,
+      overrode: result.overrode,
+      confirmed_at: new Date().toISOString(),
+    });
+  }
+
   return result;
+}
+
+/**
+ * The posting's own title, in the language it is stored in, for the payload.
+ *
+ * Read here and copied into the row, per deviation 107: the bot renders from
+ * what was true when this was queued and reads no postings table of its own. A
+ * posting that has gone in the meantime answers null and the message names no
+ * role, which is a worse message and not a failed one.
+ *
+ * @param {string} jobId
+ * @returns {Promise<string|null>}
+ */
+async function postingTitle(jobId) {
+  const { data, error } = await supabase.from(T.jobs).select('title').eq('id', jobId).maybeSingle();
+  if (error) {
+    console.error('[careers-gftv] posting title for the notice:', error);
+    return null;
+  }
+  return data?.title ?? null;
 }
 
 /**

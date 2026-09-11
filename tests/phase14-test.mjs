@@ -3598,9 +3598,16 @@ define('reach', 'Part 10a: checkEnv, and the writes that leave this build', () =
   const mainReadme = read(join(MAIN, 'README.md'));
   const rootReadme = read(join(REPO, 'README.md'));
 
+  // Read against build-status.json rather than against a literal, because the
+  // literal went stale the day phase 14 flipped: the line has to name the
+  // phase that is building, which is 15 from 11 September 2026.
+  const buildingPhase = JSON.parse(read(join(MAIN, 'assets/build-status.json'))).phases.find(
+    (phase) => phase.status === 'building'
+  );
   check(
     '14. main-site/README.md no longer opens eight phases stale',
-    !/Current phase: 6 of 15/.test(mainReadme) && /Current phase: 14 of 15/.test(mainReadme),
+    !/Current phase: 6 of 15/.test(mainReadme) &&
+      new RegExp(`Current phase: ${buildingPhase?.number ?? 15} of 15`).test(mainReadme),
     'section 2 asks that line to move when a phase ships, and it stopped moving ' +
       'after phase 6. Found by part 7 and left here deliberately, because the ' +
       'paragraph under it is a phase shaped account of the whole portal'
@@ -3871,6 +3878,123 @@ define('docs-command', "Part 10: the bot's /docs, and the view it reads", () => 
       'a label that is words alone reads as a sentence in a row of arrows'
     );
   }
+});
+
+/* -------------------------------------------------------------------------
+ * /language, 11 September 2026
+ *
+ * A language for the chat, in front of the linked account's own setting, which
+ * stays the default. The rule has three readers — the dispatcher, the drain and
+ * the security loop — and the failure worth a check is one of them still
+ * reading the account alone, which is a bot that answers a command in one
+ * language and sends the notification about it in another.
+ * ---------------------------------------------------------------------- */
+
+define('language', "The chat's own language, in front of the account's", () => {
+  const commands = read(join(BOT, 'commands.py'));
+  const handlers = read(join(BOT, 'handlers.py'));
+  const bot = read(join(BOT, 'bot.py'));
+  const outbox = read(join(BOT, 'outbox.py'));
+  const security = read(join(BOT, 'security.py'));
+  const dbPy = read(join(BOT, 'db.py'));
+  const strings = read(join(BOT, 'strings.py'));
+
+  check(
+    '1. commands.py carries language, and it obeys no feature switch',
+    /name="language",\s*\n\s*feature=None,/.test(commands),
+    'a language control has to answer during the outage it would be explaining'
+  );
+
+  check(
+    '2. it is registered as a handler and as a callback',
+    /"language": handle_language,/.test(handlers) && /"language": handle_language_callback,/.test(handlers),
+    'the registry is what decides a command is built, per deviation 92'
+  );
+
+  check(
+    '3. the choice lives in SQLite, keyed on the Telegram user',
+    /create table if not exists chat_locales \(\s*\n\s*telegram_user_id integer primary key/.test(dbPy) &&
+      /def chat_locale\(/.test(dbPy) &&
+      /def set_chat_locale\(/.test(dbPy),
+    'a fact about the chat and not about the account, so it survives an unlink'
+  );
+
+  // Three readers of the same rule. Each one asks SQLite before it asks the
+  // account, or the bot speaks two languages to one person.
+  check(
+    '4. the dispatcher reads the choice before the client language',
+    /chosen = db\.chat_locale\(conn, getattr\(event, "sender_id", None\)\)/.test(bot) &&
+      /resolve_locale\(event, ctx\.status, ctx\.conn\)/.test(bot),
+    'every reply starts in the chosen language, linked or not'
+  );
+  check(
+    '5. account_locale reads the choice before the account',
+    /def account_locale\(ctx: Context, event, applicant/.test(handlers) &&
+      /chosen = chat_locale_for\(ctx, event\)\s*\n\s*if chosen is not None:\s*\n\s*return chosen/.test(handlers) &&
+      !/account_locale\(applicant, /.test(handlers),
+    'the account wins only when nothing was chosen, which is section 7 unchanged'
+  );
+  check(
+    '6. the drain and the security loop read it too, through the link',
+    /db\.chat_locale\(self\.ctx\.conn, \(link or \{\}\)\.get\("telegram_user_id"\)\)/.test(outbox) &&
+      /db\.chat_locale\(self\.ctx\.conn, \(link or \{\}\)\.get\("telegram_user_id"\)\)/.test(security) &&
+      /self\.locale_for\(applicant, link\)/.test(outbox) &&
+      /self\.locale_for\(applicant, link\)/.test(security),
+    'a notification and a login code are things the bot says'
+  );
+
+  // Every language the bot can speak has a name for itself in every table, or
+  // the button for it renders a key. The names are autonyms, so they are the
+  // same string in both tables by design.
+  const locales = [...strings.matchAll(/^\s{4}"([a-z]{2})": \{/gm)].map((match) => match[1]);
+  check(
+    '7. every locale the bot speaks names itself',
+    locales.length >= 2 &&
+      locales.every((name) => (strings.match(new RegExp(`"language\\.name\\.${name}": "`, 'g')) ?? []).length === locales.length),
+    locales.join(', ')
+  );
+
+  // The rule itself, run: a fresh database, a choice made, read through
+  // account_locale against an account that says otherwise, then cleared.
+  let ran = null;
+  try {
+    ran = execFileSync(
+      'python',
+      [
+        '-c',
+        [
+          'import db, handlers, types',
+          "conn = db.connect(':memory:'); db.migrate(conn)",
+          'ctx = types.SimpleNamespace(conn=conn)',
+          'event = types.SimpleNamespace(sender_id=7)',
+          "account = {'locale': 'en'}",
+          "before = handlers.account_locale(ctx, event, account, 'en')",
+          "db.set_chat_locale(conn, 7, 'zh')",
+          "chosen = handlers.account_locale(ctx, event, account, 'en')",
+          "other = handlers.account_locale(ctx, types.SimpleNamespace(sender_id=8), account, 'en')",
+          'db.set_chat_locale(conn, 7, None)',
+          "after = handlers.account_locale(ctx, event, account, 'en')",
+          "print(before, chosen, other, after)",
+        ].join('\n'),
+      ],
+      { cwd: BOT, encoding: 'utf8', env: { ...process.env, PYTHONIOENCODING: 'utf-8' } }
+    ).trim();
+  } catch (cause) {
+    ran = `FAILED: ${cause.stdout ?? ''}${cause.stderr ?? ''}`;
+  }
+  check(
+    '8. a choice wins over the account, only for the user who made it, and clears',
+    ran === 'en zh en en',
+    String(ran).split('\n').slice(0, 3).join(' / ')
+  );
+
+  const guide = read(join(DOCS, 'content/bot/commands.md'));
+  const guideZh = read(join(DOCS, 'translations/zh/bot/commands.md'));
+  check(
+    '9. the bot guide documents /language in both languages',
+    guide.includes('### /language') && guideZh.includes('### /language'),
+    'a command in the menu and absent from its own reference is drift as prose'
+  );
 });
 
 /* -------------------------------------------------------------------------

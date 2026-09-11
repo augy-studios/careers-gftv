@@ -9,13 +9,13 @@ summary: Build this.
 
 Build this. It is a small amount of code and it turns `did_apply` from a self reported claim into a recorded fact. The handoff modal in 7c stays exactly as specified, since not every submission will be matched. The webhook becomes the authoritative source when the two disagree.
 
-### What it does
+## What it does
 
 An Apps Script bound to each job's Google Form fires on submit. It posts the respondent's email, the job id, and the response id to the portal. The portal matches the email to a `gftvjobs_users` row and marks the application as genuinely submitted.
 
 Only the email, the response id, and the timestamp are sent. The answers themselves never leave Google, which keeps the portal free of application content exactly as decided in section 10.
 
-### Portal side
+## Portal side
 
 Add a table:
 
@@ -34,7 +34,7 @@ Add `POST api/webhooks/form-submit`, enabled by default:
 
 `answer_source` on `gftvjobs_analytics` records what produced the answer. The admin analytics page can then show how much of the funnel is self reported and how much is confirmed. A webhook confirmation overrides an earlier No or a timeout, since a recorded submission beats silence or a misclick.
 
-### Form side
+## Form side
 
 One script per form, pasted into Extensions then Apps Script on the Google Form:
 
@@ -73,7 +73,7 @@ function installCareersTrigger() {
 }
 ```
 
-### The setup cost, stated plainly
+## The setup cost, stated plainly
 
 The code is short. The friction is that a form submit trigger is per form, so every new posting means a small setup step. Keep it to about two minutes:
 
@@ -81,7 +81,7 @@ The code is short. The friction is that a form submit trigger is per form, so ev
 - Per new job: copy the template, edit the questions, set `JOB_ID` in Script Properties to the posting uuid, run `installCareersTrigger` once, authorise it.
 - Put this checklist in the admin job editor as collapsible help text, next to the Google Form URL field. Show the posting uuid there with a copy button, so nobody has to go hunting for it.
 
-### Fallbacks
+## Fallbacks
 
 - If the webhook is never installed on a given form, nothing breaks. That posting simply relies on the applicant's own yes or no answer, and the admin analytics page marks its numbers as self reported.
 - Add an admin action to manually mark a tracking row as submitted, for the unmatched-email case.

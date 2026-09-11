@@ -6,8 +6,10 @@ Vercel serverless functions under `api/`.
 Vercel's root directory for this project is set to `main-site`, which is why
 `api/` lives inside this directory and not at the repo root.
 
-**Current phase: 14 of 15, Documentation.** Thirteen phases are live and this
-one is building.
+**Current phase: 15 of 15, Malay and Tamil.** Fourteen phases are live and
+this one is building. Phase 14 shipped on 11 September 2026: the guides on the
+docs site, in English and 华文, and with them the fourth notification kind and
+the bot's `/language` command.
 
 The public half is the home page, `/status`, the board at `/search` with its
 filters, tags and suggestions, the posting page at `/jobs/{uuid}` with the

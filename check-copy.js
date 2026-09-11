@@ -97,6 +97,11 @@ const MANDARIN = [
   { pattern: /电子邮件/g, word: '电子邮件', instead: '电邮' },
   { pattern: /(?<!营)运营/g, word: '运营', instead: '营运' },
   { pattern: /录影棚/g, word: '录影棚', instead: '摄影棚' },
+  // In gen-review.js's USAGE since phase 12 part 4 and missing here until
+  // 11 September 2026, when the first full phase 12 run since the memo pages
+  // landed found 合同 in two of them. tests/phase12-test.mjs now asserts the
+  // two lists name the same words, and 3a's table carries this one too.
+  { pattern: /合同/g, word: '合同', instead: '合约' },
   { pattern: /文档/g, word: '文档', instead: '文件, or 说明文件 for a manual' },
   { pattern: /简体中文/g, word: '简体中文', instead: '华文' },
   { pattern: /(?<![选其集看命])中文(?!字)/g, word: '中文', instead: '华文' },

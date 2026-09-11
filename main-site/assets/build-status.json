@@ -1,7 +1,7 @@
 {
   "$comment": "Single source of truth for the phased rollout, per section 0c of careers-gftv-spec.md. The site, the Telegram bot, and the docs site all read this one file, so the three stay in step. Flipping a phase to shipped is the only edit needed when it goes live. No copy anywhere hardcodes a phase number. Phase names and descriptions carry a translated variant per non default language, because three separate consumers render them and they are content, not interface strings; everything else the site says comes from assets/i18n.",
   "schema_version": 3,
-  "updated": "2026-09-03",
+  "updated": "2026-09-11",
   "locales": [
     "en",
     "zh"
@@ -130,7 +130,7 @@
     {
       "number": 13,
       "name": "Docs site foundations",
-      "name_zh": "文档站基础",
+      "name_zh": "说明文件网站基础",
       "status": "shipped",
       "description": "The documentation site itself, with a staff sign in on it. What a reader sees depends on their role. Applicants read the public guides, job posters also read the dashboard guide, and admins also read the admin and developer guides.",
       "description_zh": "说明文件网站本身，并附有员工登录功能。读者看到的内容取决于其身份：申请人可阅读公开指南，职位发布者另可阅读后台使用指南，管理员另可阅读管理与开发说明文件。",
@@ -140,18 +140,18 @@
     {
       "number": 14,
       "name": "Documentation",
-      "name_zh": "文档内容",
-      "status": "building",
+      "name_zh": "说明文件",
+      "status": "shipped",
       "description": "The guides themselves: how to use the portal and the bot in every language, how to help with translations, and the staff guides. Written late so they describe what was built, not what was planned.",
       "description_zh": "指南内容本身：各语言版本的求职门户与 Telegram 机器人使用说明、如何协助翻译，以及员工指南。刻意安排在后期撰写，以便描述实际建成的功能而非当初的计划。",
-      "shipped_note": null,
-      "shipped_note_zh": null
+      "shipped_note": "The guides are written. Six of them, 82 pages, on the documentation site. Three cover how to use this portal, how to use the Telegram bot, and how to help with translations. Three are for the people who run the board. Every page is in English and 华文, and the language control on that site changes the guide and not only the frame around it. The bot gained a docs command that sends a guide page into the chat. It also gained a language command, so the chat can be read in a language other than the account's. The staff guides also carry the specification and the working memo this portal was built from, rendered as pages. So the reasoning behind a decision is one click from the page that describes it. The documentation site can be installed to a home screen and read with no connection, the same as this one. Two smaller things arrived with the writing, because describing a screen is how you notice what it does not say. A job poster could reach two pages that belong to an administrator, and cannot now. And an application recorded by the form on your behalf now tells you so, on Telegram, as the fourth kind of notification. One phase remains: Malay and Tamil.",
+      "shipped_note_zh": "指南写好了。六份，共 82 页，都在说明文件网站上。三份讲怎么使用这个平台、怎么使用 Telegram 机器人和怎么协助翻译，三份给营运职位板的人。每一页都有英文和华文，而那个网站上的语言控件改变的是指南本身，而不只是周围的框架。机器人多了一条 docs 指令，可以把一页指南送进聊天；也多了一条 language 指令，让聊天可以用账户以外的语言阅读。员工指南里还带着这个平台据以建成的说明书和工作备忘，渲染成页面，所以一个决定背后的理由，离描述它的那一页只有一下点击。说明文件网站可以安装到主屏幕，并且在没有网络时照样能读，和这个网站一样。有两件较小的事随着写作一起到来，因为描述一个屏幕，正是发现它没有说什么的方式。职位发布者原本能打开两个属于管理员的页面，现在不能了。而由表单代您记录的申请，现在会在 Telegram 上告诉您，作为第四种通知。还剩一个阶段：马来文和淡米尔文。"
     },
     {
       "number": 15,
       "name": "More languages",
       "name_zh": "更多语言",
-      "status": "planned",
+      "status": "building",
       "description": "Adding Malay and Tamil. The portal is already built to take them: a new language needs no database change, only its wording. Listed last because it depends on finding people to write and check it.",
       "description_zh": "加入马来文和淡米尔文。本网站的架构已经支持：新增语言无需改动数据库，只需要撰写内容。列在最后，是因为这取决于能否找到人撰写和校对。",
       "shipped_note": null,

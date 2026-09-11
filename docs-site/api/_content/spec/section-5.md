@@ -9,7 +9,7 @@ summary: There are two separate account realms.
 
 There are two separate account realms. Keep their session cookies, endpoints, and middleware fully separate.
 
-### 5a. Staff and admin realm (existing tables, do not alter them)
+## 5a. Staff and admin realm (existing tables, do not alter them)
 
 Uses the existing `gftvhello_users` and `gftvhello_sessions` tables, so the same accounts that sign in at gftv.asia work here.
 
@@ -33,7 +33,7 @@ Do not write to `gftvhello_signing_keys` or `gftvhello_used_request_tokens`. Lea
 
 Also handle logout (delete the session row) and expired session cleanup on read.
 
-### 5b. Applicant realm (new tables)
+## 5b. Applicant realm (new tables)
 
 Create `gftvjobs_users` and `gftvjobs_sessions`, modelled on the gftvhello pair but with no admin check on sign in and no approval requirement. Leave a nullable `totp_secret` column in place so app based 2FA can be added later without a migration. Telegram 2FA, per section 15, is the second factor that ships.
 
@@ -42,7 +42,7 @@ Create `gftvjobs_users` and `gftvjobs_sessions`, modelled on the gftvhello pair 
 - Accounts are active immediately. No admin approval, no email verification for now.
 - Applicant account page: edit profile and change password, plus the dashboard pages in 7g and the settings page with its danger zone.
 
-### 5c. Recovery codes (applicant realm)
+## 5c. Recovery codes (applicant realm)
 
 There is no email in this build, so recovery codes are the only self serve way back into an account. Say that on screen, more than once, and design accordingly.
 
@@ -72,7 +72,7 @@ Rules for both sets:
 4. If the account has fewer than three recovery codes left afterwards, push them straight to regenerate.
 5. Someone with no codes left cannot recover alone. Give admins a verified reset path in the admin dashboard, clearing the password and forcing a reset on next login. Log who did it.
 
-### 5d. Session length and trusted devices (both realms)
+## 5d. Session length and trusted devices (both realms)
 
 Two separate controls on both login forms. They are independent and must not be collapsed into one checkbox:
 
@@ -90,7 +90,7 @@ Implementation:
 - Account settings lists trusted devices with when each was added and last used, a revoke button per device, and a revoke all. Changing the password, resetting via recovery code, unlinking Telegram, or disabling 2FA revokes all of them.
 - Trusted devices never bypass the danger zone in `/account/settings`. That always asks for the password, and for a fresh code where 2FA is on.
 
-### 5e. Passkeys (both realms, both sites)
+## 5e. Passkeys (both realms, both sites)
 
 Passkeys shipped in phase 2 and this section was not written at the time. So it is recorded here, and not described as new work. Migration `025` holds the tables and `main-site/api/_lib/webauthn.js` holds the implementation. Read those before changing anything here.
 
@@ -105,7 +105,7 @@ Passkeys shipped in phase 2 and this section was not written at the time. So it 
 - Two consequences stay true and are not bugs to fix later. A passkey registered here does not work on gftv.asia, which is a different domain. A passkey registered on a preview deployment does not work in production. Both are the rule doing its job.
 - Never widen the relying party id to `globalfurry.tv`. That would offer every GFTV staff passkey to every site on the domain, including ones outside this project.
 
-### 5f. Staff account settings, and its danger zone
+## 5f. Staff account settings, and its danger zone
 
 Staff get the same account settings suite the applicant realm has in 7g, scoped to what this project is actually allowed to change. **Specify it once and mount it twice.** The portal serves it at `/admin/security` and the docs site at `/account`, from the same markup, the same copy, and the same endpoint shapes. Two separate implementations of one security page is how the two drift until one of them is wrong.
 
@@ -130,7 +130,7 @@ The actions are: remove every passkey, remove the authenticator app, and invalid
 
 Rate limit these endpoints hard, and lock the danger zone for an hour after several failed password attempts. Every destructive action writes an audit row to `gftvjobs_audit_log` before it executes. That row names the account, the action, and which site it was performed from.
 
-### 5g. Staff account recovery codes
+## 5g. Staff account recovery codes
 
 Staff get a second set of codes, `gftvjobs_staff_recovery_codes`. They work exactly as 5c describes for applicants: ten codes, CSPRNG, bcrypt hashed one row per code, shown once, single use. Regenerating invalidates the set, and generating requires the current password. The forgot password flow mirrors 5c step for step, including the two proofs rule from migration `027`. Where the account has a passkey or an authenticator app, the recovery code is checked first and the second factor after it. Only then is the reset ticket usable.
 
@@ -142,7 +142,7 @@ Staff get a second set of codes, `gftvjobs_staff_recovery_codes`. They work exac
 - Both sets are separate credentials and never interchangeable, exactly as 5c requires. `gftvhello_backup_codes` gets past the second factor, and `gftvjobs_staff_recovery_codes` gets past the password. A code lying in a chat log must not be able to do both.
 - Somebody with no recovery codes and no second factor still cannot get back in alone. That path stays where it belongs, at gftv.asia.
 
-### 5h. The docs site session
+## 5h. The docs site session
 
 The docs site signs staff in itself, and never borrows a session from the portal, per section 16.
 

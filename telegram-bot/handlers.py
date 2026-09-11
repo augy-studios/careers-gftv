@@ -234,7 +234,7 @@ async def consume_link_token(ctx: Context, event, payload: str) -> LinkOutcome:
         # Already linked. Answered before the token is spent, so somebody who
         # taps an old link twice does not burn a fresh one to be told this.
         applicant = await safe_applicant(ctx, existing["applicant_id"])
-        locale = account_locale(applicant, fallback)
+        locale = account_locale(ctx, event, applicant, fallback)
         key = "link.alreadyThis" if applicant else "link.alreadyOther"
         return LinkOutcome(False, text(key, locale), locale)
 
@@ -249,7 +249,7 @@ async def consume_link_token(ctx: Context, event, payload: str) -> LinkOutcome:
         return LinkOutcome(False, text("link.refused", fallback), fallback)
 
     applicant = await safe_applicant(ctx, token["applicant_id"])
-    locale = account_locale(applicant, fallback)
+    locale = account_locale(ctx, event, applicant, fallback)
 
     try:
         link = await ctx.supabase.create_link(
@@ -318,7 +318,7 @@ async def handle_unlink(ctx: Context, event, args: str, locale: str) -> None:
         return
 
     applicant = await safe_applicant(ctx, link["applicant_id"])
-    locale = account_locale(applicant, locale)
+    locale = account_locale(ctx, event, applicant, locale)
 
     callback_id = uuid.uuid4().hex
     db.remember_callback(
@@ -410,7 +410,7 @@ async def handle_code(ctx: Context, event, args: str, locale: str) -> None:
         return
 
     applicant = await safe_applicant(ctx, link["applicant_id"])
-    locale = account_locale(applicant, locale)
+    locale = account_locale(ctx, event, applicant, locale)
 
     if link.get("twofa_enabled") is not True:
         # A code for an account that does not ask for one has nowhere to be
@@ -468,11 +468,13 @@ def code_expiry() -> str:
 # notify, section 15's per kind toggles
 # ---------------------------------------------------------------------------
 
-# The order the three appear in, which is the order somebody meets them: an
+# The order the four appear in, which is the order somebody meets them: an
 # invitation is the message this whole channel exists for, a task is the ordinary
-# one, and a decision is the rare one. The labels come from `strings.py` keyed on
-# the kind, so a kind added later needs one string and no code here.
-NOTIFY_KINDS = ("invite", "task_raised", "application_status_changed")
+# one, a decision is the rare one, and a confirmation is the one the portal
+# makes on their behalf. The labels come from `strings.py` keyed on the kind, so
+# a kind added later needs one string and no code here. The fourth is phase
+# 14's, and the column behind it is migration 043's.
+NOTIFY_KINDS = ("invite", "task_raised", "application_status_changed", "application_confirmed")
 
 
 async def handle_notify(ctx: Context, event, args: str, locale: str) -> None:
@@ -493,7 +495,7 @@ async def handle_notify(ctx: Context, event, args: str, locale: str) -> None:
         return
 
     applicant = await safe_applicant(ctx, link["applicant_id"])
-    locale = account_locale(applicant, locale)
+    locale = account_locale(ctx, event, applicant, locale)
 
     await event.respond(
         text("notify.intro", locale),
@@ -580,7 +582,7 @@ async def handle_notify_callback(ctx: Context, event, record: dict) -> None:
         return
 
     applicant = await safe_applicant(ctx, link["applicant_id"])
-    locale = account_locale(applicant, locale)
+    locale = account_locale(ctx, event, applicant, locale)
     wanted = link.get(column) is False
 
     try:
@@ -603,6 +605,131 @@ async def handle_notify_callback(ctx: Context, event, record: dict) -> None:
         buttons=notify_buttons(
             ctx, updated or link, locale, event.sender_id, record["chat_id"] or event.chat_id
         ),
+        link_preview=False,
+    )
+
+
+# ---------------------------------------------------------------------------
+# language, phase 14. A language for this chat, in front of the account's.
+# ---------------------------------------------------------------------------
+
+
+async def handle_language(ctx: Context, event, args: str, locale: str) -> None:
+    """Choose the language this chat is written in, or go back to the account's.
+
+    **The portal's own setting is untouched, and by default it decides.**
+    Section 15 has the bot follow the language stored on the account, and it
+    still does: an absent row in `chat_locales` is the ordinary state and it
+    means exactly that. What this adds is a choice that belongs to the chat,
+    for somebody who reads the portal in one language and wants the guides, or
+    everything else the bot says, in another. Asked for on 11 September 2026,
+    and extended from `/docs` alone to the whole bot the same day.
+
+    **It needs no account and obeys no feature switch.** A stranger can choose
+    a language before linking anything, and a person turned away from a
+    language control during an outage is a person who cannot read the sentence
+    telling them about it. `start` and `docs` obey nothing for the same reason.
+    """
+    await event.respond(
+        language_intro(ctx, event, locale),
+        buttons=await language_buttons(ctx, event, locale),
+        link_preview=False,
+    )
+
+
+def language_intro(ctx: Context, event, locale: str) -> str:
+    """The message above the buttons, saying which rule is in force now."""
+    chosen = chat_locale_for(ctx, event)
+    if chosen is None:
+        return text("language.intro", locale) + "\n\n" + text("language.followingAccount", locale)
+    return text("language.intro", locale) + "\n\n" + text(
+        "language.chosen", locale, name=text(f"language.name.{chosen}", locale)
+    )
+
+
+async def language_buttons(ctx: Context, event, locale: str):
+    """One button per language the bot can speak, and one to follow the account.
+
+    The list is the build's shipped locales filtered by what `strings.py`
+    carries, which is the same list `resolve_locale` answers from: a language
+    the site ships before the bot does is not offered here, because choosing it
+    would render English under a heading in another script.
+    """
+    supported = tuple(name for name in await ctx.status.locales() if name in STRINGS) or (DEFAULT_LOCALE,)
+    chosen = chat_locale_for(ctx, event)
+
+    rows = []
+    for name in supported:
+        label = text(f"language.name.{name}", locale)
+        if name == chosen:
+            label = text("language.current", locale, name=label)
+        callback_id = language_callback_id(ctx, name, event.sender_id, event.chat_id)
+        rows.append([Button.inline(label, f"cb:{callback_id}".encode())])
+
+    follow = text("language.follow", locale)
+    if chosen is None:
+        follow = text("language.current", locale, name=follow)
+    callback_id = language_callback_id(ctx, None, event.sender_id, event.chat_id)
+    rows.append([Button.inline(follow, f"cb:{callback_id}".encode())])
+    return rows
+
+
+def language_callback_id(ctx: Context, name: str | None, telegram_user_id: int, chat_id: int) -> str:
+    """A stable id per user and choice, so a redraw does not grow the registry.
+
+    The same shape as `/notify`'s: the keyboard is redrawn on every tap, and a
+    fresh uuid each time would write a row per button per click for ever.
+    """
+    material = f"language:{name or '-'}:{telegram_user_id}"
+    callback_id = hashlib.sha256(material.encode("utf-8")).hexdigest()[:32]
+    db.remember_callback(
+        ctx.conn,
+        callback_id,
+        "language",
+        {"locale": name},
+        telegram_user_id=telegram_user_id,
+        chat_id=chat_id,
+    )
+    return callback_id
+
+
+async def handle_language_callback(ctx: Context, event, record: dict) -> None:
+    """One language chosen, or the choice cleared, and the keyboard redrawn.
+
+    The reply is written in the language just chosen, which is the one piece of
+    evidence that the choice took: a confirmation in the old language would be
+    the bot saying it changed while demonstrating that it had not.
+    """
+    if record["telegram_user_id"] not in (None, event.sender_id):
+        await event.answer(text("callback.notYours", DEFAULT_LOCALE), alert=True)
+        return
+
+    wanted = record["payload"].get("locale")
+    if wanted is not None and wanted not in STRINGS:
+        await event.answer(text("callback.unknown", DEFAULT_LOCALE), alert=True)
+        return
+
+    db.set_chat_locale(ctx.conn, event.sender_id, wanted)
+
+    if wanted is None:
+        # Back to the account's language, or the client's for a stranger, which
+        # is what the dispatcher would resolve for the next message.
+        link = await current_link(ctx, event)
+        applicant = await safe_applicant(ctx, link["applicant_id"]) if link else None
+        sender = None
+        try:
+            sender = await event.get_sender()
+        except Exception:  # noqa: BLE001 - never let this decide whether we reply
+            pass
+        locale = account_locale(ctx, event, applicant, await client_locale(ctx, sender))
+        await event.answer(text("language.cleared", locale))
+    else:
+        locale = wanted
+        await event.answer(text("language.changed", locale, name=text(f"language.name.{locale}", locale)))
+
+    await event.edit(
+        language_intro(ctx, event, locale),
+        buttons=await language_buttons(ctx, event, locale),
         link_preview=False,
     )
 
@@ -706,7 +833,7 @@ async def handle_invites(ctx: Context, event, args: str, locale: str) -> None:
         return
 
     applicant = await safe_applicant(ctx, link["applicant_id"])
-    locale = account_locale(applicant, locale)
+    locale = account_locale(ctx, event, applicant, locale)
 
     try:
         rows = await ctx.supabase.open_invites(link["applicant_id"], limit=SHOWN + 5)
@@ -771,7 +898,7 @@ async def handle_tasks(ctx: Context, event, args: str, locale: str) -> None:
         return
 
     applicant = await safe_applicant(ctx, link["applicant_id"])
-    locale = account_locale(applicant, locale)
+    locale = account_locale(ctx, event, applicant, locale)
 
     try:
         tasks = await ctx.supabase.open_task_count(link["applicant_id"])
@@ -822,7 +949,7 @@ async def handle_applications(ctx: Context, event, args: str, locale: str) -> No
         return
 
     applicant = await safe_applicant(ctx, link["applicant_id"])
-    locale = account_locale(applicant, locale)
+    locale = account_locale(ctx, event, applicant, locale)
 
     try:
         rows = await ctx.supabase.applications_for(link["applicant_id"], limit=SHOWN + 5)
@@ -888,7 +1015,7 @@ async def handle_jobs(ctx: Context, event, args: str, locale: str) -> None:
     link = await current_link(ctx, event)
     if link is not None:
         applicant = await safe_applicant(ctx, link["applicant_id"])
-        locale = account_locale(applicant, locale)
+        locale = account_locale(ctx, event, applicant, locale)
 
     rows = await ctx.feed.newest(locale, limit=SHOWN)
 
@@ -1211,7 +1338,7 @@ async def handle_docs(ctx: Context, event, args: str, locale: str) -> None:
     link = await current_link(ctx, event)
     if link is not None:
         applicant = await safe_applicant(ctx, link["applicant_id"])
-        locale = account_locale(applicant, locale)
+        locale = account_locale(ctx, event, applicant, locale)
 
     await docs_index(ctx, event, locale, edit=False)
 
@@ -1315,10 +1442,27 @@ async def client_locale(ctx: Context, sender) -> str:
     return locale_for(getattr(sender, "lang_code", None), supported or (DEFAULT_LOCALE,))
 
 
-def account_locale(applicant: dict | None, fallback: str) -> str:
-    """The account's own language, which wins the moment there is an account."""
+def account_locale(ctx: Context, event, applicant: dict | None, fallback: str) -> str:
+    """The account's own language, which wins the moment there is an account.
+
+    **Unless this chat chose one with /language**, phase 14. That choice is a
+    fact about the chat, kept in SQLite against the Telegram user, and it beats
+    the account's setting for everything the bot says: the person asked for it
+    here, in so many words, and the portal's own setting is untouched. An
+    absent row is the ordinary case and means the account decides, which is
+    section 7's rule as it has stood since phase 11 part 2.
+    """
+    chosen = chat_locale_for(ctx, event)
+    if chosen is not None:
+        return chosen
     stored = (applicant or {}).get("locale")
     return stored if stored in STRINGS else fallback
+
+
+def chat_locale_for(ctx: Context, event) -> str | None:
+    """The language chosen for this chat, if the bot can still speak it."""
+    chosen = db.chat_locale(ctx.conn, getattr(event, "sender_id", None))
+    return chosen if chosen in STRINGS else None
 
 
 async def safe_applicant(ctx: Context, applicant_id: str | None) -> dict | None:
@@ -1358,6 +1502,7 @@ HANDLERS = {
     "jobs": handle_jobs,
     "notify": handle_notify,
     "docs": handle_docs,
+    "language": handle_language,
 }
 
 # The same idea for buttons. A callback row's `kind` decides what runs, so a
@@ -1368,4 +1513,5 @@ CALLBACKS = {
     "notify": handle_notify_callback,
     "decline_invite": handle_decline_callback,
     "docs": handle_docs_callback,
+    "language": handle_language_callback,
 }

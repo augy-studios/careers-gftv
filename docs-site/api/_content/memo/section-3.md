@@ -209,7 +209,7 @@ Breaking one of these is how a defect gets built and not found.
   entries lives in the header of `api/cron/daily.js` instead. Do not put one
   back.
 
-### What phase 9 added to the list
+## What phase 9 added to the list
 
 - **A secret is compared before the body is read.** Both new endpoints do this,
   and putting a rate limit in front of it would add a table read to every
@@ -227,7 +227,7 @@ Breaking one of these is how a defect gets built and not found.
 - **The webhook's caller has no locale**, so everything it writes picks English
   deliberately. Nothing it writes is read by an applicant.
 
-### What phase 9's verification run added to the list
+## What phase 9's verification run added to the list
 
 - **Waiting for an element that is in the static markup is waiting for
   nothing.** The sibling of "a fixed wait is a race", and it bit twice as hard.
@@ -244,7 +244,7 @@ Breaking one of these is how a defect gets built and not found.
   between "nobody set the variable" and "your copy of it is stale". It saves a
   trip to a dashboard nobody should need.
 
-### What phase 10 added to the list
+## What phase 10 added to the list
 
 - **A failed request is a third state.** `applicantSession` answered `{ user:
   null }` for both "nobody is signed in" and "we could not ask". Both dashboards
@@ -270,7 +270,7 @@ Breaking one of these is how a defect gets built and not found.
 - **Anything that turns a subsystem off has to leave itself a way of hearing
   that it has been turned back on.** Deviation 89.
 
-### What phase 11 part 1 added to the list
+## What phase 11 part 1 added to the list
 
 All four were found by running the code once before it went anywhere near the
 VPS. In a component with no scripted checks that is the whole of the safety net.
@@ -310,7 +310,7 @@ VPS. In a component with no scripted checks that is the whole of the safety net.
   `check-precache.js`. It is also the shape of phase 10's two checks that the
   worker's duplicated verdict rule still matches `queue.js`.
 
-### What phase 11 part 3 added to the list
+## What phase 11 part 3 added to the list
 
 - **A secret nothing can deliver is a secret nothing should generate.** The site
   cannot reach Telegram. So a code it produced would have to cross
@@ -345,7 +345,7 @@ VPS. In a component with no scripted checks that is the whole of the safety net.
   instead of asserting the two are compatible. The same family as phase 10's two
   copies of the queue's verdict rule.
 
-### What phase 11 part 4 added to the list
+## What phase 11 part 4 added to the list
 
 - **A claim is a lease, not a transfer, and a lease nobody sweeps is a row that
   is stuck for ever.** The conditional claim stops two instances sending one
@@ -378,7 +378,7 @@ VPS. In a component with no scripted checks that is the whole of the safety net.
   and not folded into a count, and it is the shape phase 12's status page needs
   anyway.
 
-### What phase 11 part 5 added to the list
+## What phase 11 part 5 added to the list
 
 - **Delivery belongs to the act, not to the caller.** Every task raised queues
   its notification from inside `raiseTask`, so a raise site written in a later
@@ -403,7 +403,7 @@ VPS. In a component with no scripted checks that is the whole of the safety net.
   The same shape as the outbox claim and the token spend. The filter is the
   check, and there is no read in front of it to go stale.
 
-### What phase 11 part 6 added to the list
+## What phase 11 part 6 added to the list
 
 - **The narrowest thing that can answer the question is the one to ask.** The
   bot holds a key that bypasses every policy in the schema, and `/jobs` is
@@ -431,7 +431,7 @@ VPS. In a component with no scripted checks that is the whole of the safety net.
   The general shape: a list and the action on its rows share one definition of
   what belongs in it.
 
-### What phase 11 part 7 added to the list
+## What phase 11 part 7 added to the list
 
 - **A check that found nothing to look at is not a pass.** `--check` compares a
   document against the generated list. The natural implementation compares
@@ -453,7 +453,7 @@ VPS. In a component with no scripted checks that is the whole of the safety net.
   Deviation 90's "a seam finds what a part cannot", one phase later and in prose
   and not in checks.
 
-### What phase 11 part 2 added to the list
+## What phase 11 part 2 added to the list
 
 - **A page test that leaves service workers on is testing two things at once.**
   Every page here registers one, and an active worker answers from its own
@@ -472,7 +472,7 @@ VPS. In a component with no scripted checks that is the whole of the safety net.
   the encoder produced and never reaches a browser or the site's own
   `package.json`. The rule that matters is which `package.json` it lands in.
 
-### What the flip to `shipped` added to the list
+## What the flip to `shipped` added to the list
 
 - **Assert the computed style, not the attribute**, on anything a stylesheet
   written for something else can reach. `theme.css` strokes every `svg` with currentColor for the icon set. The QR's viewBox is measured in modules, so a 1.75 unit stroke flooded it. The three checks reading the path data and
@@ -485,7 +485,7 @@ VPS. In a component with no scripted checks that is the whole of the safety net.
 - **A presentation attribute loses to a stylesheet**, which is why the fix is a
   CSS rule and not tidier attributes in `drawQr`.
 
-### What parts 6c and 6d added to the list, 30 August 2026
+## What parts 6c and 6d added to the list, 30 August 2026
 
 - **A message written at `DOMContentLoaded` is written before the dictionary has
   landed.** `t()` answers with the key until it does, so `auth.magicOff` printed
@@ -516,7 +516,7 @@ VPS. In a component with no scripted checks that is the whole of the safety net.
   build. `trustApplicantDevice` returned nothing, so a failed insert was still
   reported as `device_trusted`.
 
-### What phase 12 part 1 added to the list
+## What phase 12 part 1 added to the list
 
 - **A control added later is not covered by the rules written for the ones
   before it.** `.site-nav a` and `.site-nav .nav-signout` were given
@@ -565,7 +565,7 @@ VPS. In a component with no scripted checks that is the whole of the safety net.
   icons: they were drawn at the sizes they asked for. The fix that a squeeze
   would have needed is not the fix this needed, and one probe separated them.
 
-### What phase 12 part 2 added to the list
+## What phase 12 part 2 added to the list
 
 - **A finding on every page is a finding about the check.** Part 1's version was
   436px of a 375px viewport; part 2's was every link in the admin sidebar
@@ -617,7 +617,7 @@ VPS. In a component with no scripted checks that is the whole of the safety net.
   standing afterwards is the check. A destructive action tested only by
   succeeding has had its guards assumed.
 
-### What phase 12 part 5 added to the list
+## What phase 12 part 5 added to the list
 
 - **A rewrite only runs when nothing on disk answers first.** Phase 3's rule
   said a route returning 200 is not evidence its rewrite works; this is the same
@@ -656,7 +656,7 @@ VPS. In a component with no scripted checks that is the whole of the safety net.
   and verified in both directions, so an unwritten sentence is found while there
   is still a part to write it in.
 
-### What phase 12 part 6 added to the list
+## What phase 12 part 6 added to the list
 
 - **A duplicate that has been removed comes back by somebody writing the next
   one.** Four copies came out in this part — two modal shells, three `runAction`
@@ -705,7 +705,7 @@ VPS. In a component with no scripted checks that is the whole of the safety net.
   6 adds, so a clean run against the old deployment is impossible and not
   misleading. The same shape as `discovery-live`, and for the same reason.
 
-### What phase 12 part 7 added to the list
+## What phase 12 part 7 added to the list
 
 - **A gap in the data is data, and three separate files have to agree not to
   fill it in.** The probe writes nothing it could not send and backfills
@@ -795,7 +795,7 @@ VPS. In a component with no scripted checks that is the whole of the safety net.
   **Phase 13 builds an entire site behind a gate**, so this is the line from
   part 7 most likely to be needed again.
 
-### What phase 12 part 8 added to the list
+## What phase 12 part 8 added to the list
 
 - **A list in a document is compared against the thing it lists, in both
   directions, or it is decoration.** `migrations/README.md` stopped at `033` and
@@ -818,7 +818,7 @@ VPS. In a component with no scripted checks that is the whole of the safety net.
   undo.** `--clear` is never refused, whatever `INDEXING` says. A guard that
   blocks the cleanup as well as the mess is a guard that gets bypassed.
 
-### What phase 13 part 7's walk added to the list
+## What phase 13 part 7's walk added to the list
 
 The walk in section 5 item 24, done 3 September 2026. **Four of its five
 findings were invisible to every check in this repository.** That is the
@@ -858,7 +858,7 @@ argument for the sitting and not an argument about any of them.
   the scratchpad and not in `tests/`. The next phase should decide whether a
   `--only=walk` section that reads this state belongs in the phase file.
 
-### Traps the next phase should still know about
+## Traps the next phase should still know about
 
 - **`gftvjobs_analytics` is append only and the funnel counts every row.**
 - **Do not sweep `gftvhello_sessions`.** Section 11 says so and deviation 54

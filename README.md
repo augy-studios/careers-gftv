@@ -8,7 +8,7 @@ collected in Google Forms: the portal's job is to gate access, hand the
 applicant over, log the handoff, and track what happened next. It is a GFTV
 HelloApp and follows the same conventions as the other GFTV PWAs.
 
-**Phases 1 to 13 of 15 have shipped.** The database
+**Phases 1 to 14 of 15 have shipped.** The database
 schema and the shared server side code, then signing in, then the job board,
 the postings themselves, applying to one, and the applicant's own account area.
 The public surface is the home page, `/search` with its filters and
@@ -28,9 +28,11 @@ Chinese round trip, `robots.txt`, `sitemap.xml` and `llms.txt`, a seed script,
 and `/status` rebuilt as a service status page fed by a probe on the bot's VPS.
 **Phase 13 is the documentation site** at `docs.careers.globalfurry.tv`, its own
 Vercel project with its own staff sign in and the role gate that decides what a
-reader is allowed to see. Of the two that remain, phase 14 is being built: the
-guides themselves, for applicants, the Telegram bot, translation helpers and
-staff. Live status:
+reader is allowed to see. **Phase 14 is the documentation itself**: 82 pages
+across six guides, for applicants, the Telegram bot, translation helpers, job
+posters, admins and developers, in English and 华文, with the specification and
+the working memo rendered as pages beside them. One remains, and
+phase 15 is being built: Malay and Tamil. Live status:
 [careers.globalfurry.tv/status](https://careers.globalfurry.tv/status).
 
 **The portal is open to search engines from phase 12 part 8**, on 31 August
@@ -69,8 +71,8 @@ nothing is unbuilt, and it will work again in a moment.
 |---|---|
 | `main-site/` | The portal. Static HTML, CSS, and JavaScript with no build step, plus Vercel serverless functions in `main-site/api/`. This is the Vercel root directory for the portal project. |
 | `migrations/` | Every numbered SQL file, run by hand in the Supabase SQL editor. Nothing automated applies these. |
-| `telegram-bot/` | The `careersgftv_bot` Telegram bot, phase 11, all ten commands answering. Linking from either end, sign in codes and the one tap link, the outbox drain behind the three notification kinds, and the four list commands. Phase 14 part 10 added the tenth, `/docs`, which browses the guides and sends a page as text: it reads `gftvjobs_docs_public` and never either table under it, so it carries no tier logic of its own. Runs on a Debian VPS under tmux, deployed by pulling this repository and restarting the process by hand. **It has no scripted checks at all**, by deviation 91: a person walks the checklist in its README. |
-| `docs-site/` | The documentation site for `docs.careers.globalfurry.tv`, four audiences behind one gate, being built in phase 13. Its own Vercel project on the same repo, so it cannot import anything from `main-site/`: what it shares is duplicated into it by `gen-docs-lib.js` and never edited in place. **It is the one directory with a build step**, `docs-site/scripts/build.js`, per 16e. |
+| `telegram-bot/` | The `careersgftv_bot` Telegram bot, phase 11, all eleven commands answering. Linking from either end, sign in codes and the one tap link, the outbox drain behind the four notification kinds, and the four list commands. Phase 14 part 10 added the tenth, `/docs`, which browses the guides and sends a page as text: it reads `gftvjobs_docs_public` and never either table under it, so it carries no tier logic of its own. The eleventh is `/language`, a language for the chat in front of the account's, and the fourth notification kind is the form confirmation; both are 11 September 2026. Runs on a Debian VPS under tmux, deployed by pulling this repository and restarting the process by hand. **It has no scripted checks at all**, by deviation 91: a person walks the checklist in its README. |
+| `docs-site/` | The documentation site for `docs.careers.globalfurry.tv`, four audiences behind one gate, built in phase 13 and filled by phase 14. Its own Vercel project on the same repo, so it cannot import anything from `main-site/`: what it shares is duplicated into it by `gen-docs-lib.js` and never edited in place. **It is the one directory with a build step**, `docs-site/scripts/build.js`, per 16e. |
 | `apps-script/` | The Google Apps Script that each job's application form runs on submit, per section 13. Not deployed by anything: it is pasted into a form by hand. See [The application form webhook](#the-application-form-webhook). |
 | `tests/` | Playwright checks, run by hand against a deployment. Not a CI suite: they need a staff credential and they write real rows. Phase 10's is the exception and needs neither, because a service worker cannot be checked by asking a deployment anything. |
 | `reference/` | The two documents this build is run from: `careers-gftv-spec.md`, the brief, and `next-steps.md`, the working memo. Nothing reads either at runtime and no page is served from here. They are in the repository as of 7 September 2026, phase 14 part 10e; both were gitignored before that, which is how twenty one pages generated from the brief came to be committed while the brief itself was not. Both are rendered onto the documentation site by a generator at the root. |
@@ -83,7 +85,7 @@ lives in its directory and how to work with it.
 | This file | The project, the directories, the current phase, running the migrations, and where the specification and environment variables live. |
 | [`main-site/README.md`](main-site/README.md) | Local development, environment variables, the two auth realms, the API route map, the Vercel settings, and the offline test checklist. |
 | [`migrations/README.md`](migrations/README.md) | Every migration file in order, how to run them, and the rule about never editing an applied file. |
-| [`telegram-bot/README.md`](telegram-bot/README.md) | What the bot does, the ten commands, running it under tmux, its environment variables, and **the by-hand checklist that stands in for the test file it does not have**. |
+| [`telegram-bot/README.md`](telegram-bot/README.md) | What the bot does, the eleven commands, running it under tmux, its environment variables, and **the by-hand checklist that stands in for the test file it does not have**. |
 | [`docs-site/README.md`](docs-site/README.md) | What the docs site covers, adding a page, previewing, and the screenshot capture. |
 | [`tests/README.md`](tests/README.md) | Running the Playwright checks, what a run writes, what it cannot check, and how to write a new phase's. |
 

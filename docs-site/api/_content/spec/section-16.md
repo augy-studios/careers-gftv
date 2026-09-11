@@ -11,7 +11,7 @@ A separate documentation site in a new `docs-site` directory in this same repo, 
 
 It was specified as a public applicant site with nothing internal in it. It is now the documentation for the whole project, for four audiences. What a reader sees depends on whether they are signed in, and on what their staff role is. The public half is unchanged in spirit and still carries nothing internal. The rest is behind a staff login.
 
-### 16a. Audiences, and what each one sees
+## 16a. Audiences, and what each one sees
 
 Four tiers, cumulative, so each one sees everything the tier below it sees.
 
@@ -40,7 +40,7 @@ Four tiers, cumulative, so each one sees everything the tier below it sees.
 - The role is derived from the session on the server, per 10 item 2, and never read from anything the client sent.
 - One exception to the silence. The docs home page says plainly that staff documentation exists and is behind a sign in. Hiding the fact that a staff area exists protects nothing, since the login form is right there. And a job poster who has never been told will not go looking.
 
-### 16b. Signing in
+## 16b. Signing in
 
 Per 5h. Its own functions, its own cookie, and its own session table. The same `gftvhello` accounts, the same second factor, and the same access check as the portal.
 
@@ -50,7 +50,7 @@ Per 5h. Its own functions, its own cookie, and its own session table. The same `
 - Trusting a device here does not trust it on the portal, since the token cookie is host scoped. Say that next to the checkbox, instead of letting somebody conclude it failed.
 - Sign in is the one part of this site that needs the network and cannot be cached. Say so on the form when the reader is offline.
 
-### 16c. Account settings (`/account`)
+## 16c. Account settings (`/account`)
 
 The full staff account settings suite from 5f, danger zone included, mounted here and on the portal from one shared implementation.
 
@@ -58,7 +58,7 @@ Everything in 5f applies unchanged. Profile read only with a link to gftv.asia, 
 
 There is no delete account, because the gftvhello account is not this project's to delete. Say so and link across.
 
-### 16d. Design language
+## 16d. Design language
 
 Follow GitBook's structure and interaction patterns, with GFTV's own palette from `gftv-theme.md`. Take the layout conventions, not the branding. Never use GitBook's logo, name, or assets, and do not imply any affiliation.
 
@@ -78,7 +78,7 @@ The two pages with no article to hold are sign in and account settings. They ren
 - Code and command blocks with a copy button, used mainly for bot commands.
 - Two axis theming exactly as the main site, same tokens, same `data-color-theme` and `data-mode` attributes, light default, WCAG AA in every combination.
 
-### 16e. Content, in two pipelines
+## 16e. Content, in two pipelines
 
 Every page is markdown with front matter. The front matter carries a required `access` key of `public`, `poster`, `admin`, or `developer`. That key is the only thing that decides which pipeline a page goes through, and who may read it. **Fail the build on a page with no `access` key.** A page whose tier was forgotten must not default to public. Defaulting to gated instead just means a page nobody notices is missing.
 
@@ -106,7 +106,7 @@ Five things follow, and the first two are the reason it is written down here at 
 - Sub navigation lists the pages in order, with previous and next links at the foot of each. Previous and next never point at a page the reader cannot open.
 - Since the staff half is behind a login, it can be specific in ways the public half cannot. Real procedures, real edge cases, real warnings. **Still no secrets.** No environment variable values, no keys, no tokens, no Google Form URLs, and no real applicant data. "Behind a login" is not "safe to paste a service role key into".
 
-### 16f. Language
+## 16f. Language
 
 **The whole site follows 3a**, public half and staff half alike, and ships in every language the portal ships in. Revised 3 September 2026.
 
@@ -118,7 +118,7 @@ The cost it named is real and is accepted. A guide that changes with a phase is 
 - The language control sits in the header, per 16d, and a reader's choice is stored against this site's own origin. **It does not carry from the portal and cannot.** `localStorage` is per origin, and the one mechanism that would cross is a cookie on `.globalfurry.tv`. 5h forbids that, because the parent domain carries other GFTV apps. The first page a reader sees is English whatever they chose next door, and the control is how they say otherwise.
 - Guide content is translated per 16e. A page with no translation falls back to English with a notice, exactly as a posting does under 3a.
 
-### 16g. Screenshots
+## 16g. Screenshots
 
 Screenshots are captured with Playwright, not by hand.
 
@@ -134,11 +134,11 @@ Screenshots are captured with Playwright, not by hand.
 - Until the first capture run, render clearly marked placeholder slots, with the intended alt text and caption in place. A missing image then reads as pending, and not as broken.
 - Document the whole thing in the `docs-site` README. How to seed, how to run a capture, how to add a shot to the manifest, and how to re-run just one.
 
-### 16h. The pages, tier by tier
+## 16h. The pages, tier by tier
 
 Four guides, one per tier, each a top level section in the sidebar. The sidebar stays able to take another section later without rework.
 
-#### Portal guide, page by page (public)
+### Portal guide, page by page (public)
 
 - What Careers@GFTV is, and what you need to apply.
 - Creating an account, and what happens after (no approval wait, no email verification).
@@ -154,7 +154,7 @@ Four guides, one per tier, each a top level section in the sidebar. The sidebar 
 - Using the portal offline and installing it to a home screen.
 - Troubleshooting and a short FAQ.
 
-#### Bot guide, page by page (public)
+### Bot guide, page by page (public)
 
 - What the bot does and what it cannot do.
 - Linking your Telegram account, both from the portal and from the bot.
@@ -165,7 +165,7 @@ Four guides, one per tier, each a top level section in the sidebar. The sidebar 
 - Unlinking, and what happens to 2FA when you do.
 - Troubleshooting: no message arrived, code expired, wrong account linked.
 
-#### Helping with translations, page by page (public)
+### Helping with translations, page by page (public)
 
 The one genuinely new public section. It is written for a reader who speaks a language the portal publishes in, and who has no connection to GFTV beyond that. So it assumes nothing, and asks for nothing but the language.
 
@@ -178,7 +178,7 @@ The one genuinely new public section. It is written for a reader who speaks a la
 - The Singapore Mandarin note from 3a, with the vocabulary table. 义工 in place of 志愿者 is the single most visible marker. It belongs on this page, and not only in this specification.
 - What happens next. Who reads a suggestion, and roughly what the queue looks like from the other side. And that an interface string fix is a code change, and therefore waits for a deploy.
 
-#### Job poster guide, page by page (poster and above)
+### Job poster guide, page by page (poster and above)
 
 How to use the staff dashboard, covering every feature a job poster can reach. It is written for a volunteer who has been given an account, and has never seen an admin interface.
 
@@ -202,7 +202,7 @@ How to use the staff dashboard, covering every feature a job poster can reach. I
 - Using the dashboard on a phone, since reading applications at a convention is the normal case.
 - Two short checklists to finish: everything to do before publishing a new role, and a weekly review routine.
 
-#### Admin guide, page by page (admin only)
+### Admin guide, page by page (admin only)
 
 What `/admin/docs` was going to be. Everything above plus the parts a job poster has no access to.
 
@@ -220,7 +220,7 @@ What `/admin/docs` was going to be. Everything above plus the parts a job poster
 - Handling a broken or deleted Google Form on a published posting.
 - What to do when somebody reports being unable to sign in, for both realms, and which paths exist for each.
 
-#### Developer guide, page by page (admin only)
+### Developer guide, page by page (admin only)
 
 For whoever works on this project after the people who built it. This is the section that stops the build being readable only to its authors.
 
@@ -240,7 +240,7 @@ For whoever works on this project after the people who built it. This is the sec
 - **The Telegram bot**: how it is deployed on the VPS, the outbox drain, and where its own documentation lives.
 - **Conventions worth not relearning.** No framework, and no build step on `main-site`. No em dashes in copy, and inline SVG in place of emoji. And prompt with options, instead of choosing, when this specification and something else disagree.
 
-### 16i. Deployment
+## 16i. Deployment
 
 - Its own Vercel project, with the root directory set to `docs-site`, since the portal project already points at `main-site`. Two projects, one repo. This project now has serverless functions of its own, per 5h and section 9. So it needs its own environment variables set in Vercel, and its own `vercel.json` with the `includeFiles` entry for the gated content.
 - Custom domain `docs.careers.globalfurry.tv`.

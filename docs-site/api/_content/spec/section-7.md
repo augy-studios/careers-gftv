@@ -9,7 +9,7 @@ summary: Applications are collected in Google Forms, not in the portal.
 
 Applications are collected in Google Forms, not in the portal. The portal's job is to gate access, hand the applicant over, and log the handoff. It then records whether the applicant says they went through with it.
 
-### 7a. Clicking Apply
+## 7a. Clicking Apply
 
 - Only a logged in applicant can apply. This is a server side check on the endpoint, not just a hidden button. A logged out request for a form URL returns 401 and writes no analytics row.
 - When a logged in applicant clicks Apply, the client calls an authenticated endpoint. That endpoint:
@@ -21,7 +21,7 @@ Applications are collected in Google Forms, not in the portal. The portal's job 
 - The Apply button is disabled with an explanatory label once `closes_at` has passed. The same happens when the status is not `published`, or the global toggle is off. A posting with no `closes_at` never disables on time grounds.
 - **An applicant already `accepted` for this posting is refused, permanently**, per 7f. It is checked in the same place as the cooldown and is a separate reason, because the sentence is different. They have the role, and there is no date on which that changes. Never show them a cooldown date, which reads as an invitation to try again.
 
-### 7b. Prefilling the applicant's email into the Google Form
+## 7b. Prefilling the applicant's email into the Google Form
 
 This works and is worth doing. Google Forms supports prefill through query parameters.
 
@@ -31,7 +31,7 @@ This works and is worth doing. Google Forms supports prefill through query param
 - Two limitations to state plainly in the admin help text. Prefilled values are editable by the applicant, so the email in the form response is not proof of identity. And prefill only works on the `viewform` URL, not on a `forms.gle` short link. Validate on save that the stored URL is a long-form `docs.google.com/forms/.../viewform` address.
 - If a job has no `form_prefill` map, open the plain form URL. Never fail the handoff because prefill is not configured.
 
-### 7c. The handoff modal
+## 7c. The handoff modal
 
 Clicking Apply opens a modal, and only then does the form open in a new tab. The order matters. The modal has to be on screen before focus moves away, so the applicant registers it going up and recognises it when they come back. A light tap on the shoulder, not an ambush on return.
 
@@ -73,7 +73,7 @@ The modal has three stacked sections, in this order:
 - The daily cron moves analytics rows still pending after 14 days to `response_state` of `no_response`. `did_apply` stays false and `answer_source` is set to `timeout`. Nothing about the applicant's access changes at that point, since silence was already being read as No. The timeout exists to stop the modal reappearing forever, and to close the row off for reporting.
 - The modal must be usable on a phone. Full width sheet, thumb reachable buttons, stars large enough to tap accurately, and no reliance on hover.
 
-### 7d. About blocking the tab from closing
+## 7d. About blocking the tab from closing
 
 I asked for the user to be forced to answer before closing the tab. That is not something a browser will allow, so build the closest honest version instead and do not waste effort fighting it:
 
@@ -83,12 +83,12 @@ I asked for the user to be forced to answer before closing the tab. That is not 
 - The real safety net is the persistent modal in 7c, which reopens on the next visit. It never demands an answer in the moment.
 - The answer is made reliable by the Google Apps Script webhook in section 13, which confirms submissions independently of what the applicant clicks. Build that too. The modal stays regardless, since it covers forms where the script is not installed and since it also collects the rating.
 
-### 7e. Withdrawing
+## 7e. Withdrawing
 
 - Applicants can withdraw, which sets the tracking status to `withdrawn` and writes an event row. Make clear on screen that withdrawing here does not delete their Google Form response. Say that they should contact the team if they need it removed.
 - Withdrawing clears the reapply cooldown described in 7f, so someone who pulls out is not locked out of a role they change their mind about.
 
-### 7f. Reapply cooldown
+## 7f. Reapply cooldown
 
 Once an applicant has applied to a posting, they cannot apply to that same posting again for three months.
 
@@ -103,7 +103,7 @@ Once an applicant has applied to a posting, they cannot apply to that same posti
 - **Once the cooldown has run out, a rejected applicant may apply again**, and the tracking row starts fresh at `started`. The cooldown is the whole of the gate. A rejection is not a ban, and the event history keeps the record of what happened. `rejected` therefore joins `started` and `withdrawn` as a status a new application may reset. That is the list in `api/_lib/apply.js`.
 - **An accepted applicant may not apply to that posting again**, cooldown or no cooldown. They have the role. The Apply control says so plainly, and never shows a date. A date invites somebody to come back and try again for something they already have. This is the one refusal in 7a that is not about time passing.
 
-### 7g. Applicant dashboard
+## 7g. Applicant dashboard
 
 The account area gets two list pages beyond the profile. Both are private and both require an applicant session. Both must keep working for postings that are closed, expired, or archived.
 
@@ -206,7 +206,7 @@ Then the action runs. Additional requirements:
 
 Amend the 404 rule in section 4. A posting resolves at its uuid URL when any of these hold. It is `published`. It is `closed`. Or the requester is an applicant with either a `gftvjobs_applications` row or a `gftvjobs_saved_jobs` row for it. A `draft` posting is visible only to admins previewing it. Anything else is a 404. Archived postings that an applicant has history with render in a read only state with a notice explaining the posting is no longer active.
 
-### 7h. Reporting a translation problem
+## 7h. Reporting a translation problem
 
 Nobody on the GFTV side necessarily reads both languages well enough to catch a bad posting before an applicant does. So the applicants are the correction loop. Assume every translation is wrong until somebody says otherwise, and make saying so easy.
 
@@ -220,7 +220,7 @@ Nobody on the GFTV side necessarily reads both languages well enough to catch a 
 - Confirm plainly on submission, and say that a person will look at it. Do not promise a timeframe.
 - Reports are stored in `gftvjobs_translation_reports`. They are not tasks. They are outbound from the applicant, and not something the portal needs from them. So they do not belong on `/account/tasks`, and must not add to its badge count. An admin who needs to ask a follow up question raises an ordinary `info_request` task, which is what that table is for.
 
-### 7i. Translation helpers
+## 7i. Translation helpers
 
 Section 7h lets any applicant report that a translation reads wrongly. This is the other half: a standing role for people who can actually fix it.
 

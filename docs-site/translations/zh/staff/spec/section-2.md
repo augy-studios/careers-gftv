@@ -11,7 +11,7 @@ summary: 每一份都很短，说明那个目录里放什么，以及怎么在�
 - 网站放在一个 `main-site` 目录里。`api` 目录放在 `main-site` 里面，因为 Vercel 的根目录设成了 `main-site`。
 - 四个 README，就只有这四个，外加 `migrations/` 里那一个。不要在每一个子目录里都撒一个 README。
 
-### 各个 README
+## 各个 README
 
 每一份都很短，说明那个目录里放什么，以及怎么在里面做事。是一页导览，不是一本手册，因为真正的说明文件是第 16 节那个说明文件网站。
 
@@ -27,7 +27,7 @@ summary: 每一份都很短，说明那个目录里放什么，以及怎么在�
 - 密码用 bcrypt 哈希，格式要和 `gftvhello_users` 里已经存着的那种一致，这样现有的账户还能继续用。
 - 所有机密都放环境变量。每一个变量都在根目录 README 里写明。
 
-### 环境变量
+## 环境变量
 
 在 `main-site/.env.example` 放一份并提交入库。它列出每一个变量，每一个上面都有一句注释，说明到底去哪里拿。真正的值放在 `.env.local` 和 Vercel 的项目设置里。`.gitignore` 必须忽略 `.env` 和 `.env.local`，同时把 `.env.example` 留在版本控制里。
 
@@ -80,7 +80,7 @@ SITE_URL=https://careers.globalfurry.tv
 
 两个网站都不加 relying party 的变量。平台那边本来就从 `SITE_URL` 推出它。说明文件网站从同一个变量推出同一个 id，再拿回应去和它自己的 `DOCS_URL` 来源对照。正是这一点让一个 passkey 在两边都能用，而 5e 说明了为什么这是被允许的。
 
-### Supabase 相关
+## Supabase 相关
 
 - 一切都跑在现有的国际兽视 Supabase 项目里、在 `public` schema 里，和那些 `gftvhello_*` 表并排。不要另建项目，也不要另建 schema。
 - 只从服务器端访问。在 Vercel 函数里用 `@supabase/supabase-js`，配上 `SUPABASE_URL` 和 `SUPABASE_SERVICE_KEY`，这两个名字在我所有项目里都通用。不要把它们改名成 `SUPABASE_SERVICE_ROLE_KEY` 或者别的什么。浏览器绝不直接和 Supabase 说话，也绝不会拿到 anon key，所以前端里根本没有打包任何 Supabase 客户端。
@@ -92,7 +92,7 @@ SITE_URL=https://careers.globalfurry.tv
 - 指向 `gftvhello_users` 的外键只是引用而已。绝不要往任何 `gftvhello_*` 表里插入、更新或删除记录。例外是登录流程本来就拥有的那些会话、挑战、受信任设备和备用码记录。**还有一个点名的例外**，是刻意加的，而且是把冲突摆出来之后才加的。5g 的员工救援流程会写 `gftvhello_users.password_hash`，而且只写那一列。动它之前先读 5g，因为它的后果会波及 gftv.asia。
 - Supabase 透过 PgBouncer 做连接池。所以在每个函数模块导入时创建一次客户端，绝不要每个请求创建一次。
 
-### 建议的目录结构
+## 建议的目录结构
 
 ```
 /

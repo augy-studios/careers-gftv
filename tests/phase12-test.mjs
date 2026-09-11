@@ -2338,11 +2338,42 @@ define('zh', 'The Chinese, and what a check can decide before a reader is asked'
     profile.map((p) => `${p.ref} ${p.en.slice(0, 24)}… / ${p.zh.slice(0, 12)}…`).join(' | ')
   );
 
+  // **Two pages have the banned words as their subject**, and check-copy.js
+  // exempts exactly those two from its vocabulary rule: 3a's table translated
+  // into the translations guide, and 3a itself as a spec page. The list is
+  // read out of check-copy.js rather than typed here, so the two checks cannot
+  // exempt different pages, and the vocabulary rule alone is what they escape.
+  const checkCopy = readFileSync(join(HERE, '..', 'check-copy.js'), 'utf8');
+  const exemptPaths = [...checkCopy.matchAll(/where: '([^']+\.md)'/g)].map((m) => m[1]);
+  const exemptLabels = exemptPaths.map((path) =>
+    path.replace(/^docs-site\/translations\/zh\//, '').replace(/\.md$/, '')
+  );
+  check(
+    'check-copy.js exempts two pages from the vocabulary rule, and names them by path',
+    exemptPaths.length === 2 && exemptPaths.every((path) => existsSync(join(HERE, '..', path))),
+    exemptPaths.join(', ')
+  );
+  const exemptFromVocabulary = (pair) =>
+    exemptLabels.some((label) => String(pair.label).startsWith(`${label} `) || pair.label === label);
+
+  // **And the two word lists are one list.** check-copy.js enforces 3a's table
+  // and gen-review.js measures it, and on 11 September 2026 the first full run
+  // of this section since the memo pages landed found 合同 in the second and
+  // not the first. Every strict entry here has to be a word check-copy refuses.
+  const enforced = [...checkCopy.matchAll(/word: '([^']+)'/g)].map((m) => m[1]);
+  const measured = review.USAGE.filter((u) => u.strict !== false).map((u) => u.mainland);
+  check(
+    'check-copy.js refuses every word gen-review.js measures strictly',
+    measured.length > 0 && measured.every((word) => enforced.includes(word)),
+    `measured ${measured.join(', ')}; enforced ${enforced.join(', ')}`
+  );
+
   // ---- The rules, over everything -----------------------------------------
   for (const [name, rule] of Object.entries(RULES)) {
     const problems = [];
     for (const pair of data.pairs) {
       if (name.includes('has 华文 in it') && DELIBERATELY_EMPTY.has(pair.label)) continue;
+      if (name.includes('Singapore Mandarin') && exemptFromVocabulary(pair)) continue;
       const problem = rule(pair);
       if (problem) problems.push(`${pair.ref} ${pair.label}: ${problem}`);
     }

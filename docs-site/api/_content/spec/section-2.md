@@ -13,7 +13,7 @@ summary: Each one is short and says what lives in that directory and how to work
 - The site lives in a `main-site` directory. The `api` directory goes inside `main-site` because Vercel's root directory is set to `main-site`.
 - Four READMEs, and only these four plus the one in `migrations/`. Do not scatter a README into every subdirectory.
 
-### READMEs
+## READMEs
 
 Each one is short and says what lives in that directory and how to work with it. A page of orientation, not a manual, since the real documentation is the docs site in section 16.
 
@@ -29,7 +29,7 @@ Each one is short and says what lives in that directory and how to work with it.
 - Passwords hashed with bcrypt, matching the existing hash format already stored in `gftvhello_users` so existing accounts keep working.
 - All secrets in environment variables. Document every variable in the root README.
 
-### Environment variables
+## Environment variables
 
 Ship a `.env.example` at `main-site/.env.example`, committed to the repo. It lists every variable, with a comment above each one saying exactly where to get it. Real values live in `.env.local` and in the Vercel project settings. `.gitignore` must ignore `.env` and `.env.local`, while keeping `.env.example` tracked.
 
@@ -82,7 +82,7 @@ SITE_URL=https://careers.globalfurry.tv
 
 No relying party variable is added, on either site. The portal already derives it from `SITE_URL`. The docs site derives the same id from the same variable, and checks the response against its own `DOCS_URL` origin. That is what lets one passkey work on both, and 5e explains why it is allowed.
 
-### Supabase specifics
+## Supabase specifics
 
 - Everything runs in the existing GFTV Supabase project, in the `public` schema, alongside the `gftvhello_*` tables. Do not create a new project and do not create a new schema.
 - Server side access only. Use `@supabase/supabase-js` inside the Vercel functions with `SUPABASE_URL` and `SUPABASE_SERVICE_KEY`, the names used across all of my projects. Do not rename them to `SUPABASE_SERVICE_ROLE_KEY` or anything else. The browser never talks to Supabase directly and never receives an anon key, so there is no Supabase client bundled into the frontend at all.
@@ -94,7 +94,7 @@ No relying party variable is added, on either site. The portal already derives i
 - Foreign keys pointing at `gftvhello_users` are references only. Never insert, update, or delete rows in any `gftvhello_*` table. The exception is the session, challenge, trusted device, and backup code rows the login flow legitimately owns. **One more named exception**, added deliberately and with the conflict on the table. The staff recovery flow in 5g writes `gftvhello_users.password_hash`, and only that column. Read 5g before touching it, because the consequence reaches gftv.asia.
 - Supabase pools connections through PgBouncer. So create the client once per function module at import time, and never per request.
 
-### Proposed structure
+## Proposed structure
 
 ```
 /

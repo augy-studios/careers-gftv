@@ -134,6 +134,23 @@ STRINGS: dict[str, dict[str, str]] = {
         "notify.taskTitle": "{title}",
         "notify.decisionHeading": "<b>An update on your application</b>",
         "notify.decisionRole": "Role: <b>{role}</b>",
+        # Phase 14's fourth kind. The form's webhook, or an admin linking a
+        # submission by hand, recorded the application as submitted. It says what
+        # was recorded and never what the form said: the answers stay with Google.
+        "notify.confirmedHeading": "<b>Your application has been recorded</b>",
+        "notify.confirmedRole": "Role: <b>{role}</b>",
+        "notify.confirmedBody": (
+            "The application form told us it was submitted, so it now shows as "
+            "applied in your applications, with the date."
+        ),
+        "notify.confirmedOverrode.no": (
+            "You had told us you did not apply. The form says otherwise, and the "
+            "form is what we go by."
+        ),
+        "notify.confirmedOverrode.timeout": (
+            "We had marked it as no reply. The form says it was submitted, and the "
+            "form is what we go by."
+        ),
         # Section 15: always include an unsubscribe hint in the footer of a
         # notification. It names the command rather than describing where a
         # setting lives, because the command is one tap from reading this.
@@ -162,6 +179,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "notify.kind.invite": "Invitations to apply",
         "notify.kind.task_raised": "Things waiting for you",
         "notify.kind.application_status_changed": "Updates on your applications",
+        "notify.kind.application_confirmed": "Applications recorded from the form",
         "notify.state.on": "{kind}: on",
         "notify.state.off": "{kind}: off",
         "notify.word.on": "on",
@@ -295,6 +313,25 @@ STRINGS: dict[str, dict[str, str]] = {
         ),
         "callback.unknown": "That button is too old to act on. Send the command again.",
         "callback.notYours": "That button belongs to somebody else's conversation.",
+        # Phase 14's /language. The names are each language's own name for
+        # itself, the same in every table, because a person choosing a language
+        # they can read should find it written in that language.
+        "language.intro": (
+            "<b>The language of this chat</b>\n\n"
+            "Tap a language to use it here. This changes only what the bot "
+            "says. Your language on the portal stays as it is."
+        ),
+        "language.followingAccount": (
+            "Right now the chat follows the language on your portal account, "
+            "or the language of your Telegram app if nothing is linked."
+        ),
+        "language.chosen": "Right now the chat is in {name}.",
+        "language.follow": "Follow my portal account",
+        "language.current": "✓ {name}",
+        "language.changed": "This chat is now in {name}.",
+        "language.cleared": "This chat now follows your portal account again.",
+        "language.name.en": "English",
+        "language.name.zh": "华文",
         "feature.unavailable": (
             "Will be available in Phase {phase}. Sorry for the inconvenience caused."
         ),
@@ -389,6 +426,13 @@ STRINGS: dict[str, dict[str, str]] = {
         "notify.taskTitle": "{title}",
         "notify.decisionHeading": "<b>您的申请有新进展</b>",
         "notify.decisionRole": "职位：<b>{role}</b>",
+        "notify.confirmedHeading": "<b>您的申请已被记录</b>",
+        "notify.confirmedRole": "职位：<b>{role}</b>",
+        "notify.confirmedBody": (
+            "申请表单告诉我们它已经提交，所以这份申请现在在「我的申请」里显示为已申请，并附有日期。"
+        ),
+        "notify.confirmedOverrode.no": "您之前告诉我们您没有申请。表单说的不一样，而我们以表单为准。",
+        "notify.confirmedOverrode.timeout": "我们之前把它记为没有回复。表单说它已经提交，而我们以表单为准。",
         "notify.footer": "<i>发送 /notify 可以选择在这里收到哪些通知。</i>",
         "button.viewRole": "查看职位",
         "button.decline": "婉拒邀请",
@@ -410,6 +454,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "notify.kind.invite": "职位邀请",
         "notify.kind.task_raised": "待处理事项",
         "notify.kind.application_status_changed": "申请进展",
+        "notify.kind.application_confirmed": "从表单记录的申请",
         "notify.state.on": "{kind}：已开启",
         "notify.state.off": "{kind}：已关闭",
         "notify.word.on": "已开启",
@@ -485,6 +530,21 @@ STRINGS: dict[str, dict[str, str]] = {
         ),
         "callback.unknown": "这个按钮太旧了，无法继续操作。请重新发送该指令。",
         "callback.notYours": "这个按钮属于其他人的对话。",
+        "language.intro": (
+            "<b>这个聊天的语言</b>\n\n"
+            "点击一种语言，就在这里使用它。这只改变机器人说的话。"
+            "您在入队平台上的语言保持不变。"
+        ),
+        "language.followingAccount": (
+            "目前这个聊天跟随您入队平台账户上的语言；如果尚未关联账户，就跟随您 Telegram 应用的语言。"
+        ),
+        "language.chosen": "目前这个聊天使用{name}。",
+        "language.follow": "跟随我的入队平台账户",
+        "language.current": "✓ {name}",
+        "language.changed": "这个聊天现在使用{name}。",
+        "language.cleared": "这个聊天现在重新跟随您的入队平台账户。",
+        "language.name.en": "English",
+        "language.name.zh": "华文",
         "feature.unavailable": "此功能将在第 {phase} 阶段推出，给您带来不便，敬请谅解。",
         "feature.unavailableUnknown": "此功能尚未推出，给您带来不便，敬请谅解。",
         "feature.maintenance": "此功能暂时无法使用，我们正在修复。",

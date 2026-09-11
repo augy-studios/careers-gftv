@@ -138,6 +138,18 @@ COMMANDS: tuple[Command, ...] = (
             "zh": "阅读入队平台和这个机器人的使用指南。",
         },
     ),
+    # Phase 14, 11 September 2026, and the eleventh. A language for this chat,
+    # in front of the linked account's own setting, which stays the default.
+    # **No feature switch**, for `docs`'s reason: a language control has to
+    # answer during the outage it would otherwise be explaining.
+    Command(
+        name="language",
+        feature=None,
+        summary={
+            "en": "Choose the language this chat is written in.",
+            "zh": "选择这个聊天使用的语言。",
+        },
+    ),
 )
 
 BY_NAME: dict[str, Command] = {command.name: command for command in COMMANDS}
@@ -187,7 +199,10 @@ def botfather_block(locale: str = DEFAULT_LOCALE) -> str:
 # `setup.md` carries the generated blocks, because somebody pastes one into
 # BotFather from there. `README.md` carries a table, because a reader wants the
 # nine names beside what each returns rather than a block to paste.
-_TABLE_HEADING = "## Commands"
+# The heading the table sits under, in each language a guide is written in.
+# The 华文 guide carries the same table under its own heading, and it went
+# unchecked from part 10d to 11 September 2026, which is how it lost /docs.
+_TABLE_HEADINGS = ("## Commands", "## 指令")
 _TABLE_ROW = re.compile(r"^\|\s*`(/?[a-z][a-z_]*)`\s*\|", re.MULTILINE)
 _BLOCK_LINE = re.compile(rf"^{COMMANDS[0].name} - ", re.MULTILINE)
 
@@ -203,7 +218,16 @@ DOCUMENTS: tuple[str, ...] = (
     "setup.md",
     "README.md",
     "../docs-site/content/bot/commands.md",
+    "../docs-site/translations/zh/bot/commands.md",
 )
+
+
+def _table_heading(document: str) -> str | None:
+    """Which of the table headings this document uses, or None for neither."""
+    for heading in _TABLE_HEADINGS:
+        if heading in document:
+            return heading
+    return None
 
 
 def _check_blocks(path: str, document: str) -> list[str]:
@@ -224,7 +248,8 @@ def _check_table(path: str, document: str) -> list[str]:
     added and one document is updated and the other is not. The sentence beside
     each name is prose and is left to a person.
     """
-    section = document.split(_TABLE_HEADING, 1)[1]
+    heading = _table_heading(document)
+    section = document.split(heading, 1)[1]
     section = section.split("\n## ", 1)[0]
     listed = [name.lstrip("/") for name in _TABLE_ROW.findall(section)]
     expected = [command.name for command in COMMANDS]
@@ -232,18 +257,18 @@ def _check_table(path: str, document: str) -> list[str]:
         return []
 
     problems = [
-        f"{path}: the {_TABLE_HEADING} table does not list /{name}"
+        f"{path}: the {heading} table does not list /{name}"
         for name in expected
         if name not in listed
     ]
     problems += [
-        f"{path}: the {_TABLE_HEADING} table lists /{name}, which this file does not"
+        f"{path}: the {heading} table lists /{name}, which this file does not"
         for name in listed
         if name not in expected
     ]
     if not problems:
         problems.append(
-            f"{path}: the {_TABLE_HEADING} table names every command in a different order"
+            f"{path}: the {heading} table names every command in a different order"
         )
     return problems
 
@@ -266,7 +291,7 @@ def check_document(path: str) -> list[str]:
 
     problems: list[str] = []
     carries_block = bool(_BLOCK_LINE.search(document))
-    carries_table = _TABLE_HEADING in document
+    carries_table = _table_heading(document) is not None
     if carries_block:
         problems += _check_blocks(path, document)
     if carries_table:

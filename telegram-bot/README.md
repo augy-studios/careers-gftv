@@ -4,10 +4,10 @@ The Careers@GFTV Telegram bot, `careersgftv_bot`.
 
 **Status: all seven parts of phase 11 are here.** The process starts, holds a
 single instance lock, opens its SQLite database, reads what has shipped and what
-an admin has switched off from the live site, and answers all ten commands.
+an admin has switched off from the live site, and answers all eleven commands.
 Linking works from both ends: the site issues a token and shows a QR, and
 `/start <token>` turns it into a link. A login code and the one tap sign in link
-come from a loop of their own, the outbox drain delivers the three notification
+come from a loop of their own, the outbox drain delivers the four notification
 kinds, and `notify` decides which of them arrive.
 See [the build status page](https://careers.globalfurry.tv/status).
 
@@ -31,9 +31,10 @@ every task in the portal itself.
 - Deliver a six digit login code, or a one tap sign in link bound to the
   browser that asked for it.
 - Act as the second factor at login, once the applicant turns that on.
-- Deliver three kinds of notification: an invitation to a role, a request for
-  more information, and a change to an application's status. Each one is
-  individually toggleable.
+- Deliver four kinds of notification: an invitation to a role, a request for
+  more information, a change to an application's status, and an application
+  the form recorded as submitted. Each one is individually toggleable. The
+  fourth is phase 14's, 11 September 2026, and migration `043` is its column.
 
 The site never calls the bot. It writes a row into `gftvjobs_notifications` and
 returns. The bot polls that table, claims a batch, sends, and marks each row
@@ -95,8 +96,9 @@ Ten, and only ten. There is no `help`; `start` carries that content.
 | `jobs` | The newest openings, with buttons through to each posting. |
 | `notify` | Toggles which notification kinds this account receives. |
 | `docs` | Browses the guides with inline buttons and sends a page as text, in the reader's own language. |
+| `language` | Chooses the language this chat is written in, in front of the linked account's own setting, which stays the default. |
 
-**All nine answer, and the not-built-yet half of that machinery is now unused
+**All eleven answer, and the not-built-yet half of that machinery is now unused
 rather than removed.** A command with no handler replies with the same sentence
 the site puts on a control for an unshipped feature; one that is built, and
 whose feature an admin has switched off, gets the maintenance sentence instead.
@@ -131,7 +133,7 @@ until the flip could not be walked through at all.
 | `commands.py` | **The command list, and the only copy of it.** `start` prints from it, Telegram's menu is registered from it, `setup.md` gives BotFather the same lines, and `--check` proves both documents still agree with it. |
 | `handlers.py` | One handler per built command, and the rule that decides what answers. |
 | `security.py` | The fast loop. Sign in codes and the one tap link that rides with them. Two seconds, beside the command loop and never inside it. |
-| `outbox.py` | The slow loop. The claim, the three renderers, the retries and their backoff, `skipped`, the stale claim sweep, and the flood wait that reschedules rather than sleeping the worker. Twenty seconds. |
+| `outbox.py` | The slow loop. The claim, the four renderers, the retries and their backoff, `skipped`, the stale claim sweep, and the flood wait that reschedules rather than sleeping the worker. Twenty seconds. |
 | `feed.py` | The public openings feed, with a short cache per language, behind `jobs`. |
 | `strings.py` | Everything the bot says, in every language. Not the site's dictionaries. |
 | `build_status.py` | What has shipped and what an admin has switched off. |
@@ -285,7 +287,7 @@ step 14. About forty minutes.
    file to clear by hand. Cheapest check here, and one of the two the deferral
    below would otherwise have swallowed.
 4. **`/start` from a Telegram account that has linked nothing.** The
-   introduction, all ten commands, a button to the portal, and the donation
+   introduction, all eleven commands, a button to the portal, and the donation
    button if `DONATION_URL` is set. **Nothing in the reply names the bot.**
 5. **Type something that is not a command.** One line pointing at `/start`, not
    silence and not an error.
@@ -328,7 +330,12 @@ step 14. About forty minutes.
     a button to the tasks page.
 21. **Move one of the applicant's applications to another status.** It arrives
     carrying the portal's own word for that status.
-22. **Every one of those three carries the unsubscribe footer.**
+21a. **Deliver a form submission for the applicant**, or link one by hand from
+    `/admin/analytics`. The confirmation arrives naming the role, saying it was
+    recorded from the form, and saying so if it overrode a No or a timeout. A
+    second delivery of the same response sends nothing, and `/notify` shows
+    its switch as the fourth button. Added by phase 14, 11 September 2026.
+22. **Every one of those four carries the unsubscribe footer.**
 23. **Turn task notifications off in `/notify`, then raise another task.** The
     row is marked `skipped` rather than left queued, and the outbox panel on
     `/admin` counts it as skipped.

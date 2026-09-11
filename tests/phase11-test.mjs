@@ -1164,21 +1164,27 @@ define('notify', 'The three notification kinds, and what can silence them', asyn
   const drain = await readFile(join(HERE, '..', 'telegram-bot', 'outbox.py'), 'utf8');
   const supabasePy = await readFile(join(HERE, '..', 'telegram-bot', 'supabase.py'), 'utf8');
   const strings = await readFile(join(HERE, '..', 'telegram-bot', 'strings.py'), 'utf8');
-  const migration = await readFile(
-    join(HERE, '..', 'migrations', '011_telegram_and_notifications.sql'),
-    'utf8'
-  );
+  // 011 created the links table with three toggle columns, and 043 added the
+  // fourth for phase 14's webhook confirmation notice. Both are read, because a
+  // column is checked against the file that created it and not against a list.
+  const migration =
+    (await readFile(join(HERE, '..', 'migrations', '011_telegram_and_notifications.sql'), 'utf8')) +
+    (await readFile(join(HERE, '..', 'migrations', '043_notify_application_confirmed.sql'), 'utf8'));
 
   const kindBlock = site.match(/export const KIND = Object\.freeze\(\{([\s\S]*?)\}\);/)?.[1] ?? '';
   const kinds = [...kindBlock.matchAll(/'([a-z_]+)'/g)].map((match) => match[1]);
 
-  // Section 15 fixes the set: invite, task_raised, application_status_changed,
-  // all three in the first version. Three is as much the check as the names are,
-  // since a fourth queued by the site is a row an older bot never claims.
+  // Section 15 fixes three: invite, task_raised, application_status_changed.
+  // Phase 14 added application_confirmed, the webhook confirmation notice, on
+  // 11 September 2026. Four is as much the check as the names are, since a
+  // fifth queued by the site is a row an older bot never claims, and the
+  // number here is the place somebody adding one has to come and say so.
   check(
-    '69. the site names exactly section 15\'s three kinds',
-    kinds.length === 3 &&
-      ['invite', 'task_raised', 'application_status_changed'].every((kind) => kinds.includes(kind)),
+    '69. the site names section 15\'s three kinds and phase 14\'s fourth',
+    kinds.length === 4 &&
+      ['invite', 'task_raised', 'application_status_changed', 'application_confirmed'].every(
+        (kind) => kinds.includes(kind)
+      ),
     kinds.join(', ')
   );
 
@@ -1227,10 +1233,22 @@ define('notify', 'The three notification kinds, and what can silence them', asyn
     Object.keys(toggles).join(', ')
   );
   check(
-    '73. and every toggle column exists on the table migration 011 created',
-    Object.values(toggles).length === 3 &&
+    '73. and every toggle column exists on the table migrations 011 and 043 created',
+    Object.values(toggles).length === 4 &&
       Object.values(toggles).every((column) => migration.includes(`${column}  `) || migration.includes(`${column} `)),
     Object.values(toggles).join(', ')
+  );
+
+  // The bot reads a link by naming its columns, and PostgREST answers a select
+  // naming a column the table lacks with a 400 for the whole query. So the
+  // columns the link read names have to be the toggle dictionary's own and not
+  // a second list: a toggle with no column in the read is a switch that reads
+  // as on for ever, and a column in the read with no toggle is a 400 waiting
+  // for the migration nobody applied.
+  check(
+    '73a. the link read derives its notify columns from the toggle dictionary',
+    /LINK_COLUMNS = ", "\.join\([\s\S]*?tuple\(NOTIFY_COLUMN\.values\(\)\)/.test(supabasePy),
+    'one dictionary, read by the drain, by /notify and by the select itself'
   );
 
   // Section 15: security messages are not subject to the toggles. The absence of
@@ -1244,12 +1262,15 @@ define('notify', 'The three notification kinds, and what can silence them', asyn
 
   // Section 15: always include an unsubscribe hint in the footer of a
   // notification. It points at /notify, which has to be a command that answers.
+  // Counted against the toggle dictionary rather than against a number typed
+  // here, because the rule is "every kind a toggle governs carries the hint":
+  // the day a fifth kind lands, this is the check that asks whether it did.
   check(
     '75. every notification carries the unsubscribe hint, and the test message does not',
     /def footer\(/.test(drain) &&
-      (drain.match(/\+ footer\(locale\)/g) ?? []).length === 3 &&
+      (drain.match(/\+ footer\(locale\)/g) ?? []).length === Object.keys(toggles).length &&
       /notify\.footer/.test(drain),
-    'the hint belongs on the three kinds a toggle governs'
+    `the hint belongs on the ${Object.keys(toggles).length} kinds a toggle governs`
   );
   check(
     '76. and the command it names is one the bot answers',
@@ -1268,6 +1289,23 @@ define('notify', 'The three notification kinds, and what can silence them', asyn
     '77. every string part 5 added exists in both languages',
     counts.size >= 20 && [...counts.values()].every((count) => count === 2),
     [...counts.entries()].filter(([, count]) => count !== 2).map(([key]) => key).join(', ')
+  );
+
+  // Phase 14's fourth kind is queued from the confirmation itself and not from
+  // its two call sites, per "delivery belongs to the act": the webhook and the
+  // manual link both call confirmFromWebhook, and a raise site added later
+  // cannot forget to tell anybody. And it is queued only when the call changed
+  // something, or a second delivery would be a second message.
+  const confirmations = await readFile(join(SITE, 'api', '_lib', 'form-submissions.js'), 'utf8');
+  const confirmBody = confirmations.match(/export async function confirmFromWebhook[\s\S]*?\n\}/)?.[0] ?? '';
+  check(
+    '77a. the webhook confirmation queues the fourth kind from inside the act',
+    /queueNotification\(applicant\.id, KIND\.applicationConfirmed/.test(confirmBody) &&
+      /const changed = [^;]*cooldown_kept/.test(confirmBody) &&
+      !/queueNotification|KIND\./.test(
+        await readFile(join(SITE, 'api', 'webhooks', 'form-submit.js'), 'utf8')
+      ),
+    'one queue call, guarded on the row having moved, and none at the call sites'
   );
 });
 
@@ -1292,10 +1330,12 @@ define('commands', 'The four list commands, and what they read from the site', a
   // `start` splits the list into what answers and what does not, so this is the
   // check that part 6 emptied the second half rather than the check that the
   // wording is right: nine listed, nine built, nothing left saying it arrives in
-  // a later phase.
+  // a later phase. Ten as of phase 14 part 10d, which added /docs; the number
+  // was found failing on 11 September 2026 by the first run of this file since.
+  // Eleven the same day, with /language.
   check(
     '78. every command the bot lists is one it now answers',
-    listed.length === 9 && listed.every((name) => built.includes(name)),
+    listed.length === 11 && listed.every((name) => built.includes(name)),
     `listed ${listed.join(', ')}; built ${built.join(', ')}`
   );
 

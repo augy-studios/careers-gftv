@@ -3,8 +3,9 @@
 Section 15 draws the line and it is worth restating rather than assuming:
 **Supabase is the shared source of truth for accounts, links, tokens, invites
 and the outbox, and SQLite never duplicates account data.** What lives here is
-bot local only: the registry of active interaction buttons, and later the
-scheduling, rate limits and dedupe that go with sending.
+bot local only: the registry of active interaction buttons, the scheduling and
+rate limits that go with sending, and the language somebody chose for their
+chat with `/language`, which is a fact about the chat and not about the account.
 
 **Tables arrive with the part that reads them.** Phase 8 left the rule behind:
 a migration applied is not a feature shipped, and `032` created a view that
@@ -105,6 +106,23 @@ MIGRATIONS: tuple[tuple[str, ...], ...] = (
         )
         """,
         "create index if not exists outbox_schedule_due_idx on outbox_schedule (not_before)",
+    ),
+    # 4. Phase 14, 11 September 2026. The language somebody chose for this chat
+    # with /language, which wins over the linked account's own setting for
+    # everything the bot says. **Here and not on the account**, because the
+    # account's locale is the portal's setting and section 7 of the memo settles
+    # that the bot follows it by default: a person who reads the portal in one
+    # language and wants the chat in another is a fact about the chat. It is
+    # keyed on the Telegram user and not on the link, so it survives an unlink
+    # and a relink, and a row that is absent means "follow the account".
+    (
+        """
+        create table if not exists chat_locales (
+          telegram_user_id integer primary key,
+          locale           text not null,
+          chosen_at        text not null
+        )
+        """,
     ),
 )
 
@@ -412,3 +430,34 @@ def read_callback(conn: sqlite3.Connection, callback_id: str) -> dict | None:
         "chat_id": row["chat_id"],
         "created_at": row["created_at"],
     }
+
+
+def chat_locale(conn: sqlite3.Connection, telegram_user_id: int | None) -> str | None:
+    """The language chosen for this chat with /language, or None to follow the account.
+
+    None is the ordinary answer and it is not a failure: an absent row means
+    nobody has asked for anything, and the account's own setting decides.
+    """
+    if telegram_user_id is None:
+        return None
+    row = conn.execute(
+        "select locale from chat_locales where telegram_user_id = ?",
+        (telegram_user_id,),
+    ).fetchone()
+    return row["locale"] if row is not None else None
+
+
+def set_chat_locale(conn: sqlite3.Connection, telegram_user_id: int, locale: str | None) -> None:
+    """Choose a language for this chat, or clear the choice with None.
+
+    Clearing deletes the row rather than writing a sentinel, so "follow the
+    account" is the absence of an answer here exactly as it is everywhere else
+    in this build, and nothing has to know a magic value.
+    """
+    if locale is None:
+        conn.execute("delete from chat_locales where telegram_user_id = ?", (telegram_user_id,))
+        return
+    conn.execute(
+        "insert or replace into chat_locales (telegram_user_id, locale, chosen_at) values (?, ?, ?)",
+        (telegram_user_id, locale, now_iso()),
+    )

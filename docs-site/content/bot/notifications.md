@@ -2,24 +2,26 @@
 title: Notifications
 access: public
 order: 5
-summary: The three kinds, the switches for each, and why sign in codes cannot be switched off.
+summary: The four kinds, the switches for each, and why sign in codes cannot be switched off.
 ---
 
 # Notifications
 
-Three kinds of message arrive in the chat, and each has its own switch. Send
+Four kinds of message arrive in the chat, and each has its own switch. Send
 `/notify` to see them:
 
 - **Invitations to apply**, when somebody invites you to a role.
 - **Things waiting for you**, when the team asks you something.
 - **Updates on your applications**, when one of them moves.
+- **Applications recorded from the form**, when the application form tells us
+  you submitted it.
 
 Every one of them is on the portal as well. Turning a kind off here loses you
 nothing; it only stops the chat message.
 
 ## Turning one off
 
-Send `/notify`. You get three buttons, each showing the state it is in now, and
+Send `/notify`. You get four buttons, each showing the state it is in now, and
 tapping one flips it. The message redraws itself, so what you see is always
 what is stored.
 
@@ -49,7 +51,7 @@ The same message says what to do if it was not you:
 A sign in code is sent within a second or two, because somebody is sitting in
 front of a login form waiting for it.
 
-The other three are queued and go out in about twenty seconds. An invitation
+The other four are queued and go out in about twenty seconds. An invitation
 that arrives twenty seconds after it was sent is indistinguishable from an
 instant one. Queueing is what keeps a burst of them from being throttled.
 
@@ -67,13 +69,26 @@ ask anything, and the tasks page renders it properly. A chat window
 paraphrasing something you have to answer accurately would be the worst of
 both.
 
+## When the form records your application
+
+The fourth kind is the one the portal sends on its own. When you submit the
+application form, the form tells the portal, and the portal marks that
+application as applied with the date. That happens whether or not you told the
+portal yourself, because the form is what we go by. See
+[applying](/portal/applying).
+
+The message names the role and says what was recorded. If you had answered No,
+or the question had timed out, it says so and says that the form wins. It never
+says what you wrote on the form, because your answers stay with the form and
+never reach the portal.
+
 ## A test message
 
 The Telegram panel in account settings has **Send a test message**. It should
 arrive within half a minute, and it is the quickest way to prove the path
 works.
 
-It is not one of the three kinds and no switch governs it. You pressed a button
+It is not one of the four kinds and no switch governs it. You pressed a button
 a moment ago and are watching the chat for the result.
 
 ## When notifications are switched off site wide

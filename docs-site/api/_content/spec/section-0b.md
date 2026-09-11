@@ -9,7 +9,7 @@ summary: Do not build this in one pass.
 
 Do not build this in one pass. Work through it in the phases below, in order, and stop at the end of each one.
 
-### The next-steps file
+## The next-steps file
 
 Before starting each phase, write `next-steps.md` at the repo root. Add it to `.gitignore` in the very first phase, since it is a working memo and not part of the deliverable. Keep one file and rewrite it each time instead of starting a new one.
 
@@ -24,7 +24,7 @@ Every version contains four parts:
 
 At the end of a phase, update the file so "This phase" moves into "Done so far", with any deviations noted. Update any README the phase invalidated, per section 2. Flip the shipped phase in `build-status.json`, per section 0c. Then write the next phase's version. If a phase turns out larger than expected, split it and say so in the file instead of half finishing it.
 
-### Phases
+## Phases
 
 1. **Foundations.** Repo scaffold per section 2. The build status mechanism in 0c, including `build-status.json`, the notice bar, the disabled control pattern, the placeholder route, and `/status`. `.gitignore` including `next-steps.md`, and both `.env.example` files. The full `migrations/` set, covering every table, index, extension, trigger, and RPC function. The Supabase client helper, the shared session helpers, and the `vercel.json` rewrites and headers. Also the multilingual foundation per 3a: the language switcher, the `assets/i18n` dictionaries, the locale module, and the CJK typography. Nothing user facing beyond the shell, `/status`, and the placeholder.
 2. **Authentication.** Staff login with TOTP, backup codes, and trusted devices against the existing tables. Applicant registration and login. Recovery codes, both sets. Forgot password. Session length and trusted device handling for both realms, per 5d. Writing the applicant's language choice to their account, per 3a. Telegram 2FA is deliberately deferred: build the endpoints and the settings UI shell here. The delivery half cannot work until the bot ships, so leave the toggle disabled with a note instead of faking it.

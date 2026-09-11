@@ -7,19 +7,19 @@ summary: Migrations 001 to 013, the api/_lib/ helpers, and the build status
 
 # 1. Done so far
 
-### Phase 1, Foundations. Shipped.
+## Phase 1, Foundations. Shipped.
 
 Migrations `001` to `013`, the `api/_lib/` helpers, and the build status
 mechanism from section 0c. Then `theme.css` and `app.css`, `shell.js`, and the
 holding home page, `/status`, `placeholder.html`, and `404.html`.
 
-### The multilingual change set. Committed as `2bbe967`. Not a phase.
+## The multilingual change set. Committed as `2bbe967`. Not a phase.
 
 Migrations `014` to `023`, `i18n.js`, the two dictionaries, the globe button,
 and the page held blank until the dictionary applies. Took the phase plan from
 eleven to fourteen.
 
-### Phase 2, Authentication. Shipped, and proved on the live site.
+## Phase 2, Authentication. Shipped, and proved on the live site.
 
 `api/_lib/` gained `password.js`, `totp.js`, `webauthn.js`, `rate-limit.js`,
 `validate.js`, `accounts.js`, `audit.js`, and the creation half of `session.js`.
@@ -27,7 +27,7 @@ eleven to fourteen.
 `/register`, `/forgot-password`, `/admin/login`, `/account/security`,
 `/admin/security`. Migrations `024` to `027`.
 
-### Phase 3, Browsing roles. Shipped, verified live on 20 August 2026.
+## Phase 3, Browsing roles. Shipped, verified live on 20 August 2026.
 
 Migration `028`. `api/public/search.js`, `suggest.js`, `facets.js`, and
 `api/_lib/jobs.js`. The home page, `search/index.html`, `about/`, `faq/`.
@@ -40,7 +40,7 @@ Two rules from that run are still live and not history:
 - **A route returning 200 is not evidence its rewrite works.** Vercel matches
   the filesystem before it consults rewrites.
 
-### Phase 4, Job postings. Shipped, deployed, and verified live.
+## Phase 4, Job postings. Shipped, deployed, and verified live.
 
 No migration. `api/_lib/job-detail.js`, `page-shell.js`, `api/job-page.js`,
 `api/public/job.js`, `jobs-feed.js`, `api/translations/report.js`. Client:
@@ -56,13 +56,13 @@ Three findings from that run are still rules:
 - **A form with no method is a GET form.** Every credential form carries
   `method="post"`.
 
-### Phase 5, Apply flow. Shipped, deployed, and verified live.
+## Phase 5, Apply flow. Shipped, deployed, and verified live.
 
 No migration. `api/_lib/apply.js`, `api/applications/start.js`, `respond.js`,
 `pending.js`, `mine.js`, `api/ratings/upsert.js`. Client: `apply.js`,
 `apply-dialog.js`, `apply-prompt.js`, `apply-badges.js`.
 
-### Phase 6, Applicant dashboard. Shipped, deployed, and verified live.
+## Phase 6, Applicant dashboard. Shipped, deployed, and verified live.
 
 No migration, and the bucket that is not one: `gftvjobs-avatars` is Storage and
 not a table. A fresh environment needs `main-site/AVATARS.md` section 1 run by
@@ -81,7 +81,7 @@ immediately after signing somebody up. `api/auth/applicant/register` alone does
 not. And `login-page.js` sends an account with zero recovery codes to
 `/account/security?codes=none`, ignoring the `?redirect=` entirely.
 
-### Phase 7, Admin core. Shipped, deployed, and verified live on 22 August 2026.
+## Phase 7, Admin core. Shipped, deployed, and verified live on 22 August 2026.
 
 **Migration `031`.** `questions jsonb` and `answers jsonb` on `gftvjobs_tasks`,
 `task_questions jsonb` on `gftvjobs_jobs`, and three validator functions.
@@ -99,7 +99,7 @@ modules behind them.
 executable version of that account; five of them left rules behind, in section
 3.
 
-### Phase 8, Admin operations. Shipped, deployed, verified live on 25 August 2026.
+## Phase 8, Admin operations. Shipped, deployed, verified live on 25 August 2026.
 
 **Migrations `032` to `035`, all applied by hand in the Supabase SQL editor and
 confirmed. `036` is written and still not applied** — see section 5.
@@ -137,7 +137,7 @@ Four things from it that phase 9 leaned on directly:
 - **`api/admin/me` sends `null` and not `0` for a count it could not read.** The
   cron's last-run panel keeps the same manners, in three states instead of two.
 
-### Phase 9, Automation. Shipped, deployed, verified live on 26 August 2026.
+## Phase 9, Automation. Shipped, deployed, verified live on 26 August 2026.
 
 **No migration.** Everything it needed already existed, which is the unusual
 part and is worth stating. That is `gftvjobs_form_submissions` and its unique
@@ -186,7 +186,7 @@ are fixed:
   **401 "not recognised"** when it is present and wrong. So the status code says
   which of the two it is without anybody opening the Vercel dashboard.
 
-### Phase 10, Offline. Shipped 27 August 2026, deployment checks still owed.
+## Phase 10, Offline. Shipped 27 August 2026, deployment checks still owed.
 
 **No migration**, and the first phase that owns `sw.js` instead of only bumping
 it.
@@ -228,7 +228,7 @@ Five things from it that later phases inherit:
 - **A seam finds what a part cannot.** The two sections that found things were
   the two that belonged to no part. Deviation 90.
 
-### Phase 11, Telegram bot. Shipped 29 August 2026, the by-hand walk still owed.
+## Phase 11, Telegram bot. Shipped 29 August 2026, the by-hand walk still owed.
 
 **No migration.** Migration `011` created all three tables on day one, with the
 purposes, the unique constraints and the per kind notify columns. Nothing in
@@ -300,7 +300,7 @@ Five things from it that later phases inherit:
   well as in the dictionary. That is the pattern every `data-i18n` page follows,
   and the reason a dictionary-only sweep is half a sweep.
 
-### Phase 12, Polish. Shipped 31 August 2026, in eight parts.
+## Phase 12, Polish. Shipped 31 August 2026, in eight parts.
 
 **The first phase with no new feature at its centre**, and the difficulty was
 exactly that. Every phase before it could be checked by asking whether the new
@@ -383,7 +383,7 @@ it is deviation 122.
 by-hand half, and the seed cleared. `--only=discovery-live` has been run against
 the deployment carrying part 8 and reads 9 passed, 0 failed, 0 skipped.
 
-### Phase 13, Docs site foundations. Shipped 3 September 2026, in seven parts.
+## Phase 13, Docs site foundations. Shipped 3 September 2026, in seven parts.
 
 **The first new directory since phase 11, and the first second Vercel project.**
 It is the only phase so far whose subject was a second application and not a
@@ -438,5 +438,64 @@ one the hold never covered. Item 24 is the account.
 
 `tests/phase13-test.mjs` is **677 checks**, twenty seven of them against the
 deployment, from 96 when part 5 introduced the file.
+
+## Phase 14, Documentation. Shipped 11 September 2026, in ten parts and eleven letters.
+
+**Eighty two pages across six guides, in English and 华文, and the two working
+documents rendered beside them.** Portal 13, bot 8, translations 8, job poster
+20, admin 14, developer 17. That is 16h's bullets counted, with three landing
+pages and a test scripts page on top. Then the twenty one specification pages and the
+nine memo pages, generated by two scripts at the repo root and committed as a
+snapshot. **Every one of the 133 pages is in 华文**, paragraph for paragraph
+with its English under `gen-review.js`. Section 16 put this phase second to
+last so it would describe the thing and not the plan, and that was right.
+Every page was written from the dictionaries, the routes and the comments,
+never from the brief. Where the two disagreed the string won.
+
+**The parts, and what the log calls them.** 1 `14dc190` the chrome. 2 `f095bad`
+the portal guide with 2a's plain language pass. 3 `12ec9de` the bot and
+translations guides with 2b's icons. 4 `7d82b02` the docs worker with 4a's
+Mandarin name. 5 `04261b4` the poster guide and 5a `8e197c4`. 6 `0aa1f92` the
+admin guide. 7 `61d9ce5` the developer guide. 8 `a84170a` the captures and
+discovery files. 9 `c0be461` the 华文 and 9a `e86f53b` the sidebar. **Then
+the log and this file part ways.** `cd2cfa9` to `102e6fe`, five commits named
+10 to 10d, hold 7a's generators and spec pages, 10's `/docs`, and the seam.
+`64b122c` "10e" holds 10e and 10f. `ab7139e` "10f" holds 10g. 10h is the
+notice, `/language` and the flip, and the letter to type is the log's g.
+
+**Two documents were rewritten to be published.** The brief and this memo
+both passed under `check-copy.js` when their pages did. That is 1,403
+sentences split and 346 banned phrases replaced in the brief, and 999 and 176
+in this file. Both
+moved into `reference/` and stopped being gitignored on 8 September, and the
+move exposed that both generators had been gitignored too. A rewrapper that
+refuses anything it would change put the memo back at eighty columns. It
+found five more banned phrases the line-by-line check had never seen.
+
+**It changed the portal and the bot more than a documentation phase should.**
+Describing a screen is how you find what it does not say. A job
+poster could open the settings and maintenance pages, deviation 130. Four
+strings told a helper only an admin could publish their work, 131. The home
+page promised offline support as unbuilt a week after phase 10 shipped it. The
+docs site had no icon and no link card. A `/docs` pager lost a seat at each
+end. `helper.lede` printed a dictionary key at a helper. And the bot gained
+three things: `/docs`, `/language`, and the fourth notification kind. That
+last is the one the portal sends on somebody's behalf, deferred three times
+since phase 9.
+
+**Three checks the phase leaves behind are the ones worth knowing.**
+`commands.py --check` reads four documents, the 华文 guide's table among them.
+`tests/phase12-test.mjs --only=zh` reads every generated page. The day the
+phase flipped it found twenty one spaced Chinese mentions, a drifted word list
+and a code span. And `gen-memo-pages.js --check` reports how far this
+snapshot is behind the file without failing, because a snapshot is supposed
+to lag. `tests/phase14-test.mjs` is **586 checks**, needing no credential,
+database or network. `tests/phase13-test.mjs` is 3,979, twenty seven of them
+live, and it takes over half an hour.
+
+**What it did not do is the sitting.** Items 33, 34 and 35, phase 8's check
+78, and the notice's first real send are all behind the authenticator app.
+They are behind decision 27's seeded board too. Nothing in this phase gated its flip on them,
+which is phase 11's order and not phase 13's, and it is written down as such.
 
 ---

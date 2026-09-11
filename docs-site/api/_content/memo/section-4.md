@@ -38,7 +38,7 @@ phase 7 rewrote this file. Phase 7's start at 32, phase 8's at 49, phase 9's at
 52. **Staff read the annotation layer; helpers write to it.**
 53. **"By word" is by character in Chinese.**
 
-### Phase 9's
+## Phase 9's
 
 54. **`gftvhello_sessions` is not swept at all**, not even for expiry. Section
     11 permits "normal expiry cleanup" and forbids going beyond it; this stops
@@ -121,7 +121,7 @@ phase 7 rewrote this file. Phase 7's start at 32, phase 8's at 49, phase 9's at
     and `yes_by_source`. That bucket has counted nothing since phase 8 drew it,
     and **now has data, as of the 26 August run**.
 
-### Phase 10's
+## Phase 10's
 
 64. **The icon plate goes yellow and `theme_color` stays white.** They answer
     different questions and the answers differ. `background_color` is the splash
@@ -495,7 +495,7 @@ phase 7 rewrote this file. Phase 7's start at 32, phase 8's at 49, phase 9's at
     reported a clean pass, which in a phase whose every failure is silent is the
     worst possible default.
 
-### Phase 11's
+## Phase 11's
 
 91. **The bot has no scripted checks, and is checked by a person against a
     checklist.** Settled 27 August 2026, and it is a deliberate departure from
@@ -593,7 +593,7 @@ phase 7 rewrote this file. Phase 7's start at 32, phase 8's at 49, phase 9's at
     because part 4's claim is one conditional update. This covers the different
     problem of an old process still answering.
 
-### Phase 11 part 2's
+## Phase 11 part 2's
 
 94. **The QR is encoded in this repository, and the alternative was never a
     shortcut.** The obvious way to draw one is to hand the URL to an image
@@ -650,7 +650,7 @@ phase 7 rewrote this file. Phase 7's start at 32, phase 8's at 49, phase 9's at
     touched.** Tapping an old link twice does not burn a fresh one to be told
     something that could have been read first.
 
-### Phase 11 part 3's
+## Phase 11 part 3's
 
 96. **The bot generates the login code, and section 15 reads as though the
     portal does.** "The portal sends a six digit code to the applicant on
@@ -722,7 +722,7 @@ phase 7 rewrote this file. Phase 7's start at 32, phase 8's at 49, phase 9's at
     was right while nothing depended on the link and wrong the moment a second
     factor did.
 
-### Phase 11 part 4's
+## Phase 11 part 4's
 
 100. **An abandoned claim is requeued with the attempt counted, and section 15
      does not say what to do with one.** It describes the claim and the retries
@@ -883,7 +883,7 @@ phase 7 rewrote this file. Phase 7's start at 32, phase 8's at 49, phase 9's at
      message delivered to a chat is not a message read, and this build does not
      claim otherwise.
 
-### Phase 11 part 6's
+## Phase 11 part 6's
 
 111. **`/jobs` asks the site and not the database, and section 15 would allow
      either.** The bot holds a service key and the postings table is right
@@ -992,7 +992,7 @@ phase 7 rewrote this file. Phase 7's start at 32, phase 8's at 49, phase 9's at
        markup is waiting for nothing". Both are a check that agrees with the
        source while the page is wrong.
 
-### Phase 11 part 7's
+## Phase 11 part 7's
 
 116. **The seam changed code, and it was supposed to be documents.** Part 7 is
      the READMEs and the checklist, and it ends with `commands.py` reading a
@@ -1012,7 +1012,7 @@ phase 7 rewrote this file. Phase 7's start at 32, phase 8's at 49, phase 9's at
      list that is generated into one document and typed into another is not one
      list, however clearly the docstring says it is.
 
-### Phase 12's
+## Phase 12's
 
 117. **Layout is measured in one theme, not the four section 12 asks for.**
      Settled 30 August 2026. The two axes — `data-color-theme` and `data-mode` —
@@ -1259,7 +1259,7 @@ phase 7 rewrote this file. Phase 7's start at 32, phase 8's at 49, phase 9's at
      shipped note. Nine new checks in `status`, five more in `a11y` that drive a
      real click. The file reads 554 passed, 0 failed, 6 skipped offline.
 
-### Phase 13's
+## Phase 13's
 
 125. **Trusted devices cannot be "listed per site", and 5f asks for exactly
      that.** Phase 13 part 2, 1 September 2026. The sentence is 5f's. Trusted
@@ -1621,5 +1621,59 @@ phase 7 rewrote this file. Phase 7's start at 32, phase 8's at 49, phase 9's at
      **Section 6 is amended in the migration and not in the brief.** The
      reasoning is about how Vercel clones, and belongs beside the table it
      changes. `042`'s header carries it in full.
+135. **A fourth notification kind, and section 15 names three.** The webhook
+     confirmation notice, 11 September 2026, after three deferrals and the
+     decision of 1 September. `application_confirmed` is queued by
+     `confirmFromWebhook` when the form's webhook, or an admin linking a
+     submission by hand, marks an application submitted. It is the one status
+     change the portal makes on somebody's behalf. From phase 9 until now it
+     was the one they heard nothing about.
+
+     **It is queued from the act and not from its callers.** Both call sites
+     run the same confirmation, so the queue call sits inside it. That is the
+     rule phase 11 part 5 left: delivery belongs to the act, and a raise site
+     added later cannot forget to tell anybody. **It is queued only when the
+     call changed something.** A second delivery of the same response finds
+     both halves settled and sends nothing. So does a manual link of a
+     submission the applicant had already confirmed themselves. The guard is
+     the same `cooldown_kept` that keeps the dates still.
+
+     **What the message says, and what it never says.** The role, and that it
+     was recorded from the form. When an earlier No or a timeout was
+     overridden, that it was, and that the form wins. Never what the form said:
+     section 10 keeps the answers with Google, and this process has nothing to
+     say about them. The kind has a `notify` toggle like the other three,
+     because a kind an applicant can receive is a kind they can silence. That
+     is what migration `043` adds. **`043` was applied by hand the day it was
+     written**, before the bot was pulled, and the order matters. The bot names
+     every notify column in the select it reads a link with. A bot carrying a
+     column the table lacks cannot read a link at all.
+
+     **The brief is amended**, in section 15 with the date and this number,
+     because the sentence "three kinds" would otherwise contradict the build.
+     `tests/phase11-test.mjs` checks 69, 73 and 75 assert four now. 73a asserts
+     the link read derives its columns from the toggle dictionary instead of
+     naming them twice. It also found check 78 had asserted nine commands since
+     10d made it ten, because nobody had run the file.
+136. **A language chosen in the chat wins over the account's, and section 15
+     says the account's decides.** `/language`, 11 September 2026, asked for
+     so the guides can be read in another language. Extended the same day from
+     `/docs` alone to everything the bot says. **The default is unchanged**: an
+     absent choice means the account decides, or the Telegram client's language
+     for a stranger, exactly as settled 28 August. What is new is a choice that
+     belongs to the chat, kept in SQLite against the Telegram user and not on
+     the account. So the portal's own setting is untouched, and the choice
+     survives an unlink and a relink.
+
+     **Three readers of one rule.** The dispatcher, the outbox drain and the
+     security loop each resolve a language, and each asks SQLite before it asks
+     the account. Otherwise the bot answers a command in one language and sends
+     the notification about it in another. `tests/phase14-test.mjs
+     --only=language` is nine checks, one of which runs the rule in a fresh
+     database. **It obeys no feature switch**, for `/docs`'s reason. And it is
+     the eleventh command, so every count of ten moved: both READMEs and the
+     guide in both languages. `commands.py --check` now reads the 华文 guide's
+     table as a fourth document. **That found the 华文 table had never listed
+     `/docs`**, since 10d, because nothing had compared it.
 
 ---

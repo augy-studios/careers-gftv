@@ -38,7 +38,7 @@ with no Telegram linked misses nothing at all.
   account.
 - **Do anything with a staff account.** Job posters and admins sign in on the
   site. The bot knows about applicant accounts only.
-- **Stop sending you sign in codes.** Three kinds of notification can be
+- **Stop sending you sign in codes.** Four kinds of notification can be
   switched off and that one cannot. A code only ever goes out when somebody is
   signing in to your account.
 
@@ -52,9 +52,9 @@ If a message in Telegram asks you for one, it is not us.
 ## What is in this guide
 
 1. [Linking your account](/bot/linking), from the portal and from the bot.
-2. [Command reference](/bot/commands): all nine, and what each returns.
+2. [Command reference](/bot/commands): all eleven, and what each returns.
 3. [Signing in from Telegram](/bot/signing-in): the code and the one tap link.
-4. [Notifications](/bot/notifications): the three kinds and their switches.
+4. [Notifications](/bot/notifications): the four kinds and their switches.
 5. [Job invitations](/bot/invitations), and how to answer one.
 6. [Unlinking](/bot/unlinking), and what it does to your sign in.
 7. [Troubleshooting](/bot/troubleshooting), when nothing arrives.

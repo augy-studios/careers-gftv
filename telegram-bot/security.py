@@ -53,6 +53,7 @@ import httpx
 from telethon import Button
 from telethon.errors import FloodWaitError
 
+import db
 from strings import DEFAULT_LOCALE, STRINGS, text
 from supabase import SupabaseError
 
@@ -191,7 +192,7 @@ class SecurityLoop:
             return
 
         applicant = await self.safe_applicant(applicant_id)
-        locale = self.locale_for(applicant)
+        locale = self.locale_for(applicant, link)
 
         code = six_digits()
         stored = await self.ctx.supabase.store_code_hash(row["id"], await hash_code(code))
@@ -272,13 +273,18 @@ class SecurityLoop:
             log.warning("could not read an applicant while sending: %s", cause)
             return None
 
-    def locale_for(self, applicant: dict | None) -> str:
+    def locale_for(self, applicant: dict | None, link: dict | None = None) -> str:
         """The account's own language, and English when it names one we lack.
 
         There is no Telegram client language to fall back on here, unlike a
         command: nobody is typing, so there is no message to read a `lang_code`
         off. The account is the only evidence, which is exactly why migration
-        020 put a locale on it.
+        020 put a locale on it. A language chosen for the chat with /language
+        comes first, phase 14, because a login code is something the bot says
+        and the choice governs everything it says.
         """
+        chosen = db.chat_locale(self.ctx.conn, (link or {}).get("telegram_user_id"))
+        if chosen in STRINGS:
+            return chosen
         stored = (applicant or {}).get("locale")
         return stored if stored in STRINGS else DEFAULT_LOCALE
