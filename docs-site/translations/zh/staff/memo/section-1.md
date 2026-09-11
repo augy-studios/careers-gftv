@@ -157,7 +157,7 @@ summary: 迁移 001 到 013、api/_lib/ 里的辅助模块，以及构建状态
 **这个阶段里没有任何东西是错的。它周围有三件事是**，而三件都已修好：
 
 - **`tests/phase9-test.mjs` 在模块层级调用了 `requireEnv`**，发生在读取 `--only=`
-  之前，所以那个写在文档里的离线小节没有员工密码就跑不起来。两份 README 都说它不需
+  之前，所以那个写在说明文件里的离线小节没有员工密码就跑不起来。两份 README 都说它不需
   要密码。现在它以 `NEEDS_STAFF` 把关。
 - **面板检查等错了东西。** `#adminCronRun` 在 `admin/index.html` 的静态标记里，所以
   `waitForSelector` 在 `/api/admin/stats` 回答、`drawCron` 填好之前就返回了。那个面

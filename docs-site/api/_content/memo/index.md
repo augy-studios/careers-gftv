@@ -12,11 +12,12 @@ phase. **It lives in `reference/` and is committed, as of 8 September 2026**; it
 was gitignored for the first fourteen phases. The brief is
 `reference/careers-gftv-spec.md`, and this file never overrides it.
 
-Last written: **during phase 14, Documentation, on 8 September 2026**, in part
-10e. That part moved this file and the brief into `reference/`, and generated
+Last written: **during phase 14, Documentation, on 11 September 2026**, in part
+10g. Part 10e moved this file and the brief into `reference/`, and generated
 the nine pages this snapshot is made of. It also rewrote the whole memo to pass
 `check-copy.js`. Part 10f is four things a reader asked for on the same day, in
-the bot and in the portal.
+the bot and in the portal. **10e and 10f went out as one commit, `64b122c`**,
+and 10g is the 华文 of the four memo pages that commit did not carry.
 
 Parts 1, 2 and 2a are pushed as `14dc190` and `f095bad` and verified live.
 **Parts 2b and 3 were committed together as `12ec9de`, not yet verified against
@@ -301,7 +302,7 @@ seed.mjs --yes --anyway` and closes with `--clear --yes`**, decision 27, because
 clearing the seed empties the surfaces it walks.
 
 > [!WARNING]
-> A snapshot, and not a live file. This copy was taken on 8 September 2026. The working
+> A snapshot, and not a live file. This copy was taken on 11 September 2026. The working
 > copy is `reference/next-steps.md`, and it is rewritten several times a day
 > while a phase runs. It moves on without these pages, so if the build is still
 > running then the file is ahead of what you are reading.

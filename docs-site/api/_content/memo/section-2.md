@@ -1933,12 +1933,18 @@ them.
     given, and not the thing itself.
 
     **The number in the log is 10e and the number in this file is 10e.** That is
-    the first time since `cd2cfa9` it has been true.
+    the first time since `cd2cfa9` it has been true. **It held for one commit.**
+    10e and 10f were pushed together as **`64b122c`, "phase 14 part 10e"**, on
+    8 September 2026. That is the way 2b and 3 went as `12ec9de`. Not yet verified
+    against the deployment, and phase 8's check 78 is owed against it. Five of
+    the nine memo pages carried their 华文 in it: the landing page and sections
+    1, 6, 7 and 8. **The other four are 10g.**
 
     **10f is four things a reader asked for, 8 September 2026.** Portal and bot
     work, split off 10e for the reason 10 was split from 10a. A commit carrying
     nine generated memo pages and a Telegram keyboard is a commit nobody can
-    review as one thing. Numbered at the asker's direction.
+    review as one thing. Numbered at the asker's direction, and then pushed
+    inside 10e's commit anyway, which is recorded above and not hidden.
 
     **The `/docs` pager is three seats and never two.** The first page reads
     Last, page, Next; the last page reads Previous, page, First; every other one
@@ -1992,6 +1998,41 @@ them.
     no longer exists. Three checks were added to `docs-command`, 22 to 24e. They
     are the wrap at both ends, the middle seat carrying its total and going
     nowhere, and every navigation label carrying its emoji.
+
+    **10g is the 华文 of the four memo pages 10e did not finish, 11 September
+    2026.** Sections 2, 3, 4 and 5, which are 718 of the memo's 851 blocks.
+    Every one pairs paragraph for paragraph with its English under
+    `gen-review.js`, and `check-copy.js` reads the whole tree clean under 3a.
+    Numbered 10g because the log's next letter after `64b122c` is g, and 10f
+    never had a commit of its own to reuse.
+
+    **The vocabulary rule bit the translation, and never on a translation
+    error.** The English names the words 3a bans, as words. They are "志愿者 to
+    义工", "whether a documentation site is 文档", a docstring, and the `运营` the
+    phase 12 guard caught. A 华文 sentence naming the banned word is
+    the banned word to a check that reads substrings. Each was rewritten to
+    describe the word instead of printing it. That is the shape section 3
+    already records for 选中文字, arriving from the translation's side: a page
+    about the rule cannot quote the rule.
+
+    **Section 5 item 2 reads differently in 华文 for that reason.** The open
+    question about 文档 in Singapore usage points at 3a's table there instead
+    of printing the word. That is the treatment 16h's citation got in 7a.
+
+    **The memo page for section 2 is the one that moves after every edit to
+    this file**, including this paragraph. So 10g's own account was written
+    before the pages were regenerated and the 华文 was written against the
+    regenerated English. A translation written against the page before its
+    last edit is a translation `gen-review.js` reports as a block count.
+
+    **The checks after it.** `gen-review.js` at 112 pages, every one paired.
+    `check-copy.js` at 6,533 strings clean over nine sources. The docs build
+    at 112 files in zh, 112 ready, 0 pages still English. And
+    `tests/phase14-test.mjs` at **577 passed, 0 failed, 0 skipped**. That is
+    the first full run of this phase with nothing left untranslated. Both
+    generators current, `check-i18n.js` and `check-precache.js` clean.
+    **`docs-site/sw.js` is at `v10`.** No `main-site/` file moved, so the
+    portal's worker stays at `v133`.
 
 **The webhook confirmation notice is not a part**, per the decision of 1
 September 2026. It is its own commit, numbered the way `2c27a2b` was. It is
