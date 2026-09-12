@@ -79,7 +79,9 @@ import { initQueue } from './queue.js';
 const NAV = [
   { href: '/search', key: 'nav.findRole', icon: 'search' },
   { href: '/account/applications', key: 'nav.myApplications', icon: 'briefcase' },
-  { href: '/status', key: 'nav.buildStatus', icon: 'build' },
+  // "Status" and a heartbeat since 13 September 2026: the page is the service
+  // status page now that every phase has shipped, and the hammer said build.
+  { href: '/status', key: 'nav.buildStatus', icon: 'activity' },
   { href: '/login', key: 'nav.signIn', icon: 'chevron-right' },
 ];
 

@@ -96,6 +96,17 @@ export const onVercel = () => Boolean(process.env.VERCEL || process.env.VERCEL_E
 const endpoint = (table, query = '') =>
   `${process.env.SUPABASE_URL.replace(/\/$/, '')}/rest/v1/${table}${query}`;
 
+// Supabase's gateway answers these when PostgREST behind it did not answer in
+// time. They are weather and not a mistake in this file, and a build that dies
+// on one is a deploy that has to be pressed again by hand: phase 15 part 3's
+// docs deploy did, on 12 September 2026, on a single 504 while writing forty
+// translation rows, and the docs site served the previous build for a day.
+const GATEWAY = new Set([502, 503, 504]);
+const ATTEMPTS = 3;
+const BACKOFF_MS = [2000, 5000];
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 /**
  * One request, with the failure spelled out.
  *
@@ -105,6 +116,13 @@ const endpoint = (table, query = '') =>
  * success." So nothing here returns an empty result on an error, and the
  * message carries the status and the body PostgREST sent, because the useful
  * half of a Postgres error is always in the body.
+ *
+ * **A gateway status or a transport failure is retried, twice, before it
+ * throws.** That is not a softening of the rule above: the third failure still
+ * stops the build with the same message. It is the difference between an
+ * outage and a blip, and a build that cannot tell them apart fails on the
+ * blip. Every attempt is logged, so a build that needed two says so. An
+ * upsert is safe to repeat, since it is matched on its unique constraint.
  */
 async function request(url, { method, prefer, body }, what) {
   const headers = {
@@ -115,19 +133,30 @@ async function request(url, { method, prefer, body }, what) {
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   if (prefer) headers.Prefer = prefer;
 
-  let response;
-  try {
-    response = await fetch(url, { method, headers, body });
-  } catch (cause) {
-    throw new Error(`${what}: could not reach Supabase at all. ${cause.message}`, { cause });
-  }
+  for (let attempt = 1; ; attempt += 1) {
+    let response;
+    try {
+      response = await fetch(url, { method, headers, body });
+    } catch (cause) {
+      if (attempt < ATTEMPTS) {
+        console.warn(`  ${what}: could not reach Supabase (${cause.message}), trying again`);
+        await sleep(BACKOFF_MS[attempt - 1]);
+        continue;
+      }
+      throw new Error(`${what}: could not reach Supabase at all, after ${ATTEMPTS} attempts. ${cause.message}`, { cause });
+    }
 
-  if (!response.ok) {
+    if (response.ok) return response;
+
     const text = await response.text().catch(() => '');
-    throw new Error(`${what}: Supabase answered ${response.status}. ${text.slice(0, 500)}`);
+    if (GATEWAY.has(response.status) && attempt < ATTEMPTS) {
+      console.warn(`  ${what}: Supabase answered ${response.status}, trying again`);
+      await sleep(BACKOFF_MS[attempt - 1]);
+      continue;
+    }
+    const tries = GATEWAY.has(response.status) ? ` after ${ATTEMPTS} attempts` : '';
+    throw new Error(`${what}: Supabase answered ${response.status}${tries}. ${text.slice(0, 500)}`);
   }
-
-  return response;
 }
 
 /**

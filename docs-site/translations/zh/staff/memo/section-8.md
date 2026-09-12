@@ -74,3 +74,5 @@ summary: 因为这很少见。
     间的最后一件事。根目录 README 的设置一节假定它已经存在：一份表单，带着
     `apps-script/careers-form-webhook.gs` 和 `PORTAL_SECRET`，按职位复制。至今没
     有人做过。见第 5 节第 13 项。
+
+---

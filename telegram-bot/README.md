@@ -144,7 +144,6 @@ until the flip could not be walked through at all.
 | `lang.py` | Which language to answer somebody who has linked nothing yet. |
 | `lock.py` | One instance at a time. |
 | `log.py` | Standard output for the tmux pane, a rotating file for the morning after. |
-| `probe.py` | **The status probe, and a second process rather than a loop in the first.** Phase 12 part 7. Four public GETs a minute, written straight to Supabase. It has nothing to do with Telegram. |
 
 ## Running it on the VPS
 
@@ -194,76 +193,21 @@ Exit codes:
 
 ## The status probe
 
-**It is not part of the bot.** `probe.py` is a separate process that happens to
-live on this machine, and phase 12 part 7 built it. 0c needs a prober outside
-Vercel — a status page hosted on the thing it monitors is useless during the
-outage it exists to report — and this VPS is the only component in the whole
-architecture that is outside Vercel. It is here because of where it runs rather
-than what it does.
+**It is not part of the bot, and since 13 September 2026 it does not live
+here either.** `status-probe/` at the repository root is the process behind
+`/status`: four public GETs a minute from this VPS, recorded in Supabase.
+Phase 12 part 7 built it in this directory because the VPS is the only
+machine outside Vercel, and that got it mistaken for part of the bot and left
+unstarted for a fortnight. It has its own virtualenv, `.env`, lock and log
+now, and imports nothing from here. Its README says what it does and its
+`setup.md` says how to run it and keep it running across a reboot.
 
-**Two processes, not two loops in one.** `security.py` and `outbox.py` are tasks
-inside `bot.py` because they send through Telethon and share its client. This
-sends nothing. Section 15 requires it to keep recording while Telethon is
-wedged: "the bot is broken" and "the portal is down" are exactly the two things
-a status page has to tell apart, and a probe inside the bot could not tell them
-apart at all.
-
-```bash
-cd telegram-bot
-source .venv/bin/activate
-python probe.py
-```
-
-Its own tmux window, its own lock (`probe.lock`), its own log (`logs/probe.log`),
-and the same four exit codes the bot uses. **It needs no new environment
-variables**: `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` and `SITE_URL` are already in
-`.env`, and it reads nothing else — not the bot token, not the Telethon
-credentials. A revoked bot token stops the bot and leaves the probe recording,
-which is the whole reason it is a second process.
-
-Every sixty seconds it requests four public addresses and reports all four to
-Supabase in one call:
-
-| Target | Address | Counts as working when |
-|---|---|---|
-| `feature_status` | `/api/public/feature-status` | 200 and JSON |
-| `search` | `/search` | 200 and HTML |
-| `job_page` | `/jobs/{uuid}` | 200 and HTML |
-| `jobs_feed` | `/api/public/jobs.json` | 200 and JSON |
-
-**What it stores is a day and an outage, not a check.** The results go to
-`gftvjobs_status_record()`, migration 037's function, which adds to that day's
-counters for each target and opens, extends or closes an outage row. A quiet
-quarter is four rows a day rather than 5,760, and a prolonged outage is one row
-that grows rather than a row a minute saying the same thing. The probe decides
-whether a request worked and nothing else; what that means is the database's
-business.
-
-**Which posting `job_page` fetches is read from the live feed**, not configured.
-The seeded postings are being deleted before indexing is turned on, and a URL in
-a `.env` file pointing at one of them would probe a 404 for ever afterwards and
-draw the portal as down. It re-picks when the page it holds answers 404.
-
-Four things it does not do, all of them from section 15 and none of them an
-oversight:
-
-- **It never writes to the portal.** The four requests are public GETs and the
-  row goes straight to Supabase. An endpoint on the portal would be unreachable
-  in precisely the case worth recording.
-- **It never alerts.** No message to anybody, no channel post, no mention in any
-  command. Alerting needs an on-call story and a decision about who gets woken,
-  and neither exists yet. What this delivers is a page somebody chooses to look
-  at.
-- **It buffers nothing.** When Supabase cannot be reached the cycle's rows are
-  logged and dropped. A gap in the data is honest and the status page draws it
-  as unknown; a row backfilled an hour late timestamped as though it were on
-  time is not.
-- **It is not a command.** Nothing about it is visible in Telegram, and
-  `python commands.py --check` would fail if it were.
-
-The rows are swept at ninety days by the site's daily cron, per section 11 —
-which on this shape is a very small sweep, and an outage still open is never
-swept whatever its age.
+**Two processes, not two loops in one.** `security.py` and `outbox.py` are
+tasks inside `bot.py` because they send through Telethon and share its client.
+The probe sends nothing. Section 15 requires it to keep recording while
+Telethon is wedged: "the bot is broken" and "the portal is down" are exactly
+the two things a status page has to tell apart, and a probe inside the bot
+could not tell them apart at all.
 
 ## The by-hand checklist
 

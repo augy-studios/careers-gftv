@@ -24,7 +24,7 @@ part 1 & 2", and `48237c8`, "phase 15 part 2a". The letter is the `/start`
 commands made bare again. Part 3 is the flip and sits in the working tree.
 The phase 14 flip and its handover went in as `cdfbadc`, "phase 14 part
 10g", which this file calls 10h. Section 1 has every phase condensed, phase
-15 last. Section 2 is phase 15 in full. Section 4's numbering runs to 142.
+15 last. Section 2 is phase 15 in full. Section 4's numbering runs to 143.
 
 **Every phase reads `shipped`, in the tree.** `build-status.json` says so,
 the root README says so, and `/status` is the service status page from the
@@ -61,7 +61,7 @@ until the pages and their 华文 follow. And it is one letter ahead of the log,
 which nothing can fix now.
 
 > [!WARNING]
-> A snapshot, and not a live file. This copy was taken on 12 September 2026. The working
+> A snapshot, and not a live file. This copy was taken on 13 September 2026. The working
 > copy is `reference/next-steps.md`, and it is rewritten several times a day
 > while a phase runs. It moves on without these pages, so if the build is still
 > running then the file is ahead of what you are reading.
@@ -83,3 +83,4 @@ which nothing can fix now.
 | [6. Inherited by later phases](/staff/memo/section-6) |
 | [7. Decisions settled, so they are not reopened](/staff/memo/section-7) |
 | [8. Open items, none blocking](/staff/memo/section-8) |
+| [9. After the build](/staff/memo/section-9) |

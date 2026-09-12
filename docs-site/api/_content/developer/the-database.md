@@ -124,7 +124,7 @@ names the section behind each one.
 ## The one thing written from outside Vercel
 
 **`gftvjobs_status_days` and `gftvjobs_status_incidents`** are written by
-`telegram-bot/probe.py` on the VPS, through `gftvjobs_status_record()`. Nothing
+`status-probe/probe.py` on the VPS, through `gftvjobs_status_record()`. Nothing
 in `main-site/api` writes them: the status page reads them and the daily cron
 sweeps them at ninety days.
 

@@ -17,7 +17,7 @@ part 1 & 2", and `48237c8`, "phase 15 part 2a". The letter is the `/start`
 commands made bare again. Part 3 is the flip and sits in the working tree.
 The phase 14 flip and its handover went in as `cdfbadc`, "phase 14 part
 10g", which this file calls 10h. Section 1 has every phase condensed, phase
-15 last. Section 2 is phase 15 in full. Section 4's numbering runs to 142.
+15 last. Section 2 is phase 15 in full. Section 4's numbering runs to 143.
 
 **Every phase reads `shipped`, in the tree.** `build-status.json` says so,
 the root README says so, and `/status` is the service status page from the
@@ -851,9 +851,24 @@ the trusted sites page ships with the bar and not before, as the file asks,
 because the page exists now. `gen-docs-lib.js` copies the module to the docs
 site, which mounts it below its skip link the way it mounts the connection
 bar. The styles are in `app.css` and `docs.css`, from theme tokens only. The
-grow and shrink run on a grid row, and not at all under reduced motion. Two
-icons were added, a padlock and a television, since the file wants inline
-SVG and nothing that reads as a warning.
+grow and shrink run on a grid row, and not at all under reduced motion. A
+padlock icon was added for the HTTPS point, since the file wants inline SVG
+and nothing that reads as a warning. The mark is the GFTV flag, asked for on
+13 September in place of a television glyph. It is a 72 by 48 copy of the
+flag in the repository root, served from both sites' roots and precached. It
+is drawn at 24 by 16 with an empty alt. The portable file says so now.
+
+**The docs deploy of part 3 failed, and the build learned the bot's lesson.**
+Vercel built `3abd291` for both projects on 12 September. The portal came up
+at `v137`. The docs build died writing forty rows to
+`gftvjobs_docs_translations`. Supabase's gateway answered 504 once, and the
+site served the previous build, without the banner, until the next deploy.
+Nothing was wrong with either. `docs-site/scripts/db.js` now tries a gateway
+status or a failed connection three times with a pause. It prints each try
+and fails with the same message on the third. A 400 is still one try, since that
+one is a mistake in the tree. Deviation 143. **A redeploy of the docs
+project is what puts the banner on it**, and the fix rides with the next
+push.
 
 **It replaces the phase notice in the same paint.** `shell.js` draws the
 notice while a phase is building and the bar once `allShipped`.
@@ -3523,6 +3538,16 @@ phase 7 rewrote this file. Phase 7's start at 32, phase 8's at 49, phase 9's at
      callback. `redraw()` in `handlers.py` accepts it, and every callback
      edit goes through it; the rich edits in `reply.py` accept the same.
 
+143. **The docs build retries a gateway blip before it fails loudly.** 16e
+     says a build that cannot reach Supabase must fail loudly. It did, on
+     the first 504 of a single write, on 12 September 2026. Part 3's docs
+     deploy stopped and the site served the previous build for a day. The
+     rule stands and the build still stops, on the third failure and not the
+     first. `db.js` tries a 502, 503 or 504, or a connection that never
+     opened, three times with a pause, printing each. A 400 gets one try,
+     since that one is ours. Deviation 141 is the same lesson on the other
+     machine.
+
 ---
 
 ## 5. Carried forward, still open
@@ -4643,3 +4668,43 @@ next, which is the same reader with a different name.
     `apps-script/careers-form-webhook.gs` and `PORTAL_SECRET`, copied per
     posting. Nobody has made it yet. See section 5 item 13.
 
+---
+
+## 9. After the build
+
+Changes to a finished site, dated, in the order they were made. None is a
+phase and none is a part. Each says what it touched and which check holds it.
+
+1. **13 September 2026, the day after. The docs deploy, the flag, the way
+   back to the phase list, the word "Status", and the probe.** Five things,
+   found one after another by looking at the live site the morning after the
+   flip. The first two are in part 3's write-up and deviation 143, because
+   they are corrections to part 3 and rode with it. The other three are
+   below.
+
+   **The phase list had no address.** `viewFor()` served the service page
+   once every phase read `shipped`, and the only hatch, `?view=service`, went
+   the other way. So `?view=build` is its mirror. The same staff session, the
+   build page after the flip, `private, no-store` and `Vary: Cookie` like the
+   preview, and nothing for anybody else. The navigation and footer items
+   say "Status" in both languages now, with a heartbeat for the icon. The
+   hammer said build, and the page is about whether the site works. Five
+   guide passages that sent readers to "the build status page" for the phase
+   list are in the past tense, in both languages. `--only=banner` fails on a
+   guide that still uses the phrase.
+
+   **The status page showed one green square in ninety days.** Every other
+   day was blank, and the page was right. The probe had recorded one check,
+   on 31 August when part 7 was tested, and nothing since. `probe.py` lived
+   in `telegram-bot/` because the VPS is the only machine outside Vercel.
+   That got it read as part of the bot, which was started, while the probe
+   was not. **It moved to `status-probe/` at the repository root**, asked for
+   the same day. Its own virtualenv, `.env` with the same three values, lock,
+   log, `run.sh` and a README. And a `setup.md` with a tmux window and a
+   systemd unit. A process whose job is to be there when nobody is looking
+   should survive a reboot without anybody remembering. It imports nothing
+   from the bot; `lock.py` and `log.py` are copies, and the headers of both
+   say so. The one Supabase call it makes is its own forty line client, so
+   the bot's `strings.py` does not come with it. `tests/phase12-test.mjs
+   --only=status` reads the new path. **Until it is started on the VPS, the
+   ninety day bars stay blank**, and that is the page telling the truth.

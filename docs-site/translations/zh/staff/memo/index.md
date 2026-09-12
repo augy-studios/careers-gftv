@@ -19,7 +19,7 @@ git 忽略。说明书是 `reference/careers-gftv-spec.md`，而这个文件绝�
 `48237c8`「phase 15 part 2a」推送。那个字母是把 `/start` 里的指令重新变回裸文本。
 第 3 部分是翻转，坐在工作树里。第 14 阶段的翻转和交接以 `cdfbadc`「phase 14 part
 10g」进入了日志，这个文件称它为 10h。第 1 节把每一个阶段都浓缩了，第 15 阶段在最
-后。第 2 节是完整的第 15 阶段。第 4 节的编号排到 142。
+后。第 2 节是完整的第 15 阶段。第 4 节的编号排到 143。
 
 **在工作树里，每一个阶段都读作 `shipped`。** `build-status.json` 这样说，根目录
 README 这样说，而 `/status` 从带着它的那次部署起就是服务状态页。`sw.js` 在求职网站
@@ -70,3 +70,4 @@ README 这样说，而 `/status` 从带着它的那次部署起就是服务状�
 | [6. 由后续阶段继承的](/staff/memo/section-6) |
 | [7. 已定案的决定，以免它们被重新提出](/staff/memo/section-7) |
 | [8. 未结项目，都不构成阻碍](/staff/memo/section-8) |
+| [9. 构建完成之后](/staff/memo/section-9) |

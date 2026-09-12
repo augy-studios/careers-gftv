@@ -69,14 +69,22 @@ export default async function handler(req, res) {
   if (methodNotAllowed(req, res, ['GET', 'HEAD'])) return;
 
   try {
-    const preview = await wantsPreview(req);
-    const view = viewFor({ preview });
+    const asked = await staffView(req);
+    const preview = asked === VIEW.service;
+    const back = asked === VIEW.build;
+    const view = viewFor({ preview, back });
 
     if (view === VIEW.build) {
       // Unchanged behaviour: the same markup, the same client module, the same
-      // build-status.json behind it. Cached the way a static page was.
+      // build-status.json behind it. Cached the way a static page was, unless
+      // a staff session asked for it after the flip, in which case it is that
+      // person's render at the public address and must not be cached for the
+      // next reader, exactly as the preview below.
       return sendHtml(res, statusDocument({ view, body: renderBuildBody() }), {
-        headers: { 'Cache-Control': CACHE },
+        headers: {
+          'Cache-Control': back ? 'private, no-store' : CACHE,
+          ...(back ? { Vary: 'Cookie' } : {}),
+        },
       });
     }
 
@@ -156,17 +164,22 @@ the rest of the site is working.</p>
  * A session lookup that throws is not a reason to fail the page: it answers
  * false and the reader gets whatever `build-status.json` says they should.
  */
-async function wantsPreview(req) {
+async function staffView(req) {
   try {
     const url = new URL(req.url, 'http://localhost');
-    if (url.searchParams.get('view') !== 'service') return false;
+    const wanted = url.searchParams.get('view');
+    // `service` previewed the service page before the flip; `build` reaches
+    // the phase list after it. Both need the same staff session, and anybody
+    // else gets whatever the gate says, with no sign that the parameter did
+    // anything.
+    if (wanted !== VIEW.service && wanted !== VIEW.build) return null;
 
     const session = await getStaffSession(req);
-    if (!session?.user) return false;
-    return await hasPortalAccess(session.user);
+    if (!session?.user) return null;
+    return (await hasPortalAccess(session.user)) ? wanted : null;
   } catch (cause) {
-    console.error('[careers-gftv] status preview:', cause);
-    return false;
+    console.error('[careers-gftv] status view hatch:', cause);
+    return null;
   }
 }
 

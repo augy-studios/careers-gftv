@@ -71,7 +71,7 @@
 //                     because a kill switch that forgets itself on the deploy
 //                     that broke something is not a kill switch.
 
-const VERSION = 'careers-gftv-phase15-v137';
+const VERSION = 'careers-gftv-phase15-v139';
 
 const SHELL = `careers-gftv-shell-${VERSION}`;
 const PUBLIC_DATA = 'careers-gftv-public';
@@ -215,6 +215,8 @@ const PRECACHE = [
   '/manifest.json',
   '/favicon.ico',
   '/HLC-180.png',
+  // The official bar's mark, phase 15 part 3, on every page.
+  '/gftv-flag.png',
   '/HLC-192.png',
 
   // Every module. A precached page whose module is missing is a page that

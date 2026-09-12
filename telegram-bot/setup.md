@@ -246,12 +246,12 @@ build is a different job**, and it is the by-hand checklist in
 [`README.md`](README.md#the-by-hand-checklist), which is the only coverage the
 Python has.
 
-**None of this sets up the status probe, and nothing here has to.** `probe.py`
-is a second process on the same machine that has nothing to do with Telegram: no
-token, no BotFather step, no command list, and no variable that is not already in
-the `.env` this section filled in. Starting it is one line, and it is documented
-with the rest of it in
-[`README.md`](README.md#the-status-probe).
+**None of this sets up the status probe, and nothing here has to.** It is a
+second process on the same machine that has nothing to do with Telegram: no
+token, no BotFather step, no command list. It lives in `status-probe/` at the
+repository root since 13 September 2026, with its own `.env` carrying the same
+three Supabase and site values as this one, and
+[`status-probe/setup.md`](../status-probe/setup.md) is its own procedure.
 
 ---
 

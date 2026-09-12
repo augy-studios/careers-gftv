@@ -118,8 +118,10 @@ sentence. The two are never mixed.
 
 ## The status probe
 
-**`probe.py` is not part of the bot.** It is a separate process that happens to
-live on the same machine, and it has nothing to do with Telegram.
+**`probe.py` is not part of the bot, and since 13 September 2026 it lives in
+its own directory**, `status-probe/` at the repository root. It has its own
+virtualenv, `.env`, lock and log. It is a separate process on the same machine
+and has nothing to do with Telegram. Its README and `setup.md` are its own.
 
 **A status page hosted on the thing it monitors is useless during the outage it
 exists to report.** This VPS is the only component in the whole architecture

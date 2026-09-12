@@ -76,9 +76,17 @@ export const VIEW = Object.freeze({ build: 'build', service: 'service' });
  * first time anybody sees it must not be the day phase 15 ships. It is refused
  * to everybody without a staff session, so no member of the public can ever
  * reach the two pages at once.
+ *
+ * **The hatch goes both ways since 13 September 2026.** The day after the
+ * flip the phase list had no address at all, and it is the build's changelog:
+ * every shipped note in both languages, rendered. `back` is the mirror of
+ * `preview`, for the same staff session and nobody else, and answers the
+ * build page after the gate has opened. Asked for the day it was found
+ * missing. `preview` wins when both are set, since it was there first.
  */
-export function viewFor({ preview = false } = {}) {
+export function viewFor({ preview = false, back = false } = {}) {
   if (preview) return VIEW.service;
+  if (back) return VIEW.build;
   return everyPhaseShipped() ? VIEW.service : VIEW.build;
 }
 

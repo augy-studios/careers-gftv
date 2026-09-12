@@ -30,6 +30,11 @@
 // The domain list is the one place the domains are, and the heading is
 // rendered from it, so adding a domain is one edit and not a search through
 // copy.
+//
+// The mark is the GFTV flag, /gftv-flag.png, a 72 by 48 copy of the flag in
+// the repository root drawn at 24 by 16, asked for on 13 September 2026 in
+// place of an SVG glyph. It is decorative, so the alt is empty. Both sites
+// serve it from their root, the docs site's copy through gen-docs-lib.js.
 
 import { t } from './i18n.js';
 import { hydrateIcons } from './icons.js';
@@ -101,7 +106,7 @@ export function renderOfficialBar() {
   // Not a landmark of its own and not a dialog: page content, per the file.
   bar.innerHTML = `
     <div class="gov-bar-inner">
-      <span class="gov-bar-mark" data-icon="tv" data-icon-size="16" aria-hidden="true"></span>
+      <img class="gov-bar-mark" src="/gftv-flag.png" alt="" width="24" height="16" decoding="async">
       <p class="gov-bar-line" data-i18n="official.line"></p>
       <button type="button" class="gov-bar-toggle" id="officialBarToggle"
               aria-expanded="false" aria-controls="officialBarPanel">

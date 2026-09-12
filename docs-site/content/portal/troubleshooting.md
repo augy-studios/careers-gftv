@@ -116,10 +116,11 @@ different from closing.
 
 ### Will be available in Phase 5
 
-That part of the site is not built yet. Careers@GFTV is released in phases, in
-public, and an unbuilt feature says so on the control instead of failing
-quietly. The [build status page](https://careers.globalfurry.tv/status) lists
-every phase.
+That part of the site was not built yet when this sentence appeared.
+Careers@GFTV was released in phases, in public, and every phase has shipped
+since 12 September 2026. If you still see it, the page is an old copy: reload
+it. The [status page](https://careers.globalfurry.tv/status) says whether the
+site is working.
 
 ### Temporarily unavailable while we fix something
 

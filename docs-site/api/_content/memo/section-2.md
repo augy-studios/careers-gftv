@@ -293,9 +293,24 @@ the trusted sites page ships with the bar and not before, as the file asks,
 because the page exists now. `gen-docs-lib.js` copies the module to the docs
 site, which mounts it below its skip link the way it mounts the connection
 bar. The styles are in `app.css` and `docs.css`, from theme tokens only. The
-grow and shrink run on a grid row, and not at all under reduced motion. Two
-icons were added, a padlock and a television, since the file wants inline
-SVG and nothing that reads as a warning.
+grow and shrink run on a grid row, and not at all under reduced motion. A
+padlock icon was added for the HTTPS point, since the file wants inline SVG
+and nothing that reads as a warning. The mark is the GFTV flag, asked for on
+13 September in place of a television glyph. It is a 72 by 48 copy of the
+flag in the repository root, served from both sites' roots and precached. It
+is drawn at 24 by 16 with an empty alt. The portable file says so now.
+
+**The docs deploy of part 3 failed, and the build learned the bot's lesson.**
+Vercel built `3abd291` for both projects on 12 September. The portal came up
+at `v137`. The docs build died writing forty rows to
+`gftvjobs_docs_translations`. Supabase's gateway answered 504 once, and the
+site served the previous build, without the banner, until the next deploy.
+Nothing was wrong with either. `docs-site/scripts/db.js` now tries a gateway
+status or a failed connection three times with a pause. It prints each try
+and fails with the same message on the third. A 400 is still one try, since that
+one is a mistake in the tree. Deviation 143. **A redeploy of the docs
+project is what puts the banner on it**, and the fix rides with the next
+push.
 
 **It replaces the phase notice in the same paint.** `shell.js` draws the
 notice while a phase is building and the bar once `allShipped`.

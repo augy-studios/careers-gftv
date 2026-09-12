@@ -768,6 +768,16 @@ define('banner', 'Part 3: the official site banner, and the flip', async () => {
   check('phase 15 has its shipped note in both languages', typeof status.phases[14].shipped_note === 'string' && typeof status.phases[14].shipped_note_zh === 'string' && status.phases[14].shipped_note.length > 200);
   check('and the note says the two languages are off, not that they arrived', /both are off/.test(status.phases[14].shipped_note));
 
+  /* --- The day after: the hatch back, and the nav item ---------------------- */
+
+  const statusLib = read(join(MAIN, 'api/_lib/status.js'));
+  const statusRoute = read(join(MAIN, 'api/status-page.js'));
+  check('viewFor takes a back hatch to the build page, and preview still wins', statusLib.includes('export function viewFor({ preview = false, back = false } = {})') && statusLib.indexOf('if (preview) return VIEW.service;') < statusLib.indexOf('if (back) return VIEW.build;'));
+  check('the route reads ?view=build for a staff session only, the way it read ?view=service', statusRoute.includes('async function staffView(req)') && statusRoute.includes('wanted !== VIEW.service && wanted !== VIEW.build') && statusRoute.includes('hasPortalAccess(session.user)) ? wanted : null'));
+  check('a build page a staff session asked for is private and varies by cookie', statusRoute.includes("'Cache-Control': back ? 'private, no-store' : CACHE") && statusRoute.includes("...(back ? { Vary: 'Cookie' } : {})"));
+  check('the navigation item says Status, in both languages, with a heartbeat', en['nav.buildStatus'] === 'Status' && zh['nav.buildStatus'] === '状态' && en['footer.buildStatus'] === 'Status' && shellJs.includes("{ href: '/status', key: 'nav.buildStatus', icon: 'activity' }") && /^\s+activity:/m.test(read(join(MAIN, 'assets/js/icons.js'))));
+  check('no guide still calls /status the build status page', walk(join(DOCS, 'content'), (f) => f.endsWith('.md')).concat(walk(join(DOCS, 'api/_content'), (f) => f.endsWith('.md') && !f.includes('memo') && !f.includes('spec'))).every((f) => !/\[build\s+status\s+page\]/i.test(read(f))));
+
   /* --- The module ---------------------------------------------------------- */
 
   check('the domain list is the one place the domains are', bar.includes("OFFICIAL_DOMAINS = Object.freeze(['globalfurry.tv', 'gftv.asia'])") && bar.includes("t('official.domainHeading', {") && !/globalfurry\.tv or gftv\.asia/.test(bar));
@@ -782,8 +792,9 @@ define('banner', 'Part 3: the official site banner, and the flip', async () => {
     const block = css.slice(css.indexOf('.gov-bar {'), css.indexOf('.connection-notice {'));
     return block.includes('env(safe-area-inset-top)') && block.includes('prefers-reduced-motion') && !/#[0-9a-f]{3,6}\b|rgb\(/i.test(block);
   }));
-  check('the two icons it needs exist', /^\s+lock:/m.test(read(join(MAIN, 'assets/js/icons.js'))) && /^\s+tv:/m.test(read(join(MAIN, 'assets/js/icons.js'))));
-  check('the portal worker precaches the module and both workers were bumped', read(join(MAIN, 'sw.js')).includes("'/assets/js/official-bar.js'") && /phase15-v137/.test(read(join(MAIN, 'sw.js'))) && /phase15-v13\b/.test(read(join(DOCS, 'sw.js'))));
+  check('the padlock icon exists, and the mark is the flag image and not an icon', /^\s+lock:/m.test(read(join(MAIN, 'assets/js/icons.js'))) && !/^\s+tv:/m.test(read(join(MAIN, 'assets/js/icons.js'))) && bar.includes('<img class="gov-bar-mark" src="/gftv-flag.png" alt=""'));
+  check('the flag is a small copy, served from both roots', existsSync(join(MAIN, 'gftv-flag.png')) && existsSync(join(DOCS, 'public/gftv-flag.png')) && statSync(join(MAIN, 'gftv-flag.png')).size < 10000);
+  check('the portal worker precaches the module and the flag, and both workers were bumped', read(join(MAIN, 'sw.js')).includes("'/assets/js/official-bar.js'") && read(join(MAIN, 'sw.js')).includes("'/gftv-flag.png'") && Number(/phase15-v(\d+)/.exec(read(join(MAIN, 'sw.js')))[1]) >= 138 && Number(/phase15-v(\d+)/.exec(read(join(DOCS, 'sw.js')))[1]) >= 14);
 
   /* --- In a browser ------------------------------------------------------- */
 

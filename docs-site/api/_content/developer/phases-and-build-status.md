@@ -108,8 +108,10 @@ in `api/_lib/status.js` reads the same file, so the last phase flipping to
 and what is degraded gives a reader two reasons a thing might not work. It gives
 them no way to tell which they are looking at.
 
-Staff can see the service page early at `/status?view=service`. It is refused to
-anybody with no portal session and it is never cached.
+Staff could see the service page early at `/status?view=service`. Since 13
+September 2026 they can see the phase list after the flip at `/status?view=build`.
+Both are refused to anybody with no portal session and neither is cached. The
+navigation item says "Status" now, with a heartbeat for its icon.
 
 ## Retiring the mechanism
 

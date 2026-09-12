@@ -843,6 +843,13 @@ const ASSETS = [
     note: 'apple-touch-icon, for a page saved to an iOS home screen.',
   },
   {
+    // Phase 15 part 3. The official bar's mark, a 72 by 48 copy of the flag
+    // in the repository root, on every page of both sites.
+    path: 'gftv-flag.png',
+    to: 'public/gftv-flag.png',
+    note: "The official site banner's mark, the GFTV flag.",
+  },
+  {
     path: 'HLC-main.png',
     to: 'public/HLC-main.png',
     note: text(

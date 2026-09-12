@@ -1743,4 +1743,14 @@ phase 7 rewrote this file. Phase 7's start at 32, phase 8's at 49, phase 9's at
      callback. `redraw()` in `handlers.py` accepts it, and every callback
      edit goes through it; the rich edits in `reply.py` accept the same.
 
+143. **The docs build retries a gateway blip before it fails loudly.** 16e
+     says a build that cannot reach Supabase must fail loudly. It did, on
+     the first 504 of a single write, on 12 September 2026. Part 3's docs
+     deploy stopped and the site served the previous build for a day. The
+     rule stands and the build still stops, on the third failure and not the
+     first. `db.js` tries a 502, 503 or 504, or a connection that never
+     opened, three times with a pause, printing each. A 400 gets one try,
+     since that one is ours. Deviation 141 is the same lesson on the other
+     machine.
+
 ---

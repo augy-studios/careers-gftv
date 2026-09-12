@@ -94,3 +94,5 @@ summary: because it is rare.
     section assumes it exists: one form carrying
     `apps-script/careers-form-webhook.gs` and `PORTAL_SECRET`, copied per
     posting. Nobody has made it yet. See section 5 item 13.
+
+---

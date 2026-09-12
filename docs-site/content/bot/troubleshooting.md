@@ -42,14 +42,16 @@ tasks](/portal/outstanding-tasks) page.
 ### The bot answers "Temporarily unavailable while we fix something"
 
 That part of the bot works and is switched off for the moment. It comes back.
-The [build status page](https://careers.globalfurry.tv/status) lists what is
+The [status page](https://careers.globalfurry.tv/status) lists what is
 currently off.
 
 ### The bot names a phase instead of answering
 
 > Will be available in Phase 5. Sorry for the inconvenience caused.
 
-That command is not built yet. It is a plan and not a fault.
+That command was not built yet when this sentence was written. Every phase
+has shipped since 12 September 2026. If the bot still says it, the bot has
+read a phase list older than the site's. Try again in a few minutes.
 
 ## Sign in codes
 

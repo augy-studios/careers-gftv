@@ -153,10 +153,11 @@ linking again does not lose it.
 
 Two different sentences, and they mean different things.
 
-**Will be available in Phase 5.** That command is not built yet. Careers@GFTV
-is released in phases, in public, and the phase named is read from the [build
-status page](https://careers.globalfurry.tv/status) instead of being written
-into the message.
+**Will be available in Phase 5.** That command was not built yet. Careers@GFTV
+was released in phases, in public, and every phase has shipped since 12
+September 2026, so this sentence should not appear any more. If it does, the
+bot has read a phase list older than the site's. The [status
+page](https://careers.globalfurry.tv/status) is the one to believe.
 
 **Temporarily unavailable while we fix something.** That command works, and an
 admin has switched the feature off for the moment. Sometimes there is a note

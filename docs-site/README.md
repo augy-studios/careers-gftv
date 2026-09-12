@@ -515,6 +515,14 @@ rows that no longer have a file. 16e is explicit about what happens without it:
 English-only site. A site missing every translation is the failure that looks
 like success."
 
+**Loudly, and not on the first blip.** A 502, 503 or 504 from Supabase's
+gateway, or a request that never connected, is tried three times with a pause
+between, and each try is printed. The third failure stops the build with the
+same message as before. Phase 15 part 3's deploy died on a single 504 while
+writing forty rows, on 12 September 2026, and the docs site served the previous
+build for a day while nothing was wrong with either. A 400 is not retried: that
+one is a mistake in the tree.
+
 So with no `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` it stops, naming both. The
 `--no-database` flag is the only way past, it prints a banner saying what the
 output is missing, and **it is refused on Vercel**, because a deployment is

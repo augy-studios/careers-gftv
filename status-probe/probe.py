@@ -1,14 +1,18 @@
 """The status probe. Specification 0c and section 15. Phase 12 part 7.
 
-Run it from this directory, in its own tmux window, beside the bot:
+Run it from this directory, in its own tmux window or under systemd, on the
+same VPS as the bot. `setup.md` beside this file is the whole procedure:
 
     python probe.py
 
 **It has nothing to do with Telegram, and it is a second process on purpose.**
-Section 15 puts it here for one reason: the status page in 0c needs a prober
-outside Vercel, and this VPS is the only thing in the whole architecture that
-is. A status page hosted on the thing it monitors is useless during the outage
-it exists to report.
+Section 15 puts it on the VPS for one reason: the status page in 0c needs a
+prober outside Vercel, and this VPS is the only thing in the whole architecture
+that is. A status page hosted on the thing it monitors is useless during the
+outage it exists to report. It lived in `telegram-bot/` from phase 12 until 13
+September 2026, when it moved here because it is not a bot and was being
+mistaken for part of one: nobody had started it, and the status page drew
+eighty nine blank days.
 
 **Separate from the bot, where `security.py` and `outbox.py` are not.** Those
 two send through Telethon and share its client, so they are tasks in `bot.py`.
@@ -18,10 +22,11 @@ are exactly the two things a status page has to tell apart, and a probe living
 inside the bot could not tell them apart at all. `bot.py`'s own docstring has
 named this exception since part 4.
 
-**It needs no new configuration.** SUPABASE_URL, SUPABASE_SERVICE_KEY and
-SITE_URL are already in the bot's `.env` and are all this reads. It does not
-load the Telegram half at all, so a bot token that has been revoked stops the
-bot and leaves the probe recording, which is the whole point of it being here.
+**It needs three variables.** SUPABASE_URL, SUPABASE_SERVICE_KEY and
+SITE_URL, in a `.env` beside this file, and they are the same three values the
+bot has. It reads no Telegram credential at all, so a bot token that has been
+revoked stops the bot and leaves the probe recording, which is the whole point
+of it being separate.
 
 **Four rules it does not bend**, all from 0c and section 15:
 
@@ -56,14 +61,16 @@ import signal
 import sys
 import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
 
-from config import BASE_DIR, ConfigError, load_env_file
 from lock import AlreadyRunning, SingleInstance
 from log import setup_logging
-from supabase import Supabase, SupabaseError, now_iso
+
+# This directory. The .env, the lock and the logs all live beside this file.
+BASE_DIR = Path(__file__).resolve().parent
 
 USER_AGENT = "careers-gftv-probe"
 
@@ -102,14 +109,88 @@ CONTENT_TYPE = {
 log = logging.getLogger("probe")
 
 
+class ConfigError(RuntimeError):
+    """Raised when the environment cannot produce a usable configuration."""
+
+
+def load_env_file(path: Path) -> None:
+    """Read a `.env` file into os.environ without overwriting what is set.
+
+    The bot's own twenty lines, copied: not python-dotenv, because a dependency
+    that reads secrets is a dependency worth not having.
+    """
+    if not path.is_file():
+        return
+
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[len("export ") :].strip()
+        key, sep, value = line.partition("=")
+        if not sep:
+            continue
+        key = key.strip()
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
+            value = value[1:-1]
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
+class SupabaseError(RuntimeError):
+    """PostgREST answered with something other than success."""
+
+
+def now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+# Supabase's gateway statuses. A write that met one is dropped, like any other
+# failed write, and the log says which: the page draws the minute as unknown,
+# which is the specified behaviour, and a probe that buffered would backfill.
+GATEWAY = frozenset({502, 503, 504})
+
+
+class Supabase:
+    """The one call this process makes to Supabase: the recording function.
+
+    The bot's client has a dozen verbs; this needs a single RPC, and carrying
+    the bot's file here would carry its strings module with it. Migration 037's
+    function takes the four checks of one cycle in one statement, so this is
+    one request per minute and nothing is read.
+    """
+
+    def __init__(self, url: str, service_key: str, client: httpx.AsyncClient) -> None:
+        self._base = f"{url.rstrip('/')}/rest/v1"
+        self._client = client
+        self._headers = {
+            "apikey": service_key,
+            "Authorization": f"Bearer {service_key}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "Prefer": "return=minimal",
+        }
+
+    async def rpc(self, name: str, payload: dict) -> None:
+        response = await self._client.post(
+            f"{self._base}/rpc/{name}", json=payload, headers=self._headers, timeout=TIMEOUT
+        )
+        if response.status_code >= 400:
+            kind = "the gateway" if response.status_code in GATEWAY else "PostgREST"
+            raise SupabaseError(
+                f"rpc {name}: {kind} answered {response.status_code}: {response.text[:400]}"
+            )
+
+
 @dataclass(frozen=True)
 class ProbeConfig:
     """The three variables this process needs, and nothing else.
 
-    Deliberately not `config.load_config()`. That one requires the Telegram
-    credentials, and a probe that refuses to start because a bot token is
-    missing would be down for a reason that has nothing to do with what it
-    watches.
+    Not the bot's `load_config()`, which requires the Telegram credentials: a
+    probe that refused to start because a bot token was missing would be down
+    for a reason that has nothing to do with what it watches.
     """
 
     supabase_url: str

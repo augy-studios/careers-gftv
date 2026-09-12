@@ -1,11 +1,14 @@
-"""Logging for the bot.
+"""Logging for the probe. A copy of the bot's log.py, with the Telethon lines
+taken out, made when the probe moved into its own directory on 13 September
+2026. Two files that are alike on purpose: the probe is a second process on
+its own machine and must not import the bot to write a log line.
 
 **The log is the only account of what happened here.** Deviation 91 settled
 that the bot has no scripted checks, so where the site has
 `tests/phaseN-test.mjs` this has a person with a checklist and this file. That
 raises the bar on it rather than lowering it: anything worth asserting in a test
-is worth logging, and the drain in part 4 logs what it claimed, sent, skipped
-and failed on every single run for exactly that reason.
+is worth logging, and the probe logs every cycle it wrote and every one it
+dropped for exactly that reason.
 
 Two destinations, because they answer different questions. Standard output is
 what a person watching the tmux pane sees while they walk the checklist. The
@@ -30,36 +33,27 @@ DATE_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 MAX_BYTES = 2 * 1024 * 1024
 BACKUP_COUNT = 5
 
-# Telethon narrates every connection at INFO, including a reconnect it then
-# handles by itself. Left alone it buries the four lines a night that actually
-# matter. Warnings and above still come through, which is the half worth having.
-#
-# httpx is on the list for a different reason: it logs a line per request at
-# INFO, and this bot makes one every thirty seconds once the drain lands. A
-# failed request is logged by the caller with what it was for, which is the half
-# worth keeping.
+# httpx logs a line per request at INFO, and this process makes five a minute.
+# A failed request is logged by the caller with what it was for, which is the
+# half worth keeping.
 NOISY = (
-    "telethon.network",
-    "telethon.client.updates",
-    "telethon.extensions",
     "httpx",
     "httpcore",
 )
 
 
-def setup_logging(level: str, log_dir: Path, filename: str = "bot.log") -> logging.Logger:
-    """Configure the root logger and return the bot's own.
+def setup_logging(level: str, log_dir: Path, filename: str = "probe.log") -> logging.Logger:
+    """Configure the root logger and return the probe's own.
 
     Idempotent: calling it twice does not double every line, which matters
     because a failed startup path may well configure logging before the thing
     that failed gets a chance to report itself.
 
-    `filename` was what phase 12's `probe.py` passed while it lived beside this
-    file, until 13 September 2026, when it moved to `status-probe/` with a copy
-    of this module. Two processes appending to one rotating file is how a
-    rotation loses somebody's lines: the handler renames the file underneath
-    the other writer, which keeps writing to a file with no name. One file
-    each, in one directory each now, and the parameter stays.
+    The file is `probe.log`, in this directory's own `logs/`. The bot writes
+    its own file in its own directory, and two processes appending to one
+    rotating file is how a rotation loses somebody's lines: the handler
+    renames the file underneath the other writer, which keeps writing to a file
+    with no name.
     """
     formatter = logging.Formatter(FORMAT, DATE_FORMAT)
     formatter.converter = time.gmtime
@@ -74,7 +68,7 @@ def setup_logging(level: str, log_dir: Path, filename: str = "bot.log") -> loggi
     root.addHandler(console)
 
     # A log directory that cannot be created is not a reason to refuse to run.
-    # Standard output is still there, and a bot that will not start because it
+    # Standard output is still there, and a probe that will not start because it
     # could not open a log file has turned its own diagnostics into an outage.
     try:
         log_dir.mkdir(parents=True, exist_ok=True)
@@ -87,11 +81,11 @@ def setup_logging(level: str, log_dir: Path, filename: str = "bot.log") -> loggi
         rotating.setFormatter(formatter)
         root.addHandler(rotating)
     except OSError as cause:
-        logging.getLogger("bot").warning(
+        logging.getLogger("probe").warning(
             "logging to file is off, %s could not be opened: %s", log_dir, cause
         )
 
     for name in NOISY:
         logging.getLogger(name).setLevel(logging.WARNING)
 
-    return logging.getLogger("bot")
+    return logging.getLogger("probe")

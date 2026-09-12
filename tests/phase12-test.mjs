@@ -3349,7 +3349,7 @@ define('status', 'The service status page, and what it refuses to claim', async 
   // Phase 11's commands.py lesson: a list copied into other files needs a
   // check. This one is in JavaScript, in Python, and in a check constraint, and
   // the database is what refuses a name nobody agreed to.
-  const probe = source('telegram-bot/probe.py');
+  const probe = source('status-probe/probe.py');
   const migration = source('migrations/037_status_checks.sql');
 
   const pythonTargets = (probe.match(/^TARGETS = \(([^)]*)\)/m)?.[1] ?? '')
@@ -4951,7 +4951,7 @@ define('status-live', 'The /status rewrite, the cache header, and the preview no
       skip(
         'the probe has written something',
         'every day is unknown, which is the honest drawing of a probe that is not running yet. ' +
-          'Start telegram-bot/probe.py on the VPS and re-run.'
+          'Start status-probe/probe.py on the VPS and re-run.'
       );
     } else {
       check('the page is drawing measured days rather than only gaps', measured > 0, `${measured} days`);
@@ -5002,13 +5002,17 @@ define('status-live', 'The /status rewrite, the cache header, and the preview no
 
 const ROOT = join(HERE, '..');
 
-/** The READMEs section 2 allows, and the two this build added with a reason.
+/** The READMEs section 2 allows, and the three this build added with a reason.
  *
  *  "Four READMEs, and only these four plus the one in `migrations/`. Do not
- *  scatter a README into every subdirectory." The root README names six, which
- *  is that rule plus `tests/README.md` — written when the phase files became
- *  something somebody else would have to run. It is listed here rather than
- *  quietly tolerated, so a seventh is still a finding.
+ *  scatter a README into every subdirectory." The root README names seven,
+ *  which is that rule plus `tests/README.md` — written when the phase files
+ *  became something somebody else would have to run — and, since 13 September
+ *  2026, `status-probe/README.md`: the probe moved out of `telegram-bot/` into
+ *  a directory of its own, asked for because it is not a bot and was being
+ *  taken for part of one, and a directory somebody has to set up on a machine
+ *  gets a README. Both are listed here rather than quietly tolerated, so an
+ *  eighth is still a finding.
  */
 const READMES = [
   'README.md',
@@ -5017,6 +5021,7 @@ const READMES = [
   'telegram-bot/README.md',
   'docs-site/README.md',
   'tests/README.md',
+  'status-probe/README.md',
 ];
 
 /** Every phrase section 17's offline checklist asks for, by the word it turns

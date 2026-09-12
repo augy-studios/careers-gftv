@@ -141,7 +141,7 @@ one.
 **`gftvjobs_status_days` and `gftvjobs_status_incidents` in `037` are the only
 tables anything outside Vercel writes.** 0c puts the status prober on the VPS
 beside the Telegram bot, because a status page hosted on the thing it monitors is
-useless during the outage it exists to report, and `telegram-bot/probe.py` writes
+useless during the outage it exists to report, and `status-probe/probe.py` writes
 both with the service key. Nothing in `main-site/api` writes them: the site reads
 them and the daily cron sweeps them at ninety days. Neither carries a foreign key
 on purpose — these are observations about an address at a moment, and they have

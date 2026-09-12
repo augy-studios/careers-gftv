@@ -101,10 +101,10 @@ sites and a browser keeps that choice per site.
 There is also a [guide to the Telegram bot](/bot), which is optional and adds
 notifications, invitations, and a faster way to sign in.
 
-## The site is still being built
+## The site was built in phases
 
-Careers@GFTV is released in phases, in public. Anything not built yet says so
-on the control itself, instead of failing quietly. The [build status
-page](https://careers.globalfurry.tv/status) lists every phase and whether it
-is live. A control reading "Will be available in Phase 5" is a plan and not a
-fault.
+Careers@GFTV was released in phases, in public, and the last one shipped on
+12 September 2026. While it was being built, anything not built yet said so
+on the control itself, instead of failing quietly. The [status
+page](https://careers.globalfurry.tv/status) now says whether the site is
+working, and lists anything switched off for the moment.

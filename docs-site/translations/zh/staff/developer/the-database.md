@@ -126,7 +126,7 @@ select filename, applied_at from gftvjobs_migrations order by filename;
 ## 唯一从 Vercel 之外写入的东西
 
 **`gftvjobs_status_days` 和 `gftvjobs_status_incidents`**
-由 VPS 上的 `telegram-bot/probe.py` 透过 `gftvjobs_status_record()` 写入。
+由 VPS 上的 `status-probe/probe.py` 透过 `gftvjobs_status_record()` 写入。
 `main-site/api` 里没有任何东西写它们：
 状态页面读它们，每日的 cron 在九十天时清扫它们。
 

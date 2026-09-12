@@ -1149,10 +1149,13 @@ which is 0c's rule and its reason: a page listing both what is unbuilt and what
 is degraded gives a reader two reasons a thing might not work and no way to tell
 which they are looking at.
 
-**Staff can see the service page early**, at `/status?view=service`. It is
-refused to everybody without a portal session and it is never cached, so the two
-pages cannot both be public. It exists because the alternative is a ninety day
-aggregate whose first run against real data is the day of the flip.
+**Staff can see the service page early**, at `/status?view=service`, **and the
+phase list late**, at `/status?view=build`, since 13 September 2026. Both are
+refused to everybody without a portal session and neither is cached, so the two
+pages cannot both be public. The first exists because the alternative is a
+ninety day aggregate whose first run against real data is the day of the flip.
+The second exists because the day after the flip the build's changelog had no
+address.
 
 Four things about the page that are rules rather than implementation:
 
@@ -1170,7 +1173,7 @@ Four things about the page that are rules rather than implementation:
   This page *is* the answer, so `NETWORK_FIRST_PAGES` in `sw.js` keeps it out of
   the cache-first path; the cached copy is refreshed on every successful load and
   is what an offline reader gets, stamped with the time it was measured.
-- **The data comes from outside Vercel.** `telegram-bot/probe.py` on the VPS
+- **The data comes from outside Vercel.** `status-probe/probe.py` on the VPS
   reports four public checks a minute with the service key. Nothing in
   `main-site/api` ever writes those tables; the page reads them, and the daily
   cron sweeps them at ninety days.

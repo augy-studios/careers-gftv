@@ -1436,7 +1436,10 @@ section.card {
 
 .gov-bar-mark {
   flex: none;
-  color: var(--text-muted);
+  width: 24px;
+  height: 16px;
+  border-radius: 2px;
+  object-fit: cover;
 }
 
 .gov-bar-line {

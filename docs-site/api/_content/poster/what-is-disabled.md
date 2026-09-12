@@ -7,8 +7,9 @@ summary: Three reasons a control does not work, and how to tell them apart at a 
 
 # What you will see disabled
 
-Careers@GFTV is released in phases, in public. Some of what you can see is not
-built yet, and it says so on the control instead of failing quietly.
+Careers@GFTV was released in phases, in public, and the last one shipped on
+12 September 2026. While it was being built, some of what you could see was
+not built yet. It said so on the control instead of failing quietly.
 
 There are three reasons a control does not do what you expect, and they are
 deliberately different from each other.
@@ -17,16 +18,16 @@ deliberately different from each other.
 
 > Will be available in Phase 5. Sorry for the inconvenience caused.
 
-The control is there, greyed out, and clicking it opens an explainer naming the
-phase and what that phase covers.
+The control was there, greyed out, and clicking it opened an explainer naming
+the phase and what that phase covered.
 
-**This is a plan, and not a fault.** Nothing is broken and nobody needs
-telling. The [build status
-page](https://careers.globalfurry.tv/status) lists every phase and what is
-live.
+**This was a plan, and not a fault.** Nothing was broken and nobody needed
+telling. Every phase has shipped, so the sentence should not appear any more.
+If it does, reload the page. The [status
+page](https://careers.globalfurry.tv/status) says what is working.
 
-The phase number is read from that same file, so a control and the status page
-cannot disagree.
+The phase number was read from the same file the status page read, so the two
+could not disagree.
 
 ## 2. Switched off for the moment
 

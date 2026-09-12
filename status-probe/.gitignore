@@ -1,0 +1,15 @@
+# The single instance lock, taken at startup and released by the kernel when
+# the process ends. It holds the running process id and nothing else.
+*.lock
+
+# The rotating log. It stays on the VPS.
+logs/
+
+.env
+.env.*
+!.env.example
+
+__pycache__/
+*.py[cod]
+.venv/
+venv/
