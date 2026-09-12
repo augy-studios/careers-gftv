@@ -28,7 +28,13 @@
 
 // Most urgent first. The connection state outranks the phase notice, which
 // outranks the header, and nothing may reorder another entry by drawing later.
-const ORDER = ['connection-notice', 'phase-notice', 'site-header'];
+//
+// The official bar is above all of them, since phase 15 part 3: gftv-official.md
+// puts it "at the very top of body, above the site header and above anything
+// else", and it is the one bar that is a fact and not an alert, so nothing
+// urgent needs to sit above it. It and the phase notice are never both present;
+// shell.js draws one or the other.
+const ORDER = ['official-bar', 'connection-notice', 'phase-notice', 'site-header'];
 
 /**
  * Put a bar at the top of the body, in its place in the stack and below the
@@ -38,7 +44,7 @@ const ORDER = ['connection-notice', 'phase-notice', 'site-header'];
  * than duplicates, which is what a language change redrawing one bar needs.
  *
  * @param {HTMLElement} element
- * @param {'connection-notice'|'phase-notice'|'site-header'} kind
+ * @param {'official-bar'|'connection-notice'|'phase-notice'|'site-header'} kind
  */
 export function insertTopBar(element, kind) {
   const rank = ORDER.indexOf(kind);

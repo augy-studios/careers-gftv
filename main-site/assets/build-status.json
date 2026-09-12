@@ -147,11 +147,11 @@
       "number": 15,
       "name": "More languages",
       "name_zh": "更多语言",
-      "status": "building",
+      "status": "shipped",
       "description": "Adding Malay and Tamil. The portal is already built to take them: a new language needs no database change, only its wording. Listed last because it depends on finding people to write and check it.",
       "description_zh": "加入马来文和淡米尔文。本网站的架构已经支持：新增语言无需改动数据库，只需要撰写内容。列在最后，是因为这取决于能否找到人撰写和校对。",
-      "shipped_note": null,
-      "shipped_note_zh": null
+      "shipped_note": "This is the last phase, and it ships the groundwork and not the words. The portal now takes a language without a database change: a dictionary, a row, and a switch. Malay and Tamil have their files and their switches, and both are off, because nobody has written them yet. The day a translation is in and has been checked, an admin turns the switch on and the language appears everywhere at once. Until then the site is in English and 华文, exactly as before. Two things arrived with the phase that are not about languages. The Telegram bot's replies are rich messages now, with headings and tables where a list used to be. The guides read in the chat the way they read on the site. And the bar at the top of every page is the official site banner. It says which addresses are GFTV's and how to read one. It replaces the build notice that sat there since the first phase, and it does not close. The build status page you are reading now gives way to the service status page, which answers whether the site is working.",
+      "shipped_note_zh": "这是最后一个阶段，上线的是基础而不是文字。本网站现在无需改动数据库就能加入一种语言：一份词典、一行记录，加上一个开关。马来文和淡米尔文已经有了各自的文件和开关，而两者都处于关闭状态，因为还没有人撰写它们。译文完成并经过校对的那一天，管理员打开开关，该语言就会同时出现在各处。在那之前，本网站和以前一样提供英文和华文。随本阶段一起到来的还有两件与语言无关的事。Telegram 机器人的回复现在是富消息，原本列表的地方换成了标题和表格，指南在聊天里读起来和在网站上一样。每个页面顶端的横条现在是官方网站横幅。它说明哪些网址属于国际兽视、该怎么读一个网址，取代了从第一个阶段起就在那里的开发进度提示，而且不会关闭。您现在阅读的开发进度页面从此让位给服务状态页面，后者回答的是网站是否正常运作。"
     }
   ],
   "features": {

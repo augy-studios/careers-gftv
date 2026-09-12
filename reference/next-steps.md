@@ -5,19 +5,27 @@ phase. **It lives in `reference/` and is committed, as of 8 September 2026**; it
 was gitignored for the first fourteen phases. The brief is
 `reference/careers-gftv-spec.md`, and this file never overrides it.
 
-Last written: **at the end of phase 15 part 2, on 12 September 2026**, the
-day after phase 14 flipped. Parts 1 and 2 sit in the working tree together,
-not yet pushed. The flip and the handover went in as `cdfbadc`, "phase 14 part
-10g", which this file calls 10h.
-Section 1 has phase 14 condensed. Section 2 is phase 15, written from what
-section 6 held for it. Section 4's numbering runs to 142.
+**The build is complete.** Fifteen phases, from 18 August to 12 September
+2026. This is the last rewrite, at the end of the last part, and the file
+stops being a working memo here and becomes the record. Anything done after
+this is a change to a finished site. It is written up in section 8 or in a
+new section 9, not in a phase.
 
-**Fourteen of fifteen phases are live.** `build-status.json` reads `shipped`
-for every phase but this one, and the root README says so. `sw.js` is at
-**`v136`** on the portal and **`v12`** on the docs site. The log's last push is
-`cdfbadc`, "phase 14 part 10g", which holds what this file calls 10h. The
+Last written: **at the end of phase 15 part 3, on 12 September 2026**, the
+day after phase 14 flipped. Parts 1 and 2 are pushed as `b115b7b`, "phase 15
+part 1 & 2", and `48237c8`, "phase 15 part 2a". The letter is the `/start`
+commands made bare again. Part 3 is the flip and sits in the working tree.
+The phase 14 flip and its handover went in as `cdfbadc`, "phase 14 part
+10g", which this file calls 10h. Section 1 has every phase condensed, phase
+15 last. Section 2 is phase 15 in full. Section 4's numbering runs to 142.
+
+**Every phase reads `shipped`, in the tree.** `build-status.json` says so,
+the root README says so, and `/status` is the service status page from the
+deploy that carries it. `sw.js` is at **`v137`** on the portal and **`v13`**
+on the docs site. The log's last push is `48237c8`, "phase 15 part 2a". The
 paragraph "The parts, and what the log calls them" in section 1 is where to
-count from when the log and this file disagree. They have since `cd2cfa9`.
+count from when the log and this file disagree. They have since `cd2cfa9`,
+and phase 15's two parts went in as one commit and a letter.
 
 **Phase 15 is the backbone for two languages that are not written yet, and
 it ships without them.** The dictionaries are copies of the English so the
@@ -26,8 +34,9 @@ switch until a translation is in. The five decisions were settled on 12
 September 2026, before any code. Section 2 has the three parts they became
 once the user said, the same day, that Malay and Tamil stay off after the
 flip. Part 1 is the switch and the copies. Part 2 is the bot's rich
-messages, asked for the same afternoon. Part 3 is the banner and the flip.
-Nothing gates the flip on anything owed.
+messages, asked for the same afternoon. Part 3 is the banner and the flip,
+and it is built. Nothing gated the flip on anything owed, and the one
+sitting below is still owed.
 
 **What the build still owes, and it is one sitting.** Decision 27's by-hand
 sitting opens with a seeded board and a staff account behind an authenticator
@@ -539,6 +548,19 @@ live, and it takes over half an hour.
 They are behind decision 27's seeded board too. Nothing in this phase gated its flip on them,
 which is phase 11's order and not phase 13's, and it is written down as such.
 
+### Phase 15, More languages. Shipped 12 September 2026, in three parts.
+
+**The backbone for two languages that are not written, and the last two
+things in the build.** Section 2 is the full record and stays as written,
+since no phase follows to condense it into here. Part 1: a language is a
+`locale_<code>` feature key and there is no other list. Malay and Tamil are
+copies of the English, held off the site until an admin switches them on.
+Part 2: every structured reply the bot sends is a rich message, built from
+the same HTML strings, with the two fixes from 11 September. Part 3: the
+official site banner on both shells, linking the trusted sites page. Then
+the flip. **What it left**: switching a language on is section 8 item 5a, and
+decision 27's sitting is owed as it was.
+
 ---
 
 ## 2. This phase. Phase 15, More languages.
@@ -680,14 +702,16 @@ and 3 for a morning. They left when the user said the languages stay off after
 the flip. Switching one on later is a procedure, in section 8 item 5a, and not
 a part.
 
-1. **The switch and the copies. Built 12 September 2026.** Below.
+1. **The switch and the copies. Built 12 September 2026.** Below. Pushed
+   with part 2 as `b115b7b`, "phase 15 part 1 & 2".
 2. **Rich messages. Built 12 September 2026.** Below. The bot's two fixes
    from 11 September, the 504 report and the `/language` redraw, are in it.
-3. **The banner and the flip.** Section 8 item 5 on both shells, linking
-   `https://gftv.asia/trusted-sites`, which the user gave on 12 September.
-   Then `shipped`, in the same commit, per decision 4. That is also the day
-   `/status` becomes the service status page by itself. It is the day
-   `locale_ms` and `locale_ta` appear on `/admin/maintenance`, off.
+   In `b115b7b`, and `48237c8` "phase 15 part 2a" is the `/start` table's
+   commands made bare again, so they stay tappable.
+3. **The banner and the flip. Built 12 September 2026.** Below. Section 8
+   item 5 on both shells, linking `https://gftv.asia/trusted-sites`, which
+   the user gave on 12 September. Then `shipped` in the same commit, per
+   decision 4.
 
 ### Part 1, the switch and the copies
 
@@ -811,7 +835,45 @@ current language under `/language` produced, deviation 142.
 The converter, the builders, two real guide pages through the renderer, and
 the three sends against a client that answers as told. Steps 4, 17, 22, 24
 and 24a of the bot's checklist say what to look for by hand. That includes
-the log line that must not appear.
+the log line that must not appear. **Walked by the user on 12 September
+2026, on the VPS, after the pull and the restart. The rich replies render,
+and the log carries no fallback line.**
+
+### Part 3, the banner and the flip
+
+**One module, generated into both sites.** `main-site/assets/js/official-bar.js`
+is the banner gftv-official.md specifies: the domain list as a constant, the
+copy under `official.*` in each site's dictionary, the markup from the file,
+and the expansion remembered per site in `localStorage` because storage is
+per origin. No close control exists and nothing stored hides it. The heading
+is rendered from the domain list, so adding a domain is one edit. The link to
+the trusted sites page ships with the bar and not before, as the file asks,
+because the page exists now. `gen-docs-lib.js` copies the module to the docs
+site, which mounts it below its skip link the way it mounts the connection
+bar. The styles are in `app.css` and `docs.css`, from theme tokens only. The
+grow and shrink run on a grid row, and not at all under reduced motion. Two
+icons were added, a padlock and a television, since the file wants inline
+SVG and nothing that reads as a warning.
+
+**It replaces the phase notice in the same paint.** `shell.js` draws the
+notice while a phase is building and the bar once `allShipped`.
+`top-bars.js` puts the bar first in its stack, above the connection bar. The
+docs site never carried the notice, so it draws the bar from this deploy.
+`tests/phase15-test.mjs --only=banner` serves the portal twice from the
+working tree, with the last phase shipped and with it building. It opens
+each in Chromium and looks for the bar on one and the notice on the other.
+Then one row at 320px, and the panel hidden while collapsed and remembered
+once opened. Then one column below 640px, the link, and a language change
+refilling it in place. Thirty checks.
+
+**The flip.** Phase 15 reads `shipped`, with a note in both languages that
+says what it ships and what it does not. The groundwork, with both languages
+off. `/status` becomes the service status page from the deploy that carries
+this, by `everyPhaseShipped()`. The phase 12 check that waited for the gate
+to open was rewritten to say it has. The root README says fifteen of
+fifteen. `locale_ms` and `locale_ta` appear on `/admin/maintenance` the same
+day, off, with the standing note under each. The workers are at `v137` and
+`v13`.
 
 ### Before the phase is called done
 
@@ -4355,6 +4417,9 @@ phase 7 rewrote this file. Phase 7's start at 32, phase 8's at 49, phase 9's at
 
 ## 6. Inherited by later phases
 
+There are no later phases. What is here is left for whoever changes the site
+next, which is the same reader with a different name.
+
 - **The maintenance switches need no migration, now or later.**
 - **~~Phase 11's webhook confirmation notice~~ was built by phase 14 on 11
   September 2026**, deviation 135. That was after three deferrals and the
@@ -4366,10 +4431,10 @@ phase 7 rewrote this file. Phase 7's start at 32, phase 8's at 49, phase 9's at
   2026 when phase 14 flipped. That is the three things a locale is per 3a, and the
   dictionaries starting as copies of the English. Then the `/status` switchover
   that happens by itself, and the bot's `strings.py` question.
-- **The official site banner is the last thing in the build**, section 8 item 5.
-  The trusted sites page is `https://gftv.asia/trusted-sites`, given on 12
-  September 2026, and the banner is phase 15 part 3. **As of phase 13 it is
-  two banners and not one.**
+- **~~The official site banner is the last thing in the build~~. Built by
+  phase 15 part 3 on 12 September 2026**, section 8 item 5. The trusted sites
+  page is `https://gftv.asia/trusted-sites`. **As of phase 13 it is two
+  banners and not one.**
   `gftv-official.md` names `docs.careers.globalfurry.tv` among the official
   subdomains and asks for the banner on every page. So the docs shell needs it
   as well as the portal's. One implementation or two is decision 1's question a
@@ -4525,11 +4590,11 @@ phase 7 rewrote this file. Phase 7's start at 32, phase 8's at 49, phase 9's at
    pointed at that colour. The `install` section checks sizes, tags and the
    manifest's own claims, and nothing about the artwork. So it is worth the same
    after a new icon as before it.
-5. **The official site banner** for when every phase has shipped, specified in
-   `gftv-official.md`. It cannot be dismissible and must never claim the site is
-   safe or verified. The trusted sites page it links to is
-   `https://gftv.asia/trusted-sites`, given on 12 September 2026, and the
-   banner is phase 15 part 3.
+5. ~~**The official site banner** for when every phase has shipped.~~ **Built
+   by phase 15 part 3 on 12 September 2026.** From `gftv-official.md`, on both
+   shells, linking `https://gftv.asia/trusted-sites`. It is not dismissible
+   and claims nothing about safety, and `--only=banner` holds it to the
+   file's acceptance list.
 5a. **Switching Malay or Tamil on, the day a translation is in.** Not a part.
    The dictionary comes back and replaces the copy. `check-copy.js` reads it
    as a copy no longer, so its source in that file gets the language's own

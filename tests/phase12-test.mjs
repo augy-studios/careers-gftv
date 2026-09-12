@@ -3375,10 +3375,14 @@ define('status', 'The service status page, and what it refuses to claim', async 
 
   /* -- which page this route is -------------------------------------------- */
 
+  // Written while the gate was closed, and rewritten the day it opened: phase
+  // 15 flipped on 12 September 2026, and the switchover this check was
+  // waiting for has happened. The derivation is what is checked, in both
+  // states, below; here is only that the live file answers the open side.
   check(
-    'the gate is closed, so /status is still the phase list',
-    everyPhaseShipped() === false && viewFor() === VIEW.build,
-    'every phase reads shipped, which means the switchover has happened'
+    'the gate is open, so /status is the service status page',
+    everyPhaseShipped() === true && viewFor() === VIEW.service,
+    'a phase still reads building, which means the switchover has not happened'
   );
   check(
     'a staff preview is the only thing that opens it early',

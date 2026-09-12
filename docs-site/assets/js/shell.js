@@ -34,6 +34,7 @@ import {
 } from './chrome-modals.js';
 import { render } from './markdown.js';
 import { initConnectionBar, tellWorker } from './connection-bar.js';
+import { mountOfficialBar } from './official-bar.js';
 import { mountScripts } from './test-scripts.js';
 
 const CHEVRON =
@@ -1380,6 +1381,20 @@ async function start() {
       else document.body.prepend(bar);
     },
     statusHref: null,
+  });
+
+  // The official site banner, phase 15 part 3, from the portal's own module.
+  // Above the connection bar, which is the portal's ordering too: gftv-official.md
+  // puts it above everything, and it is a fact and not an alert. This site
+  // never carried the phase notice, so there is nothing for it to replace here
+  // and no phase to wait for: it arrives with the deploy that flips the last
+  // phase on the portal.
+  mountOfficialBar({
+    insert: (bar) => {
+      const skip = document.querySelector('.docs-skip');
+      if (skip) skip.after(bar);
+      else document.body.prepend(bar);
+    },
   });
 
   translateDom(document);

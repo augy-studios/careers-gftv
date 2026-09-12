@@ -62,18 +62,29 @@ and not less.
 **Keep the domain list in one place per site**, and render the bar from it.
 Adding a domain is then one edit and never a search through copy.
 
-## When it lands here
+## Where it is
 
-**It replaces the build notice**, per 0c, when the last phase ships. The phase
-notice is temporary and dismissible; this one is permanent and is not. They
-occupy the same slot and must never both be present, because two stacked bars
-above the header is worse than either alone.
+**It replaced the build notice**, per 0c, when the last phase shipped on 12
+September 2026, phase 15 part 3. The phase notice was temporary and
+dismissible; this one is permanent and is not. They occupy the same slot and
+are never both present. `shell.js` draws the notice while a phase is building
+and the banner once every phase reads `shipped`, in the same paint.
 
-Until then, this portal ships the phase notice and nothing else. See [phases and
-build status](/staff/developer/phases-and-build-status).
+`main-site/assets/js/official-bar.js` is the implementation, and
+`gen-docs-lib.js` copies it to this site, which mounts it below its skip link.
+The domain list is the constant at the top of that file, the copy is in each
+site's dictionary under `official.*`, and the styles are in `app.css` and
+`docs.css` from theme tokens alone. Opening the panel is remembered per site,
+in `localStorage`, because storage is per origin.
+
+The trusted sites page exists now, at `https://gftv.asia/trusted-sites`, and
+the domain point links to it. `tests/phase15-test.mjs --only=banner` opens the
+portal in a browser twice, with the last phase shipped and with it building.
+It checks the bar is there in one case and the notice in the other, along
+with the rest of the file's acceptance list.
 
 > [!NOTE]
-> The banner is the same question the theme file asks: one implementation
-> generated into both sites, or two. This build's answer for everything else it
-> shares has been one implementation, in `main-site/assets/js/`, copied across by
-> `gen-docs-lib.js`.
+> The banner was the same question the theme file asked: one implementation
+> generated into both sites, or two. It got the answer everything else the
+> two sites share has: one implementation, in `main-site/assets/js/`, copied
+> across by `gen-docs-lib.js`.

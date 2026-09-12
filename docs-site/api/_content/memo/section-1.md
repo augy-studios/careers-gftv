@@ -498,4 +498,17 @@ live, and it takes over half an hour.
 They are behind decision 27's seeded board too. Nothing in this phase gated its flip on them,
 which is phase 11's order and not phase 13's, and it is written down as such.
 
+## Phase 15, More languages. Shipped 12 September 2026, in three parts.
+
+**The backbone for two languages that are not written, and the last two
+things in the build.** Section 2 is the full record and stays as written,
+since no phase follows to condense it into here. Part 1: a language is a
+`locale_<code>` feature key and there is no other list. Malay and Tamil are
+copies of the English, held off the site until an admin switches them on.
+Part 2: every structured reply the bot sends is a rich message, built from
+the same HTML strings, with the two fixes from 11 September. Part 3: the
+official site banner on both shells, linking the trusted sites page. Then
+the flip. **What it left**: switching a language on is section 8 item 5a, and
+decision 27's sitting is owed as it was.
+
 ---

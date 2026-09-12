@@ -45,7 +45,11 @@ import {
   renderPhaseNotice,
   applyFeatureGating,
   renderPlaceholder,
+  allShipped,
 } from './build-status.js';
+// Phase 15 part 3. The official site banner, which takes the phase notice's
+// place the day the last phase ships, per 0c and gftv-official.md.
+import { renderOfficialBar } from './official-bar.js';
 import {
   api,
   applicantSession,
@@ -764,7 +768,12 @@ async function boot() {
   if (!isPublished(getLocale())) await applyLocale(DEFAULT_LOCALE, { remember: false });
 
   const paint = () => {
+    // One or the other, never both: renderPhaseNotice returns early once
+    // every phase has shipped, and that is the day the official bar arrives.
+    // Idempotent on both sides, so the redraw on a language change moves the
+    // bar in the stack instead of adding a second.
     renderPhaseNotice(status);
+    if (allShipped(status)) insertTopBar(renderOfficialBar(), 'official-bar');
     applyFeatureGating(status);
     renderPlaceholder(status);
     applyPortalTitle();

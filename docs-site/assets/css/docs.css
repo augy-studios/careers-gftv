@@ -1400,6 +1400,154 @@ section.card {
  * here.
  * ---------------------------------------------------------------------- */
 
+/* ---------------------------------------------------------------------------
+ * The official site banner, gftv-official.md. Phase 15 part 3.
+ *
+ * The quietest thing on the page, by that file's instruction: one line on
+ * --bg-alt with a hairline under it, the toggle reading as a link, and the
+ * panel the same surface growing and not a new one appearing. Every value is a
+ * theme token. It sits above the header and above every other bar, and honours
+ * the safe area because it is the topmost element on the page.
+ *
+ * One row at every width down to 320px: the mark and the toggle never shrink,
+ * and the line gives way with an ellipsis before the bar is allowed a second
+ * row, since a bar tall enough to push the header off a phone is the failure
+ * the file names. The panel is two columns above 640px and one below, points
+ * stacking in the order written so the domain rule comes first on a phone.
+ * ------------------------------------------------------------------------- */
+
+.gov-bar {
+  background: var(--bg-alt);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+}
+
+.gov-bar-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 0.375rem 1rem;
+  padding-top: max(0.375rem, env(safe-area-inset-top));
+  min-height: 2rem;
+}
+
+.gov-bar-mark {
+  flex: none;
+  color: var(--text-muted);
+}
+
+.gov-bar-line {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.gov-bar-toggle {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0.125rem 0;
+  border: 0;
+  background: none;
+  color: var(--brand-text);
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.gov-bar-toggle [data-icon] {
+  transition: transform 180ms ease;
+}
+
+.gov-bar-toggle[aria-expanded='true'] [data-icon] {
+  transform: rotate(180deg);
+}
+
+/* The grow and shrink, on the grid row, so nothing is measured in script. The
+ * panel is `hidden` while collapsed and data-open drives the motion between
+ * the two states; official-bar.js sequences the attribute and the flag. */
+.gov-bar-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 180ms ease;
+}
+
+.gov-bar-panel[data-open='true'] {
+  grid-template-rows: 1fr;
+}
+
+.gov-bar-panel[hidden] {
+  display: none;
+}
+
+.gov-bar-panel-inner {
+  overflow: hidden;
+  max-width: 72rem;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0 2rem;
+  padding: 0 1rem;
+}
+
+.gov-bar-panel[data-open='true'] .gov-bar-panel-inner {
+  padding-bottom: 0.875rem;
+}
+
+@media (min-width: 640px) {
+  .gov-bar-panel-inner {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.gov-bar-point {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  padding-top: 0.5rem;
+  color: var(--text-muted);
+}
+
+.gov-bar-point > [data-icon] {
+  flex: none;
+  margin-top: 0.125rem;
+  color: var(--text);
+}
+
+.gov-bar-point h2 {
+  margin: 0 0 0.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text);
+}
+
+.gov-bar-point p {
+  margin: 0 0 0.25rem;
+  line-height: 1.45;
+}
+
+.gov-bar-point a,
+.gov-bar-point a:visited {
+  color: var(--brand-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gov-bar-panel,
+  .gov-bar-toggle [data-icon] {
+    transition: none;
+  }
+}
+
 .connection-notice {
   background: var(--bg-alt);
   border-bottom: 1px solid var(--border);

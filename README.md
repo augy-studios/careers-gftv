@@ -8,7 +8,7 @@ collected in Google Forms: the portal's job is to gate access, hand the
 applicant over, log the handoff, and track what happened next. It is a GFTV
 HelloApp and follows the same conventions as the other GFTV PWAs.
 
-**Phases 1 to 14 of 15 have shipped.** The database
+**Phases 1 to 15 of 15 have shipped, and the build is complete.** The database
 schema and the shared server side code, then signing in, then the job board,
 the postings themselves, applying to one, and the applicant's own account area.
 The public surface is the home page, `/search` with its filters and
@@ -31,9 +31,11 @@ Vercel project with its own staff sign in and the role gate that decides what a
 reader is allowed to see. **Phase 14 is the documentation itself**: 82 pages
 across six guides, for applicants, the Telegram bot, translation helpers, job
 posters, admins and developers, in English and 华文, with the specification and
-the working memo rendered as pages beside them. One remains, and
-phase 15 is being built: Malay and Tamil. Live status:
-[careers.globalfurry.tv/status](https://careers.globalfurry.tv/status).
+the working memo rendered as pages beside them. **Phase 15 is the last**,
+shipped 12 September 2026: the backbone for Malay and Tamil, both held off the
+site by a switch until a translation is in, the Telegram bot's replies as rich
+messages, and the official site banner on both sites. Every phase is live.
+Service status: [careers.globalfurry.tv/status](https://careers.globalfurry.tv/status).
 
 **The portal is open to search engines from phase 12 part 8**, on 31 August
 2026, having been closed to them since phase 1. It is one constant, `INDEXING`

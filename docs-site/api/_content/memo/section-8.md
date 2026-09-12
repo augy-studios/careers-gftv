@@ -42,11 +42,11 @@ summary: because it is rare.
    pointed at that colour. The `install` section checks sizes, tags and the
    manifest's own claims, and nothing about the artwork. So it is worth the same
    after a new icon as before it.
-5. **The official site banner** for when every phase has shipped, specified in
-   `gftv-official.md`. It cannot be dismissible and must never claim the site is
-   safe or verified. The trusted sites page it links to is
-   `https://gftv.asia/trusted-sites`, given on 12 September 2026, and the
-   banner is phase 15 part 3.
+5. ~~**The official site banner** for when every phase has shipped.~~ **Built
+   by phase 15 part 3 on 12 September 2026.** From `gftv-official.md`, on both
+   shells, linking `https://gftv.asia/trusted-sites`. It is not dismissible
+   and claims nothing about safety, and `--only=banner` holds it to the
+   file's acceptance list.
 5a. **Switching Malay or Tamil on, the day a translation is in.** Not a part.
    The dictionary comes back and replaces the copy. `check-copy.js` reads it
    as a copy no longer, so its source in that file gets the language's own

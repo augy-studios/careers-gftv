@@ -24,10 +24,12 @@
 //   rich      part 2: the bot's rich messages, and the guides drawn as pages
 //   docs      the docs site's copies stay at two languages
 //   worker    the portal worker precaches no held dictionary
+//   banner    part 3: the official site banner on both shells, and the flip
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
+import { createServer } from 'node:http';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { join, dirname } from 'node:path';
+import { join, dirname, extname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createRequire, register } from 'node:module';
 
@@ -300,6 +302,16 @@ define('server', 'maintenance.js and locales.js, with a stubbed settings table',
   const { maintenance, locales, settings } = await serverModules();
   const staffUser = { id: 'u1', username: 'tester' };
 
+  // Phase 15 flipped in part 3, so the pre-flip state is set here, on the
+  // required copy of the file, which maintenance.js reads through the same
+  // require cache. Put back at the end either way.
+  const require = createRequire(import.meta.url);
+  const status = require(join(MAIN, 'assets/build-status.json'));
+  const phase15 = status.phases.find((p) => p.number === 15);
+  const before = phase15.status;
+  phase15.status = 'building';
+  try {
+
   check('knownLocales derives the four from the keys, and language_switcher is not one', locales.knownLocales().join() === LOCALES.join(), locales.knownLocales().join());
   check('shippedLocales is English and Chinese before the flip', locales.shippedLocales().join() === 'en,zh');
 
@@ -325,14 +337,8 @@ define('server', 'maintenance.js and locales.js, with a stubbed settings table',
   check('and it stops reading as off', !('locale_ms' in off));
   check('but a phase that has not shipped still holds it back', (await locales.publishedLocales()).join() === 'en,zh');
 
-  // The flip, done to the required copy of the file, which maintenance.js
-  // reads through the same require cache.
-  const require = createRequire(import.meta.url);
-  const status = require(join(MAIN, 'assets/build-status.json'));
-  const phase15 = status.phases.find((p) => p.number === 15);
-  const before = phase15.status;
+  // The flip.
   phase15.status = 'shipped';
-  try {
     check('after the flip, the switched on language is published', (await locales.publishedLocales()).join() === 'en,zh,ms');
     check('and the one nobody switched on is still held', !(await locales.publishedLocales()).includes('ta'));
     check('locale_ms and locale_ta are on the maintenance page after the flip', maintenance.flippableFeatures().some((f) => f.key === 'locale_ta'));
@@ -348,9 +354,6 @@ define('server', 'maintenance.js and locales.js, with a stubbed settings table',
     await maintenance.setFeatureOverride('locale_zh', false, { note: null, staffUser });
     check('and switching it back on removes its record', !('locale_zh' in settings.store.feature_overrides));
     check('the default is always published', (await locales.publishedLocales())[0] === 'en');
-  } finally {
-    phase15.status = before;
-  }
 
   // Off means off, including the API: no route reaches the shape-only checks.
   const routes = walk(join(MAIN, 'api'), (f) => f.endsWith('.js') && !f.includes('_lib'));
@@ -359,6 +362,9 @@ define('server', 'maintenance.js and locales.js, with a stubbed settings table',
   const unawaited = routes.filter((f) => /(?<!await )\b(requestLocale|validatePublishedLocale)\(/.test(read(f).replace(/import \{[^}]*\}/g, '')));
   check('every published locale check in a route is awaited', unawaited.length === 0, unawaited.map((f) => f.slice(MAIN.length + 1)).join(', '));
   check('the posting page inlines only published languages', read(join(MAIN, 'api/job-page.js')).includes('for (const locale of await publishedLocales())'));
+  } finally {
+    phase15.status = before;
+  }
 });
 
 /* -------------------------------------------------------------------------
@@ -686,6 +692,175 @@ define('worker', 'The portal worker precaches no held dictionary', async () => {
   }
   const precache = runScript('check-precache.js');
   check('check-precache.js passes with the two copies expected absent', precache.code === 0 && read(join(REPO, 'check-precache.js')).includes("'assets/i18n/ms.json'"), precache.out.slice(-400));
+});
+
+/* -------------------------------------------------------------------------
+ * banner
+ * ---------------------------------------------------------------------- */
+
+const TYPES = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.woff2': 'font/woff2',
+  '.png': 'image/png',
+  '.ico': 'image/x-icon',
+};
+
+/**
+ * The portal, served from the working tree with every API answered as a
+ * stranger with nothing switched off, and build-status.json served with every
+ * phase shipped or with phase 15 building, so both halves of the rule can be
+ * looked at: the official bar on one page, the phase notice on the other.
+ */
+function servePortal(shipped) {
+  return createServer((req, res) => {
+    const url = new URL(req.url, 'http://localhost');
+    if (url.pathname === '/assets/build-status.json') {
+      const status = json(join(MAIN, 'assets/build-status.json'));
+      const phase15 = status.phases.find((p) => p.number === 15);
+      phase15.status = shipped ? 'shipped' : 'building';
+      res.writeHead(200, { 'Content-Type': TYPES['.json'] });
+      return res.end(JSON.stringify(status));
+    }
+    if (url.pathname === '/api/public/feature-status') {
+      res.writeHead(200, { 'Content-Type': TYPES['.json'] });
+      return res.end(JSON.stringify({ ok: true, data: { off: {} } }));
+    }
+    if (url.pathname.startsWith('/api/')) {
+      res.writeHead(404, { 'Content-Type': TYPES['.json'] });
+      return res.end(JSON.stringify({ ok: false, error: { code: 'not_found' } }));
+    }
+    const candidates = [
+      join(MAIN, url.pathname.slice(1)),
+      join(MAIN, url.pathname.slice(1), 'index.html'),
+      join(MAIN, `${url.pathname.slice(1)}.html`),
+    ];
+    const file = candidates.find((c) => existsSync(c) && statSync(c).isFile());
+    if (!file) {
+      res.writeHead(404);
+      return res.end();
+    }
+    res.writeHead(200, { 'Content-Type': TYPES[extname(file)] ?? 'application/octet-stream' });
+    res.end(readFileSync(file));
+  });
+}
+
+async function listen(server) {
+  await new Promise((ready) => server.listen(0, '127.0.0.1', ready));
+  return `http://127.0.0.1:${server.address().port}`;
+}
+
+define('banner', 'Part 3: the official site banner, and the flip', async () => {
+  const status = json(join(MAIN, 'assets/build-status.json'));
+  const bar = read(join(MAIN, 'assets/js/official-bar.js'));
+  const shellJs = read(join(MAIN, 'assets/js/shell.js'));
+  const docsShell = read(join(DOCS, 'assets/js/shell.js'));
+  const en = json(join(MAIN, 'assets/i18n/en.json'));
+  const zh = json(join(MAIN, 'assets/i18n/zh.json'));
+  const docsEn = json(join(DOCS, 'assets/i18n/en.json'));
+  const docsZh = json(join(DOCS, 'assets/i18n/zh.json'));
+
+  /* --- The flip ---------------------------------------------------------- */
+
+  check('every phase reads shipped', status.phases.every((p) => p.status === 'shipped'), status.phases.filter((p) => p.status !== 'shipped').map((p) => p.number).join(', '));
+  check('phase 15 has its shipped note in both languages', typeof status.phases[14].shipped_note === 'string' && typeof status.phases[14].shipped_note_zh === 'string' && status.phases[14].shipped_note.length > 200);
+  check('and the note says the two languages are off, not that they arrived', /both are off/.test(status.phases[14].shipped_note));
+
+  /* --- The module ---------------------------------------------------------- */
+
+  check('the domain list is the one place the domains are', bar.includes("OFFICIAL_DOMAINS = Object.freeze(['globalfurry.tv', 'gftv.asia'])") && bar.includes("t('official.domainHeading', {") && !/globalfurry\.tv or gftv\.asia/.test(bar));
+  check('the trusted sites link is the address given on 12 September', bar.includes("TRUSTED_SITES_URL = 'https://gftv.asia/trusted-sites'"));
+  check('there is no close control and nothing stored that hides it', !/dismiss|close/i.test(bar.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '')) && bar.includes("OPEN_KEY = 'gftv-careers.officialBarOpen'"));
+  check('the copy never claims the site is safe or verified', ['official.line', 'official.domainHeading', 'official.domainBody', 'official.secureHeading', 'official.secureBody', 'official.trustedLink'].every((key) => !/\b(safe|verified|trusted site\b)/i.test(en[key]) && !/安全的网站|已验证/.test(zh[key])));
+  check('the eight strings are in all four dictionaries, the copy from gftv-official.md', ['official.line', 'official.toggle', 'official.domainHeading', 'official.domainJoin', 'official.domainBody', 'official.trustedLink', 'official.secureHeading', 'official.secureBody'].every((key) => en[key] && zh[key] && docsEn[key] && docsZh[key]));
+  check('the portal draws it only when every phase has shipped, in the paint that draws the notice', shellJs.includes("if (allShipped(status)) insertTopBar(renderOfficialBar(), 'official-bar');"));
+  check('it is first in the stack, above the connection bar', read(join(MAIN, 'assets/js/top-bars.js')).includes("const ORDER = ['official-bar', 'connection-notice', 'phase-notice', 'site-header'];"));
+  check('the docs site mounts the generated copy below its skip link', docsShell.includes('mountOfficialBar({') && read(join(DOCS, 'assets/js/official-bar.js')).includes('gen-docs-lib.js'));
+  check('both stylesheets carry the bar, from tokens only', [read(join(MAIN, 'assets/css/app.css')), read(join(DOCS, 'assets/css/docs.css'))].every((css) => {
+    const block = css.slice(css.indexOf('.gov-bar {'), css.indexOf('.connection-notice {'));
+    return block.includes('env(safe-area-inset-top)') && block.includes('prefers-reduced-motion') && !/#[0-9a-f]{3,6}\b|rgb\(/i.test(block);
+  }));
+  check('the two icons it needs exist', /^\s+lock:/m.test(read(join(MAIN, 'assets/js/icons.js'))) && /^\s+tv:/m.test(read(join(MAIN, 'assets/js/icons.js'))));
+  check('the portal worker precaches the module and both workers were bumped', read(join(MAIN, 'sw.js')).includes("'/assets/js/official-bar.js'") && /phase15-v137/.test(read(join(MAIN, 'sw.js'))) && /phase15-v13\b/.test(read(join(DOCS, 'sw.js'))));
+
+  /* --- In a browser ------------------------------------------------------- */
+
+  let chromium;
+  try {
+    ({ chromium } = await import('playwright'));
+  } catch {
+    skip('the bar in a real browser', 'playwright is not installed');
+    return;
+  }
+
+  const browser = await chromium.launch();
+  try {
+    for (const shipped of [true, false]) {
+      const server = servePortal(shipped);
+      const base = await listen(server);
+      const context = await browser.newContext({ viewport: { width: 320, height: 640 } });
+      const page = await context.newPage();
+      try {
+        await page.goto(`${base}/`, { waitUntil: 'networkidle' });
+        await page.waitForTimeout(300);
+        const barCount = await page.locator('#officialBar').count();
+        const noticeCount = await page.locator('.phase-notice').count();
+        if (shipped) {
+          check('with every phase shipped, the bar is on the page and the notice is not', barCount === 1 && noticeCount === 0, `bar ${barCount}, notice ${noticeCount}`);
+          check('it is the first thing after the skip link', await page.evaluate(() => document.querySelector('.skip-link')?.nextElementSibling?.id === 'officialBar'));
+          check('it sits above the header', await page.evaluate(() => {
+            const bar = document.getElementById('officialBar');
+            const header = document.querySelector('.site-header');
+            return bar && header && bar.compareDocumentPosition(header) & Node.DOCUMENT_POSITION_FOLLOWING;
+          }));
+          check('one row at 320px', await page.evaluate(() => document.getElementById('officialBar').getBoundingClientRect().height < 48));
+          check('collapsed on a first visit: aria-expanded false and the panel hidden', await page.evaluate(() => {
+            const toggle = document.getElementById('officialBarToggle');
+            const panel = document.getElementById('officialBarPanel');
+            return toggle.getAttribute('aria-expanded') === 'false' && panel.hidden && toggle.getAttribute('aria-controls') === 'officialBarPanel';
+          }));
+          check('the line and the toggle read from the dictionary', (await page.locator('.gov-bar-line').textContent()) === en['official.line'] && (await page.locator('#officialBarToggle').textContent()).includes(en['official.toggle']));
+          await page.click('#officialBarToggle');
+          await page.waitForTimeout(300);
+          check('pressing the toggle opens the panel and tracks aria-expanded', await page.evaluate(() => {
+            const toggle = document.getElementById('officialBarToggle');
+            const panel = document.getElementById('officialBarPanel');
+            return toggle.getAttribute('aria-expanded') === 'true' && !panel.hidden && panel.getBoundingClientRect().height > 40;
+          }));
+          check('the panel has two real headings, the domain rule first', await page.evaluate(() => {
+            const heads = [...document.querySelectorAll('#officialBarPanel h2')].map((h) => h.textContent);
+            return heads.length === 2 && heads[0].includes('globalfurry.tv') && heads[0].includes('gftv.asia');
+          }));
+          check('one column below 640px', await page.evaluate(() => {
+            const points = [...document.querySelectorAll('.gov-bar-point')];
+            return points[1].getBoundingClientRect().top > points[0].getBoundingClientRect().bottom - 1;
+          }));
+          check('the trusted sites link is a plain link to the given address', await page.evaluate(() => document.querySelector('#officialBarPanel a')?.getAttribute('href') === 'https://gftv.asia/trusted-sites'));
+          check('no button in the bar closes or hides it', await page.evaluate(() => document.querySelectorAll('#officialBar button').length === 1));
+          await page.reload({ waitUntil: 'networkidle' });
+          await page.waitForTimeout(300);
+          check('expansion is remembered across a reload', await page.evaluate(() => document.getElementById('officialBarToggle').getAttribute('aria-expanded') === 'true' && !document.getElementById('officialBarPanel').hidden));
+          await page.click('#officialBarToggle');
+          await page.waitForTimeout(400);
+          check('and collapsing hides the panel again, out of the accessibility tree', await page.evaluate(() => document.getElementById('officialBarPanel').hidden));
+          await page.click('#languageButton');
+          await page.click('.locale-btn[data-locale="zh"]');
+          await page.waitForTimeout(300);
+          check('a language change refills the bar in place, once', (await page.locator('#officialBar').count()) === 1 && (await page.locator('.gov-bar-line').textContent()) === zh['official.line']);
+          check('and the domain heading is rebuilt from the list in that language', (await page.locator('#officialBarPanel h2').first().textContent()) === zh['official.domainHeading'].replace('{domains}', `globalfurry.tv${zh['official.domainJoin']}gftv.asia`));
+        } else {
+          check('with a phase still building, the notice is on the page and the bar is not', barCount === 0 && noticeCount === 1, `bar ${barCount}, notice ${noticeCount}`);
+        }
+      } finally {
+        await context.close();
+        server.close();
+      }
+    }
+  } finally {
+    await browser.close();
+  }
 });
 
 /* -------------------------------------------------------------------------

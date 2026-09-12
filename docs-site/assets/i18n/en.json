@@ -272,5 +272,13 @@
   "offline.bannerUnreachableLink": "Check the status page",
   "offline.updateReady": "A newer version of these guides is ready.",
   "offline.updateReload": "Reload",
-  "offline.updateLater": "Not now"
+  "offline.updateLater": "Not now",
+  "official.line": "An official Global Furry Television website",
+  "official.toggle": "How to identify",
+  "official.domainHeading": "Official GFTV sites end with {domains}",
+  "official.domainJoin": " or ",
+  "official.domainBody": "Read the address from the end, at the last dot before the first single slash. A site ending in anything else is not GFTV, even if the name appears earlier in the address.",
+  "official.trustedLink": "The full list of official GFTV sites",
+  "official.secureHeading": "Secure sites use HTTPS",
+  "official.secureBody": "Look for a padlock, or https:// at the start of the address. Only share personal details on an official site over a secure connection."
 }

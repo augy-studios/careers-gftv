@@ -77,6 +77,14 @@ const PATHS = {
   // interchangeable and an icon cannot carry that.
   key: '<circle cx="8" cy="12" r="4"/><path d="M12 12h9M18 12v3M15.5 12v2.5"/>',
   shield: '<path d="M12 3l7 3v5.5c0 4-3 7.5-7 9-4-1.5-7-5-7-9V6z"/>',
+  // Phase 15 part 3, the official site banner from gftv-official.md. A padlock
+  // for the HTTPS point, and a television for the mark: the file asks for an
+  // inline SVG mark and not an emoji, and the organisation is a television
+  // channel. Neither reads as a warning, which the file is explicit about.
+  lock: '<rect x="5" y="10.5" width="14" height="10" rx="1.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>',
+  tv:
+    '<rect x="3" y="7" width="18" height="12" rx="1.5"/>' +
+    '<path d="M8 3l4 4 4-4"/>',
   laptop: '<rect x="4" y="5" width="16" height="11" rx="1.5"/><path d="M2 19h20"/>',
   // Phase 3, the job board.
   //

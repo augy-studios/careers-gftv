@@ -682,6 +682,20 @@ const FILES = [
     ),
   },
   {
+    // Phase 15 part 3. gftv-official.md is portable by its own first lines and
+    // asks for the bar on every GFTV site, so the choice was the same as the
+    // connection bar's below and got the same answer: one implementation, in
+    // the portal, generated here.
+    path: 'assets/js/official-bar.js',
+    comment: 'js',
+    note: text(
+      'Identical. The official site banner from gftv-official.md, drawn from the',
+      'domain list and the dictionary, with the expansion remembered per site',
+      'because storage is per origin. This site mounts it with an insert of its',
+      'own, below the skip link, as it does the connection bar.'
+    ),
+  },
+  {
     // Phase 14 part 4, and the reason this file exists at all. It was the top
     // half of the portal's offline.js until this site shipped a worker of its
     // own; update-bar-spec.md is portable by its own first lines, so the choice

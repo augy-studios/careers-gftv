@@ -12,19 +12,27 @@ phase. **It lives in `reference/` and is committed, as of 8 September 2026**; it
 was gitignored for the first fourteen phases. The brief is
 `reference/careers-gftv-spec.md`, and this file never overrides it.
 
-Last written: **at the end of phase 15 part 2, on 12 September 2026**, the
-day after phase 14 flipped. Parts 1 and 2 sit in the working tree together,
-not yet pushed. The flip and the handover went in as `cdfbadc`, "phase 14 part
-10g", which this file calls 10h.
-Section 1 has phase 14 condensed. Section 2 is phase 15, written from what
-section 6 held for it. Section 4's numbering runs to 142.
+**The build is complete.** Fifteen phases, from 18 August to 12 September
+2026. This is the last rewrite, at the end of the last part, and the file
+stops being a working memo here and becomes the record. Anything done after
+this is a change to a finished site. It is written up in section 8 or in a
+new section 9, not in a phase.
 
-**Fourteen of fifteen phases are live.** `build-status.json` reads `shipped`
-for every phase but this one, and the root README says so. `sw.js` is at
-**`v136`** on the portal and **`v12`** on the docs site. The log's last push is
-`cdfbadc`, "phase 14 part 10g", which holds what this file calls 10h. The
+Last written: **at the end of phase 15 part 3, on 12 September 2026**, the
+day after phase 14 flipped. Parts 1 and 2 are pushed as `b115b7b`, "phase 15
+part 1 & 2", and `48237c8`, "phase 15 part 2a". The letter is the `/start`
+commands made bare again. Part 3 is the flip and sits in the working tree.
+The phase 14 flip and its handover went in as `cdfbadc`, "phase 14 part
+10g", which this file calls 10h. Section 1 has every phase condensed, phase
+15 last. Section 2 is phase 15 in full. Section 4's numbering runs to 142.
+
+**Every phase reads `shipped`, in the tree.** `build-status.json` says so,
+the root README says so, and `/status` is the service status page from the
+deploy that carries it. `sw.js` is at **`v137`** on the portal and **`v13`**
+on the docs site. The log's last push is `48237c8`, "phase 15 part 2a". The
 paragraph "The parts, and what the log calls them" in section 1 is where to
-count from when the log and this file disagree. They have since `cd2cfa9`.
+count from when the log and this file disagree. They have since `cd2cfa9`,
+and phase 15's two parts went in as one commit and a letter.
 
 **Phase 15 is the backbone for two languages that are not written yet, and
 it ships without them.** The dictionaries are copies of the English so the
@@ -33,8 +41,9 @@ switch until a translation is in. The five decisions were settled on 12
 September 2026, before any code. Section 2 has the three parts they became
 once the user said, the same day, that Malay and Tamil stay off after the
 flip. Part 1 is the switch and the copies. Part 2 is the bot's rich
-messages, asked for the same afternoon. Part 3 is the banner and the flip.
-Nothing gates the flip on anything owed.
+messages, asked for the same afternoon. Part 3 is the banner and the flip,
+and it is built. Nothing gated the flip on anything owed, and the one
+sitting below is still owed.
 
 **What the build still owes, and it is one sitting.** Decision 27's by-hand
 sitting opens with a seeded board and a staff account behind an authenticator

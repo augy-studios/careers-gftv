@@ -144,14 +144,16 @@ and 3 for a morning. They left when the user said the languages stay off after
 the flip. Switching one on later is a procedure, in section 8 item 5a, and not
 a part.
 
-1. **The switch and the copies. Built 12 September 2026.** Below.
+1. **The switch and the copies. Built 12 September 2026.** Below. Pushed
+   with part 2 as `b115b7b`, "phase 15 part 1 & 2".
 2. **Rich messages. Built 12 September 2026.** Below. The bot's two fixes
    from 11 September, the 504 report and the `/language` redraw, are in it.
-3. **The banner and the flip.** Section 8 item 5 on both shells, linking
-   `https://gftv.asia/trusted-sites`, which the user gave on 12 September.
-   Then `shipped`, in the same commit, per decision 4. That is also the day
-   `/status` becomes the service status page by itself. It is the day
-   `locale_ms` and `locale_ta` appear on `/admin/maintenance`, off.
+   In `b115b7b`, and `48237c8` "phase 15 part 2a" is the `/start` table's
+   commands made bare again, so they stay tappable.
+3. **The banner and the flip. Built 12 September 2026.** Below. Section 8
+   item 5 on both shells, linking `https://gftv.asia/trusted-sites`, which
+   the user gave on 12 September. Then `shipped` in the same commit, per
+   decision 4.
 
 ## Part 1, the switch and the copies
 
@@ -275,7 +277,45 @@ current language under `/language` produced, deviation 142.
 The converter, the builders, two real guide pages through the renderer, and
 the three sends against a client that answers as told. Steps 4, 17, 22, 24
 and 24a of the bot's checklist say what to look for by hand. That includes
-the log line that must not appear.
+the log line that must not appear. **Walked by the user on 12 September
+2026, on the VPS, after the pull and the restart. The rich replies render,
+and the log carries no fallback line.**
+
+## Part 3, the banner and the flip
+
+**One module, generated into both sites.** `main-site/assets/js/official-bar.js`
+is the banner gftv-official.md specifies: the domain list as a constant, the
+copy under `official.*` in each site's dictionary, the markup from the file,
+and the expansion remembered per site in `localStorage` because storage is
+per origin. No close control exists and nothing stored hides it. The heading
+is rendered from the domain list, so adding a domain is one edit. The link to
+the trusted sites page ships with the bar and not before, as the file asks,
+because the page exists now. `gen-docs-lib.js` copies the module to the docs
+site, which mounts it below its skip link the way it mounts the connection
+bar. The styles are in `app.css` and `docs.css`, from theme tokens only. The
+grow and shrink run on a grid row, and not at all under reduced motion. Two
+icons were added, a padlock and a television, since the file wants inline
+SVG and nothing that reads as a warning.
+
+**It replaces the phase notice in the same paint.** `shell.js` draws the
+notice while a phase is building and the bar once `allShipped`.
+`top-bars.js` puts the bar first in its stack, above the connection bar. The
+docs site never carried the notice, so it draws the bar from this deploy.
+`tests/phase15-test.mjs --only=banner` serves the portal twice from the
+working tree, with the last phase shipped and with it building. It opens
+each in Chromium and looks for the bar on one and the notice on the other.
+Then one row at 320px, and the panel hidden while collapsed and remembered
+once opened. Then one column below 640px, the link, and a language change
+refilling it in place. Thirty checks.
+
+**The flip.** Phase 15 reads `shipped`, with a note in both languages that
+says what it ships and what it does not. The groundwork, with both languages
+off. `/status` becomes the service status page from the deploy that carries
+this, by `everyPhaseShipped()`. The phase 12 check that waited for the gate
+to open was rewritten to say it has. The root README says fifteen of
+fifteen. `locale_ms` and `locale_ta` appear on `/admin/maintenance` the same
+day, off, with the standing note under each. The workers are at `v137` and
+`v13`.
 
 ## Before the phase is called done
 
