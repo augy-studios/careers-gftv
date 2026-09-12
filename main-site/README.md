@@ -1365,7 +1365,7 @@ not deployed.
 
 ```
 node gen-icons.js         HLC-main, 512, 192, 180, the two maskable, favicon.ico
-node gen-screenshots.js   images/install-narrow.png and install-wide.png
+node gen-screenshots.js   images/install-narrow.png and install-wide.png, and the docs site's pair
 ```
 
 The template's icons sat on a mint green plate while `manifest.json` used the

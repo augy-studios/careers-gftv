@@ -643,6 +643,17 @@ function checkScreenshots(slots, assets) {
  * ---------------------------------------------------------------------- */
 
 /**
+ * Under `public/`, and copied to `dist/`, but not precached.
+ *
+ * The manifest's two install screenshots. A launcher reads them once, in the
+ * install dialog, and nothing on the site ever links them; half a megabyte in
+ * every reader's offline cache for a picture they saw before they installed is
+ * the portal's `check-precache.js` reasoning exactly, and the two sites should
+ * agree about it.
+ */
+const NOT_PRECACHED = Object.freeze(['/images']);
+
+/**
  * Every address under a directory of `dist/`, as the browser would ask for it.
  *
  * Files and not routes, so no `cleanUrls` reasoning applies: `/assets/css/docs.css`
@@ -655,8 +666,10 @@ function addressesUnder(root, prefix) {
   const found = [];
   const walk = (from, at) => {
     for (const entry of readdirSync(from, { withFileTypes: true })) {
-      if (entry.isDirectory()) walk(join(from, entry.name), `${at}/${entry.name}`);
-      else found.push(`${at}/${entry.name}`);
+      const address = `${at}/${entry.name}`;
+      if (NOT_PRECACHED.includes(address)) continue;
+      if (entry.isDirectory()) walk(join(from, entry.name), address);
+      else found.push(address);
     }
   };
   walk(root, prefix);
@@ -695,6 +708,7 @@ function writeWorker(pagePaths, locales) {
     // screenshots from part 8. Both are wanted offline: a guide with a missing
     // screenshot is a guide with a step missing. Read from `public/` and not
     // from `dist/`, so this cannot pick up the pages the loop above wrote.
+    // Less NOT_PRECACHED, which is the manifest's install screenshots.
     ...addressesUnder(join(ROOT, 'public'), ''),
   ];
 
