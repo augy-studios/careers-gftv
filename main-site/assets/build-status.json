@@ -1,11 +1,7 @@
 {
-  "$comment": "Single source of truth for the phased rollout, per section 0c of careers-gftv-spec.md. The site, the Telegram bot, and the docs site all read this one file, so the three stay in step. Flipping a phase to shipped is the only edit needed when it goes live. No copy anywhere hardcodes a phase number. Phase names and descriptions carry a translated variant per non default language, because three separate consumers render them and they are content, not interface strings; everything else the site says comes from assets/i18n.",
-  "schema_version": 3,
-  "updated": "2026-09-11",
-  "locales": [
-    "en",
-    "zh"
-  ],
+  "$comment": "Single source of truth for the phased rollout, per section 0c of careers-gftv-spec.md. The site, the Telegram bot, and the docs site all read this one file, so the three stay in step. Flipping a phase to shipped is the only edit needed when it goes live. No copy anywhere hardcodes a phase number. Phase names and descriptions carry a translated variant per non default language, because three separate consumers render them and they are content, not interface strings; everything else the site says comes from assets/i18n. The languages are the locale_<code> feature keys, since phase 15 part 1: one per dictionary in assets/i18n, under the phase that shipped it. A language is published when that phase has shipped and nobody has switched the key off on /admin/maintenance. There is no separate locales list, so the switch and the list cannot disagree.",
+  "schema_version": 4,
+  "updated": "2026-09-12",
   "phases": [
     {
       "number": 1,
@@ -161,6 +157,10 @@
   "features": {
     "language_switcher": 1,
     "theme_switcher": 1,
+    "locale_en": 1,
+    "locale_zh": 1,
+    "locale_ms": 15,
+    "locale_ta": 15,
     "staff_login": 2,
     "applicant_register": 2,
     "applicant_login": 2,
@@ -206,7 +206,6 @@
     "seed": 12,
     "docs_site": 13,
     "admin_docs_content": 13,
-    "more_languages": 15,
     "translation_helpers": 8,
     "translation_annotations": 8,
     "docs_staff_login": 13,

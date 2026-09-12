@@ -113,17 +113,32 @@ that fix it are not available on Supabase.
 
 ## What adding a language costs
 
-**A row in `gftvjobs_locales`, a dictionary file, and the content itself.** No
-migration and no schema change.
+**A row in `gftvjobs_locales`, a dictionary file, the content itself, and a
+switch.** No migration and no schema change. The switch is a feature key,
+`locale_<code>` in `build-status.json`, and it is the only list of languages
+the portal has. `LOCALES` in `i18n.js` and in `validate.js` name the
+dictionaries on disk. `node check-i18n.js` fails when any of the three
+disagrees.
+
+**A language is published by its switch, and its file existing publishes
+nothing.** Malay and Tamil are in the tree as copies of the English, so the
+file itself can be sent to whoever writes them. Both are held: off on
+`/admin/maintenance` until an admin switches them on, which is the day a
+translation is in and checked. Until then the language control does not offer
+them, a posting is not inlined in them, and the API answers English for them.
+Staff and helpers can still work in them, because `is_active` in
+`gftvjobs_locales` is a different question from the switch. That was decided
+in phase 15 and the memo's section 2 has the reasoning.
 
 What is not free is everything around it:
 
-- Every interface string, in both sites' dictionaries, at key parity.
+- Every interface string, in the portal's dictionary, at key parity. The docs
+  site stays at two languages.
 - Every posting, department and tag translation somebody has to write.
 - A read through by somebody who reads that language, which is what
   `node gen-review.js` builds a page for.
-- **The service worker precaches the dictionaries**, so a new language is a
-  change to what is cached and a `VERSION` bump with it.
+- **The service worker precaches the published dictionaries.** Switching a
+  language on changes what is cached, so it is a `VERSION` bump with it.
 
 ## The review page
 

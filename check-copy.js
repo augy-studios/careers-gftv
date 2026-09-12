@@ -156,6 +156,33 @@ function dictionaryStrings() {
   return out;
 }
 
+/** The portal dictionaries that are copies of the English, phase 15 part 1.
+ *
+ *  ms.json and ta.json start as byte for byte copies of en.json, so the file
+ *  itself can be sent to whoever is adding the language. While they are
+ *  copies, they are English and are read under the English rules: the memo
+ *  said this check "reads an English copy as English, which is what it is",
+ *  and this is where that happens. The day one comes back in its own language
+ *  it stops being a copy, and this source is where its own rules go, if it has
+ *  any that can be checked. The word cap is an English measurement and Tamil
+ *  will say what it thinks of it.
+ *
+ *  Named by what is on disk and not by a list, so a fifth dictionary is read
+ *  the day it appears.
+ */
+function copiedDictionaryStrings() {
+  const out = [];
+  const dir = path.join(repo, 'main-site/assets/i18n');
+  for (const file of fs.readdirSync(dir).sort()) {
+    if (!file.endsWith('.json') || file === 'en.json' || file === 'zh.json') continue;
+    const dict = JSON.parse(read(`main-site/assets/i18n/${file}`));
+    for (const [key, value] of Object.entries(dict)) {
+      if (typeof value === 'string') out.push({ where: `main-site ${file} ${key}`, text: value });
+    }
+  }
+  return out;
+}
+
 /** The phase list and its notes, which /status renders in full. */
 function buildStatusStrings() {
   const status = JSON.parse(read('main-site/assets/build-status.json'));
@@ -395,6 +422,7 @@ function chineseDocsStrings() {
  */
 const SOURCES = [
   ['the interface dictionary', dictionaryStrings, { sentences: true }],
+  ['the dictionaries that are still copies of the English', copiedDictionaryStrings, { sentences: true }],
   ['the phase list on /status', buildStatusStrings, { sentences: true }],
   ['llms.txt', llmsStrings, {}],
   ['the pages themselves', pageStrings, {}],

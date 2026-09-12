@@ -17,7 +17,7 @@
 
 import { ok, fail, ERR, methodNotAllowed, failInternal } from '../_lib/respond.js';
 import { requireApplicant } from '../_lib/session.js';
-import { localeFromRequest } from '../_lib/validate.js';
+import { requestLocale } from '../_lib/locales.js';
 import { isUuid } from '../_lib/job-detail.js';
 import { jobSummaries } from '../_lib/dashboard.js';
 import { fetchPending } from '../_lib/apply.js';
@@ -49,7 +49,7 @@ export default async function handler(req, res) {
   const session = await requireApplicant(req, res);
   if (!session) return;
 
-  const locale = localeFromRequest(req);
+  const locale = await requestLocale(req);
 
   try {
     // A deep link asks about one row and nothing else, so the prompts are not

@@ -47,7 +47,7 @@ import { linkState, requestLoginCode, CODE_TTL_MS } from '../../_lib/telegram.js
 import { randomToken } from '../../_lib/tokens.js';
 import { setCookie, COOKIE } from '../../_lib/cookies.js';
 import { supabase, T } from '../../_lib/supabase.js';
-import { validateLocale } from '../../_lib/validate.js';
+import { validatePublishedLocale } from '../../_lib/locales.js';
 import {
   LIMITS,
   limited,
@@ -114,7 +114,7 @@ export default async function handler(req, res) {
     // 3a. Signing in is one of the moments the two can be brought back in
     // step at no cost. Done before the second factor branch, because it is
     // about the account rather than about this sign in.
-    const locale = validateLocale(body.locale);
+    const locale = await validatePublishedLocale(body.locale);
     if (locale.ok && locale.value !== user.locale) {
       const { error } = await supabase
         .from(T.users)

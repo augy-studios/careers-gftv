@@ -56,9 +56,9 @@ import { applicationsOpen } from './_lib/apply.js';
 
 // Every language the portal offers. The page inlines the posting in each one it
 // is ready in, so the globe redraws from memory rather than costing a request.
-// Kept in step with LOCALES in api/_lib/validate.js and assets/js/i18n.js.
-const LOCALES = ['en', 'zh'];
-const DEFAULT_LOCALE = 'en';
+// Read from locales.js since phase 15 part 1, so a language an admin has
+// switched off is not inlined into a page that says it has been switched off.
+import { DEFAULT_LOCALE, publishedLocales } from './_lib/locales.js';
 
 // Published postings are the same for every caller, so the edge may hold one
 // briefly. Sixty seconds is short enough that an edit appears within a minute.
@@ -173,7 +173,7 @@ export default async function handler(req, res) {
     // absent rather than duplicated: the client falls back to the default and
     // knows, from the absence, to show the untranslated notice.
     const content = {};
-    for (const locale of LOCALES) {
+    for (const locale of await publishedLocales()) {
       const resolved = resolveContent(record, locale);
       if (resolved) content[locale] = resolved;
     }

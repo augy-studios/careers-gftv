@@ -15,12 +15,15 @@
 
 import { t, getLocale } from './i18n.js';
 
-// Intl wants a BCP 47 tag, and our locale ids are not quite that. Both are
-// Singapore, which is the point: dates read as 19 Aug 2026 and not in the
-// American order, in either language.
+// Intl wants a BCP 47 tag, and our locale ids are not quite that. All four
+// are Singapore, which is the point: dates read as 19 Aug 2026 and not in the
+// American order, in any language. ms-SG and ta-SG are real tags, and the two
+// Intl falls back to when a runtime lacks the Singapore data are ms and ta.
 const INTL_LOCALE = {
   en: 'en-SG',
   zh: 'zh-Hans-SG',
+  ms: 'ms-SG',
+  ta: 'ta-SG',
 };
 
 function intlLocale() {

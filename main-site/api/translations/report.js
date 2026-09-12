@@ -31,7 +31,8 @@
 import { ok, fail, ERR, methodNotAllowed, failInternal, readJson } from '../_lib/respond.js';
 import { supabase, T } from '../_lib/supabase.js';
 import { getApplicantSession } from '../_lib/session.js';
-import { validateLocale, validateText, FIELD } from '../_lib/validate.js';
+import { validateText, FIELD } from '../_lib/validate.js';
+import { validatePublishedLocale } from '../_lib/locales.js';
 import {
   LIMITS,
   limited,
@@ -102,7 +103,7 @@ export default async function handler(req, res) {
   const targetType = String(body.target_type ?? '').trim();
   if (!TARGET_TYPES.includes(targetType)) details.target_type = FIELD.INVALID;
 
-  const locale = validateLocale(body.locale);
+  const locale = await validatePublishedLocale(body.locale);
   if (!locale.ok) details.locale = locale.code;
 
   const note = validateText(body.note, NOTE_MAX, { required: true });

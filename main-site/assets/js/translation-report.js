@@ -34,7 +34,7 @@
 // second form.
 
 import { api, applicantSession } from './api.js';
-import { t, getLocale, LOCALES } from './i18n.js';
+import { t, getLocale, publishedLocales } from './i18n.js';
 import { createDialog, translateWithin } from './dialog.js';
 import { openSignInPrompt } from './signin-prompt.js';
 import { escapeHtml } from './markdown.js';
@@ -187,10 +187,11 @@ function renderForm(options = {}) {
   const localeSelect = panel.querySelector('#reportLocale');
   const previousLocale = options.keepInput ? localeSelect.value : null;
 
-  // Every language the portal offers, each named in its own script and never
-  // translated, exactly as the switcher names them. A reader looking for the
-  // Chinese version looks for the characters.
-  localeSelect.innerHTML = LOCALES.map(
+  // Every language the portal offers right now, each named in its own script
+  // and never translated, exactly as the switcher names them. A reader looking
+  // for the Chinese version looks for the characters. Published and not
+  // merely existing: a translation nobody can read is not one to report.
+  localeSelect.innerHTML = publishedLocales().map(
     (locale) =>
       `<option value="${locale.id}" lang="${locale.htmlLang}">${locale.native}</option>`
   ).join('');

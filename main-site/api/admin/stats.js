@@ -17,7 +17,7 @@
 import { ok, methodNotAllowed, failInternal } from '../_lib/respond.js';
 import { requireStaff } from '../_lib/session.js';
 import { supabase, T } from '../_lib/supabase.js';
-import { localeFromRequest } from '../_lib/validate.js';
+import { requestLocale } from '../_lib/locales.js';
 import { bucketCounts } from '../_lib/admin-applications.js';
 import { lastRun } from '../_lib/cron.js';
 import { outboxSummary } from '../_lib/telegram.js';
@@ -31,7 +31,7 @@ export default async function handler(req, res) {
   const session = await requireStaff(req, res);
   if (!session) return;
 
-  const locale = localeFromRequest(req);
+  const locale = await requestLocale(req);
 
   try {
     const [postings, buckets, applications, registrations, run, outbox] = await Promise.all([

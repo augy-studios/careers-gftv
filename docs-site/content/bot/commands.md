@@ -126,11 +126,13 @@ A long page arrives in parts, under a row of three buttons. The middle one says
 which part you are on, and the two beside it step back and on. On the first part the left one
 jumps to the last, and on the last part the right one jumps back to the first.
 The row never changes shape under your thumb. A part breaks at a
-heading, so it never stops mid sentence. Where a page has a
-table, a set of per device instructions, or a screenshot, you get one line
-saying what is there instead. A chat window cannot draw those, and leaving them
-out silently would be a procedure with a step missing. **Read this on the site**
-opens the same page where everything renders.
+heading, so it never stops mid sentence. The page's headings, tables, notes
+and per device instructions are drawn as they are on the site, on a current
+Telegram app. An older app shows the same words as plain text. Where a page has
+a screenshot, you get one line saying it is there instead. A chat window
+cannot show it, and leaving it out silently would be a procedure with a step
+missing. **Read this on the site** opens the same page where everything
+renders.
 
 Pages arrive in your own language where they have been translated, and in
 English with a note where they have not.

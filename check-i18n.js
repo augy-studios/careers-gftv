@@ -85,6 +85,9 @@ const PORTAL_FAMILIES = [
   'featureName.',
   'featureWhere.',
   'featureDenied.',
+  // Phase 15 part 1: the standing note on a switch that is off until somebody
+  // turns it on, from HELD in maintenance.js.
+  'featureHeld.',
   // tasks.type_<task type>, from the union in api/_lib/tasks.js.
   'tasks.',
   // The helper area, 7i. helper.found_<state>, built from the three states
@@ -131,18 +134,99 @@ const PORTAL_FAMILIES = [
 const DOCS_FAMILIES = ['callout.', 'theme.'];
 
 /**
+ * The portal's languages, from the one place they are listed.
+ *
+ * Phase 15 part 1: a language is a `locale_<code>` feature key in
+ * build-status.json, and the portal has no list of languages anywhere else.
+ * The two constants that look like one, LOCALES in assets/js/i18n.js and in
+ * api/_lib/validate.js, name every dictionary that exists and are held to the
+ * keys below by `checkLocaleLists`. So this check reads the keys, and a
+ * dictionary added without a key, or a key added without a dictionary, fails
+ * here on the first run.
+ */
+const LOCALE_KEY_PREFIX = 'locale_';
+
+function portalLocales() {
+  const status = JSON.parse(readFileSync(join(HERE, 'main-site/assets/build-status.json'), 'utf8'));
+  const codes = Object.keys(status.features ?? {})
+    .filter((key) => key.startsWith(LOCALE_KEY_PREFIX))
+    .map((key) => key.slice(LOCALE_KEY_PREFIX.length));
+  // English first, as the fallback layer, whatever order the file has them in.
+  return ['en', ...codes.filter((code) => code !== 'en')];
+}
+
+/**
  * The two sites, each with its own dictionaries.
  *
  * `locales` is the dictionaries that exist, in fallback order: the first is the
  * one every key must be in, and the rest read in that language or fall back to
- * it. **Both sites carry both languages as of phase 13 part 6a**, and phase 15
- * adds Malay and Tamil to this list rather than to anything else: nothing here
- * assumes two.
+ * it. The portal's come from its feature keys; the docs site stays at two,
+ * settled 11 September 2026, and never gains a language from this phase.
  */
 const SITES = [
-  { name: 'main-site', locales: ['en', 'zh'], families: PORTAL_FAMILIES },
+  { name: 'main-site', locales: portalLocales(), families: PORTAL_FAMILIES },
   { name: 'docs-site', locales: ['en', 'zh'], families: DOCS_FAMILIES },
 ];
+
+/**
+ * The three places that name the portal's languages agree, or this fails.
+ *
+ * The feature keys are the list. i18n.js's LOCALES carries the labels the
+ * control needs before any fetch, validate.js's LOCALES is the shape check on
+ * the hot path, and each dictionary is a file. Any of the four can be edited
+ * alone, and every one of them edited alone is a language the site half has.
+ */
+function checkLocaleLists(codes) {
+  const root = join(HERE, 'main-site');
+  const problems = [];
+
+  const onDisk = readdirSync(join(root, 'assets/i18n'))
+    .filter((name) => name.endsWith('.json'))
+    .map((name) => name.slice(0, -5))
+    .sort();
+  const keyed = [...codes].sort();
+  if (onDisk.join() !== keyed.join()) {
+    problems.push(`dictionaries on disk are ${onDisk.join(', ')} and the locale_ keys say ${keyed.join(', ')}`);
+  }
+
+  const client = readFileSync(join(root, 'assets/js/i18n.js'), 'utf8');
+  const clientIds = [...client.matchAll(/^\s*\{ id: '([a-z-]+)'/gm)].map((m) => m[1]).sort();
+  if (clientIds.join() !== keyed.join()) {
+    problems.push(`LOCALES in assets/js/i18n.js lists ${clientIds.join(', ')}, the keys say ${keyed.join(', ')}`);
+  }
+
+  const server = readFileSync(join(root, 'api/_lib/validate.js'), 'utf8');
+  const serverList = server.match(/export const LOCALES = Object\.freeze\(\[([^\]]*)\]\)/);
+  const serverIds = (serverList?.[1] ?? '')
+    .split(',')
+    .map((s) => s.trim().replace(/^'|'$/g, ''))
+    .filter(Boolean)
+    .sort();
+  if (serverIds.join() !== keyed.join()) {
+    problems.push(`LOCALES in api/_lib/validate.js lists ${serverIds.join(', ')}, the keys say ${keyed.join(', ')}`);
+  }
+
+  // The pre-paint script in every page head maps a stored locale to the
+  // document's lang attribute by hand, since it runs before any module. Every
+  // non default language must be in that map, with the tag i18n.js uses.
+  const tags = new Map(
+    [...client.matchAll(/\{ id: '([a-z-]+)'.*?htmlLang: '([^']+)'/g)].map((m) => [m[1], m[2]])
+  );
+  const prePaint = readFileSync(join(root, 'index.html'), 'utf8').match(/setAttribute\("lang", (\{[^}]*\})\[l\]/);
+  for (const code of codes) {
+    if (code === 'en') continue;
+    const wanted = `${code}: "${tags.get(code)}"`;
+    if (!prePaint || !prePaint[1].includes(wanted)) {
+      problems.push(`the pre-paint script in index.html does not map ${wanted}`);
+    }
+  }
+
+  if (problems.length > 0) {
+    console.log('\nmain-site: the language lists disagree');
+    for (const problem of problems) console.log(`  ${problem}`);
+  }
+  return problems.length;
+}
 
 // A dictionary key: dotted, no interpolation. Anything with a ${ in it came
 // out of a template literal and is a runtime expression, not a key.
@@ -376,6 +460,7 @@ function checkSite(site) {
 
 let problems = 0;
 for (const site of SITES) problems += checkSite(site);
+problems += checkLocaleLists(SITES[0].locales);
 
 if (problems > 0) {
   console.log(`\n${problems} problem${problems === 1 ? '' : 's'}. Fix before shipping.`);

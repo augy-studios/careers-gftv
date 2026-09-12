@@ -79,7 +79,7 @@ ${page.robots ? `    <meta name="robots" content="${escapeAttr(page.robots)}">\n
             document.documentElement.setAttribute("data-mode", m);
             document.documentElement.setAttribute("data-color-theme", c);
             document.documentElement.setAttribute("data-locale", l);
-            document.documentElement.setAttribute("lang", l === "zh" ? "zh-Hans-SG" : "en");
+            document.documentElement.setAttribute("lang", { zh: "zh-Hans-SG", ms: "ms", ta: "ta" }[l] || "en");
             if (l !== "en") {
                 document.documentElement.setAttribute("data-i18n-pending", "true");
                 setTimeout(function () {

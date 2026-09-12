@@ -31,7 +31,8 @@
 
 import { ok, fail, ERR, methodNotAllowed, failInternal, readJson } from '../_lib/respond.js';
 import { unavailable } from '../_lib/maintenance.js';
-import { FIELD, validateLocale, validateText } from '../_lib/validate.js';
+import { FIELD, validateText } from '../_lib/validate.js';
+import { validatePublishedLocale } from '../_lib/locales.js';
 import { LIMITS, limited, recordFailures, subjectForUser } from '../_lib/rate-limit.js';
 import { searchParams } from '../_lib/jobs.js';
 // The same three readers 7h's form uses to decide whether a target exists and
@@ -114,7 +115,7 @@ async function read(req, res, who) {
   const targetId = search.get('id');
   if (!isUuid(targetId ?? '')) return fail(res, ERR.BAD_REQUEST, 'That is not a valid id.');
 
-  const locale = validateLocale(search.get('locale'));
+  const locale = await validatePublishedLocale(search.get('locale'));
   if (!locale.ok) return fail(res, ERR.BAD_REQUEST, 'That is not a language this site has.');
 
   const spans = await listAnnotations({
@@ -151,7 +152,7 @@ async function write(req, res, who) {
   const targetType = String(body.target_type ?? '').trim();
   if (!TARGET_TYPES.includes(targetType)) details.target_type = FIELD.INVALID;
 
-  const locale = validateLocale(body.locale);
+  const locale = await validatePublishedLocale(body.locale);
   if (!locale.ok) details.locale = locale.code;
 
   // Required, per the shape 7h settled on and migration 015's own not-null: the

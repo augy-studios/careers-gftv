@@ -76,6 +76,12 @@ const EXPECTED_ABSENT = {
   '.env.example':
     'a dotfile. Vercel does not deploy it: /.env.example answers 404 on ' +
     'production, checked 26 August 2026. It holds no real value either way.',
+  // Phase 15 part 1. Held off the language control until an admin switches the
+  // language on, and a dictionary nobody can switch to is 140KB of English
+  // under another name per install. Each moves to PRECACHE the day its switch
+  // goes on, and this entry goes with it.
+  'assets/i18n/ms.json': 'a copy of en.json, held until Malay is switched on. Precached the day it is.',
+  'assets/i18n/ta.json': 'a copy of en.json, held until Tamil is switched on. Precached the day it is.',
 };
 
 // Precached, and served by a serverless function rather than by a file. The

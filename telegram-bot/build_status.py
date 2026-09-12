@@ -47,6 +47,13 @@ TIMEOUT = 8.0
 # deployment is broken in a way this file cannot fix. English is the default
 # locale everywhere else in the build.
 FALLBACK_LOCALES = ("en",)
+DEFAULT_LOCALE = "en"
+
+# Phase 15 part 1. A language is a feature key, `locale_<code>`, and the
+# portal offers it while that key's phase has shipped and no admin has switched
+# it off. The same two questions `feature()` below answers for everything else,
+# which is what lets the bot stop offering Malay the moment the site does.
+LOCALE_KEY_PREFIX = "locale_"
 
 
 @dataclass(frozen=True)
@@ -143,16 +150,46 @@ class BuildStatus:
     # -- questions the rest of the bot asks ------------------------------
 
     async def locales(self) -> tuple[str, ...]:
-        """The languages the build ships in, newest list first.
+        """The languages the portal offers right now, default first.
 
-        Read from the file rather than hardcoded so phase 15's Malay and Tamil
-        arrive here without a code change, exactly as they do on the site.
+        Derived from the `locale_<code>` feature keys, and each one is asked
+        the two questions every feature is asked: has its phase shipped, and
+        is it switched off. So a dictionary that exists as an English copy,
+        under a phase still `building`, is not offered here, and a language an
+        admin holds back with a note is not offered either. Nothing here is a
+        list, so the bot and the site cannot disagree about what is spoken.
+
+        A file with no language keys is an older build, from before phase 15
+        part 1, and carried a `locales` list instead. The site the bot reads
+        can be behind the checkout beside it, per the header, so that shape is
+        still read.
         """
         data = await self._load_phases()
-        found = data.get("locales")
-        if isinstance(found, list) and found:
-            return tuple(str(item) for item in found)
-        return FALLBACK_LOCALES
+        features = data.get("features") or {}
+        codes = [
+            key[len(LOCALE_KEY_PREFIX):]
+            for key in features
+            if isinstance(key, str) and key.startswith(LOCALE_KEY_PREFIX)
+        ]
+
+        if not codes:
+            found = data.get("locales")
+            if isinstance(found, list) and found:
+                return tuple(str(item) for item in found)
+            return FALLBACK_LOCALES
+
+        published = []
+        for code in codes:
+            if code == DEFAULT_LOCALE:
+                continue
+            state = await self.feature(LOCALE_KEY_PREFIX + code)
+            if state.available:
+                published.append(code)
+
+        # English first, as the default and the fallback, whatever the file's
+        # order. It has no switch to consult: it is denylisted on the site for
+        # being the layer everything else falls back to.
+        return (DEFAULT_LOCALE, *published)
 
     async def phase_for_feature(self, key: str) -> int | None:
         data = await self._load_phases()

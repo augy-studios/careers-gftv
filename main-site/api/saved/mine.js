@@ -26,7 +26,7 @@
 import { ok, fail, ERR, methodNotAllowed, failInternal } from '../_lib/respond.js';
 import { supabase, T } from '../_lib/supabase.js';
 import { getApplicantSession } from '../_lib/session.js';
-import { localeFromRequest } from '../_lib/validate.js';
+import { requestLocale } from '../_lib/locales.js';
 import { jobSummaries } from '../_lib/dashboard.js';
 
 // Generous. Somebody who has saved more than this has the oldest ones left off,
@@ -78,7 +78,7 @@ export default async function handler(req, res) {
       });
     }
 
-    const summaries = await jobSummaries(jobIds, localeFromRequest(req));
+    const summaries = await jobSummaries(jobIds, await requestLocale(req));
 
     const saved = rows
       // A posting hard deleted in phase 7 takes its saved rows with it, per the

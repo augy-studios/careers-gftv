@@ -19,8 +19,9 @@ summary: September 2026, deviation 135.
   dictionaries starting as copies of the English. Then the `/status` switchover
   that happens by itself, and the bot's `strings.py` question.
 - **The official site banner is the last thing in the build**, section 8 item 5.
-  The trusted sites page it links to still does not exist, and the link must not
-  ship before the page does. **As of phase 13 it is two banners and not one.**
+  The trusted sites page is `https://gftv.asia/trusted-sites`, given on 12
+  September 2026, and the banner is phase 15 part 3. **As of phase 13 it is
+  two banners and not one.**
   `gftv-official.md` names `docs.careers.globalfurry.tv` among the official
   subdomains and asks for the banner on every page. So the docs shell needs it
   as well as the portal's. One implementation or two is decision 1's question a

@@ -71,7 +71,7 @@
 //                     because a kill switch that forgets itself on the deploy
 //                     that broke something is not a kill switch.
 
-const VERSION = 'careers-gftv-phase14-v135';
+const VERSION = 'careers-gftv-phase15-v136';
 
 const SHELL = `careers-gftv-shell-${VERSION}`;
 const PUBLIC_DATA = 'careers-gftv-public';
@@ -195,8 +195,14 @@ const PRECACHE = [
   '/assets/css/app.css',
   '/assets/fonts/ProximaNova-Regular.woff2',
 
-  // **Both dictionaries, not the active one**, per section 14. They are small,
-  // and switching language offline must not produce an untranslated page.
+  // **Every published dictionary, not the active one**, per section 14. They
+  // are small, and switching language offline must not produce an untranslated
+  // page. Phase 15 part 1 added ms.json and ta.json to the tree as English
+  // copies, held off the language control until their switch goes on, and a
+  // dictionary nobody can switch to is not precached: it would be 140KB per
+  // install of English under another name. Each joins this list the day its
+  // switch goes on, which is a VERSION bump like any other change here. Until
+  // then a request for one is cached on the way past, like any static asset.
   '/assets/i18n/en.json',
   '/assets/i18n/zh.json',
 

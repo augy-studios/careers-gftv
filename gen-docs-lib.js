@@ -100,7 +100,18 @@ const FILES = [
   },
   {
     path: 'api/_lib/validate.js',
-    note: 'Identical.',
+    note: text(
+      'Identical but for the language list. The portal has four dictionaries as',
+      'of phase 15 part 1 and this site has two, settled 11 September 2026, and',
+      'the list here is the dictionaries that exist on the site it is in.'
+    ),
+    rules: [
+      {
+        why: 'this site has two dictionaries, and the list names what exists here',
+        find: "export const LOCALES = Object.freeze(['en', 'zh', 'ms', 'ta']);",
+        replace: "export const LOCALES = Object.freeze(['en', 'zh']);",
+      },
+    ],
   },
   {
     path: 'api/_lib/tokens.js',
@@ -540,12 +551,34 @@ const FILES = [
     comment: 'js',
     note: text(
       'The dictionary machinery, per decision 5: the shell is written with keys',
-      'and an English dictionary now, and 华文 lands in phase 14 beside the pages',
-      'it belongs to. LOCALES still names both languages, which is correct and',
-      'costs nothing -- there is no switcher in this header, per 16d, so zh is',
-      'never selected and zh.json is never fetched.'
+      'and an English dictionary, and 华文 landed in phase 14 beside the pages',
+      'it belongs to. LOCALES names this site\'s two dictionaries and not the',
+      'portal\'s four: the docs site stays at two languages, settled 11',
+      'September 2026, so the Malay and Tamil entries are trimmed here and the',
+      'published filter is left in with nothing narrowing it, which is every',
+      'language offered, as before.'
     ),
     rules: [
+      {
+        why: 'this site has two dictionaries, and a control must not offer a file that is not there',
+        find: text(
+          "  { id: 'zh', label: 'Chinese', native: '华文', htmlLang: 'zh-Hans-SG' },",
+          '  // Phase 15. Bahasa Melayu is what the language calls itself in Singapore,',
+          '  // where it is the national language, and தமிழ் is Tamil in its own script.',
+          '  // Neither carries a region subtag: the portal ships one of each, and there',
+          '  // is no Singapore variant of either script to tag the document as.',
+          "  { id: 'ms', label: 'Malay', native: 'Bahasa Melayu', htmlLang: 'ms' },",
+          "  { id: 'ta', label: 'Tamil', native: 'தமிழ்', htmlLang: 'ta' },",
+          '];'
+        ),
+        replace: text(
+          "  { id: 'zh', label: 'Chinese', native: '华文', htmlLang: 'zh-Hans-SG' },",
+          '  // The portal lists Malay and Tamil here as well, from phase 15. This site',
+          '  // has no dictionary for either and never gains one, so the two entries are',
+          '  // trimmed by the generator and not carried across.',
+          '];'
+        ),
+      },
       {
         why: 'there is no account here to mirror a language choice onto',
         find: text(
@@ -558,7 +591,7 @@ const FILES = [
           '  // Deliberately not awaited: the language has already been applied, and a',
           '  // slow or failed write must not hold up the page. Signed out callers get a',
           '  // 200 saying nothing was stored.',
-          '  storeLocaleOnAccount(locale);'
+          '  if (remember) storeLocaleOnAccount(locale);'
         ),
         replace: text(
           '  // Nothing to mirror the choice onto. The portal writes it to',

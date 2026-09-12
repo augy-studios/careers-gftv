@@ -1676,4 +1676,71 @@ phase 7 rewrote this file. Phase 7's start at 32, phase 8's at 49, phase 9's at
      table as a fourth document. **That found the 华文 table had never listed
      `/docs`**, since 10d, because nothing had compared it.
 
+## Phase 15's
+
+137. **The language keys are `locale_<code>` and not `language_<code>`**, 12
+     September 2026, an hour after decision 2 named them the other way. The
+     first run of the bot's derivation offered a language called "switcher".
+     `language_switcher` is a phase 1 key, and a prefix match cannot tell a
+     code from a word. `locale_` collides with nothing, and it is the word
+     the rest of the build uses for the thing. Every file was renamed in one
+     pass, section 7 included.
+
+138. **Malay and Tamil are held, and the maintenance mechanism gained a third
+     state to say so.** Decision 2 settled a switch per language, and the day
+     it was built the user said the two new languages stay off after the
+     flip. An override as phase 7 built it records "off" and nothing else,
+     and is absent the moment a phase reads `shipped`. So `locale_ms` would
+     have come on at the flip and offered an English copy under a Malay
+     heading. Section 7 had recorded the same limit from phase 13, when
+     `HELLO_WRITES_ENABLED` had to be a constant. A constant would not do
+     here, because the thing held is meant to go on from the dashboard and not
+     from a deploy. So `HELD` in `maintenance.js`. For a key in it, no record
+     means off with a standing note, and the record that exists is the one
+     saying on. `featureOverrides()` answers the same shape for a held key as
+     for a switched off one, so nothing downstream learned a third state.
+     The payload marks it `held`, and the three places that list what is
+     broken leave it out, because nothing is.
+
+139. **The bot's strings stayed HTML and a converter writes the rich
+     message from them.** The rich message design of 12 September asks the
+     builders to produce Rich Markdown and to escape every piece of data for
+     it. The strings are two hundred and forty HTML strings, in two
+     languages, read by `check-copy.js`, `commands.py --check` and
+     `gen-review.js` and reviewed by a reader. A second markup for them would
+     have been every one of those again. `from_html` in `reply.py` reads a
+     formatted string as Telegram HTML and writes both halves. It escapes
+     data text for markdown as it goes, which is the design's rule at the one
+     point every string passes. Five table headings were the only strings
+     added. The design is followed in everything else. The contract, the
+     helpers, the raw requests, the plain fallback with no parse mode, and
+     the migration of every structured reply.
+
+140. **Two departures from that design's letter.** A flood wait and the
+     four answers meaning the chat cannot be reached are re-raised from the
+     rich send instead of falling back. The plain send would meet the same
+     answer, and the drain has handling for each. Falling back would cost a
+     second request for the same refusal. And the fallback line is written
+     to the log, not printed. The checklist asks the person walking it to
+     look in the log for that line and find none. Neither changes what a
+     reader sees.
+
+141. **A database that cannot be reached is weather, and is reported as
+     such.** Found from the VPS log on 12 September. One `504 Gateway
+     Timeout` from Supabase's gateway, logged as a security loop failure
+     with a fourteen line traceback, on a bot nobody had used. The loop
+     survived it, as built. `SupabaseUnavailable` names a 502, 503 or 504
+     and any transport error, and every request goes through one `_send`.
+     The two polling loops log the first failure and the recovery with a
+     count, no traceback, through `Unreachable`. A 400 keeps its traceback:
+     that one is a mistake in the file. A read timeout the same afternoon
+     was the same class.
+
+142. **A redraw that draws what is already there is a redraw that
+     worked.** Tapping the language already chosen under `/language` edits
+     the message into its own content, and Telegram refuses with
+     `MessageNotModifiedError`. The dispatcher logged that as a failed
+     callback. `redraw()` in `handlers.py` accepts it, and every callback
+     edit goes through it; the rich edits in `reply.py` accept the same.
+
 ---

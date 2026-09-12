@@ -136,6 +136,8 @@ until the flip could not be walked through at all.
 | `outbox.py` | The slow loop. The claim, the four renderers, the retries and their backoff, `skipped`, the stale claim sweep, and the flood wait that reschedules rather than sleeping the worker. Twenty seconds. |
 | `feed.py` | The public openings feed, with a short cache per language, behind `jobs`. |
 | `strings.py` | Everything the bot says, in every language. Not the site's dictionaries. |
+| `reply.py` | **Rich messages, phase 15 part 2.** The `{markdown, fallback}` contract, the converter that reads a string from `strings.py` as both halves, the table and heading builders, and the three raw sends that carry a `rich_message`. A rich send that is refused falls back to its plain text and says so in the log. |
+| `docs.py` | The guides for a chat window: markdown to a rich reply, headings and tables and callouts drawn, and paging under Telegram's cap. |
 | `build_status.py` | What has shipped and what an admin has switched off. |
 | `config.py` | The environment, validated once, with every problem reported together. |
 | `db.py` | SQLite: the migrations, and the registry of what a button means. |
@@ -289,6 +291,11 @@ step 14. About forty minutes.
 4. **`/start` from a Telegram account that has linked nothing.** The
    introduction, all eleven commands, a button to the portal, and the donation
    button if `DONATION_URL` is set. **Nothing in the reply names the bot.**
+   Since phase 15 part 2 it is a rich message: a heading at the top and the
+   commands in a two column table, drawn by the client. **Read the log after
+   every rich reply in this list**: a line saying `rich send refused, sending
+   the plain text instead` means the rich body was rejected and the plain
+   half went out, and there should be none.
 5. **Type something that is not a command.** One line pointing at `/start`, not
    silence and not an error.
 6. **`/invites` while unlinked.** The sentence asking you to link, rather than an
@@ -317,9 +324,9 @@ step 14. About forty minutes.
     by name until the account has backup codes, and the switch goes back rather
     than sitting where it was left. Make the codes, turn it on, sign out, and
     sign in again: the second step asks for a code and the code arrives.
-17. **`/notify`.** Three toggles with their current state. Turn one off and back
-    on, and confirm the message redraws each time rather than answering in a new
-    one.
+17. **`/notify`.** Four toggles with their current state, under a heading. Turn
+    one off and back on, and confirm the message redraws each time rather than
+    answering in a new one, and that the heading survives the redraw.
 18. **As the admin, invite the applicant to a role.** The invitation arrives
     with the role, the department, any note, a button through to the posting,
     and a **Decline** button. The drain's log line for that pass names what it
@@ -335,13 +342,23 @@ step 14. About forty minutes.
     recorded from the form, and saying so if it overrode a No or a timeout. A
     second delivery of the same response sends nothing, and `/notify` shows
     its switch as the fourth button. Added by phase 14, 11 September 2026.
-22. **Every one of those four carries the unsubscribe footer.**
+22. **Every one of those four carries the unsubscribe footer**, and each opens
+    with a heading, which is the rich message drawing it and not a bold line.
 23. **Turn task notifications off in `/notify`, then raise another task.** The
     row is marked `skipped` rather than left queued, and the outbox panel on
     `/admin` counts it as skipped.
 24. **`/invites`, `/tasks`, `/applications`, `/jobs`.** Each answers, each list
     has a button through to what it names, and the status words match the ones
-    the portal shows on the same rows.
+    the portal shows on the same rows. `/applications` and `/jobs` draw a
+    table, role beside status and role beside department; `/invites` a list
+    under a heading; `/tasks` stays one line.
+24a. **`/docs`, then a section, then a page with a table in it**, such as the
+    developer guide's authentication page. The section and the page are edited
+    into the same message, the page title is a heading, the guide's own
+    headings sit under it, and the table is a table and not a note saying there
+    is one. Page through with the pager. Then `/language` and tap the language
+    already chosen: the keyboard redraws with no error in the log, which is the
+    11 September 2026 traceback that started part 2.
 25. **Switch the Telegram client to 华文** and repeat `/start` and one list. The
     whole reply is in 华文, including the status words.
 26. **`/admin/maintenance`.** All four switches read On. Turn `telegram_link`

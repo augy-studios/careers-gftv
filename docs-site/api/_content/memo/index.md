@@ -12,27 +12,29 @@ phase. **It lives in `reference/` and is committed, as of 8 September 2026**; it
 was gitignored for the first fourteen phases. The brief is
 `reference/careers-gftv-spec.md`, and this file never overrides it.
 
-Last written: **at the start of phase 15, More languages, on 11 September
-2026**, the day phase 14 flipped. **Phase 14 reads `shipped` and phase 15 reads
-`building` in the working tree, not yet pushed.** They sit in the same tree as
-phase 14's last part. That part is 10h in this file and `phase 14 part 10g` in
-the log. It is the webhook confirmation notice, `/language`, the flip, and this
-handover.
+Last written: **at the end of phase 15 part 2, on 12 September 2026**, the
+day after phase 14 flipped. Parts 1 and 2 sit in the working tree together,
+not yet pushed. The flip and the handover went in as `cdfbadc`, "phase 14 part
+10g", which this file calls 10h.
 Section 1 has phase 14 condensed. Section 2 is phase 15, written from what
-section 6 held for it. Section 4's numbering runs to 136.
+section 6 held for it. Section 4's numbering runs to 142.
 
 **Fourteen of fifteen phases are live.** `build-status.json` reads `shipped`
 for every phase but this one, and the root README says so. `sw.js` is at
-**`v135`** on the portal and **`v11`** on the docs site. The log's last push is
-`ab7139e`, "phase 14 part 10f", which holds what this file calls 10g. The
+**`v136`** on the portal and **`v12`** on the docs site. The log's last push is
+`cdfbadc`, "phase 14 part 10g", which holds what this file calls 10h. The
 paragraph "The parts, and what the log calls them" in section 1 is where to
 count from when the log and this file disagree. They have since `cd2cfa9`.
 
-**Phase 15 is three things a locale is, twice over, and a round trip with
-people who are not here.** The dictionaries start as copies of the English so
-the file itself is what gets sent. The parts are not settled and the five
-decisions in section 2 are what settle them. Nothing gates the start on
-anything owed.
+**Phase 15 is the backbone for two languages that are not written yet, and
+it ships without them.** The dictionaries are copies of the English so the
+file itself is what gets sent. Both languages are held off the site by a
+switch until a translation is in. The five decisions were settled on 12
+September 2026, before any code. Section 2 has the three parts they became
+once the user said, the same day, that Malay and Tamil stay off after the
+flip. Part 1 is the switch and the copies. Part 2 is the bot's rich
+messages, asked for the same afternoon. Part 3 is the banner and the flip.
+Nothing gates the flip on anything owed.
 
 **What the build still owes, and it is one sitting.** Decision 27's by-hand
 sitting opens with a seeded board and a staff account behind an authenticator

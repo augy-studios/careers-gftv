@@ -124,7 +124,9 @@ function renderOutages(overrides) {
   const holder = document.querySelector('#statusOutages');
   if (!holder) return;
 
-  const keys = Object.keys(overrides ?? {});
+  // Held is not broken: phase 15's Malay and Tamil are off until somebody
+  // switches them on, and this list is what is being fixed, per the lede.
+  const keys = Object.keys(overrides ?? {}).filter((key) => overrides[key]?.held !== true);
 
   holder.hidden = keys.length === 0;
   if (keys.length === 0) {

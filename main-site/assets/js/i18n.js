@@ -1,4 +1,4 @@
-// Language: English and Chinese, in Singapore Mandarin (华文).
+// Language: English, Chinese in Singapore Mandarin (华文), Malay and Tamil.
 //
 // Deliberately built to mirror theme.js. Same localStorage key namespace, same
 // apply-and-store shape, same "the modal never closes itself" behaviour. A
@@ -14,6 +14,13 @@
 // wording fix does not mean touching code. English is always loaded as the
 // fallback, so a key missing from the Chinese dictionary shows English and
 // not a raw key or an empty element.
+//
+// **A dictionary existing does not put it on the control.** Phase 15 part 1:
+// LOCALES names every dictionary in /assets/i18n, and a language is offered
+// only while it is published, which is a feature key in build-status.json
+// that the shell reads and hands in through setPublishedLocales. Until then
+// everything here is published, so a page that never calls it behaves as it
+// did with two languages. The docs site is that page.
 
 const APP_KEY = 'gftv-careers';
 
@@ -24,7 +31,46 @@ export const LOCALES = [
   // Singapore Simplified Chinese, which is what the copy actually is. Prefix
   // matching means anything keyed on zh or zh-Hans still applies.
   { id: 'zh', label: 'Chinese', native: '华文', htmlLang: 'zh-Hans-SG' },
+  // Phase 15. Bahasa Melayu is what the language calls itself in Singapore,
+  // where it is the national language, and தமிழ் is Tamil in its own script.
+  // Neither carries a region subtag: the portal ships one of each, and there
+  // is no Singapore variant of either script to tag the document as.
+  { id: 'ms', label: 'Malay', native: 'Bahasa Melayu', htmlLang: 'ms' },
+  { id: 'ta', label: 'Tamil', native: 'தமிழ்', htmlLang: 'ta' },
 ];
+
+// Which of LOCALES the portal offers right now, by id. Everything until the
+// shell says otherwise, for the reason in the header.
+let published = new Set(LOCALES.map((l) => l.id));
+
+/**
+ * Narrow the offered languages to the published ones. Called once by shell.js
+ * after the build status and the maintenance overrides have loaded.
+ *
+ * The default language is always kept, since it is the fallback layer and
+ * cannot be switched off. Anything listening for the control's contents, the
+ * language modal above all, hears about it on gftv:localespublished.
+ *
+ * @param {string[]} ids
+ */
+export function setPublishedLocales(ids) {
+  const next = new Set([DEFAULT_LOCALE]);
+  for (const id of ids) if (LOCALES.some((l) => l.id === id)) next.add(id);
+  published = next;
+  document.dispatchEvent(
+    new CustomEvent('gftv:localespublished', { detail: { locales: publishedLocales() } })
+  );
+}
+
+/** The offered languages, in LOCALES order. */
+export function publishedLocales() {
+  return LOCALES.filter((l) => published.has(l.id));
+}
+
+/** Whether a language is offered right now. */
+export function isPublished(id) {
+  return published.has(id);
+}
 
 // The language postings themselves are written in, and the fallback layer for
 // every dictionary lookup. Exported because the board needs it: the
@@ -47,7 +93,9 @@ export function getStoredLocale() {
   } catch {
     // Storage blocked. Fall through to the default.
   }
-  return LOCALES.some((l) => l.id === value) ? value : DEFAULT_LOCALE;
+  // A stored choice of a language that is not offered falls back to English,
+  // quietly. 3a's rule for a missing dictionary, applied to a present one.
+  return published.has(value) ? value : DEFAULT_LOCALE;
 }
 
 export function getLocale() {
@@ -162,11 +210,22 @@ export function translateDom(root = document) {
  * Switch language. Loads the dictionary, stamps the document, retranslates,
  * stores the choice, and tells the rest of the page.
  *
+ * `remember: false` applies without storing, in this browser or on the
+ * account. It is for the one caller that is not somebody choosing: the shell
+ * moving a reader to English because their stored language has been switched
+ * off. Their choice stays stored, so it is honoured again the day the switch
+ * goes back on.
+ *
  * @param {string} id
+ * @param {{ remember?: boolean }} [options]
  * @returns {Promise<string>} the locale actually applied
  */
-export async function applyLocale(id) {
-  const locale = LOCALES.some((l) => l.id === id) ? id : DEFAULT_LOCALE;
+export async function applyLocale(id, { remember = true } = {}) {
+  const locale = published.has(id) ? id : DEFAULT_LOCALE;
+  // A fallback is not a choice. Asking for a language that is not offered
+  // applies English and stores nothing, so whatever was stored is still there
+  // when the language is.
+  if (locale !== id) remember = false;
 
   // English is always present as the fallback layer.
   await loadDictionary(DEFAULT_LOCALE);
@@ -178,10 +237,12 @@ export async function applyLocale(id) {
   document.documentElement.setAttribute('lang', info.htmlLang);
   document.documentElement.setAttribute('data-locale', locale);
 
-  try {
-    localStorage.setItem(KEY_LOCALE, locale);
-  } catch {
-    // Storage blocked. The page is still translated for this visit.
+  if (remember) {
+    try {
+      localStorage.setItem(KEY_LOCALE, locale);
+    } catch {
+      // Storage blocked. The page is still translated for this visit.
+    }
   }
 
   translateDom(document);
@@ -195,7 +256,7 @@ export async function applyLocale(id) {
   // Deliberately not awaited: the language has already been applied, and a
   // slow or failed write must not hold up the page. Signed out callers get a
   // 200 saying nothing was stored.
-  storeLocaleOnAccount(locale);
+  if (remember) storeLocaleOnAccount(locale);
 
   // The page is held blank until this point for a non default language, so
   // nothing paints in English first. See the pre-paint script in every head.

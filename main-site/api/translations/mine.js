@@ -28,7 +28,7 @@
 import { ok, methodNotAllowed, failInternal } from '../_lib/respond.js';
 import { supabase, T } from '../_lib/supabase.js';
 import { requireApplicant } from '../_lib/session.js';
-import { localeFromRequest } from '../_lib/validate.js';
+import { requestLocale } from '../_lib/locales.js';
 import { jobSummaries } from '../_lib/dashboard.js';
 
 const MAX_ROWS = 100;
@@ -62,7 +62,7 @@ export default async function handler(req, res) {
     // name is three more queries for a line of context nobody is missing.
     const jobs = await jobSummaries(
       rows.filter((row) => row.target_type === 'job').map((row) => row.target_id),
-      localeFromRequest(req)
+      await requestLocale(req)
     );
 
     const reports = rows.map((row) => ({

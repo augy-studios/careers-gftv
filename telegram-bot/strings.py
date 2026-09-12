@@ -17,7 +17,12 @@ making structurally impossible.
 
 Formatting is HTML, which is what the client is configured with. Avoid em
 dashes, per section 15, and rephrase rather than leaving a sentence that only
-worked with one.
+worked with one. **Since phase 15 part 2 the structured replies are rich
+messages**, and `reply.py` reads these same strings as HTML and writes both
+halves of one: the bold becomes a heading or bold, the italic italic, the code
+a code span, and the plain text goes in the message field with the tags taken
+off. So a string is written once, here, in the one markup, and nothing about
+rich messages is a reason to write a string twice.
 """
 
 from __future__ import annotations
@@ -346,6 +351,14 @@ STRINGS: dict[str, dict[str, str]] = {
         "generic.error": (
             "Something went wrong at our end. Please try that again in a moment."
         ),
+        # Phase 15 part 2. Column headings for the tables a rich message draws:
+        # the command list under /start, and the three lists. Short on purpose,
+        # since a table column on a phone is narrow.
+        "table.command": "Command",
+        "table.describe": "What it does",
+        "table.role": "Role",
+        "table.status": "Status",
+        "table.department": "Department",
     },
     "zh": {
         "start.intro": (
@@ -551,6 +564,11 @@ STRINGS: dict[str, dict[str, str]] = {
         "unknown.command": "这不是可用的指令。发送 /start 查看指令列表。",
         "plain.message": "发送 /start 查看您可以使用的功能。",
         "generic.error": "我们这边出了一点问题，请稍后再试一次。",
+        "table.command": "指令",
+        "table.describe": "说明",
+        "table.role": "职位",
+        "table.status": "状态",
+        "table.department": "部门",
     },
 }
 

@@ -7,8 +7,11 @@
 #
 # Telethon, per section 15. Not python-telegram-bot, not aiogram. The 2.x line
 # is a rewrite with a different API, so the ceiling is deliberate rather than
-# cautious: an upgrade to it is a piece of work, not an upgrade.
-telethon>=1.36,<2
+# cautious: an upgrade to it is a piece of work, not an upgrade. The floor
+# moved to 1.44 in phase 15 part 2: it is the first release whose TL layer
+# carries `rich_message` on the send and edit requests, which reply.py sends.
+# Run `pip install -r requirements.txt` in the venv before restarting.
+telethon>=1.44,<2
 
 # The HTTP client for build-status.json, the feature status endpoint, and from
 # part 2 the Supabase REST API. Async, because it is called from inside the

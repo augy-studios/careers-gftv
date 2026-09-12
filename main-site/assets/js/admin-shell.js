@@ -39,6 +39,7 @@ import {
   applyFeatureGating,
   isFeatureShipped,
   isFeatureOff,
+  isFeatureHeld,
   featureNote,
   maintenanceSentence,
 } from './build-status.js';
@@ -549,7 +550,11 @@ function renderMaintenanceBanner() {
 
   // Every key in the feature map, not just the ones with a sidebar item: most
   // of what can be switched off is on the public site.
-  const off = Object.keys(buildStatus?.features ?? {}).filter((key) => isFeatureOff(key));
+  // Held is not broken: a language nobody has switched on yet is off, and is
+  // not something being fixed. The maintenance page itself says so on it.
+  const off = Object.keys(buildStatus?.features ?? {}).filter(
+    (key) => isFeatureOff(key) && !isFeatureHeld(key)
+  );
   if (off.length === 0) return;
 
   const bar = document.createElement('div');

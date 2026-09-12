@@ -35,6 +35,7 @@ import {
   loadFeatureOverrides,
   featureNote,
   isFeatureOff,
+  isFeatureHeld,
 } from './build-status.js';
 
 // One entry per page, in the order somebody would use them: what have I done,
@@ -302,9 +303,11 @@ async function renderMaintenanceBanner() {
   const status = await loadBuildStatus();
   await loadFeatureOverrides();
 
+  // Held is not broken: a language nobody has switched on yet is off, and is
+  // not something being fixed.
   const off = Object.keys(status?.features ?? {})
     .filter((key) => !key.startsWith('admin_'))
-    .filter((key) => isFeatureOff(key));
+    .filter((key) => isFeatureOff(key) && !isFeatureHeld(key));
 
   if (off.length === 0) return;
 

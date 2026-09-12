@@ -51,7 +51,7 @@ re-run the part you just changed instead of half an hour of everything.
 
 ## What does not need a credential
 
-Four things run against nothing but the working tree, and they are the ones to
+Five things run against nothing but the working tree, and they are the ones to
 run before a push.
 
 | Command | What it proves |
@@ -60,6 +60,7 @@ run before a push.
 | `node tests/phase12-test.mjs --only=responsive,landscape,a11y,a11y-keyboard` | Layout and accessibility at every width. |
 | `node tests/phase13-test.mjs --only=live` | What the docs deployment answers a stranger. |
 | `node tests/phase14-test.mjs` | Both sites' chrome, and this site's worker. |
+| `node tests/phase15-test.mjs` | The language switches, the four dictionaries, and the bot's list, with the settings table stubbed. |
 
 **`PATCH_ASSETS=1` serves the working tree's stylesheets, scripts and pages** in
 place of the deployment's, so a fix can be proved before it is pushed.

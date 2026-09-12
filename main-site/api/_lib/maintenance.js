@@ -135,16 +135,61 @@ export const DENYLIST = Object.freeze({
   // Not a docs site key, and here on its own merits: the reason the applicant
   // set above is on this list is the reason the staff set is.
   staff_recovery_codes: 'Part of getting a staff account back, exactly as the applicant codes above are.',
-  // Phase 15's one key, 11 September 2026, found the day phase 14 flipped and
-  // 15 became visible on the maintenance page. A language is a dictionary file
-  // and a row in gftvjobs_locales, and no route consults a switch to serve one;
-  // taking a language away is a deploy, not a flip. The same argument as `seed`.
-  more_languages: 'A language is a dictionary and a locale row, and nothing consults a switch to serve one. Removing one is a deploy, not a flip.',
+  // Phase 15 part 1, 12 September 2026. **Every other language is a switch on
+  // this page and English is not.** `locale_zh`, `locale_ms` and
+  // `locale_ta` are feature keys, and a language is published when its key's
+  // phase has shipped and the switch is on; that is what keeps a dictionary
+  // that is still an English copy off the control while somebody fills it
+  // in. English is the default and the fallback layer under every other
+  // dictionary, so switching it off would leave the site with no language to
+  // fall back to, which is `applicant_login`'s argument arriving from a
+  // different direction.
+  //
+  // This entry replaced `more_languages`, which sat here for a day saying no
+  // route consulted a switch to serve a language. Now every route does, through
+  // api/_lib/locales.js.
+  locale_en: 'English is the default and the layer every other dictionary falls back to. Switching it off would leave nothing to fall back to.',
 });
 
 /** Whether a feature key may be flipped at all. */
 export function isFlippable(key) {
   return !(key in DENYLIST);
+}
+
+/**
+ * Features that are off until an admin switches them on, with the standing
+ * note each one carries while it waits. The mirror image of the overrides.
+ *
+ * Phase 15 part 1, 12 September 2026. Malay and Tamil are the last phase of
+ * the build and were always a plan and not a promise: the phase ships the
+ * backbone, two dictionaries that are copies of the English, and the words in
+ * them are somebody else's to write. So the phase flips to shipped with both
+ * languages still off, and they go on the day a translation is in and checked.
+ *
+ * The switch mechanism as phase 7 built it could not say that. An override is
+ * a record that an admin turned something *off*, ignored while its phase reads
+ * `building` and absent the moment it reads `shipped`, so a language key would
+ * have come on at the flip and offered an English copy under a Malay heading.
+ * Section 7 of the memo records the same limit from phase 13, when
+ * `HELLO_WRITES_ENABLED` had to be a constant for the same reason. This is the
+ * third answer, and it fits because the thing held is meant to be switched on
+ * from the dashboard and not by a deploy: for a key in this list, no override
+ * means off, and the override that exists is the one saying on.
+ *
+ * The note is shown wherever the maintenance note would be, so a reader who
+ * asks the API for Malay is told why it is not there, in the same sentence
+ * shape as any other switched off feature. It is English, like the reasons
+ * above, and the dictionary's `featureHeld.<key>` wins on the page when it has
+ * one.
+ */
+export const HELD = Object.freeze({
+  locale_ms: 'Not yet translated. The Malay dictionary is a copy of the English until somebody writes it, and the switch goes on the day it is in.',
+  locale_ta: 'Not yet translated. The Tamil dictionary is a copy of the English until somebody writes it, and the switch goes on the day it is in.',
+});
+
+/** Whether a feature key is off until switched on. */
+export function isHeld(key) {
+  return key in HELD;
 }
 
 /* -------------------------------------------------------------------------
@@ -211,7 +256,7 @@ export function deniedFeatures() {
  * ---------------------------------------------------------------------- */
 
 /**
- * The current overrides, as a key to record map.
+ * The current overrides, as a key to record map of what is off right now.
  *
  * Only features that are currently off are stored. Turning one back on removes
  * its entry, and the history of both is in the audit log, per 8.12: "Turning a
@@ -221,15 +266,22 @@ export function deniedFeatures() {
  * A record is { off: true, note, at, by }. `by` is the staff username, since
  * the page shows who set it and a uuid is not that.
  *
+ * **A held key reads the other way round.** Its stored record, when there is
+ * one, is { on: true, at, by }, and its absence means off with the standing
+ * note from HELD. The map this answers with is the same shape either way: a
+ * held key that nobody has switched on appears here as off, so every reader
+ * of this map, the guard, the public payload, the bot, treats it exactly as a
+ * feature an admin switched off. Which, to a reader, it is.
+ *
  * @returns {Promise<Record<string, { off: boolean, note: string|null, at: string|null, by: string|null }>>}
  */
 export async function featureOverrides() {
   const value = await getSetting(OVERRIDES_KEY, {}, { maxAgeMs: FRESH_MS });
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const stored = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 
   const overrides = {};
 
-  for (const [key, record] of Object.entries(value)) {
+  for (const [key, record] of Object.entries(stored)) {
     if (!record || typeof record !== 'object') continue;
     if (record.off !== true) continue;
     // A stale override naming something that is no longer flippable is ignored
@@ -237,16 +289,35 @@ export async function featureOverrides() {
     // and an override that could switch sign in off because it was written
     // before the key was denylisted is exactly what the denylist is for.
     if (!isFlippable(key)) continue;
+    // A held key's off record is written by setFeatureOverride below, when an
+    // admin switches it back off after having switched it on, and carries
+    // their note. It is honoured like any other off record.
+    overrides[key] = readRecord(record);
+  }
 
-    overrides[key] = {
-      off: true,
-      note: typeof record.note === 'string' && record.note.trim() !== '' ? record.note : null,
-      at: typeof record.at === 'string' ? record.at : null,
-      by: typeof record.by === 'string' ? record.by : null,
-    };
+  for (const [key, reason] of Object.entries(HELD)) {
+    if (key in overrides) continue;
+    const record = stored[key];
+    if (record && typeof record === 'object' && record.on === true) continue;
+    // `held` marks the standing state and nothing else: off because nobody has
+    // switched it on, which the banners and /status must not report as
+    // something broken. An admin's own off record above reads as an ordinary
+    // outage, note and all, because that is what they said it was.
+    overrides[key] = { off: true, note: reason, at: null, by: null, held: true };
   }
 
   return overrides;
+}
+
+/** One stored off record, with the three fields the page shows. */
+function readRecord(record) {
+  return {
+    off: true,
+    note: typeof record.note === 'string' && record.note.trim() !== '' ? record.note : null,
+    at: typeof record.at === 'string' ? record.at : null,
+    by: typeof record.by === 'string' ? record.by : null,
+    held: false,
+  };
 }
 
 /**
@@ -273,6 +344,10 @@ export async function publicFeatureStatus() {
   const off = {};
   for (const [key, record] of Object.entries(overrides)) {
     off[key] = { note: record.note, since: record.at };
+    // Off until switched on, and off because nobody has. Everything that gates
+    // on "off" treats it as off; the three places that list what is *broken*,
+    // the account banner, the dashboard banner and /status, leave it out.
+    if (record.held) off[key].held = true;
   }
 
   return { off };
@@ -352,15 +427,19 @@ export const NOTE_MAX = 300;
  * @returns {Promise<Record<string, object>>} the overrides as they now stand
  */
 export async function setFeatureOverride(key, off, context) {
-  const current = await featureOverrides();
+  const value = await getSetting(OVERRIDES_KEY, {}, { maxAgeMs: 0 });
+  const current = value && typeof value === 'object' && !Array.isArray(value) ? { ...value } : {};
+
+  const stamp = { at: new Date().toISOString(), by: context.staffUser?.username ?? null };
 
   if (off) {
-    current[key] = {
-      off: true,
-      note: context.note ?? null,
-      at: new Date().toISOString(),
-      by: context.staffUser?.username ?? null,
-    };
+    current[key] = { off: true, note: context.note ?? null, ...stamp };
+  } else if (isHeld(key)) {
+    // A held key is switched on by a record, not by the absence of one, and
+    // the record says who did it and when. Switching it off again writes an
+    // ordinary off record above, with the admin's note in place of the
+    // standing one.
+    current[key] = { on: true, ...stamp };
   } else {
     delete current[key];
   }

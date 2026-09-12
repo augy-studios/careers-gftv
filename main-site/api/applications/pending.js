@@ -23,7 +23,7 @@
 import { ok, methodNotAllowed, failInternal } from '../_lib/respond.js';
 import { supabase, T } from '../_lib/supabase.js';
 import { getApplicantSession } from '../_lib/session.js';
-import { localeFromRequest } from '../_lib/validate.js';
+import { requestLocale } from '../_lib/locales.js';
 import { fetchOwnRatings, fetchPending } from '../_lib/apply.js';
 
 export default async function handler(req, res) {
@@ -37,7 +37,7 @@ export default async function handler(req, res) {
   const session = await getApplicantSession(req);
   if (!session) return ok(res, { prompts: [] });
 
-  const locale = localeFromRequest(req);
+  const locale = await requestLocale(req);
 
   try {
     const rows = await fetchPending(session.user.id);

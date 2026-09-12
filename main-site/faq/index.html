@@ -30,7 +30,7 @@
             document.documentElement.setAttribute("data-mode", m);
             document.documentElement.setAttribute("data-color-theme", c);
             document.documentElement.setAttribute("data-locale", l);
-            document.documentElement.setAttribute("lang", l === "zh" ? "zh-Hans-SG" : "en");
+            document.documentElement.setAttribute("lang", { zh: "zh-Hans-SG", ms: "ms", ta: "ta" }[l] || "en");
 
             // A non default language is rendered from a dictionary fetched
             // after this runs, so the English in the markup would paint first

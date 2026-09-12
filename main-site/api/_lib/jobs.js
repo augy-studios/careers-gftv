@@ -52,7 +52,7 @@ const MAX_PAGE = 500;
  * Parse the request URL into everything the search RPC takes.
  *
  * @param {import('http').IncomingMessage} req
- * @param {string} locale already validated by localeFromRequest
+ * @param {string} locale already validated by requestLocale
  * @returns {{ q: string|null, filters: object, page: number, limit: number,
  *             offset: number, sort: string|null }}
  */

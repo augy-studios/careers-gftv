@@ -35,7 +35,8 @@ import { ok, fail, ERR, methodNotAllowed, failInternal, readJson } from '../_lib
 import { supabase, T } from '../_lib/supabase.js';
 import { requireStaff } from '../_lib/session.js';
 import { AUDIT, auditStaff } from '../_lib/audit.js';
-import { FIELD, validateText, localeFromRequest } from '../_lib/validate.js';
+import { FIELD, validateText } from '../_lib/validate.js';
+import { requestLocale } from '../_lib/locales.js';
 import { isUuid, params, activeLocales } from '../_lib/admin.js';
 import { TASK_TYPES, OPEN_STATUSES } from '../_lib/tasks.js';
 import { checkQuestionSet, readAnswers, readQuestions } from '../_lib/questions.js';
@@ -100,7 +101,7 @@ function adminTask(row, locale) {
 
 async function read(req, res) {
   const search = params(req);
-  const locale = localeFromRequest(req);
+  const locale = await requestLocale(req);
 
   const id = search.get('id');
   if (id) {

@@ -30,7 +30,8 @@ import { ok, fail, ERR, methodNotAllowed, failInternal, readJson } from '../_lib
 import { supabase, T } from '../_lib/supabase.js';
 import { requireStaff } from '../_lib/session.js';
 import { AUDIT, auditStaff } from '../_lib/audit.js';
-import { FIELD, validateText, localeFromRequest } from '../_lib/validate.js';
+import { FIELD, validateText } from '../_lib/validate.js';
+import { requestLocale } from '../_lib/locales.js';
 import { isUuid, isAdmin, params, pageRange, enumParam } from '../_lib/admin.js';
 import { isInCooldown } from '../_lib/settings.js';
 import { readAnswers } from '../_lib/questions.js';
@@ -121,7 +122,7 @@ function parseDate(value, edge) {
 
 async function read(req, res) {
   const search = params(req);
-  const locale = localeFromRequest(req);
+  const locale = await requestLocale(req);
   const id = search.get('id');
 
   if (id) {

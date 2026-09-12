@@ -66,7 +66,8 @@ from telethon.errors.rpcerrorlist import (
 
 import db
 from strings import DEFAULT_LOCALE, STRINGS, text
-from supabase import NOTIFY_COLUMN, SupabaseError
+from reply import from_html, heading, join_rich, lines as rich_lines, send_rich_message
+from supabase import NOTIFY_COLUMN, SupabaseError, SupabaseUnavailable, Unreachable
 
 log = logging.getLogger("bot.outbox")
 
@@ -123,9 +124,16 @@ PERMANENT_ERRORS = (
 
 @dataclass(frozen=True)
 class Rendered:
-    """One message, ready to send. Buttons are optional and usually absent."""
+    """One message, ready to send. Buttons are optional and usually absent.
 
-    message: str
+    `message` is either a string, sent as before with the client's HTML parse
+    mode, or a rich reply from `reply.py`, sent as a rich message with its plain
+    half as the fallback. The four section 15 kinds are rich since phase 15
+    part 2, because each opens with a heading; the test message is one line and
+    stays a string.
+    """
+
+    message: str | dict
     buttons: list | None = None
 
 
@@ -161,14 +169,14 @@ async def render_invite(ctx, row: dict, applicant: dict | None, locale: str, lin
     department = payload.get("department")
     note = payload.get("body")
 
-    lines = [
-        text("notify.inviteHeading", locale),
-        text("notify.inviteRole", locale, role=html.escape(str(role))),
-    ]
+    facts = [from_html(text("notify.inviteRole", locale, role=html.escape(str(role))))]
     if department:
-        lines.append(text("notify.inviteDepartment", locale, department=html.escape(str(department))))
+        facts.append(
+            from_html(text("notify.inviteDepartment", locale, department=html.escape(str(department))))
+        )
+    parts = [heading(text("notify.inviteHeading", locale), 2), rich_lines(facts)]
     if note:
-        lines.append("\n" + text("notify.inviteNote", locale, note=html.escape(str(note))))
+        parts.append(from_html(text("notify.inviteNote", locale, note=html.escape(str(note)))))
 
     buttons = []
     if job_id:
@@ -188,7 +196,8 @@ async def render_invite(ctx, row: dict, applicant: dict | None, locale: str, lin
         )
         buttons.append(Button.inline(text("button.decline", locale), f"cb:{callback_id}".encode()))
 
-    return Rendered("\n".join(lines) + footer(locale), [buttons] if buttons else None)
+    parts.append(from_html(footer(locale).strip()))
+    return Rendered(join_rich(parts), [buttons] if buttons else None)
 
 
 async def render_task(ctx, row: dict, applicant: dict | None, locale: str, link: dict) -> Rendered:
@@ -202,13 +211,15 @@ async def render_task(ctx, row: dict, applicant: dict | None, locale: str, link:
     payload = row.get("payload") or {}
     title = payload.get("title") or ""
 
-    message = (
-        text("notify.taskHeading", locale)
-        + "\n"
-        + text("notify.taskTitle", locale, title=html.escape(str(title)))
+    message = join_rich(
+        [
+            heading(text("notify.taskHeading", locale), 2),
+            from_html(text("notify.taskTitle", locale, title=html.escape(str(title)))),
+            from_html(footer(locale).strip()),
+        ]
     )
     buttons = [[Button.url(text("button.openTasks", locale), f"{ctx.config.site_url}/account/tasks")]]
-    return Rendered(message + footer(locale), buttons)
+    return Rendered(message, buttons)
 
 
 async def render_decision(ctx, row: dict, applicant: dict | None, locale: str, link: dict) -> Rendered:
@@ -226,12 +237,15 @@ async def render_decision(ctx, row: dict, applicant: dict | None, locale: str, l
     body = payload.get("body")
     role = payload.get("job_title")
 
-    lines = [text("notify.decisionHeading", locale)]
+    parts = [heading(text("notify.decisionHeading", locale), 2)]
     if role:
-        lines.append(text("notify.decisionRole", locale, role=html.escape(str(role))))
-    lines.append("\n<b>" + html.escape(str(title)) + "</b>")
+        parts.append(from_html(text("notify.decisionRole", locale, role=html.escape(str(role)))))
+    # The poster's own title and message, as written: a bold line and a
+    # paragraph, which is what the dashboard draws them as.
+    parts.append(from_html("<b>" + html.escape(str(title)) + "</b>"))
     if body:
-        lines.append(html.escape(str(body)))
+        parts.append(from_html(html.escape(str(body))))
+    parts.append(from_html(footer(locale).strip()))
 
     buttons = [
         [
@@ -241,7 +255,7 @@ async def render_decision(ctx, row: dict, applicant: dict | None, locale: str, l
             )
         ]
     ]
-    return Rendered("\n".join(lines) + footer(locale), buttons)
+    return Rendered(join_rich(parts), buttons)
 
 
 async def render_confirmed(ctx, row: dict, applicant: dict | None, locale: str, link: dict) -> Rendered:
@@ -265,12 +279,14 @@ async def render_confirmed(ctx, row: dict, applicant: dict | None, locale: str, 
     role = payload.get("job_title")
     overrode = payload.get("overrode")
 
-    lines = [text("notify.confirmedHeading", locale)]
+    parts = [heading(text("notify.confirmedHeading", locale), 2)]
     if role:
-        lines.append(text("notify.confirmedRole", locale, role=html.escape(str(role))))
-    lines.append("\n" + text("notify.confirmedBody", locale))
+        parts.append(from_html(text("notify.confirmedRole", locale, role=html.escape(str(role)))))
+    body = [from_html(text("notify.confirmedBody", locale))]
     if overrode in ("no", "timeout"):
-        lines.append(text(f"notify.confirmedOverrode.{overrode}", locale))
+        body.append(from_html(text(f"notify.confirmedOverrode.{overrode}", locale)))
+    parts.append(rich_lines(body))
+    parts.append(from_html(footer(locale).strip()))
 
     buttons = [
         [
@@ -280,7 +296,7 @@ async def render_confirmed(ctx, row: dict, applicant: dict | None, locale: str, 
             )
         ]
     ]
-    return Rendered("\n".join(lines) + footer(locale), buttons)
+    return Rendered(join_rich(parts), buttons)
 
 
 # One entry per kind this build can actually send. **The claim reads this
@@ -364,6 +380,7 @@ class OutboxLoop:
         # ten seconds ago is never mistaken for one abandoned by a process that
         # died, which matters on the first pass after a slow start.
         self._in_flight: set[str] = set()
+        self._weather = Unreachable(log, "outbox drain")
 
     async def run(self, stopping: asyncio.Event) -> None:
         log.info("outbox drain started, polling every %.0fs", POLL_SECONDS)
@@ -371,6 +388,11 @@ class OutboxLoop:
         while not stopping.is_set():
             try:
                 await self.tick()
+                self._weather.recovered()
+            except SupabaseUnavailable as cause:
+                # Weather, not a failure: one line when it starts and one when
+                # it ends. Rows stay queued and the next pass is the retry.
+                self._weather.failed(cause)
             except Exception:  # noqa: BLE001 - the loop outlives every failure
                 log.exception("outbox pass failed")
 
@@ -625,12 +647,20 @@ class OutboxLoop:
             return True
 
         try:
-            await self.client.send_message(
-                link["telegram_user_id"],
-                rendered.message,
-                buttons=rendered.buttons,
-                link_preview=False,
-            )
+            if isinstance(rendered.message, dict):
+                # A rich message. The helper falls back to the plain half on
+                # its own if the rich body is refused, and lets a flood wait
+                # and the four permanent answers through to the handling here.
+                await send_rich_message(
+                    self.client, link["telegram_user_id"], rendered.message, rendered.buttons
+                )
+            else:
+                await self.client.send_message(
+                    link["telegram_user_id"],
+                    rendered.message,
+                    buttons=rendered.buttons,
+                    link_preview=False,
+                )
         except FloodWaitError as cause:
             await self.handle_flood_wait(row, cause, tally)
             return False

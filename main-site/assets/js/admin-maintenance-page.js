@@ -102,8 +102,16 @@ function drawFeatures() {
         </div>
 
         ${
-          feature.off
-            ? `<div class="feature-switch-state">
+          feature.held
+            ? // Phase 15 part 1. Off because nobody has switched it on yet,
+              // which is not the same as switched off by somebody, and the
+              // standing note is the dictionary's where it has one.
+              `<div class="feature-switch-state">
+                 <p>${escapeHtml(t('admin.heldUntilOn'))}</p>
+                 <p class="feature-note">${escapeHtml(heldNoteFor(feature))}</p>
+               </div>`
+            : feature.off
+              ? `<div class="feature-switch-state">
                  <p>${escapeHtml(
                    t('admin.switchedOffBy', {
                      who: feature.by ?? t('admin.unknownWho'),
@@ -116,7 +124,7 @@ function drawFeatures() {
                      : `<p class="muted">${escapeHtml(t('admin.noPublicNote'))}</p>`
                  }
                </div>`
-            : ''
+              : ''
         }
       </article>`
     )
@@ -176,9 +184,15 @@ async function flip(feature, off) {
   // The off direction carries the note; 8.12: "Prefill nothing and suggest
   // nothing: an admin who has just broken something writes a better sentence
   // than a dropdown does."
+  // A held feature going on for the first time is not going "back" on, and
+  // the sentence says what happens instead of what resumes.
+  const publishing = !off && feature.held;
   const answer = await confirmAction({
     title: t(off ? 'admin.confirmOffTitle' : 'admin.confirmOnTitle', { feature: name }),
-    body: t(off ? 'admin.confirmOffBody' : 'admin.confirmOnBody', { feature: name }),
+    body: t(
+      off ? 'admin.confirmOffBody' : publishing ? 'admin.confirmHeldOnBody' : 'admin.confirmOnBody',
+      { feature: name }
+    ),
     confirmLabel: t(off ? 'admin.confirmOffAction' : 'admin.confirmOnAction'),
     danger: off,
     field: off
@@ -263,6 +277,13 @@ function reasonFor(feature) {
   const key = `featureDenied.${feature.key}`;
   const translated = t(key);
   return translated === key ? feature.reason : translated;
+}
+
+/** The standing note on a held feature, translated where the dictionary has it. */
+function heldNoteFor(feature) {
+  const key = `featureHeld.${feature.key}`;
+  const translated = t(key);
+  return translated === key ? feature.note ?? '' : translated;
 }
 
 if (document.readyState === 'loading') {

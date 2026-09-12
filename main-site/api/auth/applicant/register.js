@@ -18,10 +18,10 @@ import {
   validateUsername,
   validateDisplayName,
   validateEmail,
-  validateLocale,
   collect,
   FIELD,
 } from '../../_lib/validate.js';
+import { validatePublishedLocale } from '../../_lib/locales.js';
 import { checkPasswordStrength, hashSecret, PASSWORD_MIN_LENGTH } from '../../_lib/password.js';
 import { isUsernameTaken, isEmailTaken, uniqueViolationDetails } from '../../_lib/accounts.js';
 import { supabase, T } from '../../_lib/supabase.js';
@@ -60,7 +60,7 @@ export default async function handler(req, res) {
     });
   }
 
-  const locale = validateLocale(body.locale);
+  const locale = await validatePublishedLocale(body.locale);
 
   try {
     // A courtesy check, so the form can point at the field rather than saying

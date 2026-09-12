@@ -30,7 +30,7 @@
 import { methodNotAllowed, failInternal } from '../_lib/respond.js';
 import { supabase, RPC } from '../_lib/supabase.js';
 import { siteUrl } from '../_lib/env.js';
-import { localeFromRequest } from '../_lib/validate.js';
+import { requestLocale } from '../_lib/locales.js';
 import { searchParams, publicJob } from '../_lib/jobs.js';
 
 // The RPC's own ceiling. A caller wanting more pages the feed rather than
@@ -41,7 +41,7 @@ const MAX_PAGE = 50;
 export default async function handler(req, res) {
   if (methodNotAllowed(req, res, ['GET', 'HEAD'])) return;
 
-  const locale = localeFromRequest(req);
+  const locale = await requestLocale(req);
   const params = searchParams(req);
 
   const requested = Number(params.get('page'));

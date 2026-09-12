@@ -17,7 +17,15 @@
 // the same two and cannot import anything from this project.
 
 import { initTheme } from './theme.js';
-import { initI18n, t } from './i18n.js';
+import {
+  initI18n,
+  t,
+  setPublishedLocales,
+  isPublished,
+  getLocale,
+  applyLocale,
+  DEFAULT_LOCALE,
+} from './i18n.js';
 import { hydrateIcons } from './icons.js';
 import { insertTopBar } from './top-bars.js';
 // The two modals this header opens. Their own file since phase 14 part 1, so
@@ -33,6 +41,7 @@ import {
 import {
   loadBuildStatus,
   loadFeatureOverrides,
+  publishedLocaleIds,
   renderPhaseNotice,
   applyFeatureGating,
   renderPlaceholder,
@@ -741,6 +750,18 @@ async function boot() {
   // on instead of holding the page: that is the direction to fail in, and it
   // is why the loader resolves to an empty map and never rejects.
   await loadFeatureOverrides();
+
+  // Phase 15 part 1. Which languages are offered is a feature key per
+  // language, so it can only be answered once both loads above are in. The
+  // stored preference was applied before them, on every dictionary that
+  // exists, because holding the page on two more fetches would push a Mandarin
+  // reader past the pre-paint script's timeout. So the narrowing comes after,
+  // and a reader whose stored choice is a language that has been switched off
+  // is moved to English here, quietly: one redraw, in the rare case, in place
+  // of a blank page in the common one. Not remembered, so the choice is still
+  // there the day the language is switched back on.
+  setPublishedLocales(publishedLocaleIds(status));
+  if (!isPublished(getLocale())) await applyLocale(DEFAULT_LOCALE, { remember: false });
 
   const paint = () => {
     renderPhaseNotice(status);

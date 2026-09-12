@@ -7,9 +7,12 @@
 // this site cannot import the portal's modules. 5h: duplicate them, and keep
 // the two copies identical.
 //
-// Identical.
+// Identical but for the language list. The portal has four dictionaries as
+// of phase 15 part 1 and this site has two, settled 11 September 2026, and
+// the list here is the dictionaries that exist on the site it is in.
 //
-// Nothing differs from the portal's copy but this banner.
+// What differs from the portal's copy, and why:
+//   - this site has two dictionaries, and the list names what exists here
 // Input validation.
 //
 // Section 9: "Validate and sanitise every input."
@@ -161,13 +164,24 @@ export function validateSixDigits(value) {
 }
 
 /**
- * A locale code. Checked against the list the client knows about rather than
- * against the database, since this is called on a hot path and adding a
- * language is a deploy anyway.
- * @param {unknown} value
+ * Every dictionary that exists under assets/i18n, in the order the control
+ * shows them. Held to the locale_<code> keys in build-status.json and to
+ * LOCALES in assets/js/i18n.js by check-i18n.js.
+ *
+ * **Existing is not published.** Phase 15 part 1: ms.json and ta.json are in
+ * the tree as English copies while somebody fills them in, and a request
+ * naming one must be answered in English until its switch is on. The two
+ * functions below check the shape only, since this file is shared with the
+ * docs site and cannot read a switch. Portal routes use api/_lib/locales.js,
+ * which wraps them with the switch, and nothing in the portal calls these two
+ * directly.
  */
 export const LOCALES = Object.freeze(['en', 'zh']);
 
+/**
+ * A locale code, by shape: one of the dictionaries above.
+ * @param {unknown} value
+ */
 export function validateLocale(value) {
   if (typeof value !== 'string') return { ok: false, code: FIELD.REQUIRED };
   const trimmed = value.trim().toLowerCase();
@@ -176,8 +190,9 @@ export function validateLocale(value) {
 }
 
 /**
- * The locale for a request that returns content, defaulting to English.
- * Section 9: "A caller that sends no locale gets English."
+ * The locale for a request that returns content, defaulting to English, by
+ * shape. Section 9: "A caller that sends no locale gets English." The portal's
+ * routes use requestLocale in locales.js, which also honours the switch.
  * @param {import('http').IncomingMessage} req
  * @returns {string}
  */

@@ -16,7 +16,7 @@
 
 import { ok, fail, ERR, methodNotAllowed, readJson, failInternal } from '../../_lib/respond.js';
 import { getApplicantSession } from '../../_lib/session.js';
-import { validateLocale } from '../../_lib/validate.js';
+import { validatePublishedLocale } from '../../_lib/locales.js';
 import { supabase, T } from '../../_lib/supabase.js';
 
 export default async function handler(req, res) {
@@ -25,7 +25,7 @@ export default async function handler(req, res) {
   const body = await readJson(req, res);
   if (!body) return;
 
-  const locale = validateLocale(body.locale);
+  const locale = await validatePublishedLocale(body.locale);
   if (!locale.ok) {
     return fail(res, ERR.BAD_REQUEST, 'That is not a language this site has.', {
       details: { locale: locale.code },

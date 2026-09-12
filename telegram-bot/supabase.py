@@ -141,6 +141,64 @@ class SupabaseError(RuntimeError):
     """PostgREST answered with something other than success."""
 
 
+class SupabaseUnavailable(SupabaseError):
+    """The database could not be reached, or its gateway gave up waiting.
+
+    A 502, 503 or 504 from Supabase's gateway, a connection that was refused or
+    reset, or a request that ran past TIMEOUT. **This is weather and not a
+    bug**: a hosted database is unreachable for a moment now and then, and the
+    next pass of whichever loop asked is the retry. It is a subclass so that
+    every handler already catching SupabaseError still does, and its own type
+    so the two polling loops can tell it from a 400, which is a real mistake in
+    this file and is worth a traceback.
+
+    Found on 9 September 2026, when a single `PATCH telegram_tokens answered
+    504: Gateway Timeout` was logged as a security loop failure with a fourteen
+    line traceback, on a bot nobody had used since it started. The loop
+    survived it, as it was built to. What was wrong was the report.
+    """
+
+
+# The gateway's own status codes. Anything else 5xx came from PostgREST or
+# Postgres and names something worth reading in full.
+GATEWAY_STATUSES = frozenset({502, 503, 504})
+
+
+class Unreachable:
+    """One outage as two log lines, however many passes it spans.
+
+    A loop polling every two seconds through a five minute gateway outage would
+    otherwise write a hundred and fifty identical warnings, and the line that
+    says the database came back is the one nobody would find among them. The
+    first failure is logged, the rest are counted, and the recovery is logged
+    with the count. Deviation 89's rule, applied to a log: whatever records an
+    outage starting also records it ending.
+    """
+
+    def __init__(self, logger: logging.Logger, what: str) -> None:
+        self._log = logger
+        self._what = what
+        self._skipped = 0
+
+    def failed(self, cause: BaseException) -> None:
+        if self._skipped == 0:
+            self._log.warning(
+                "%s: the database could not be reached, skipping passes until it can: %s",
+                self._what,
+                cause,
+            )
+        self._skipped += 1
+
+    def recovered(self) -> None:
+        if self._skipped:
+            self._log.warning(
+                "%s: the database is reachable again, after %d skipped pass(es)",
+                self._what,
+                self._skipped,
+            )
+        self._skipped = 0
+
+
 class Supabase:
     """A small PostgREST client. Only the verbs this bot actually uses."""
 
@@ -153,6 +211,26 @@ class Supabase:
             "Content-Type": "application/json",
             "Accept": "application/json",
         }
+
+    async def _send(self, method: str, url: str, *, what: str, **kwargs: Any) -> httpx.Response:
+        """One HTTP exchange, with the transient failures named as such.
+
+        Every request in this file goes through here, so what counts as
+        unreachable is decided once. A transport error is anything below HTTP:
+        a refused or reset connection, a DNS miss, or the request outliving
+        TIMEOUT. The gateway statuses are the ones Supabase's own front door
+        answers with when PostgREST behind it did not answer in time.
+        """
+        try:
+            response = await self._client.request(method, url, timeout=TIMEOUT, **kwargs)
+        except httpx.TransportError as cause:
+            raise SupabaseUnavailable(f"{what} could not reach the database: {cause!r}") from cause
+
+        if response.status_code in GATEWAY_STATUSES:
+            raise SupabaseUnavailable(
+                f"{what} answered {response.status_code}: {response.text[:400]}"
+            )
+        return response
 
     async def _request(
         self,
@@ -167,13 +245,13 @@ class Supabase:
         if prefer:
             headers["Prefer"] = prefer
 
-        response = await self._client.request(
+        response = await self._send(
             method,
             f"{self._base}/{TABLES[table]}",
+            what=f"{method} {table}",
             params=params,
             json=json,
             headers=headers,
-            timeout=TIMEOUT,
         )
 
         if response.status_code >= 400:
@@ -218,11 +296,12 @@ class Supabase:
         headers = dict(self._headers)
         headers["Prefer"] = "count=exact"
 
-        response = await self._client.get(
+        response = await self._send(
+            "GET",
             f"{self._base}/{TABLES[table]}",
+            what=f"count {table}",
             params={"select": "id", "limit": "1", **filters},
             headers=headers,
-            timeout=TIMEOUT,
         )
 
         if response.status_code >= 400:
@@ -254,11 +333,12 @@ class Supabase:
         One request per cycle, carrying all four results, so the four
         observations of one moment land together or not at all.
         """
-        response = await self._client.post(
+        response = await self._send(
+            "POST",
             f"{self._base}/rpc/{name}",
+            what=f"rpc {name}",
             json=payload,
             headers={**self._headers, "Prefer": "return=minimal"},
-            timeout=TIMEOUT,
         )
 
         if response.status_code >= 400:

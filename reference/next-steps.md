@@ -5,27 +5,29 @@ phase. **It lives in `reference/` and is committed, as of 8 September 2026**; it
 was gitignored for the first fourteen phases. The brief is
 `reference/careers-gftv-spec.md`, and this file never overrides it.
 
-Last written: **at the start of phase 15, More languages, on 11 September
-2026**, the day phase 14 flipped. **Phase 14 reads `shipped` and phase 15 reads
-`building` in the working tree, not yet pushed.** They sit in the same tree as
-phase 14's last part. That part is 10h in this file and `phase 14 part 10g` in
-the log. It is the webhook confirmation notice, `/language`, the flip, and this
-handover.
+Last written: **at the end of phase 15 part 2, on 12 September 2026**, the
+day after phase 14 flipped. Parts 1 and 2 sit in the working tree together,
+not yet pushed. The flip and the handover went in as `cdfbadc`, "phase 14 part
+10g", which this file calls 10h.
 Section 1 has phase 14 condensed. Section 2 is phase 15, written from what
-section 6 held for it. Section 4's numbering runs to 136.
+section 6 held for it. Section 4's numbering runs to 142.
 
 **Fourteen of fifteen phases are live.** `build-status.json` reads `shipped`
 for every phase but this one, and the root README says so. `sw.js` is at
-**`v135`** on the portal and **`v11`** on the docs site. The log's last push is
-`ab7139e`, "phase 14 part 10f", which holds what this file calls 10g. The
+**`v136`** on the portal and **`v12`** on the docs site. The log's last push is
+`cdfbadc`, "phase 14 part 10g", which holds what this file calls 10h. The
 paragraph "The parts, and what the log calls them" in section 1 is where to
 count from when the log and this file disagree. They have since `cd2cfa9`.
 
-**Phase 15 is three things a locale is, twice over, and a round trip with
-people who are not here.** The dictionaries start as copies of the English so
-the file itself is what gets sent. The parts are not settled and the five
-decisions in section 2 are what settle them. Nothing gates the start on
-anything owed.
+**Phase 15 is the backbone for two languages that are not written yet, and
+it ships without them.** The dictionaries are copies of the English so the
+file itself is what gets sent. Both languages are held off the site by a
+switch until a translation is in. The five decisions were settled on 12
+September 2026, before any code. Section 2 has the three parts they became
+once the user said, the same day, that Malay and Tamil stay off after the
+flip. Part 1 is the switch and the copies. Part 2 is the bot's rich
+messages, asked for the same afternoon. Part 3 is the banner and the flip.
+Nothing gates the flip on anything owed.
 
 **What the build still owes, and it is one sitting.** Decision 27's by-hand
 sitting opens with a seeded board and a staff account behind an authenticator
@@ -550,9 +552,15 @@ build can put every file in place in an afternoon. The words in them are
 somebody else's, and the round trip with that somebody is what the phase
 waits on.
 
-**Written at the start, 11 September 2026, the day phase 14 flipped.** Nothing
-below is built. Section 6 held what this phase inherits until now, and it is
-moved here because this is where it is worked from.
+**Written at the start, 11 September 2026, the day phase 14 flipped, and
+rewritten at the end of part 2 the day after.** Section 6 held what this
+phase inherits until now, and it is moved here because this is where it is
+worked from. **One thing changed after the decisions were settled.** The user
+said on 12 September that Malay and Tamil "will not be available even after
+phase 15 ships". They were always a future plan, and the backbone is what
+ships. So the two landing parts left the list. The switch for each new
+language defaults to off and stays off until somebody turns it on. The
+inheritance below is left as written, and the parts say what became of it.
 
 ### What the earlier phases handed over
 
@@ -572,10 +580,12 @@ moved here because this is where it is worked from.
   publishes it.** Asked for the same day. The two files sit in the repository
   from the first part. A toggle per language decides whether the portal
   applies one. An unpublished language is not on the language control and is
-  not offered by the pre-paint script. It is not a locale a posting can be
-  translated into either. That is what keeps an English copy off the site while
-  somebody is filling it in. It is also the answer to what section 6 called a
-  decision.
+  not offered by the pre-paint script. A posting's translation into it is not
+  served either, though it can be written. Decision 2 below kept the editor
+  tabs and the helper area open to an unpublished language, since that is the
+  one that needs working in. That is what keeps an English copy off the site
+  while somebody is filling it in. It is also the answer to what section 6
+  called a decision.
 - **The toggle lives on `/admin/maintenance`, beside every other shipped
   switch.** Settled 12 September 2026, and it is the second time this phase
   was told where something goes before it started. Chinese, Malay and Tamil
@@ -625,29 +635,183 @@ moved here because this is where it is worked from.
   must not ship before the page does. Whether it belongs to this phase or to a
   commit after it is decision 4 below.
 
-### The decisions this phase owes
+### The decisions, settled 12 September 2026
 
-Listed so the phase starts by settling them and not by discovering them.
+Put to the user before any code was written, and settled in one sitting. The
+list below is what the five decisions became.
 
-1. **One language at a time, or both in one part.** The copy costs nothing
-   either way. The round trip is per language and per person. Two round trips
-   in flight at once is two packages somebody may be part way through.
-2. **~~Whether a copied locale is offered on the control before it is
-   translated.~~ Settled 11 September 2026, and where the toggle lives on 12
-   September.** A language is published by a switch on `/admin/maintenance`,
-   and not by its file existing. What remains to settle is which of the three
-   existing copies of the language list the switch replaces. And how the
-   others are held to it. The reasoning is in the inheritance above.
-3. **What `strings.py` does.** A third and fourth table in the same file, as
-   copies, or English for the bot until somebody translates the chat.
-4. **Where the banner goes.** Section 8 item 5 waits on every phase shipped,
-   which is this phase's flip. So either the banner is this phase's last part
-   and ships with the flip, or it is its own commit after. The flip itself has
-   always been its own commit.
+1. **Switch first, then one landing part per language.** Part 1 is the
+   switch, both copies, the two locale rows, and every check that assumed two
+   languages. Part 2 is Malay landing and part 3 is Tamil, in whichever order
+   the round trips return. The copies cost nothing and the round trips are
+   per person, so the parts do not care which finishes first.
+2. **The feature keys replace the `locales` list in `build-status.json`.**
+   `locale_zh` under phase 1, `locale_ms` and `locale_ta` under this
+   one, and `locale_en` on the `DENYLIST` as the fallback layer. A language
+   is published when its key's phase has shipped and nobody has switched it
+   off. That is the test every other feature already passes. The `locales`
+   array is derived from those keys, so the bot reads what the switch says.
+   `LOCALES` in `i18n.js` stays a static list of the dictionaries that exist.
+   The published test filters it at runtime, on the control, the pre-paint
+   script, `validate.js` and `job-page.js`. **`is_active` is not the switch
+   and stays true for all four.** It means staff and helpers can work in the
+   language, and an unpublished language is exactly the one that needs
+   working in. `more_languages` leaves the `DENYLIST` and the feature map,
+   since the three language keys are what it stood for.
+3. **The bot stays English until the chat is translated, and offers only
+   what it has.** No copy in `strings.py`; `text()` already falls back to
+   English for a locale it lacks. `/language` and `lang.py` offer a locale
+   only when it is published and present in `STRINGS`. So the bot never
+   offers Malay and then answers in English. A chat translation, when it
+   arrives, is a third table and the language appears by itself.
+4. **The banner is the last part and ships with the flip.** Part 4 is the
+   official site banner on both shells and the flip, in one commit. That is
+   the one time the flip carries anything else, and it is written here so
+   nobody reads it as the precedent.
 5. **Inherited from phase 14, still open.** Whether the guides are versioned
    against the phase that built the feature. And whether `--only=walk`, a
    section that reads the rows a by-hand sitting leaves, belongs in a phase
-   file. Neither blocks anything.
+   file. Neither blocks anything, and neither was settled.
+
+### The parts
+
+Three, since 12 September 2026. Malay landing and Tamil landing were parts 2
+and 3 for a morning. They left when the user said the languages stay off after
+the flip. Switching one on later is a procedure, in section 8 item 5a, and not
+a part.
+
+1. **The switch and the copies. Built 12 September 2026.** Below.
+2. **Rich messages. Built 12 September 2026.** Below. The bot's two fixes
+   from 11 September, the 504 report and the `/language` redraw, are in it.
+3. **The banner and the flip.** Section 8 item 5 on both shells, linking
+   `https://gftv.asia/trusted-sites`, which the user gave on 12 September.
+   Then `shipped`, in the same commit, per decision 4. That is also the day
+   `/status` becomes the service status page by itself. It is the day
+   `locale_ms` and `locale_ta` appear on `/admin/maintenance`, off.
+
+### Part 1, the switch and the copies
+
+**A language is a feature key, `locale_<code>`, and there is no other list.**
+`locale_en` and `locale_zh` under phase 1, `locale_ms` and `locale_ta` under
+this one. `build-status.json` lost its `locales` array. `api/_lib/locales.js`
+derives everything from the keys: `knownLocales()`, `shippedLocales()`, and
+`publishedLocales()`, which asks the two questions every feature is asked.
+`LOCALES` in `i18n.js` and in `validate.js` list the four dictionaries.
+`check-i18n.js` fails when either disagrees with the keys, with the files on
+disk, or with the pre-paint map in `index.html`. The bot derives its list from
+the same keys and still reads a `locales` array from an older file.
+
+**The family was `language_` for an hour and is `locale_`.** `language_switcher`
+is a phase 1 key, and the first run of the bot's derivation offered a language
+called "switcher". Deviation 137.
+
+**Off means off, including the API, so the locale validators went async.**
+`validate.js` is copied to the docs site by the generator and cannot read a
+switch. So it keeps the shape check and `locales.js` wraps it. `requestLocale`
+answers English for a locale that is not published, and
+`validatePublishedLocale` refuses one. Twenty one routes changed one line
+each, and `tests/phase15-test.mjs` fails on a route that reaches the shape
+checks or forgets the `await`. `job-page.js` inlines only published languages.
+
+**The client narrows after the overrides load, and a fallback is not a
+choice.** `i18n.js` offers every dictionary until `shell.js` calls
+`setPublishedLocales` after both loaders. Holding the page on two more
+fetches would push a Mandarin reader past the pre-paint timeout. A reader
+whose stored language is switched off is moved to English with `remember:
+false`. `applyLocale` never stores a fallback, so the choice is there the
+day the switch goes back on. The language modal hides an unpublished button
+on `gftv:localespublished`. The report form offers the published list.
+`phaseText` reads `name_<locale>`. `format.js` gives Intl `ms-SG` and
+`ta-SG`. The pre-paint script in thirty three page heads and `page-shell.js`
+maps three languages by hand, and the check holds the map to `i18n.js`.
+
+**Malay and Tamil are held: off until an admin switches them on.** The
+maintenance mechanism as phase 7 built it could only record "off", and
+section 7 already recorded that it cannot express "shipped and held". `HELD`
+in `maintenance.js` is the third answer, deviation 138. For a key in it, no
+override means off with a standing note, and the override that exists is the
+one saying on. `featureOverrides()` answers the same shape for a held key as
+for a switched off one. So the guard, the payload, the client and the bot
+treat it as off with nothing new to learn. The payload marks it `held`. The
+three places that list what is *broken* leave it out: the account banner,
+the dashboard banner and `/status`. The maintenance page says "off
+until somebody switches it on" under it instead of "switched off by", and the
+on confirmation has its own sentence. `locale_en` is denylisted as the
+fallback layer. `locale_zh` is an ordinary key.
+
+**What was copied, and what stayed at two.** `ms.json` and `ta.json` are byte
+for byte copies of `en.json`, checked as such and exempt in `gen-review.js`.
+`check-copy.js` reads them under the English rules as a tenth source.
+Migration `044` inserts the two rows, active and with no text search
+configuration; the user ran it the same day. Seven interface strings that
+counted the languages as two were rewritten before the copies were taken, so
+the copies carry the final English. The docs site stays at two: the generator
+trims the two entries from its `i18n.js` and the list in its `validate.js`.
+The two workers were bumped to `v136` and `v12`. `sw.js` precaches no held
+dictionary, and `check-precache.js` expects the two absent with the reason.
+
+**The checks.** `tests/phase15-test.mjs`, 112 checks at the end of the part
+and 158 at the end of part 2, none needing a credential. Its `server` section
+imports `maintenance.js` with `settings.js` answered from memory by a module
+hook, which phase 7's file said could not be done. Its `bot` section runs the
+Python derivation against the real file. The developer guide's multilingual
+page and the admin guide's maintenance page describe the switch, in both
+languages.
+
+### Part 2, rich messages
+
+**Every structured reply the bot sends is a Telegram rich message**, asked for
+on 12 September 2026 with a design that `reply.py` follows. A reply is
+`{"markdown", "fallback"}`. The markdown is the GitHub flavour Telegram calls
+Rich Markdown. The fallback is plain text in the request's required `message`
+field. The three sends are raw `SendMessageRequest`, `EditMessageRequest` and
+`EditInlineBotMessageRequest` carrying `rich_message`, since Telethon 1.44
+exposes the field and nothing above it. Requirements floor Telethon at 1.44.
+**The VPS needs `pip install -r requirements.txt` before the restart.**
+
+**The strings stayed HTML, and a converter answers both halves.** Rewriting
+two hundred and forty strings into a second markup would put every one in
+front of the reviewer again. It would break three checks that read them too.
+`from_html` in `reply.py` reads a string as Telegram HTML and writes the
+markdown and the plain text from it. It escapes data text for markdown on the
+way, which is the design's escaping rule applied at the one point every
+string passes. Deviation 139 has the argument. Five table headings were the
+only new strings.
+
+**What went rich, and what stayed a line.** `/start`, with the commands in a
+two column table under a heading. `/invites` as a list. `/applications` and
+`/jobs` as tables. `/notify`, `/docs`, and every guide page. And the four
+notification kinds, each opening with a heading. `/tasks`, the link, unlink
+and code flows, the login code and the test message stay ordinary messages.
+So does every refusal, with the HTML parse mode, as the design asks. The bot
+has no inline mode, so that half of the design has nothing to apply to.
+
+**The guides are drawn now.** `docs.py` renders a page to both halves block by
+block, so the two break in the same places and page together. A table is a
+pipe table, a callout a quote with its kind in bold, and a tabbed block its
+tabs under bold titles. The page's headings sit under the title at their own
+level. A screenshot is still one line saying it is there. Paging measures the
+plain half, which is the one Telegram's cap is stated for.
+
+**Two departures from the design's letter, in its spirit.** A flood wait and
+the four answers that mean the chat cannot be reached are re-raised instead of
+falling back. The plain send would meet the same answer, and the drain
+handles each. And the fallback line goes to the log and not to `print`. The
+checklist asks the person walking it to look for that line in the log.
+Deviation 140.
+
+**The two fixes from 11 September ride with it.** A 504 from Supabase's
+gateway, a reset connection or a read timeout is `SupabaseUnavailable`. The
+two polling loops report an outage as one line when it starts and one when
+it ends, with no traceback, deviation 141. `redraw()` accepts Telegram's
+refusal to edit a message into what it already says, which tapping the
+current language under `/language` produced, deviation 142.
+
+**The checks.** The `rich` section of `tests/phase15-test.mjs`, 46 checks.
+The converter, the builders, two real guide pages through the renderer, and
+the three sends against a client that answers as told. Steps 4, 17, 22, 24
+and 24a of the bot's checklist say what to look for by hand. That includes
+the log line that must not appear.
 
 ### Before the phase is called done
 
@@ -673,10 +837,13 @@ either site or the bot.
 - **`node docs-site/scripts/embed-tests.mjs --check
   docs-site/api/_content/developer/test-scripts.json`**, after any edit under
   `tests/`.
-- **`node tests/phase14-test.mjs`**, 586 as of the flip. No credential, no
-  database, no network. **`node tests/phase13-test.mjs`**, 3,979, twenty
-  seven of them live, over half an hour. Run `--only=live` after every docs
-  deploy and the whole thing once per part. **`node tests/phase12-test.mjs`**
+- **`node tests/phase15-test.mjs`**, 158 as of part 2, no credential and no
+  network, with a `rich` section that needs Telethon 1.44 in the local
+  Python. **`node tests/phase14-test.mjs`**, 586 as of the flip. No
+  credential, no database, no network. **`node tests/phase13-test.mjs`**,
+  3,979, twenty seven of them live, over half an hour. Run `--only=live`
+  after every docs deploy and the whole thing once per part.
+  **`node tests/phase12-test.mjs`**
   in full, whose `zh` section is the one that reads every generated page. Its
   one failure on 11 September was live: the sitemap's edge cache answered
   `MISS` twice, which is the deployment's state and not the tree's. And
@@ -3227,6 +3394,73 @@ phase 7 rewrote this file. Phase 7's start at 32, phase 8's at 49, phase 9's at
      table as a fourth document. **That found the 华文 table had never listed
      `/docs`**, since 10d, because nothing had compared it.
 
+### Phase 15's
+
+137. **The language keys are `locale_<code>` and not `language_<code>`**, 12
+     September 2026, an hour after decision 2 named them the other way. The
+     first run of the bot's derivation offered a language called "switcher".
+     `language_switcher` is a phase 1 key, and a prefix match cannot tell a
+     code from a word. `locale_` collides with nothing, and it is the word
+     the rest of the build uses for the thing. Every file was renamed in one
+     pass, section 7 included.
+
+138. **Malay and Tamil are held, and the maintenance mechanism gained a third
+     state to say so.** Decision 2 settled a switch per language, and the day
+     it was built the user said the two new languages stay off after the
+     flip. An override as phase 7 built it records "off" and nothing else,
+     and is absent the moment a phase reads `shipped`. So `locale_ms` would
+     have come on at the flip and offered an English copy under a Malay
+     heading. Section 7 had recorded the same limit from phase 13, when
+     `HELLO_WRITES_ENABLED` had to be a constant. A constant would not do
+     here, because the thing held is meant to go on from the dashboard and not
+     from a deploy. So `HELD` in `maintenance.js`. For a key in it, no record
+     means off with a standing note, and the record that exists is the one
+     saying on. `featureOverrides()` answers the same shape for a held key as
+     for a switched off one, so nothing downstream learned a third state.
+     The payload marks it `held`, and the three places that list what is
+     broken leave it out, because nothing is.
+
+139. **The bot's strings stayed HTML and a converter writes the rich
+     message from them.** The rich message design of 12 September asks the
+     builders to produce Rich Markdown and to escape every piece of data for
+     it. The strings are two hundred and forty HTML strings, in two
+     languages, read by `check-copy.js`, `commands.py --check` and
+     `gen-review.js` and reviewed by a reader. A second markup for them would
+     have been every one of those again. `from_html` in `reply.py` reads a
+     formatted string as Telegram HTML and writes both halves. It escapes
+     data text for markdown as it goes, which is the design's rule at the one
+     point every string passes. Five table headings were the only strings
+     added. The design is followed in everything else. The contract, the
+     helpers, the raw requests, the plain fallback with no parse mode, and
+     the migration of every structured reply.
+
+140. **Two departures from that design's letter.** A flood wait and the
+     four answers meaning the chat cannot be reached are re-raised from the
+     rich send instead of falling back. The plain send would meet the same
+     answer, and the drain has handling for each. Falling back would cost a
+     second request for the same refusal. And the fallback line is written
+     to the log, not printed. The checklist asks the person walking it to
+     look in the log for that line and find none. Neither changes what a
+     reader sees.
+
+141. **A database that cannot be reached is weather, and is reported as
+     such.** Found from the VPS log on 12 September. One `504 Gateway
+     Timeout` from Supabase's gateway, logged as a security loop failure
+     with a fourteen line traceback, on a bot nobody had used. The loop
+     survived it, as built. `SupabaseUnavailable` names a 502, 503 or 504
+     and any transport error, and every request goes through one `_send`.
+     The two polling loops log the first failure and the recovery with a
+     count, no traceback, through `Unreachable`. A 400 keeps its traceback:
+     that one is a mistake in the file. A read timeout the same afternoon
+     was the same class.
+
+142. **A redraw that draws what is already there is a redraw that
+     worked.** Tapping the language already chosen under `/language` edits
+     the message into its own content, and Telegram refuses with
+     `MessageNotModifiedError`. The dispatcher logged that as a failed
+     callback. `redraw()` in `handlers.py` accepts it, and every callback
+     edit goes through it; the rich edits in `reply.py` accept the same.
+
 ---
 
 ## 5. Carried forward, still open
@@ -4133,8 +4367,9 @@ phase 7 rewrote this file. Phase 7's start at 32, phase 8's at 49, phase 9's at
   dictionaries starting as copies of the English. Then the `/status` switchover
   that happens by itself, and the bot's `strings.py` question.
 - **The official site banner is the last thing in the build**, section 8 item 5.
-  The trusted sites page it links to still does not exist, and the link must not
-  ship before the page does. **As of phase 13 it is two banners and not one.**
+  The trusted sites page is `https://gftv.asia/trusted-sites`, given on 12
+  September 2026, and the banner is phase 15 part 3. **As of phase 13 it is
+  two banners and not one.**
   `gftv-official.md` names `docs.careers.globalfurry.tv` among the official
   subdomains and asks for the banner on every page. So the docs shell needs it
   as well as the portal's. One implementation or two is decision 1's question a
@@ -4244,6 +4479,12 @@ phase 7 rewrote this file. Phase 7's start at 32, phase 8's at 49, phase 9's at
 | **A portable file is applied in full or it is not applied** | Settled 3 September 2026 for `gftv-theme.md`, which had been read as a colour token contract for two phases. It is also a chrome specification: section 3 is HTML, the modal markup is verbatim, "users opt into dark explicitly in the theme modal" is a non-negotiable rule, and the acceptance checklist expects a theme button whose icon tracks the mode. The docs site had the tokens and none of the chrome, and **two checks that read that file both passed**, because a measurement of the components that exist cannot see a component nobody built. |
 | **The colour axis is reachable on both sites** | Settled 3 September 2026, **overruling 16d's header list** and the third edit this build has made to the specification. The `hello` palette was generated into the docs site, measured by part 7 in all four combinations, and unreachable from that site's chrome; a palette that is paid for and cannot be chosen is a cost with no product. Phase 14 part 1 exposes both axes through the theme file's own modal. |
 | **A constant is named for a table, and governs only that table** | Settled 3 September 2026, recorded and not fixed. `HELLO_WRITES_ENABLED` lives in `staff-account.js` and holds the two `gftvhello_users` columns; **regenerating the backup code set writes `gftvhello_backup_codes` and was never behind it**, so "the three writes that reach gftv.asia are switched off" was the wrong count for a fortnight and nothing said so. The route always declared it — its header, its audit metadata and its `reaches_gftv_asia` flag all name the table — which is the point: **a fact stated in four places and counted in none of them is still a fact nobody has counted.** |
+| **A language is published by a feature key, and its file existing publishes nothing** | Settled 11 and 12 September 2026, phase 15 decision 2. `locale_zh`, `locale_ms` and `locale_ta` are keys on `/admin/maintenance`, and `locale_en` is denylisted as the fallback layer. Published means the key's phase has shipped and the switch is on, which is the test every other feature passes. There is no `locales` array in `build-status.json` any more: the keys are the list. `LOCALES` in `i18n.js` and `validate.js` list every dictionary that exists and are held to the keys by `check-i18n.js`. **`gftvjobs_locales.is_active` is a different question**: whether staff and helpers can work in the language, which an unpublished one still needs, so it stays true for all four. |
+| **A language that is not written yet is held: off until switched on, and never broken** | Settled 12 September 2026, deviation 138. `HELD` in `maintenance.js` lists `locale_ms` and `locale_ta`. Absent record means off with a standing note; the record that exists says on. The account banner, the dashboard banner and `/status` leave a held key out, because nothing is being fixed. The phase flips with both held, and switching one on is section 8 item 5a. |
+| **The bot's structured replies are rich messages, and its strings are written once** | Settled 12 September 2026, phase 15 part 2, deviation 139. A reply is `{markdown, fallback}` and goes out as a raw request carrying `rich_message`, the plain half in the message field with no parse mode. `from_html` writes both halves from the one HTML string in `strings.py`. One-line notices stay ordinary messages. A refused rich send falls back to its plain half and says so in the log; a flood wait and a blocked chat are re-raised. |
+| **The bot offers a language only when it can answer in it** | Settled 12 September 2026, phase 15 decision 3. `strings.py` gets no copy; `text()` already falls back to English. `/language` and `lang.py` offer the intersection of the published locales, derived from the `locale_` keys and the overrides, and the tables `STRINGS` holds, so a chat is never offered Malay and answered in English. |
+| **The banner ships with the flip, once** | Settled 12 September 2026, phase 15 decision 4. Part 3 carries the official site banner on both shells and the flip to `shipped` in one commit. Every earlier flip was its own commit and this is the one exception, recorded so it is not read as the precedent. |
+| **A database that cannot be reached is reported as weather, once at each end** | Settled 12 September 2026, deviation 141. `SupabaseUnavailable` for a gateway status or a transport error, one `_send` deciding it, and the two polling loops logging the start and the end of an outage with a count and no traceback. A 400 keeps its traceback, because that one is ours. |
 
 ---
 
@@ -4286,8 +4527,22 @@ phase 7 rewrote this file. Phase 7's start at 32, phase 8's at 49, phase 9's at
    after a new icon as before it.
 5. **The official site banner** for when every phase has shipped, specified in
    `gftv-official.md`. It cannot be dismissible and must never claim the site is
-   safe or verified. The trusted sites page it links to does not exist yet, and
-   the link must not ship before the page does.
+   safe or verified. The trusted sites page it links to is
+   `https://gftv.asia/trusted-sites`, given on 12 September 2026, and the
+   banner is phase 15 part 3.
+5a. **Switching Malay or Tamil on, the day a translation is in.** Not a part.
+   The dictionary comes back and replaces the copy. `check-copy.js` reads it
+   as a copy no longer, so its source in that file gets the language's own
+   rules or none. `gen-review.js` loses the exemption for it. The phase
+   entries in `build-status.json` gain their `name_ms`, `description_ms` and
+   `shipped_note_ms` fields, or the reader gets English there. `sw.js`
+   precaches the dictionary and `check-precache.js` drops it from
+   `EXPECTED_ABSENT`, with a `VERSION` bump. The content goes through the
+   helper area, which was open to the language all along. Then an admin
+   switches the key on at `/admin/maintenance`, which is the whole of
+   publishing it. The control, the postings, the API and the bot follow
+   within the caches' minute. The bot's `strings.py` is separate, decision 3,
+   and the bot offers the language only once a third table is in it.
 6. ~~**The whole site is blocked from search engines, deliberately and
    temporarily.**~~ **Opened by phase 12 part 8 on 31 August 2026**, after
    eleven phases closed. `INDEXING` in `api/_lib/discovery.js` is `true` and the

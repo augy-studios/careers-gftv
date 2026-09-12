@@ -70,6 +70,29 @@ nothing is a control that lies.
 - **The `/admin/docs` link** is a redirect, and a redirect consults nothing.
 - **The seed script** runs on a developer machine and is not part of the site.
 
+A third reason has one entry. **English** is the default and the layer every
+other language falls back to, so switching it off would leave nothing to fall
+back to.
+
+## The languages
+
+**Every language but English is a switch on this page.** Chinese is on unless
+you switch it off, like any other feature. Malay and Tamil are the other way
+round: **off until somebody switches them on**, and the page says so under
+each, with the reason. Their dictionaries are copies of the English until
+somebody writes them. The switch goes on the day a translation is in and has
+been checked.
+
+While a language is off it is not on the language control, no posting is
+shown in it, and the bot does not offer it. A reader who had chosen it reads
+English, and their choice is kept for the day it comes back. Staff and helpers
+can still write in it, which is how the translation gets done before the
+switch goes on.
+
+A held language is not counted as an outage. It is not in the banner and not
+on `/status`, because nothing is broken. A language you switch off yourself
+is, with your note, like anything else on this page.
+
 ## Only what has shipped
 
 **A feature belonging to an unshipped phase is not on the list.** It is already

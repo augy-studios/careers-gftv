@@ -44,8 +44,22 @@ summary: because it is rare.
    after a new icon as before it.
 5. **The official site banner** for when every phase has shipped, specified in
    `gftv-official.md`. It cannot be dismissible and must never claim the site is
-   safe or verified. The trusted sites page it links to does not exist yet, and
-   the link must not ship before the page does.
+   safe or verified. The trusted sites page it links to is
+   `https://gftv.asia/trusted-sites`, given on 12 September 2026, and the
+   banner is phase 15 part 3.
+5a. **Switching Malay or Tamil on, the day a translation is in.** Not a part.
+   The dictionary comes back and replaces the copy. `check-copy.js` reads it
+   as a copy no longer, so its source in that file gets the language's own
+   rules or none. `gen-review.js` loses the exemption for it. The phase
+   entries in `build-status.json` gain their `name_ms`, `description_ms` and
+   `shipped_note_ms` fields, or the reader gets English there. `sw.js`
+   precaches the dictionary and `check-precache.js` drops it from
+   `EXPECTED_ABSENT`, with a `VERSION` bump. The content goes through the
+   helper area, which was open to the language all along. Then an admin
+   switches the key on at `/admin/maintenance`, which is the whole of
+   publishing it. The control, the postings, the API and the bot follow
+   within the caches' minute. The bot's `strings.py` is separate, decision 3,
+   and the bot offers the language only once a third table is in it.
 6. ~~**The whole site is blocked from search engines, deliberately and
    temporarily.**~~ **Opened by phase 12 part 8 on 31 August 2026**, after
    eleven phases closed. `INDEXING` in `api/_lib/discovery.js` is `true` and the

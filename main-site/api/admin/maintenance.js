@@ -38,6 +38,7 @@ import {
   featureOverrides,
   flippableFeatures,
   isFlippable,
+  isHeld,
   hasShipped,
   setFeatureOverride,
 } from '../_lib/maintenance.js';
@@ -67,6 +68,11 @@ export default async function handler(req, res) {
         note: overrides[feature.key]?.note ?? null,
         since: overrides[feature.key]?.at ?? null,
         by: overrides[feature.key]?.by ?? null,
+        // Phase 15 part 1. Off until switched on, and off right now because
+        // nobody has: the page says that instead of "switched off by", since
+        // nobody did. Once an admin has switched it off themselves the record
+        // carries their name and this reads false.
+        held: isHeld(feature.key) && overrides[feature.key]?.off === true && !overrides[feature.key]?.by,
       })),
       // Shown greyed with the reason rather than hidden, per 8.12.
       denied: deniedFeatures(),

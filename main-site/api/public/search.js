@@ -21,13 +21,13 @@
 
 import { ok, methodNotAllowed, failInternal } from '../_lib/respond.js';
 import { supabase, RPC } from '../_lib/supabase.js';
-import { localeFromRequest } from '../_lib/validate.js';
+import { requestLocale } from '../_lib/locales.js';
 import { parseSearchParams, publicJob, PAGE_SIZE } from '../_lib/jobs.js';
 
 export default async function handler(req, res) {
   if (methodNotAllowed(req, res, ['GET', 'HEAD'])) return;
 
-  const locale = localeFromRequest(req);
+  const locale = await requestLocale(req);
   const { q, filters, sort, page, limit, offset } = parseSearchParams(req, locale);
 
   try {

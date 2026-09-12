@@ -43,6 +43,7 @@ from datetime import datetime, timedelta, timezone
 
 import httpx
 from telethon import Button
+from telethon.errors import MessageNotModifiedError
 
 import db
 import docs
@@ -51,11 +52,38 @@ from commands import BOT_FEATURE, BY_NAME, COMMANDS, Command
 from config import Config
 from feed import JobFeed
 from lang import locale_for
+from reply import (
+    bullets,
+    edit_rich_message,
+    from_html,
+    heading,
+    join_rich,
+    lines as rich_lines,
+    send_rich_message,
+    table,
+    titled,
+)
 from security import copy_code_row, hash_code, six_digits
 from strings import DEFAULT_LOCALE, STRINGS, text
 from supabase import NOTIFY_COLUMN, Supabase, SupabaseError
 
 log = logging.getLogger("bot.handlers")
+
+
+async def redraw(event, body: str, **kwargs) -> None:
+    """Edit the message a button was on, and accept that it may already say so.
+
+    Telegram refuses an edit that changes nothing, with `MessageNotModifiedError`.
+    A keyboard redrawn after a tap can be identical to the one already there:
+    the language button somebody is already on, the docs page they are already
+    reading. Found on 11 September 2026 by tapping the current language under
+    `/language`, which logged a traceback for a message that was correct as it
+    stood. A redraw that draws what is there is a redraw that worked.
+    """
+    try:
+        await event.edit(body, **kwargs)
+    except MessageNotModifiedError:
+        pass
 
 
 @dataclass
@@ -118,7 +146,7 @@ async def handle_start(ctx: Context, event, args: str, locale: str) -> None:
     The command list is drawn from `commands.py` and split by what actually
     answers today, so the message cannot claim more than the bot does.
     """
-    parts: list[str] = []
+    parts: list[dict] = []
 
     if args.strip():
         # A deep link payload, from t.me/<bot>?start=<token>, which is what the
@@ -132,7 +160,7 @@ async def handle_start(ctx: Context, event, args: str, locale: str) -> None:
 
         if not link_state.available:
             parts.append(
-                join(locale, text("start.payload", locale), link_state.sentence)
+                from_html(join(locale, text("start.payload", locale), link_state.sentence))
             )
             log.info("start carried a payload and linking is not answering")
         else:
@@ -147,30 +175,39 @@ async def handle_start(ctx: Context, event, args: str, locale: str) -> None:
                 await event.respond(outcome.message, link_preview=False)
                 return
 
-            parts.append(outcome.message)
+            parts.append(from_html(outcome.message))
 
-    parts.append(text("start.intro", locale))
+    # The introduction is the heading and two paragraphs, and the command list
+    # is a table under its own heading: a rich message since phase 15 part 2,
+    # so a current client draws the list as columns instead of a run of lines.
+    parts.append(titled(text("start.intro", locale)))
 
-    ready: list[str] = []
-    blocked: dict[str, list[str]] = {}
+    ready: list[list] = []
+    blocked: dict[str, list[list]] = {}
+    columns = [text("table.command", locale), text("table.describe", locale)]
 
     for command in COMMANDS:
         state = await availability(command, ctx, locale)
-        line = f"/{command.name}  {html.escape(command.describe(locale))}"
+        row = [from_html(f"<code>/{command.name}</code>"), from_html(html.escape(command.describe(locale)))]
         if state.available:
-            ready.append(line)
+            ready.append(row)
         else:
-            blocked.setdefault(state.sentence or "", []).append(line)
+            blocked.setdefault(state.sentence or "", []).append(row)
 
     if ready:
-        parts.append(text("start.commandsHeading", locale) + "\n" + "\n".join(ready))
-
-    for sentence, lines in blocked.items():
         parts.append(
-            text("start.unavailableHeading", locale)
-            + "\n"
-            + "\n".join(lines)
-            + f"\n\n{sentence}"
+            join_rich([heading(text("start.commandsHeading", locale), 2), table(columns, ready)])
+        )
+
+    for sentence, rows in blocked.items():
+        parts.append(
+            join_rich(
+                [
+                    heading(text("start.unavailableHeading", locale), 2),
+                    table(columns, rows),
+                    from_html(sentence),
+                ]
+            )
         )
 
     buttons = [Button.url(text("button.portal", locale), ctx.config.site_url)]
@@ -185,7 +222,7 @@ async def handle_start(ctx: Context, event, args: str, locale: str) -> None:
     if ctx.config.docs_url:
         buttons.append(Button.url(text("button.docs", locale), ctx.config.docs_url))
 
-    await event.respond("\n\n".join(parts), buttons=[buttons], link_preview=False)
+    await send_rich_message(event.client, event.chat_id, join_rich(parts), [buttons])
 
 
 # ---------------------------------------------------------------------------
@@ -380,7 +417,7 @@ async def handle_unlink_callback(ctx: Context, event, record: dict) -> None:
         )
 
     await event.answer()
-    await event.edit(text("unlink.done" if removed else "unlink.notLinked", locale))
+    await redraw(event, text("unlink.done" if removed else "unlink.notLinked", locale))
 
 
 # ---------------------------------------------------------------------------
@@ -497,10 +534,11 @@ async def handle_notify(ctx: Context, event, args: str, locale: str) -> None:
     applicant = await safe_applicant(ctx, link["applicant_id"])
     locale = account_locale(ctx, event, applicant, locale)
 
-    await event.respond(
-        text("notify.intro", locale),
-        buttons=notify_buttons(ctx, link, locale, event.sender_id, event.chat_id),
-        link_preview=False,
+    await send_rich_message(
+        event.client,
+        event.chat_id,
+        titled(text("notify.intro", locale)),
+        notify_buttons(ctx, link, locale, event.sender_id, event.chat_id),
     )
 
 
@@ -600,12 +638,13 @@ async def handle_notify_callback(ctx: Context, event, record: dict) -> None:
             state=text(f"notify.word.{'on' if wanted else 'off'}", locale),
         )
     )
-    await event.edit(
-        text("notify.intro", locale),
-        buttons=notify_buttons(
+    await edit_rich_message(
+        event.client,
+        event,
+        titled(text("notify.intro", locale)),
+        notify_buttons(
             ctx, updated or link, locale, event.sender_id, record["chat_id"] or event.chat_id
         ),
-        link_preview=False,
     )
 
 
@@ -727,7 +766,8 @@ async def handle_language_callback(ctx: Context, event, record: dict) -> None:
         locale = wanted
         await event.answer(text("language.changed", locale, name=text(f"language.name.{locale}", locale)))
 
-    await event.edit(
+    await redraw(
+        event,
         language_intro(ctx, event, locale),
         buttons=await language_buttons(ctx, event, locale),
         link_preview=False,
@@ -779,7 +819,7 @@ async def handle_decline_callback(ctx: Context, event, record: dict) -> None:
     )
 
     await event.answer()
-    await event.edit(text("decline.done", locale), buttons=None)
+    await redraw(event, text("decline.done", locale), buttons=None)
 
 
 # ---------------------------------------------------------------------------
@@ -857,25 +897,25 @@ async def handle_invites(ctx: Context, event, args: str, locale: str) -> None:
         return
 
     shown = listed[:SHOWN]
-    lines = [text("invites.heading", locale), ""]
+    parts = [heading(text("invites.heading", locale), 2)]
+    items = []
     buttons = []
 
     for row in shown:
         role = titles[row["job_id"]]["title"] or ""
-        lines.append(text("invites.row", locale, role=html.escape(str(role))))
+        items.append(from_html(text("invites.row", locale, role=html.escape(str(role)))))
         buttons.append(
             [Button.url(shorten(str(role)), ctx.config.job_url(row["job_id"]))]
         )
+    parts.append(bullets(items))
 
     if len(listed) > len(shown):
-        lines.append("")
-        lines.append(text("list.more", locale, count=len(listed) - len(shown)))
+        parts.append(from_html(text("list.more", locale, count=len(listed) - len(shown))))
 
-    lines.append("")
-    lines.append(text("invites.record", locale))
+    parts.append(from_html(text("invites.record", locale)))
     buttons.append([Button.url(text("button.openTasks", locale), tasks_url(ctx))])
 
-    await event.respond("\n".join(lines), buttons=buttons, link_preview=False)
+    await send_rich_message(event.client, event.chat_id, join_rich(parts), buttons)
 
 
 async def handle_tasks(ctx: Context, event, args: str, locale: str) -> None:
@@ -970,29 +1010,29 @@ async def handle_applications(ctx: Context, event, args: str, locale: str) -> No
         return
 
     shown = listed[:SHOWN]
-    lines = [text("applications.heading", locale), ""]
-
-    for row in shown:
-        role = titles[row["job_id"]]["title"] or ""
-        lines.append(
-            text(
-                "applications.row",
-                locale,
-                role=html.escape(str(role)),
-                status=status_word(row.get("status"), locale),
-            )
-        )
-        lines.append("")
+    # A table, role beside status, which is what the page draws and what a
+    # rich message can draw too. `applications.row` still exists for the plain
+    # half: the table's fallback is one line per row, role then status.
+    rows = [
+        [
+            from_html(f"<b>{html.escape(str(titles[row['job_id']]['title'] or ''))}</b>"),
+            from_html(status_word(row.get("status"), locale)),
+        ]
+        for row in shown
+    ]
+    parts = [
+        heading(text("applications.heading", locale), 2),
+        table([text("table.role", locale), text("table.status", locale)], rows),
+    ]
 
     if len(listed) > len(shown):
-        lines.append(text("list.more", locale, count=len(listed) - len(shown)))
+        parts.append(from_html(text("list.more", locale, count=len(listed) - len(shown))))
 
-    await event.respond(
-        "\n".join(lines).strip(),
-        buttons=[
-            [Button.url(text("button.openApplications", locale), applications_url(ctx))]
-        ],
-        link_preview=False,
+    await send_rich_message(
+        event.client,
+        event.chat_id,
+        join_rich(parts),
+        [[Button.url(text("button.openApplications", locale), applications_url(ctx))]],
     )
 
 
@@ -1034,21 +1074,17 @@ async def handle_jobs(ctx: Context, event, args: str, locale: str) -> None:
         )
         return
 
-    lines = [text("jobs.heading", locale), ""]
+    table_rows = []
     buttons = []
 
     for row in rows:
         role = row.get("title") or ""
-        lines.append(text("jobs.row", locale, role=html.escape(str(role))))
-        if row.get("department"):
-            lines.append(
-                text(
-                    "jobs.department",
-                    locale,
-                    department=html.escape(str(row["department"])),
-                )
-            )
-        lines.append("")
+        table_rows.append(
+            [
+                from_html(text("jobs.row", locale, role=html.escape(str(role)))),
+                from_html(html.escape(str(row.get("department") or ""))),
+            ]
+        )
         # The feed builds each posting's own address, so this hands out what the
         # site says rather than assembling a link from an id and hoping the two
         # rules still match.
@@ -1056,10 +1092,14 @@ async def handle_jobs(ctx: Context, event, args: str, locale: str) -> None:
             [Button.url(shorten(str(role)), row.get("url") or ctx.config.job_url(row["id"]))]
         )
 
-    lines.append(text("jobs.notice", locale))
+    parts = [
+        heading(text("jobs.heading", locale), 2),
+        table([text("table.role", locale), text("table.department", locale)], table_rows),
+        from_html(text("jobs.notice", locale)),
+    ]
     buttons.append([Button.url(text("button.openBoard", locale), board_url(ctx))])
 
-    await event.respond("\n".join(lines), buttons=buttons, link_preview=False)
+    await send_rich_message(event.client, event.chat_id, join_rich(parts), buttons)
 
 
 # ---------------------------------------------------------------------------
@@ -1176,7 +1216,7 @@ async def docs_index(ctx, event, locale, *, edit):
         for index, _ in sections
     ]
 
-    await docs_say(event, text("docs.intro", locale), buttons, edit=edit)
+    await docs_say(event, titled(text("docs.intro", locale)), buttons, edit=edit)
 
 
 async def docs_section(ctx, event, path, locale):
@@ -1214,16 +1254,18 @@ async def docs_section(ctx, event, path, locale):
         ]
     )
 
-    heading = text("docs.section", locale, title=html.escape(str(index.get("title") or "")))
+    title = text("docs.section", locale, title=html.escape(str(index.get("title") or "")))
     summary = html.escape(str(index.get("summary") or "").strip())
-    body = join(locale, heading, summary) if summary else heading
+    body = join_rich(
+        [
+            heading(title, 1),
+            from_html(summary) if summary else None,
+            from_html(text("docs.pick", locale)),
+        ]
+    )
 
     await event.answer()
-    await event.edit(
-        join(locale, body, text("docs.pick", locale)),
-        buttons=buttons,
-        link_preview=False,
-    )
+    await edit_rich_message(event.client, event, body, buttons)
 
 
 async def docs_page(ctx, event, path, page, locale):
@@ -1252,13 +1294,15 @@ async def docs_page(ctx, event, path, page, locale):
     total = len(parts)
     index = max(0, min(page, total - 1))
 
-    lines = [f"<b>{html.escape(str(row.get('title') or ''))}</b>"]
+    # The page title is the one heading, the guide's own headings sit under it,
+    # and its tables are drawn as tables: phase 15 part 2, and the reason /docs
+    # was worth the rich path most of all.
+    header = [heading(f"<b>{html.escape(str(row.get('title') or ''))}</b>", 1)]
     if fallback:
-        lines.append(text("docs.english", locale))
+        header.append(from_html(text("docs.english", locale)))
     if total > 1:
-        lines.append(text("docs.page", locale, count=index + 1, total=total))
-    lines.append("")
-    lines.append(parts[index])
+        header.append(from_html(text("docs.page", locale, count=index + 1, total=total)))
+    body = join_rich([rich_lines(header), parts[index]])
 
     buttons = []
 
@@ -1312,16 +1356,27 @@ async def docs_page(ctx, event, path, page, locale):
     )
 
     await event.answer()
-    await event.edit("\n".join(lines), buttons=buttons, link_preview=False)
+    await edit_rich_message(event.client, event, body, buttons)
 
 
 async def docs_say(event, body, buttons, *, edit):
-    """Answer a command, or edit the message a button was on."""
+    """Answer a command, or edit the message a button was on.
+
+    `body` is a rich part, or a string for the one-line refusals, which stay
+    plain messages as every other one-line notice does.
+    """
+    if isinstance(body, str):
+        if edit:
+            await event.answer()
+            await redraw(event, body, buttons=buttons, link_preview=False)
+        else:
+            await event.respond(body, buttons=buttons, link_preview=False)
+        return
     if edit:
         await event.answer()
-        await event.edit(body, buttons=buttons, link_preview=False)
+        await edit_rich_message(event.client, event, body, buttons)
     else:
-        await event.respond(body, buttons=buttons, link_preview=False)
+        await send_rich_message(event.client, event.chat_id, body, buttons)
 
 
 async def handle_docs(ctx: Context, event, args: str, locale: str) -> None:

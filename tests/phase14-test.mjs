@@ -3065,11 +3065,15 @@ define('translations', 'Part 9: the 华文 tree, the two tables, and what serves
   // What it means to check is that the number never goes backwards. v5 is part
   // 9's floor, so a worker below it is one somebody reverted or hand-edited,
   // and a worker at or above it is the rule being kept.
-  const version = /careers-gftv-docs-phase14-v(\d+)/.exec(worker);
+  //
+  // And the phase name in it went the same way on 12 September 2026, when phase
+  // 15 part 1 regenerated four modules and bumped it to phase15-v12: the name
+  // says which phase last touched the site, and this check reads the number.
+  const version = /careers-gftv-docs-phase(\d+)-v(\d+)/.exec(worker);
   check(
     '37. VERSION moved with this part, and has not gone backwards since',
-    Number(version?.[1] ?? 0) >= 5,
-    `the rule is one bump per change to the site; part 9 left it at v5 and it reads ${version?.[1] ?? 'nothing'}`
+    Number(version?.[1] ?? 0) > 14 || Number(version?.[2] ?? 0) >= 5,
+    `the rule is one bump per change to the site; part 9 left it at v5 and it reads ${version?.[2] ?? 'nothing'}`
   );
 
   /* --- The English half the part had to correct --------------------------- */

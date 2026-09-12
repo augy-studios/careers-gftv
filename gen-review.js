@@ -195,6 +195,11 @@ const EXEMPT = {
     'The organisation name inside an English sentence, and a heading whose text comes from the dictionary.',
   'main-site/assets/i18n/en.json':
     'Three English strings that deliberately carry 华文 or 国际兽视. Reviewed as part of the interface all the same.',
+  // Phase 15 part 1. Byte for byte copies of en.json until somebody fills them
+  // in, so they carry the same three strings. The day one stops being a copy it
+  // is a language with no reviewer here, and this entry comes out with it.
+  'main-site/assets/i18n/ms.json': 'A copy of en.json, held until Malay is written. The same three strings.',
+  'main-site/assets/i18n/ta.json': 'A copy of en.json, held until Tamil is written. The same three strings.',
   'telegram-bot/lang.py': 'A comment about which language an account reads in.',
   // Phase 14 part 10. Both say the same sentence about the same view, because
   // it is the sentence the whole tier argument rests on: a gated page has no

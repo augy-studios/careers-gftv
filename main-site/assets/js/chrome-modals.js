@@ -33,7 +33,7 @@ import {
   getModePreference,
   COLOR_THEMES,
 } from './theme.js';
-import { applyLocale, getLocale, t, LOCALES } from './i18n.js';
+import { applyLocale, getLocale, isPublished, t, LOCALES } from './i18n.js';
 import { createDialog } from './dialog.js';
 
 // **Both modals are built by dialog.js since phase 12 part 6.** They were the
@@ -74,8 +74,13 @@ export function renderThemeModal() {
 //
 // Each language is named in its own script, never translated. A reader looking
 // for Chinese looks for the characters, not for the English word "Chinese",
-// so both options read the same whichever language the interface is currently
-// in. That is why these two labels are hardcoded instead of dictionary keys.
+// so every option reads the same whichever language the interface is currently
+// in. That is why these labels are hardcoded instead of dictionary keys.
+//
+// Every dictionary gets a button, and sync() below hides the ones that are not
+// published. Phase 15 part 1: the list is drawn before the shell knows which
+// languages are switched on, and a button hidden later is cheaper than a list
+// rebuilt later.
 export function renderLanguageModal() {
   return createDialog({
     id: 'languageModal',
@@ -201,9 +206,14 @@ export function wireLanguageModal(dialog) {
   function sync() {
     const current = getLocale();
     list.querySelectorAll('.locale-btn').forEach((el) => {
-      const active = el.getAttribute('data-locale') === current;
+      const id = el.getAttribute('data-locale');
+      const active = id === current;
       el.classList.toggle('active', active);
       el.setAttribute('aria-pressed', String(active));
+      // A language that is not published is not offered. Hidden and not
+      // disabled: a greyed button for a language that is an English copy
+      // would be a promise, and the maintenance page is where that is made.
+      el.hidden = !isPublished(id);
     });
   }
 
@@ -219,5 +229,8 @@ export function wireLanguageModal(dialog) {
   });
 
   document.addEventListener('gftv:localechange', sync);
+  // The shell narrows the published list after the overrides load, which is
+  // after this ran. Phase 15 part 1.
+  document.addEventListener('gftv:localespublished', sync);
   sync();
 }

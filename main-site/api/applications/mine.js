@@ -33,7 +33,7 @@ import { ok, fail, ERR, methodNotAllowed, failInternal } from '../_lib/respond.j
 import { supabase, T } from '../_lib/supabase.js';
 import { getApplicantSession } from '../_lib/session.js';
 import { isUuid } from '../_lib/job-detail.js';
-import { localeFromRequest } from '../_lib/validate.js';
+import { requestLocale } from '../_lib/locales.js';
 import { BUCKETS, bucketFor, isBucket, jobSummaries } from '../_lib/dashboard.js';
 import {
   applicationsOpen,
@@ -122,7 +122,7 @@ export default async function handler(req, res) {
 
     const summaries = await jobSummaries(
       applications.map((row) => row.job_id),
-      localeFromRequest(req)
+      await requestLocale(req)
     );
 
     // A posting hard deleted in phase 7 takes its tracking row with it, per the

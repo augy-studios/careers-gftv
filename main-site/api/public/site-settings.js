@@ -34,7 +34,7 @@
 
 import { ok, methodNotAllowed, failInternal } from '../_lib/respond.js';
 import { supabase, T } from '../_lib/supabase.js';
-import { localeFromRequest } from '../_lib/validate.js';
+import { requestLocale } from '../_lib/locales.js';
 import { allSettings, localisedSetting } from '../_lib/settings.js';
 import { publicJob } from '../_lib/jobs.js';
 
@@ -63,7 +63,7 @@ const MAX_FEATURED = 6;
 export default async function handler(req, res) {
   if (methodNotAllowed(req, res, ['GET', 'HEAD'])) return;
 
-  const locale = localeFromRequest(req);
+  const locale = await requestLocale(req);
 
   try {
     const settings = (await allSettings({ maxAgeMs: FRESH_MS })) ?? {};

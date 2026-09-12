@@ -55,7 +55,7 @@ from telethon.errors import FloodWaitError
 
 import db
 from strings import DEFAULT_LOCALE, STRINGS, text
-from supabase import SupabaseError
+from supabase import SupabaseError, SupabaseUnavailable, Unreachable
 
 log = logging.getLogger("bot.security")
 
@@ -136,6 +136,7 @@ class SecurityLoop:
         self.ctx = ctx
         self.client = client
         self._pass = 0
+        self._weather = Unreachable(log, "security loop")
 
     async def run(self, stopping: asyncio.Event) -> None:
         """Poll until the process is asked to stop.
@@ -145,12 +146,20 @@ class SecurityLoop:
         logged and the next pass happens anyway. A security loop that exits on
         its first bad afternoon is worse than no loop, because the site keeps
         writing requests nobody drains and the failure is silent on both sides.
+
+        A database that cannot be reached is the ordinary case among those,
+        and is reported as one line when it starts and one when it ends, with
+        no traceback: a 504 from a gateway is not a stack worth reading, and
+        this loop asks every two seconds. Everything else keeps its traceback.
         """
         log.info("security loop started, polling every %.1fs", CODE_POLL_SECONDS)
 
         while not stopping.is_set():
             try:
                 await self.tick()
+                self._weather.recovered()
+            except SupabaseUnavailable as cause:
+                self._weather.failed(cause)
             except Exception:  # noqa: BLE001 - the loop outlives every failure
                 log.exception("security loop pass failed")
 

@@ -21,7 +21,7 @@
 
 import { ok, methodNotAllowed, failInternal } from '../_lib/respond.js';
 import { supabase, RPC } from '../_lib/supabase.js';
-import { localeFromRequest } from '../_lib/validate.js';
+import { requestLocale } from '../_lib/locales.js';
 import { searchParams } from '../_lib/jobs.js';
 
 // Longer than any real prefix somebody types into a suggestion box. The RPC
@@ -31,7 +31,7 @@ const MAX_QUERY = 80;
 export default async function handler(req, res) {
   if (methodNotAllowed(req, res, ['GET', 'HEAD'])) return;
 
-  const locale = localeFromRequest(req);
+  const locale = await requestLocale(req);
   const raw = searchParams(req).get('q');
   const q = typeof raw === 'string' ? raw.trim().slice(0, MAX_QUERY) : '';
 

@@ -18,7 +18,7 @@
 
 import { hydrateIcons } from './icons.js';
 import { insertTopBar } from './top-bars.js';
-import { t, getLocale } from './i18n.js';
+import { t, getLocale, LOCALES, DEFAULT_LOCALE } from './i18n.js';
 
 const SOURCE = '/assets/build-status.json';
 const OVERRIDES = '/api/public/feature-status';
@@ -128,6 +128,16 @@ export function featureNote(featureKey) {
   return overridesCache?.[featureKey]?.note ?? null;
 }
 
+/**
+ * Whether a feature is off because nobody has switched it on yet, which is
+ * not the same as broken. Phase 15 part 1: Malay and Tamil ship held, and the
+ * three places that list what is *broken* leave a held feature out, while
+ * everything that gates on isFeatureOff still treats it as off.
+ */
+export function isFeatureHeld(featureKey) {
+  return overridesCache?.[featureKey]?.held === true;
+}
+
 /* -------------------------------------------------------------------------
  * Reading a phase in the active language
  * ---------------------------------------------------------------------- */
@@ -136,16 +146,55 @@ export function featureNote(featureKey) {
  * A localised field from a phase entry. Falls back to English instead of
  * showing nothing, on the same principle as the dictionary lookup: a phase
  * added without a translation should read in English, not disappear.
+ *
+ * The field is `name_<locale>`, so a phase list with no `_ms` fields yet
+ * reads in English for a Malay reader, which is what phase 15 part 1 ships:
+ * the fields arrive with the language, in the part that lands it.
+ *
  * @param {object} phase
  * @param {'name'|'description'|'shipped_note'} field
  */
 export function phaseText(phase, field) {
   if (!phase) return '';
-  if (getLocale() === 'zh') {
-    const translated = phase[`${field}_zh`];
+  const locale = getLocale();
+  if (locale !== DEFAULT_LOCALE) {
+    const translated = phase[`${field}_${locale}`];
     if (typeof translated === 'string' && translated !== '') return translated;
   }
   return phase[field] ?? '';
+}
+
+/* -------------------------------------------------------------------------
+ * The languages, phase 15 part 1
+ * ---------------------------------------------------------------------- */
+
+/** The feature key a language is switched by. */
+export function localeKey(localeId) {
+  return `locale_${localeId}`;
+}
+
+/**
+ * Which of the dictionaries the portal offers right now: the default, plus
+ * every locale whose `locale_<id>` key belongs to a shipped phase and is not
+ * switched off on /admin/maintenance.
+ *
+ * The same two questions every other feature is asked, deliberately, so
+ * nothing is written twice. Malay and Tamil are held on the server: off until
+ * an admin switches them on, and the public payload lists a held key among
+ * the off ones with its standing note, so this side needs no third question.
+ * Synchronous over the two caches, like isFeatureOff, so it is only right
+ * after both loaders have resolved; shell.js calls it there and nowhere
+ * earlier.
+ *
+ * @param {object} status from loadBuildStatus
+ * @returns {string[]} locale ids, in LOCALES order
+ */
+export function publishedLocaleIds(status) {
+  return LOCALES.map((l) => l.id).filter(
+    (id) =>
+      id === DEFAULT_LOCALE ||
+      (isFeatureShipped(status, localeKey(id)) && !isFeatureOff(localeKey(id)))
+  );
 }
 
 /** The phase a feature belongs to, or null when the key is unknown. */

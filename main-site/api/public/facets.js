@@ -32,7 +32,7 @@
 
 import { ok, methodNotAllowed, failInternal } from '../_lib/respond.js';
 import { supabase, T } from '../_lib/supabase.js';
-import { localeFromRequest } from '../_lib/validate.js';
+import { requestLocale } from '../_lib/locales.js';
 import { COMMITMENT_TYPES } from '../_lib/jobs.js';
 
 // The three windows behind the quick chips. Sent to the client so it builds its
@@ -50,7 +50,7 @@ const CHIP_DAYS = Object.freeze({
 export default async function handler(req, res) {
   if (methodNotAllowed(req, res, ['GET', 'HEAD'])) return;
 
-  const locale = localeFromRequest(req);
+  const locale = await requestLocale(req);
 
   try {
     // Three queries rather than one view. The board is small, none of these

@@ -19,7 +19,7 @@
 // job-detail.js does not select the column.
 
 import { ok, fail, ERR, methodNotAllowed, failInternal } from '../_lib/respond.js';
-import { localeFromRequest } from '../_lib/validate.js';
+import { requestLocale } from '../_lib/locales.js';
 import { searchParams } from '../_lib/jobs.js';
 import { getApplicantSession } from '../_lib/session.js';
 import {
@@ -34,7 +34,7 @@ import {
 export default async function handler(req, res) {
   if (methodNotAllowed(req, res, ['GET', 'HEAD'])) return;
 
-  const locale = localeFromRequest(req);
+  const locale = await requestLocale(req);
   const params = searchParams(req);
   const segment = String(params.get('id') ?? '').trim();
 

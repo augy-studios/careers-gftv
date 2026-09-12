@@ -33,7 +33,7 @@
 
 import { ok, fail, ERR, methodNotAllowed, failInternal, readJson } from '../_lib/respond.js';
 import { getApplicantSession } from '../_lib/session.js';
-import { localeFromRequest } from '../_lib/validate.js';
+import { requestLocale } from '../_lib/locales.js';
 import { isUuid } from '../_lib/job-detail.js';
 import { LIMITS, limited, recordFailures, subjectForUser } from '../_lib/rate-limit.js';
 import {
@@ -94,7 +94,7 @@ export default async function handler(req, res) {
 
   // The language the reader is in, so a posting with its own Mandarin form
   // hands over the Mandarin one, per 3a and migration 014.
-  const locale = localeFromRequest(req);
+  const locale = await requestLocale(req);
 
   try {
     const job = await fetchApplyJob(jobId);

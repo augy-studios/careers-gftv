@@ -50,7 +50,7 @@ STAFF_USER=yourname STAFF_PASS='...' node tests/phase7-test.mjs --only=editor
 
 ## 哪些不需要凭据
 
-有四样东西只针对工作树运行，它们也是推送前该跑的那几个。
+有五样东西只针对工作树运行，它们也是推送前该跑的那几个。
 
 | 命令 | 它证明什么 |
 |---|---|
@@ -58,6 +58,7 @@ STAFF_USER=yourname STAFF_PASS='...' node tests/phase7-test.mjs --only=editor
 | `node tests/phase12-test.mjs --only=responsive,landscape,a11y,a11y-keyboard` | 每一种宽度下的版面和无障碍。 |
 | `node tests/phase13-test.mjs --only=live` | 说明文件网站的部署会怎么回答一个陌生人。 |
 | `node tests/phase14-test.mjs` | 两个网站的外观，以及本站的工作线程。 |
+| `node tests/phase15-test.mjs` | 语言开关、四份词典和机器人的语言列表，设置表以桩代替。 |
 
 **`PATCH_ASSETS=1` 会提供工作树的样式表、脚本和页面**，
 取代部署上的那些，好让一个修正在推送之前就能被证明。
