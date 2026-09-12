@@ -188,7 +188,10 @@ async def handle_start(ctx: Context, event, args: str, locale: str) -> None:
 
     for command in COMMANDS:
         state = await availability(command, ctx, locale)
-        row = [from_html(f"<code>/{command.name}</code>"), from_html(html.escape(command.describe(locale)))]
+        # The command is bare, never in a code span: Telegram makes a bare
+        # /command tappable and a code span is not, and the user asked for it
+        # that way in phase 11 and again on 12 September 2026.
+        row = [from_html(f"/{command.name}"), from_html(html.escape(command.describe(locale)))]
         if state.available:
             ready.append(row)
         else:
