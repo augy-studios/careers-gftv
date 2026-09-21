@@ -10,7 +10,7 @@ summary: is_approved、覆写、is_admin 和 is_editor 如何组合，以及每�
 1. **这个账户到底能不能打开管理后台？**
 2. **进来之后，它是招聘负责人还是管理员？**
 
-第一个在这里决定，也就是[员工权限](/staff/admin/staff-access)。
+第一个在这里决定，也就是[队员权限](/staff/admin/staff-access)。
 第二个在 gftv.asia 决定，本站只是读取它。
 
 ## 规则，分三步
@@ -20,7 +20,7 @@ summary: is_approved、覆写、is_admin 和 is_editor 如何组合，以及每�
 1. **`is_approved` 必须为真。**
    在 gftv.asia 上没有通过审核的账户会被拒绝。这里没有任何东西可以豁免这一条。
 2. **如果有覆写记录，就由它决定。**
-   员工权限写的就是那一笔记录。它在两个方向上都胜过角色。
+   队员权限写的就是那一笔记录。它在两个方向上都胜过角色。
 3. **否则由 `is_admin` 或 `is_editor` 决定。**
    任一标记都会开门，两者都没有也不会把门关上。
 
@@ -61,8 +61,8 @@ summary: is_approved、覆写、is_admin 和 is_editor 如何组合，以及每�
 | 层级 | 谁读得到 |
 |---|---|
 | public | 任何人，包括没有登录的。 |
-| poster | 有权限、而且没有 `is_admin` 的员工。 |
-| admin | 有 `is_admin` 的员工。 |
+| poster | 有权限、而且没有 `is_admin` 的队员。 |
+| admin | 有 `is_admin` 的队员。 |
 | developer | 和 admin 是同一批账户。 |
 
 **没有单独的 developer 标记，也不要去发明一个。**
@@ -75,7 +75,7 @@ summary: is_approved、覆写、is_admin 和 is_editor 如何组合，以及每�
 ## 本站不能更改什么
 
 - **账户。** 它们在 gftv.asia 建立。
-- **密码。** 员工自行设定。这里刻意没有任何按钮可以设定别人的密码。
+- **密码。** 队员自行设定。这里刻意没有任何按钮可以设定别人的密码。
 - **admin 和 editor 标记。** 在这里读取，在那边写入。
 
-它能更改的是那一笔覆写记录。请看[管理员工权限](/staff/admin/staff-access)。
+它能更改的是那一笔覆写记录。请看[管理队员权限](/staff/admin/staff-access)。

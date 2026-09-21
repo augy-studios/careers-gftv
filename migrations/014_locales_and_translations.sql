@@ -308,7 +308,7 @@ comment on table gftvjobs_tag_translations is
 -- ---------------------------------------------------------------------------
 -- Mandarin for the seeded reference data
 --
--- Singapore Mandarin, 华文, not Mainland Putonghua: 义工 rather than 志愿者,
+-- Singapore Mandarin, 华文, not Mainland Putonghua: 队员 rather than 队员,
 -- 营运 rather than 运营, 摄影棚 rather than 录影棚, 文件 rather than 文档.
 -- ---------------------------------------------------------------------------
 
@@ -322,7 +322,7 @@ from (values
   ('programming',           '节目编排',   '节目安排、内容委约，以及决定播出什么和何时播出。'),
   ('community',             '社群',       '社交媒体频道、聊天室管理，以及照顾观众。'),
   ('events',                '活动',       '展会报道、座谈会，以及所有在摄影棚以外拍摄的内容。'),
-  ('operations',            '营运',       '义工协调、排班、文件整理，以及日常运作。')
+  ('operations',            '营运',       '队员协调、排班、文件整理，以及日常运作。')
 ) as v(slug, name, description)
 join gftvjobs_departments d on d.slug = v.slug
 on conflict (department_id, locale) do nothing;

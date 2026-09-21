@@ -19,9 +19,9 @@
       "name_zh": "账户与登录",
       "status": "shipped",
       "description": "Creating an applicant account and signing in, with passkeys as a second factor, recovery codes, trusted devices, and the stay signed in choice. Staff sign in with an existing gftv.asia account and its second factor.",
-      "description_zh": "注册申请人账户并登录，包含作为第二重验证的通行密钥、恢复码、受信任设备，以及保持登录状态的选项。员工使用现有的 gftv.asia 账户及其第二重验证登录。",
+      "description_zh": "注册申请人账户并登录，包含作为第二重验证的通行密钥、恢复码、受信任设备，以及保持登录状态的选项。队员使用现有的 gftv.asia 账户及其第二重验证登录。",
       "shipped_note": "Creating an account, signing in, and getting back in went live with this. Passkeys are the second factor in both realms, so a fingerprint or a security key replaces typing a code. Recovery codes are the way back in if you forget your password, since this site has no email to send a reset link to.",
-      "shipped_note_zh": "注册账户、登录，以及找回账户的功能随此阶段上线。通行密钥是申请人和员工两边的第二重验证，因此可以用指纹或实体安全密钥代替输入验证码。由于本网站不使用电邮，无法寄送重设链接，恢复码是您忘记密码时回到账户的途径。"
+      "shipped_note_zh": "注册账户、登录，以及找回账户的功能随此阶段上线。通行密钥是申请人和队员两边的第二重验证，因此可以用指纹或实体安全密钥代替输入验证码。由于本网站不使用电邮，无法寄送重设链接，恢复码是您忘记密码时回到账户的途径。"
     },
     {
       "number": 3,
@@ -69,9 +69,9 @@
       "name_zh": "管理后台核心",
       "status": "shipped",
       "description": "The staff side of running the board. The overview, writing and publishing postings in every language, tracking applicants, and managing departments and tags.",
-      "description_zh": "员工端的日常运作：总览、以分页式编辑器撰写和发布多语言职位信息、跟进申请人，以及管理部门和标签。",
+      "description_zh": "队员端的日常运作：总览、以分页式编辑器撰写和发布多语言职位信息、跟进申请人，以及管理部门和标签。",
       "shipped_note": "The staff side of the board went live with this. Roles are now written, translated and published inside the portal. A posting can carry its full description in both languages, and say plainly whether it is still open. If you have applied to something, the team can see where your application has got to. They can ask you a question about it, and tell you once a decision has been made. Anything they need from you arrives in your outstanding tasks. A question there can now be a short set of questions, and not only a reply box. None of the staff pages are visible to applicants, and nothing about how you apply has changed.",
-      "shipped_note_zh": "员工端的运作功能随此阶段上线。职位现在直接在本网站内撰写、翻译和发布，不再需要另行处理。每则职位信息都能以双语呈现完整说明，并清楚标示是否仍在招募。如果您申请过某个职位，团队可以看到您的申请进展、就申请内容向您提问，并在有结果时通知您。任何需要您处理的事情都会送到您的待办事项。团队提问时现在也可以附上几道问题，而不只是一个回复框。员工使用的页面申请人都看不到，申请方式也完全没有改变。"
+      "shipped_note_zh": "队员端的运作功能随此阶段上线。职位现在直接在本网站内撰写、翻译和发布，不再需要另行处理。每则职位信息都能以双语呈现完整说明，并清楚标示是否仍在招募。如果您申请过某个职位，团队可以看到您的申请进展、就申请内容向您提问，并在有结果时通知您。任何需要您处理的事情都会送到您的待办事项。团队提问时现在也可以附上几道问题，而不只是一个回复框。队员使用的页面申请人都看不到，申请方式也完全没有改变。"
     },
     {
       "number": 8,
@@ -79,9 +79,9 @@
       "name_zh": "管理后台进阶",
       "status": "shipped",
       "description": "The rest of the dashboard: analytics, invitations and shortlists, managing staff and applicant accounts, portal settings, and the translation review queue. Volunteers who speak a language can be given access to improve its wording, and can suggest a correction by selecting the text that reads wrongly.",
-      "description_zh": "后台的其余部分：数据分析、邀请与候选名单、管理员工和申请人账户、门户设置，以及翻译审核队列。会说某种语言的义工可以获得权限改进该语言的用词，并可以直接选中读起来不对的文字提出修改建议。",
+      "description_zh": "后台的其余部分：数据分析、邀请与候选名单、管理队员和申请人账户、门户设置，以及翻译审核队列。会说某种语言的队员可以获得权限改进该语言的用词，并可以直接选中读起来不对的文字提出修改建议。",
       "shipped_note": "The rest of the staff side went live with this, and one part of it is open to volunteers and not to staff. If you speak a language this site is offered in, you can be given access to improve its wording. You work through the roles and the site's own words in that language, and save drafts as often as you like. An admin makes them live. Anyone signed in can also select a phrase that reads wrongly on a posting. Suggest a better one where it stands, without leaving the page. If the team invites you to apply for a role, that invitation now arrives in your outstanding tasks like anything else they need from you. The rest is staff facing, and none of it is visible to applicants: how the board is doing, managing accounts, and the portal's own settings. Nothing about how you apply has changed.",
-      "shipped_note_zh": "员工端的其余部分随此阶段上线，其中一部分开放给义工，而不只是员工。如果您会说本网站提供的某种语言，您可以获得权限改进该语言的用词。您可以逐一处理该语言的职位信息和网站用语，随时保存草稿，再由管理员正式发布。已登录的用户也可以直接选中职位信息中读起来不对的文字，就地提出修改建议，无需离开页面。如果团队邀请您申请某个职位，该邀请现在会像其他需要您处理的事情一样，送到您的待办事项。其余功能都是员工使用的，申请人都看不到：包括招聘情况数据、账户管理，以及网站本身的设置。申请方式也完全没有改变。"
+      "shipped_note_zh": "队员端的其余部分随此阶段上线，其中一部分开放给队员，而不只是队员。如果您会说本网站提供的某种语言，您可以获得权限改进该语言的用词。您可以逐一处理该语言的职位信息和网站用语，随时保存草稿，再由管理员正式发布。已登录的用户也可以直接选中职位信息中读起来不对的文字，就地提出修改建议，无需离开页面。如果团队邀请您申请某个职位，该邀请现在会像其他需要您处理的事情一样，送到您的待办事项。其余功能都是队员使用的，申请人都看不到：包括招聘情况数据、账户管理，以及网站本身的设置。申请方式也完全没有改变。"
     },
     {
       "number": 9,
@@ -129,9 +129,9 @@
       "name_zh": "说明文件网站基础",
       "status": "shipped",
       "description": "The documentation site itself, with a staff sign in on it. What a reader sees depends on their role. Applicants read the public guides, job posters also read the dashboard guide, and admins also read the admin and developer guides.",
-      "description_zh": "说明文件网站本身，并附有员工登录功能。读者看到的内容取决于其身份：申请人可阅读公开指南，职位发布者另可阅读后台使用指南，管理员另可阅读管理与开发说明文件。",
+      "description_zh": "说明文件网站本身，并附有队员登录功能。读者看到的内容取决于其身份：申请人可阅读公开指南，职位发布者另可阅读后台使用指南，管理员另可阅读管理与开发说明文件。",
       "shipped_note": "There is a second website now: the documentation site, with the guides themselves still to come. What this phase built is everything underneath them. Anyone can read the public guides without signing in. The people running the portal sign in with the same account they use everywhere else. What they can read follows what they do. Somebody who posts jobs also sees the dashboard guide, and an administrator also sees the administration and developer guides. A page somebody is not allowed to read does not announce itself as forbidden. A list of things you cannot see is still a list, so it reads as a page nobody has written. Search behaves the same way, covering only what the reader may open, and a picture inside a restricted guide is restricted with it. The whole site is in English and 华文, which was not the original plan. Most of the wording turned out to be translated already for the portal, so the arithmetic answered a question that had been left open. It also carries the same account settings page as the portal. That means passkeys, an authenticator app, recovery codes, trusted devices, and a record of where the account is signed in. It is built once and shown on both sites, so the two cannot drift apart. Next is the documentation itself. Guides for applicants, for the Telegram bot, for people helping with translations, and for staff, in every language this site speaks.",
-      "shipped_note_zh": "现在有了第二个网站：说明文件网站，指南内容本身还有待撰写，本阶段建成的是它底下的一切。任何人都可以阅读公开指南，无需登录。营运本平台的同仁使用平常那个账号登录，能读到什么取决于职务。负责发布职位的人另可看到后台使用指南，管理员另可看到管理与开发说明文件。读者无权阅读的页面不会声明自己是禁止进入的。一份你看不到的清单仍然是一份清单，所以它看起来就像一个还没有人撰写的页面。搜索也依循同样的做法，只涵盖该读者可以打开的内容，受限指南里的图片也一并受限。整个网站都提供英文和华文，这一点原本不在计划之内。后来发现大部分用语在求职门户里已经翻译过了，一道原本悬而未决的问题就这样由算术回答了。本网站也采用与求职门户相同的账号设置页面。当中包含通行密钥、验证器应用程序、恢复码、受信任的设备，以及账号在哪些地方登录的记录。这些只建一次、两边显示，两者就不会各走各的。下一阶段是说明文件本身：给申请人、Telegram 机器人、翻译义工和员工的各种指南，涵盖本网站支持的每一种语言。"
+      "shipped_note_zh": "现在有了第二个网站：说明文件网站，指南内容本身还有待撰写，本阶段建成的是它底下的一切。任何人都可以阅读公开指南，无需登录。营运本平台的同仁使用平常那个账号登录，能读到什么取决于职务。负责发布职位的人另可看到后台使用指南，管理员另可看到管理与开发说明文件。读者无权阅读的页面不会声明自己是禁止进入的。一份你看不到的清单仍然是一份清单，所以它看起来就像一个还没有人撰写的页面。搜索也依循同样的做法，只涵盖该读者可以打开的内容，受限指南里的图片也一并受限。整个网站都提供英文和华文，这一点原本不在计划之内。后来发现大部分用语在求职门户里已经翻译过了，一道原本悬而未决的问题就这样由算术回答了。本网站也采用与求职门户相同的账号设置页面。当中包含通行密钥、验证器应用程序、恢复码、受信任的设备，以及账号在哪些地方登录的记录。这些只建一次、两边显示，两者就不会各走各的。下一阶段是说明文件本身：给申请人、Telegram 机器人、翻译义工和队员的各种指南，涵盖本网站支持的每一种语言。"
     },
     {
       "number": 14,
@@ -139,9 +139,9 @@
       "name_zh": "说明文件",
       "status": "shipped",
       "description": "The guides themselves: how to use the portal and the bot in every language, how to help with translations, and the staff guides. Written late so they describe what was built, not what was planned.",
-      "description_zh": "指南内容本身：各语言版本的求职门户与 Telegram 机器人使用说明、如何协助翻译，以及员工指南。刻意安排在后期撰写，以便描述实际建成的功能而非当初的计划。",
+      "description_zh": "指南内容本身：各语言版本的求职门户与 Telegram 机器人使用说明、如何协助翻译，以及队员指南。刻意安排在后期撰写，以便描述实际建成的功能而非当初的计划。",
       "shipped_note": "The guides are written. Six of them, 82 pages, on the documentation site. Three cover how to use this portal, how to use the Telegram bot, and how to help with translations. Three are for the people who run the board. Every page is in English and 华文, and the language control on that site changes the guide and not only the frame around it. The bot gained a docs command that sends a guide page into the chat. It also gained a language command, so the chat can be read in a language other than the account's. The staff guides also carry the specification and the working memo this portal was built from, rendered as pages. So the reasoning behind a decision is one click from the page that describes it. The documentation site can be installed to a home screen and read with no connection, the same as this one. Two smaller things arrived with the writing, because describing a screen is how you notice what it does not say. A job poster could reach two pages that belong to an administrator, and cannot now. And an application recorded by the form on your behalf now tells you so, on Telegram, as the fourth kind of notification. One phase remains: Malay and Tamil.",
-      "shipped_note_zh": "指南写好了。六份，共 82 页，都在说明文件网站上。三份讲怎么使用这个平台、怎么使用 Telegram 机器人和怎么协助翻译，三份给营运职位板的人。每一页都有英文和华文，而那个网站上的语言控件改变的是指南本身，而不只是周围的框架。机器人多了一条 docs 指令，可以把一页指南送进聊天；也多了一条 language 指令，让聊天可以用账户以外的语言阅读。员工指南里还带着这个平台据以建成的说明书和工作备忘，渲染成页面，所以一个决定背后的理由，离描述它的那一页只有一下点击。说明文件网站可以安装到主屏幕，并且在没有网络时照样能读，和这个网站一样。有两件较小的事随着写作一起到来，因为描述一个屏幕，正是发现它没有说什么的方式。职位发布者原本能打开两个属于管理员的页面，现在不能了。而由表单代您记录的申请，现在会在 Telegram 上告诉您，作为第四种通知。还剩一个阶段：马来文和淡米尔文。"
+      "shipped_note_zh": "指南写好了。六份，共 82 页，都在说明文件网站上。三份讲怎么使用这个平台、怎么使用 Telegram 机器人和怎么协助翻译，三份给营运职位板的人。每一页都有英文和华文，而那个网站上的语言控件改变的是指南本身，而不只是周围的框架。机器人多了一条 docs 指令，可以把一页指南送进聊天；也多了一条 language 指令，让聊天可以用账户以外的语言阅读。队员指南里还带着这个平台据以建成的说明书和工作备忘，渲染成页面，所以一个决定背后的理由，离描述它的那一页只有一下点击。说明文件网站可以安装到主屏幕，并且在没有网络时照样能读，和这个网站一样。有两件较小的事随着写作一起到来，因为描述一个屏幕，正是发现它没有说什么的方式。职位发布者原本能打开两个属于管理员的页面，现在不能了。而由表单代您记录的申请，现在会在 Telegram 上告诉您，作为第四种通知。还剩一个阶段：马来文和淡米尔文。"
     },
     {
       "number": 15,

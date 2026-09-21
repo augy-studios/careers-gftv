@@ -175,7 +175,7 @@ The one genuinely new public section. It is written for a reader who speaks a la
 - What a helper can do: edit any translation in their language freely, and see what is missing.
 - **What a helper cannot do: make a translation live.** Only staff set `is_ready`, per 7i as amended on 4 September 2026. Explain why, because it reads as distrust unless the reason is given. Access can be granted before trust is, and it means a half finished posting cannot go out by accident.
 - The suggestion layer from 7i. Turning it on, selecting text and suggesting a replacement, and what the quiet underline and the count mean. Then how it works on a phone, where selection is imprecise.
-- The Singapore Mandarin note from 3a, with the vocabulary table. 义工 in place of 志愿者 is the single most visible marker. It belongs on this page, and not only in this specification.
+- The Singapore Mandarin note from 3a, with the vocabulary table. 队员 in place of 队员 is the single most visible marker. It belongs on this page, and not only in this specification.
 - What happens next. Who reads a suggestion, and roughly what the queue looks like from the other side. And that an interface string fix is a code change, and therefore waits for a deploy.
 
 ### Job poster guide, page by page (poster and above)

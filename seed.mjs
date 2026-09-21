@@ -309,7 +309,7 @@ const POSTINGS = [
  *  description. A translated heading over an untranslated body is worse than
  *  plainly untranslated, so this one is complete.
  *
- *  Singapore Mandarin, per the same section: 义工 rather than 志愿者, and the
+ *  Singapore Mandarin, per the same section: 队员 rather than 志愿者, and the
  *  sample marker is in Chinese too. A row marked only in English reads as a
  *  genuine posting to precisely the readers the translation exists for.
  */
@@ -322,7 +322,7 @@ const TRANSLATION = {
   description:
     '样本职位，并非真实招募。这是 seed.mjs 写入的测试数据。\n\n' +
     '国际兽视每周都会开好几场直播，但几乎没有人会全部看完。每周精华短片就是大部分观众了解我们内容的方式。\n\n' +
-    '这是一个义工职位。我们是一个由义工营运的频道，这里没有人拿薪水。',
+    '这是一个义务职位。我们是一个由队员营运的频道，这里没有人拿薪水。',
   responsibilities: '看完当周的直播录像，挑出值得保留的片段。\n剪出六到八分钟的短片。',
   requirements: '会使用任何一款非线性剪辑软件。\n每周稳定投入约四小时。',
   nice_to_have: '如果您会动态图像设计，那更好。',

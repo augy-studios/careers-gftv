@@ -5,10 +5,10 @@ summary: 您的 gftv.asia 账户、第二步验证，以及保持登录和信任
 
 # 登录
 
-员工登录在
+队员登录在
 [careers.globalfurry.tv/admin/login](https://careers.globalfurry.tv/admin/login)。
 
-**请用您现有的 gftv.asia 账户。** 这里不需要另外建立员工账户。
+**请用您现有的 gftv.asia 账户。** 这里不需要另外建立队员账户。
 您的用户名和密码就是您本来就有的那一组。
 
 这不是申请人登录。两者是完全独立的系统，申请人账户打不开管理后台。

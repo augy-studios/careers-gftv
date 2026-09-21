@@ -22,7 +22,7 @@ The portal is available in English and Chinese. Only one language is shown at a 
 
 | Use | Not | Meaning |
 |---|---|---|
-| 义工 | 志愿者 | volunteer, and the single most visible marker |
+| 队员 | 志愿者 | volunteer, and the single most visible marker |
 | 华文 | 中文, 简体中文 | the written language, when naming it |
 | 电邮 | 电子邮件 | email |
 | 营运 | 运营 | operations |

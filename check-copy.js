@@ -93,7 +93,7 @@ const MAX_SENTENCE_WORDS = 25;
  *  rule is about, so the pattern refuses the accidental pairs and nothing else.
  */
 const MANDARIN = [
-  { pattern: /志愿者/g, word: '志愿者', instead: '义工' },
+  { pattern: /志愿者/g, word: '志愿者', instead: '队员' },
   { pattern: /电子邮件/g, word: '电子邮件', instead: '电邮' },
   { pattern: /(?<!营)运营/g, word: '运营', instead: '营运' },
   { pattern: /录影棚/g, word: '录影棚', instead: '摄影棚' },

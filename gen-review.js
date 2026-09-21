@@ -129,7 +129,7 @@ const EXEMPT_TREES = {
  *  like a cramped button in part 1, arriving from the other direction.
  */
 const USAGE = [
-  { mainland: '志愿者', singapore: '义工', except: [] },
+  { mainland: '志愿者', singapore: '队员', except: [] },
   { mainland: '中文', singapore: '华文', except: ['选中文', '中文字'] },
   { mainland: '电子邮件', singapore: '电邮', except: [] },
   { mainland: '运营', singapore: '营运', except: [] },

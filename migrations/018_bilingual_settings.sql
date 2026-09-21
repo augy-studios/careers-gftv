@@ -42,7 +42,7 @@ where key = 'portal_title'
   and jsonb_typeof(value) = 'string';
 
 update gftvjobs_settings
-set value = jsonb_build_object('en', value #>> '{}', 'zh', '加入国际兽视，成为义工')
+set value = jsonb_build_object('en', value #>> '{}', 'zh', '加入国际兽视，成为队员')
 where key = 'hero_heading'
   and jsonb_typeof(value) = 'string';
 

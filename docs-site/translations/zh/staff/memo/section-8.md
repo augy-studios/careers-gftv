@@ -41,7 +41,7 @@ summary: 因为这很少见。
    言自己的规则，要么没有规则；`gen-review.js` 失去对它的豁免。`build-status.json`
    里的阶段条目获得它们的 `name_ms`、`description_ms` 和 `shipped_note_ms` 字段，
    否则读者在那里看到的是英文。`sw.js` 预缓存那份词典，`check-precache.js` 把它从
-   `EXPECTED_ABSENT` 里拿掉，并提升一次 `VERSION`。内容经由义工区进入，而义工区
+   `EXPECTED_ABSENT` 里拿掉，并提升一次 `VERSION`。内容经由队员区进入，而队员区
    对那种语言一直是开放的。然后由管理员在 `/admin/maintenance` 打开那个键，那就是
    发布它的全部：控件、职位信息、API 和机器人都在缓存的那一分钟之内跟上。机器人的
    `strings.py` 是另一回事，见决定 3，而机器人只在第三张表进去之后才提供那种语言。

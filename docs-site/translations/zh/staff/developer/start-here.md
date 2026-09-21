@@ -62,7 +62,7 @@ Vercel 项目从自己的根目录构建，无法伸到外面去，
 没有任何东西能让其中一个体系的登录状态满足另一个体系的检查，
 也没有一个共用的「当前用户」概念。
 
-| | 员工 | 申请人 |
+| | 队员 | 申请人 |
 |---|---|---|
 | 账户 | `gftvhello_users`，与 gftv.asia 共用 | `gftvjobs_users`，本项目自己的 |
 | 登录状态 | `gftvjobs_staff_sessions`，本站则是 `gftvjobs_docs_sessions` | `gftvjobs_sessions` |
@@ -70,7 +70,7 @@ Vercel 项目从自己的根目录构建，无法伸到外面去，
 | 第二因素 | 通行密钥，或验证器应用 | 通行密钥，或 Telegram 验证码 |
 | 怎么进来 | 在 gftv.asia 通过审核，再经过本项目的权限覆盖层 | 立即生效，不需审批 |
 
-**员工账户属于 gftv.asia，这里只读取它们。**
+**队员账户属于 gftv.asia，这里只读取它们。**
 本项目决定的是某个账户能不能从这道门进来，并把那个决定写进自己的表。
 请看[身份验证](/staff/developer/authentication)。
 

@@ -18,16 +18,22 @@ real.
 
 | Use | Not | Meaning |
 |---|---|---|
-| 义工 | 志愿者 | volunteer, and the most visible marker of the two |
+| 队员 | 志愿者 | volunteer, and the most visible marker of the two |
 | 华文 | 中文, 简体中文 | the written language, when naming it |
 | 电邮 | 电子邮件 | email |
 | 营运 | 运营 | operations |
 | 摄影棚 | 录影棚 | studio |
 | 文件 | 文档 | document, in the paper sense |
 
-**义工 is the one to get right.** Nearly every posting on this site is a
+**队员 is the one to get right.** Nearly every posting on this site is a
 voluntary role, so the word appears everywhere. Nothing else on this list marks
-a page as written somewhere else as clearly as 志愿者 does.
+a page as written somewhere else as clearly as 志愿者 does. 队员 says joining a
+team, which is what a posting here is actually offering, and it carries the
+unpaid sense without leaning on 义工.
+
+The exception is the translation helpers, who stay 义工 throughout. That role is
+granted one language at a time and cannot publish. It is a different thing from
+being on the team, and the two words keep it that way.
 
 ## The test, when the table does not cover it
 

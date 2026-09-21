@@ -84,9 +84,9 @@ summary: 登录页面、第二步验证，以及保持登录和信任这台设�
   请在国际兽视的 Telegram 群组，或您平时联系团队的渠道提出。
 - 更多症状和各自的含义：[疑难排解](/portal/troubleshooting)。
 
-## 员工登录是另一道门
+## 队员登录是另一道门
 
 国际兽视入队平台有两套各自独立的账户系统。申请人账户在这里建立，也只存在于这里。
-员工账户是 gftv.asia 的账户，登录网址是
+队员账户是 gftv.asia 的账户，登录网址是
 [careers.globalfurry.tv/admin/login](https://careers.globalfurry.tv/admin/login)。
 两者不共用任何东西，密码也不共用，有其中一个不代表就有另一个。

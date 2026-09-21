@@ -163,7 +163,7 @@ anybody holding it could write green days nobody measured. It also carries
 `036`'s `search_path`.
 
 **All Chinese in this directory is Singapore Mandarin**, 华文, not Mainland
-Putonghua: 义工 not 志愿者, 华文 not 中文, 电邮 not 电子邮件, 营运 not 运营,
+Putonghua: 队员 not 志愿者, 华文 not 中文, 电邮 not 电子邮件, 营运 not 运营,
 合约 not 合同, 摄影棚 not 录影棚, and 文件 not 文档. That applies to the seeded
 department and tag names in `014` and the hero copy in `018`, and to anything
 added later. The list is `USAGE` in `gen-review.js` and this paragraph is

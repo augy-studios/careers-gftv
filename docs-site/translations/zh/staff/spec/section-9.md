@@ -22,12 +22,12 @@ summary: `main-site/api/` 下的 RESTful 路由，分组如下：
 - `api/admin/*`：jobs、applications、analytics、tasks、invites、departments、tags、tag-merge。然后是 users、admins、stats 和 export。然后是 translations，也就是依 8.11 的反馈队列和待翻译清点。然后是 maintenance，依 8.12 读取和切换功能覆盖开关。这里没有 `api/admin/docs`：依 8a，手册已经搬到说明文件网站去了。
 - `api/public/feature-status`：维护覆盖开关，任何人都可以读，可以短时间缓存，但不能更久。它只带着哪些已上线的功能目前是关着的，以及每一项对外的说明。阶段列表留在 `build-status.json` 里，不在这里重复一份。这是浏览器需要、而静态文件答不上来的唯一一件事。它是刻意分开的，这样读不到它的时候网站仍然是全部功能开着能用的，而不会一片空白。
   - 依 0c，每一条挡在可切换功能后面的路由，都在服务器端检查同一个覆盖开关，并以维护提示语回 503。这个检查应该放在 `api/_lib/settings.js` 旁边的一个公用函数里，由每条受管的路由调用。这样哪些功能可切换就是一个文件里的一份清单，而不是一种约定。
-- `api/auth/staff/*` 同时也承载 5f 的员工账户设置套件。那包括 passkeys（列出、注册、改名、移除）和 authenticator（启用、移除）。然后是 backup-codes（数量、重新生成）和 recovery-codes（数量、重新生成）。然后是 sessions（列出、撤销、全部撤销），以及依 5g 的 forgot-password 和 reset-password。还有危险操作区的各项操作，都挡在它们自己的密码验证步骤后面。
+- `api/auth/staff/*` 同时也承载 5f 的队员账户设置套件。那包括 passkeys（列出、注册、改名、移除）和 authenticator（启用、移除）。然后是 backup-codes（数量、重新生成）和 recovery-codes（数量、重新生成）。然后是 sessions（列出、撤销、全部撤销），以及依 5g 的 forgot-password 和 reset-password。还有危险操作区的各项操作，都挡在它们自己的密码验证步骤后面。
 
 说明文件网站在 `docs-site/api/` 下有自己的一小组路由，跑在它自己的 Vercel 项目上。依 5h，它是各做一份，而不是共用：
 
 - `api/auth/*`：登录、验证两步验证、passkey 的挑战与验证、登出、会话、受信任设备。再加上与上面同一套账户设置套件，好让 5f 能挂在两个网站上。
-- `api/content/*`：按键取一个受限页面，以及传送一张受限图片。两者都检查员工会话和该页面所需的角色。对没有权限的调用方，两者都回 404 而绝不回 401，这样任何人来试探都无法确认某个页面存不存在。
+- `api/content/*`：按键取一个受限页面，以及传送一张受限图片。两者都检查队员会话和该页面所需的角色。对没有权限的调用方，两者都回 404 而绝不回 401，这样任何人来试探都无法确认某个页面存不存在。
 - `api/search-index`：搜索索引里受限的那一半，按读者的角色划分。公开的那一半是一个静态文件。
 
 所有路由的共同要求：
