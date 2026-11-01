@@ -2,34 +2,31 @@
 //
 //   node gen-icons.js
 //
-// Reads HLC-source.png at the repo root, which is the untouched 2250 square
-// original as the template shipped it, and writes every icon under main-site
-// from it:
+// Reads HLC-source.png at the repo root, which is the untouched square master
+// (since 1 November 2026, the 3000 square itip mark on white), and writes every
+// icon under main-site from it:
 //
-//   HLC-main.png            2250, the og:image and the apple-touch-icon
+//   HLC-main.png            2250, the og:image
 //   HLC-512.png             512, manifest purpose "any"
 //   HLC-192.png             192, manifest purpose "any"
 //   HLC-180.png             180, the apple-touch-icon
-//   HLC-512-maskable.png    512, purpose "maskable", art at 80%
-//   HLC-192-maskable.png    192, purpose "maskable", art at 80%
-//   favicon.ico             16, 32, and 48, PNG framed in an ICO container
+//   HLC-512-maskable.png    512, purpose "maskable", art at 70%
+//   HLC-192-maskable.png    192, purpose "maskable", art at 70%
+//   favicon.ico             one 256 entry, PNG framed in an ICO container
 //
 // Why this exists rather than the five files being edited by hand: they have to
 // agree. The template shipped them already disagreeing — three icons on mint
 // green while the manifest splash was Hello yellow — and five hand edited PNGs
 // drift the same way again the first time one of them is touched.
 //
-// **What it changes.** The artwork itself is not redrawn. Only the plate behind
-// it, from the template's mint green to GFTV yellow, per gftv-theme.md's rule
-// that brand colours are not invented and phase 10's decision to settle the
-// icon background question rather than inherit it.
-//
-// The recolouring is not a plain colour swap, and the difference is the whole
-// reason this is a script. The plate carries soft drop shadows under the
-// figure, the briefcase, and the bars, and those shadows are dark green: swap
-// only the exact mint and they stay behind as green smudges on a yellow plate.
-// So every background pixel is matched as *mint at some brightness* and written
-// back as *yellow at that same brightness*, which keeps the shadows as shadows.
+// **The recolouring pass, and why it is off.** The template's master sat on a
+// mint plate, and phase 10 rewrote that plate as GFTV yellow without redrawing
+// the artwork. That is not a plain colour swap: the plate carried soft drop
+// shadows, dark green rather than mint, so every background pixel is matched as
+// *mint at some brightness* and written back as *yellow at that same
+// brightness*, which keeps the shadows as shadows. The itip master is drawn on
+// white and its brush stroke is the yellow, so it wants no plate change at all
+// and RECOLOUR is null. The pass stays for a future master on the wrong colour.
 //
 // **The source is separate from the outputs on purpose.** HLC-main.png is one
 // of the five things written, so if this read it as well the first run would
@@ -50,27 +47,34 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const SITE = join(HERE, 'main-site');
 const MASTER = join(HERE, 'HLC-source.png');
 
-// The template's plate, and what replaces it. #fedc00 is the GFTV yellow that
-// manifest.json has been using for background_color since phase 1, so this
-// makes the icon agree with the splash screen rather than the other way round.
-const MINT = [204, 255, 204];
-const YELLOW = [254, 220, 0];
+// The colour the icons sit on, filled edge to edge behind every output. It is
+// the master's own background, and manifest.json's background_color has to be
+// the same value so the splash screen and the icon are one colour.
+const PLATE = [255, 255, 255];
 
-// How far a pixel may sit off the mint-at-some-brightness line and still count
-// as plate. Generous enough for the shadows and for the resampling noise in a
-// 2250 square master, tight enough that the green bar in the chart, which is a
-// saturated green rather than a dark mint, is nowhere near it.
+// The plate rewrite described above: `from` is the master's plate colour and
+// `to` is what it becomes, which must then also be PLATE. null leaves the
+// master's pixels exactly as drawn. The template's master was
+// { from: [204, 255, 204], to: [254, 220, 0] }, mint to GFTV yellow.
+const RECOLOUR = null;
+
+// How far a pixel may sit off the plate-at-some-brightness line and still count
+// as plate. Tuned for the template's mint and its drop shadows: generous enough
+// for the shadows and resampling noise, tight enough that its saturated green
+// chart bar is nowhere near it. Only read when RECOLOUR is set.
 const TOLERANCE = 14;
 
 // The darkest a shadow gets before we stop calling it plate. Below this it is
-// artwork.
+// artwork. Only read when RECOLOUR is set.
 const MIN_BRIGHTNESS = 0.45;
 
-// The maskable safe zone is a circle of 80% of the icon's width. The master
-// already carries its own padding, so scaling the whole square to 80% puts the
-// artwork comfortably inside it and lets the plate go full bleed, which is what
-// a maskable icon is for: the launcher crops it to whatever shape it likes.
-const MASKABLE_SCALE = 0.8;
+// The maskable safe zone is a circle of 80% of the icon's width, so a radius of
+// 40%. The itip artwork reaches 55.9% of the width out from the centre at its
+// furthest corner (the bottom left of the Chinese line), so the whole square is
+// scaled to 70% to bring that corner to 39%, just inside. The plate goes full
+// bleed, which is what a maskable icon is for: the launcher crops it to
+// whatever shape it likes. Remeasure this when the master changes.
+const MASKABLE_SCALE = 0.7;
 
 const OUTPUTS = [
   { file: 'HLC-main.png', size: 2250, maskable: false },
@@ -136,8 +140,8 @@ const page = await browser.newPage();
 const results = await page.evaluate(
   async ({
     master,
-    MINT,
-    YELLOW,
+    PLATE,
+    RECOLOUR,
     TOLERANCE,
     MIN_BRIGHTNESS,
     MASKABLE_SCALE,
@@ -157,74 +161,77 @@ const results = await page.evaluate(
     const sctx = source.getContext('2d', { willReadFrequently: true });
     sctx.drawImage(image, 0, 0);
 
-    const pixels = sctx.getImageData(0, 0, width, height);
-    const data = pixels.data;
-
-    const luma = ([r, g, b]) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
-    const mintLuma = luma(MINT);
-
-    /**
-     * Is this pixel the plate, or a shadow cast on the plate?
-     *
-     * A shadow on a flat colour is that colour multiplied down, so both cases
-     * are "mint at brightness k". Solve for k from the luminance, then check
-     * the pixel really does sit on that line rather than merely being about as
-     * bright as it.
-     */
-    function plateBrightness(i) {
-      if (data[i + 3] !== 255) return null;
-      const k = luma([data[i], data[i + 1], data[i + 2]]) / mintLuma;
-      if (k < MIN_BRIGHTNESS || k > 1.06) return null;
-      for (let c = 0; c < 3; c += 1) {
-        if (Math.abs(data[i + c] - k * MINT[c]) > TOLERANCE) return null;
-      }
-      return k;
-    }
-
-    /**
-     * Fill inwards from the border rather than replacing every matching pixel
-     * anywhere in the image.
-     *
-     * Connectivity is the safety net. Anything that happens to match the test
-     * but is not joined to the edge — a pale highlight inside the artwork, say
-     * — is left exactly as it was, so the worst a wrong tolerance can do is
-     * leave a fringe rather than punch a hole through the middle of the figure.
-     */
-    const seen = new Uint8Array(width * height);
-    const stack = [];
-    for (let x = 0; x < width; x += 1) {
-      stack.push(x, x + (height - 1) * width);
-    }
-    for (let y = 0; y < height; y += 1) {
-      stack.push(y * width, width - 1 + y * width);
-    }
-
     let filled = 0;
-    while (stack.length) {
-      const p = stack.pop();
-      if (seen[p]) continue;
-      seen[p] = 1;
+    if (RECOLOUR) {
+      const { from, to } = RECOLOUR;
+      const pixels = sctx.getImageData(0, 0, width, height);
+      const data = pixels.data;
 
-      const i = p * 4;
-      const k = plateBrightness(i);
-      if (k === null) continue;
+      const luma = ([r, g, b]) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      const fromLuma = luma(from);
 
-      data[i] = Math.round(YELLOW[0] * k);
-      data[i + 1] = Math.round(YELLOW[1] * k);
-      data[i + 2] = Math.round(YELLOW[2] * k);
-      filled += 1;
+      /**
+       * Is this pixel the plate, or a shadow cast on the plate?
+       *
+       * A shadow on a flat colour is that colour multiplied down, so both cases
+       * are "plate at brightness k". Solve for k from the luminance, then check
+       * the pixel really does sit on that line rather than merely being about as
+       * bright as it.
+       */
+      function plateBrightness(i) {
+        if (data[i + 3] !== 255) return null;
+        const k = luma([data[i], data[i + 1], data[i + 2]]) / fromLuma;
+        if (k < MIN_BRIGHTNESS || k > 1.06) return null;
+        for (let c = 0; c < 3; c += 1) {
+          if (Math.abs(data[i + c] - k * from[c]) > TOLERANCE) return null;
+        }
+        return k;
+      }
 
-      const x = p % width;
-      const y = (p - x) / width;
-      if (x > 0) stack.push(p - 1);
-      if (x < width - 1) stack.push(p + 1);
-      if (y > 0) stack.push(p - width);
-      if (y < height - 1) stack.push(p + width);
+      /**
+       * Fill inwards from the border rather than replacing every matching pixel
+       * anywhere in the image.
+       *
+       * Connectivity is the safety net. Anything that happens to match the test
+       * but is not joined to the edge — a pale highlight inside the artwork, say
+       * — is left exactly as it was, so the worst a wrong tolerance can do is
+       * leave a fringe rather than punch a hole through the middle of the figure.
+       */
+      const seen = new Uint8Array(width * height);
+      const stack = [];
+      for (let x = 0; x < width; x += 1) {
+        stack.push(x, x + (height - 1) * width);
+      }
+      for (let y = 0; y < height; y += 1) {
+        stack.push(y * width, width - 1 + y * width);
+      }
+
+      while (stack.length) {
+        const p = stack.pop();
+        if (seen[p]) continue;
+        seen[p] = 1;
+
+        const i = p * 4;
+        const k = plateBrightness(i);
+        if (k === null) continue;
+
+        data[i] = Math.round(to[0] * k);
+        data[i + 1] = Math.round(to[1] * k);
+        data[i + 2] = Math.round(to[2] * k);
+        filled += 1;
+
+        const x = p % width;
+        const y = (p - x) / width;
+        if (x > 0) stack.push(p - 1);
+        if (x < width - 1) stack.push(p + 1);
+        if (y > 0) stack.push(p - width);
+        if (y < height - 1) stack.push(p + width);
+      }
+
+      sctx.putImageData(pixels, 0, 0);
     }
 
-    sctx.putImageData(pixels, 0, 0);
-
-    // Downscale in halving steps. One drawImage from 2250 to 192 samples far
+    // Downscale in halving steps. One drawImage from 3000 to 192 samples far
     // too sparsely and comes out crunchy at exactly the size a launcher shows.
     function scaled(size, inset) {
       let current = source;
@@ -248,7 +255,7 @@ const results = await page.evaluate(
 
       // The plate goes edge to edge whatever the inset is, so a launcher that
       // crops a maskable icon to a circle never exposes a transparent corner.
-      octx.fillStyle = `rgb(${YELLOW[0]}, ${YELLOW[1]}, ${YELLOW[2]})`;
+      octx.fillStyle = `rgb(${PLATE[0]}, ${PLATE[1]}, ${PLATE[2]})`;
       octx.fillRect(0, 0, size, size);
 
       const art = Math.round(size * inset);
@@ -271,8 +278,8 @@ const results = await page.evaluate(
   },
   {
     master,
-    MINT,
-    YELLOW,
+    PLATE,
+    RECOLOUR,
     TOLERANCE,
     MIN_BRIGHTNESS,
     MASKABLE_SCALE,
@@ -284,7 +291,11 @@ const results = await page.evaluate(
 await browser.close();
 
 const share = ((results.filled / results.total) * 100).toFixed(1);
-console.log(`plate recoloured: ${results.filled} pixels, ${share}% of the master`);
+console.log(
+  RECOLOUR
+    ? `plate recoloured: ${results.filled} pixels, ${share}% of the master`
+    : 'plate left as drawn: RECOLOUR is null'
+);
 
 /** A data URL from the canvas, back into bytes. */
 const decode = (url) => Buffer.from(url.slice(url.indexOf(',') + 1), 'base64');

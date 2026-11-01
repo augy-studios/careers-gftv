@@ -1,5 +1,5 @@
 {
-    "$comment": "The install manifest, per specification section 14. Written in English only, and deliberately: a manifest is fetched by the browser with no session and no localStorage, so it has no way of knowing which language the reader chose. That is the same reason link embeds are always English, settled in section 7. background_color is the GFTV yellow the icon plate now sits on, so the splash screen and the icon are one colour rather than two. theme_color is white because it has to agree with what theme.js writes into meta[name=theme-color] a moment after launch for the default classic light theme, and a yellow title bar that turns white on load is a flash of the wrong colour on every open. Regenerate the icons with node gen-icons.js and the screenshots with node gen-screenshots.js; neither is edited by hand.",
+    "$comment": "The install manifest, per specification section 14. Written in English only, and deliberately: a manifest is fetched by the browser with no session and no localStorage, so it has no way of knowing which language the reader chose. That is the same reason link embeds are always English, settled in section 7. background_color is white, the plate the icon is drawn on, so the splash screen and the icon are one colour. theme_color is white because it has to agree with what theme.js writes into meta[name=theme-color] a moment after launch for the default classic light theme, and a yellow title bar that turns white on load is a flash of the wrong colour on every open. Regenerate the icons with node gen-icons.js and the screenshots with node gen-screenshots.js; neither is edited by hand.",
     "name": "Careers@GFTV",
     "short_name": "Careers@GFTV",
     "description": "Voluntary, unpaid openings at Global Furry Television. Every role currently listed is unpaid. Browse roles, read the full posting, and apply with a free account.",
@@ -58,7 +58,7 @@
     ],
     "start_url": "/",
     "theme_color": "#ffffff",
-    "background_color": "#fedc00",
+    "background_color": "#ffffff",
     "display": "standalone",
     "display_override": ["standalone", "minimal-ui"],
     "orientation": "any",

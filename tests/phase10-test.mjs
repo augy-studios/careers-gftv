@@ -1706,11 +1706,12 @@ define('install', 'The manifest, the icons, and the install surface', async () =
     urls.join(', ')
   );
   check(
-    '110. white title bar, yellow splash',
-    manifest.theme_color === '#ffffff' && manifest.background_color === '#fedc00',
+    '110. white title bar, white splash',
+    manifest.theme_color === '#ffffff' && manifest.background_color === '#ffffff',
     `theme ${manifest.theme_color}, background ${manifest.background_color} — theme.js writes ` +
-      'the resolved page background into meta[name=theme-color] a moment after launch, so a ' +
-      'yellow theme_color is a flash of the wrong colour on every open'
+      'the resolved page background into meta[name=theme-color] a moment after launch, so any ' +
+      'other theme_color is a flash of the wrong colour on every open; the splash is the ' +
+      "icon's white plate (PLATE in gen-icons.js)"
   );
 
   /* Every page, and the one that is rendered by the server ----------------- */

@@ -4597,24 +4597,14 @@ next, which is the same reader with a different name.
 
 1. **Proxima Nova Medium, Semibold, and Bold.** Only Regular exists. The three
    `@font-face` blocks are written and commented out in `theme.css`.
-3. **Icon backgrounds. The artwork is still the template's and is not final** —
-   said on 27 August 2026. The plate is GFTV yellow and the splash matches it,
-   done by phase 10 part 1. What is left is the artwork itself, and it comes
-   back the day there is a real one.
-
-   Swapping it is small and is written up in `main-site/README.md` under "Icons
-   and the install manifest". Drop the new square master in as `HLC-source.png`
-   at the repo root, run `node gen-icons.js`, then run `node
-   tests/phase10-test.mjs --only=install`. Nothing references an icon by
-   anything but name, so no page, no manifest entry and no precache line moves.
-
-   **The one thing to decide first is the recolouring pass.** `gen-icons.js`
-   matches the template's mint plate and rewrites it as yellow at the same
-   brightness, shadows included. A master already on the right background wants
-   that pass turned off and not retuned. One on some third colour wants `MINT`
-   pointed at that colour. The `install` section checks sizes, tags and the
-   manifest's own claims, and nothing about the artwork. So it is worth the same
-   after a new icon as before it.
+3. ~~**Icon backgrounds. The artwork is still the template's and is not
+   final**~~ **Replaced on 1 November 2026** by the itip mark (Careers@GFTV,
+   Integrated Team Intake Portal), a 3000 square master on white. The
+   recolouring pass is off (`RECOLOUR = null` in `gen-icons.js`), the plate is
+   white, and both manifests' `background_color` went from `#fedc00` to
+   `#ffffff` so the splash still matches it. The maskable variants are at 70%,
+   so all of the artwork, the text included, falls inside the safe zone circle. Both
+   sites carry the new icons and both workers were bumped.
 5. ~~**The official site banner** for when every phase has shipped.~~ **Built
    by phase 15 part 3 on 12 September 2026.** From `gftv-official.md`, on both
    shells, linking `https://gftv.asia/trusted-sites`. It is not dismissible

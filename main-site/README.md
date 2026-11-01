@@ -1359,9 +1359,9 @@ must not ship before the page does.
 ## Icons and the install manifest
 
 **Every icon in this directory is generated. Do not edit one by hand.** The one
-original is `HLC-source.png` at the repo root, which is the 2250 square image
-the template shipped, kept out of `main-site/` so it is version controlled and
-not deployed.
+original is `HLC-source.png` at the repo root, since 1 November 2026 the 3000
+square itip mark on white, kept out of `main-site/` so it is version controlled
+and not deployed.
 
 ```
 node gen-icons.js         HLC-main, 512, 192, 180, the two maskable, favicon.ico
@@ -1371,29 +1371,31 @@ node gen-screenshots.js   images/install-narrow.png and install-wide.png, and th
 The template's icons sat on a mint green plate while `manifest.json` used the
 GFTV yellow for its splash, so the icon and the screen behind it were two
 different colours. Phase 10 settled it in favour of the yellow, per
-`gftv-theme.md`'s rule that brand colours are not invented, and `gen-icons.js`
-does the recolouring: the artwork is untouched and only the plate changes.
+`gftv-theme.md`'s rule that brand colours are not invented, with a recolouring
+pass in `gen-icons.js`: the artwork untouched, only the plate changed. The
+plate carried soft drop shadows, dark green and not mint, so every background
+pixel was matched as *mint at some brightness* and written back as *yellow at
+that same brightness*.
 
-It is a script rather than five edited files for two reasons. The five have to
-agree, and they had already drifted once. And the plate carries soft drop
-shadows, which are dark green rather than mint, so a plain colour swap leaves
-them behind as green smudges — every background pixel is matched as *mint at
-some brightness* and written back as *yellow at that same brightness* instead.
+The itip master that replaced the template's artwork is drawn on white, with
+the yellow in its own brush stroke, so that pass is now off (`RECOLOUR = null`)
+and the plate is white (`PLATE`). The pass stays in the script for a future
+master that arrives on the wrong colour. It is a script and not seven edited
+files because the seven have to agree, and they had already drifted once.
 
 - **`purpose` is explicit on all four manifest icons.** The two `maskable`
-  variants put the artwork at 80% with the plate full bleed, so a launcher that
-  crops to a circle never exposes a corner.
+  variants put the artwork at 70% with the plate full bleed, so a launcher that
+  crops to a circle never exposes a corner and never cuts into the text, whose
+  far corner sits at 39% of the width from the centre against the safe zone's 40%.
 - **`favicon.ico` is one 256 square entry**, not the conventional 16/32/48 set.
   Every browser this site supports scales a single large PNG down itself, and
-  one entry that is right beats three that have to be kept in step. The
-  committed file was encoded by hand and is a few kilobytes smaller than what
-  `gen-icons.js` produces; the script's `FAVICON_SIZES` follows the same choice,
-  so a rerun changes the compression and never the design.
+  one entry that is right beats three that have to be kept in step.
+  `FAVICON_SIZES` in `gen-icons.js` holds that choice.
 - **`apple-touch-icon` is `HLC-180.png`.** iOS ignores the manifest's icon list
   entirely, and every page used to point that at the 2250 square master: half a
   megabyte fetched to draw a home screen icon.
-- **`theme_color` is white and `background_color` is `#fedc00`.** The splash
-  matches the icon plate; the title bar has to match what `theme.js` writes
+- **`theme_color` and `background_color` are both white.** The splash
+  matches the icon plate (it was `#fedc00` while the plate was yellow); the title bar has to match what `theme.js` writes
   into `meta[name=theme-color]` a moment later for the default classic light
   theme, or every launch flashes the wrong colour.
 - **The manifest is English only**, deliberately. It is fetched with no session
@@ -1407,19 +1409,19 @@ size does not match. They currently show the dev seed's SAMPLE POSTING rows,
 because that is what the board currently holds: rerun `node gen-screenshots.js`
 when the seed is deleted.
 
-**Replacing the artwork.** The current icon is the template's and is not the
-final one. Swapping it is: drop the new square master in as `HLC-source.png` at
-the repo root, run `node gen-icons.js`, and run
+**Replacing the artwork.** Drop the new square master in as `HLC-source.png` at
+the repo root, run `node gen-icons.js`, then `node gen-docs-lib.js` to copy the
+icons to the docs site, bump both workers' `VERSION`, and run
 `node tests/phase10-test.mjs --only=install`. Nothing else references an icon by
 anything but name, so no page, no manifest entry, and no precache line changes.
 
-The one assumption to check first is the recolouring. `gen-icons.js` matches
-every pixel of the template's mint plate — `MINT`, with `TOLERANCE` and
-`MIN_BRIGHTNESS` for its drop shadows — and rewrites it as `YELLOW` at the same
-brightness. **A master that is already on the right background wants that pass
-turned off rather than retuned**, and one on some third colour wants `MINT`
-pointed at that colour. The constants are at the top of the file with what each
-one is for. The checks in the `install` section are about sizes, tags, and the
+Three things to check first, all constants at the top of `gen-icons.js`.
+`PLATE` is the master's background, and both manifests' `background_color` must
+match it. `RECOLOUR` stays null for a master already on the right background,
+and is `{ from, to }` for one on the wrong colour, with `TOLERANCE` and
+`MIN_BRIGHTNESS` tuned for its drop shadows. `MASKABLE_SCALE` has to bring the
+artwork's furthest pixel inside 40% of the width from the centre, so remeasure
+it for every new master. The checks in the `install` section are about sizes, tags, and the
 manifest's own claims, so they are worth exactly as much after a new icon as
 before it; nothing there is about the artwork.
 
