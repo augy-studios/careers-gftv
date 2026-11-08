@@ -20,7 +20,14 @@
 // the rule phase 4 added, and this one is not fetchable by a stranger at all:
 // it is behind requireApplicant and there is nothing to preflight.
 
-import { ok, fail, ERR, methodNotAllowed, failInternal, readJson } from '../_lib/respond.js';
+import {
+  ok,
+  fail,
+  ERROR_CODES,
+  methodNotAllowed,
+  failInternal,
+  readJson,
+} from '../_lib/respond.js';
 import { requireApplicant, revokeAllTrustedDevices } from '../_lib/session.js';
 import { codeCounts } from '../_lib/accounts.js';
 import { unavailable } from '../_lib/maintenance.js';
@@ -36,70 +43,80 @@ import {
   createLinkToken,
   linkState,
   unlink,
-  setTwofa,
+  setTwoFactor,
   queueTestMessage,
   requestLoginCode,
-  LINK_TOKEN_TTL_MS,
+  LINK_TOKEN_TIME_TO_LIVE_MILLISECONDS,
 } from '../_lib/telegram.js';
 import { encodeQr } from '../_lib/qr.js';
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'POST'])) return;
+/**
+ * Read or change the applicant's Telegram link: whether one exists, start
+ * linking, unlink, or turn Telegram as a second factor on or off.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'POST'])) return;
 
   // 8.12's shared guard. Off means off, including the API: a disabled control
   // stops nobody with a stale tab.
-  if (await unavailable(res, 'telegram_link')) return;
+  if (await unavailable(response, 'telegram_link')) return;
 
-  const session = await requireApplicant(req, res);
+  const session = await requireApplicant(request, response);
   if (!session) return;
 
   try {
-    if (req.method === 'GET') return await sendState(res, session.user.id);
+    if (request.method === 'GET') return await sendState(response, session.user.id);
 
-    const body = await readJson(req, res);
+    const body = await readJson(request, response);
     if (body === null) return;
 
-    const action = typeof body.action === 'string' ? body.action : '';
+    let action;
+
+    if (typeof body.action === 'string') {
+      action = body.action;
+    } else {
+      action = '';
+    }
 
     // Counted on success, like report, apply, save and withdraw: there is no
     // secret being guessed here, and what is worth bounding is how many token
     // rows one account can add in an hour.
-    const subjects = [subjectForUser('applicant', session.user.id), subjectForIp(req)];
-    if (await limited(res, 'telegramLink', subjects)) return;
+    const subjects = [subjectForUser('applicant', session.user.id), subjectForIp(request)];
+    if (await limited(response, 'telegramLink', subjects)) return;
 
-    if (action === 'start') return await start(res, session.user, subjects);
-    if (action === 'unlink') return await remove(res, session.user, subjects);
-    if (action === 'twofa') return await twofa(res, session.user, body, subjects);
-    if (action === 'test') return await test(res, session.user, subjects);
-    if (action === 'code') return await code(res, session.user, subjects);
+    if (action === 'start') return await start(response, session.user, subjects);
+    if (action === 'unlink') return await remove(response, session.user, subjects);
+    if (action === 'twofa') return await twoFactor(response, session.user, body, subjects);
+    if (action === 'test') return await test(response, session.user, subjects);
+    if (action === 'code') return await code(response, session.user, subjects);
 
-    return fail(res, ERR.BAD_REQUEST, 'That is not something this endpoint does.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not something this endpoint does.', {
       details: { field: 'action' },
     });
   } catch (cause) {
-    return failInternal(res, cause, 'telegram');
+    return failInternal(response, cause, 'telegram');
   }
 }
 
-async function sendState(res, applicantId) {
+async function sendState(response, applicantId) {
   const link = await linkState(applicantId);
 
   // no-store rather than a short max-age. This is polled while somebody watches
   // the screen for it to change, and a browser reusing its own copy for even
   // thirty seconds would show them a stale answer to the one question they are
   // sitting there asking.
-  res.setHeader('Cache-Control', 'no-store');
+  response.setHeader('Cache-Control', 'no-store');
 
-  return ok(res, { linked: link !== null, link });
+  return ok(response, { linked: link !== null, link });
 }
 
-async function start(res, user, subjects) {
+async function start(response, user, subjects) {
   const existing = await linkState(user.id);
   if (existing) {
     // One Telegram account to one portal account, enforced by unique
     // constraints on both sides in migration 011. Answering with the state
     // rather than an error lets a page with two tabs open settle on the truth.
-    return ok(res, { linked: true, link: existing, alreadyLinked: true });
+    return ok(response, { linked: true, link: existing, alreadyLinked: true });
   }
 
   const { url, expiresAt } = await createLinkToken(user.id);
@@ -108,22 +125,22 @@ async function start(res, user, subjects) {
 
   const qr = encodeQr(url);
 
-  return ok(res, {
+  return ok(response, {
     linked: false,
     url,
     expiresAt,
-    ttlMs: LINK_TOKEN_TTL_MS,
+    ttlMs: LINK_TOKEN_TIME_TO_LIVE_MILLISECONDS,
     qr: { size: qr.size, rows: qr.rows },
   });
 }
 
-async function remove(res, user, subjects) {
+async function remove(response, user, subjects) {
   const { removed, skipped } = await unlink(user.id);
 
   if (!removed) {
     // Not an error. Somebody who unlinked in the bot a moment ago and then
     // pressed the button here has got what they asked for.
-    return ok(res, { linked: false, removed: false });
+    return ok(response, { linked: false, removed: false });
   }
 
   await recordFailures('telegramLink', subjects, LIMITS.telegramLink);
@@ -134,7 +151,7 @@ async function remove(res, user, subjects) {
   // actions: what the log has to be able to answer later is who decided.
   await auditApplicant(user, AUDIT.TELEGRAM_UNLINKED, { skipped, source: 'settings' });
 
-  return ok(res, { linked: false, removed: true, skipped });
+  return ok(response, { linked: false, removed: true, skipped });
 }
 
 /**
@@ -153,14 +170,14 @@ async function remove(res, user, subjects) {
  * bot cannot reach the trusted device table and does not need to, since nothing
  * trusted before this moment survives it.
  */
-async function twofa(res, user, body, subjects) {
-  if (await unavailable(res, 'telegram_2fa')) return;
+async function twoFactor(response, user, body, subjects) {
+  if (await unavailable(response, 'telegram_2fa')) return;
 
   const enabled = body.enabled === true;
 
   const link = await linkState(user.id);
   if (!link) {
-    return fail(res, ERR.BAD_REQUEST, 'Link Telegram before turning this on.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'Link Telegram before turning this on.', {
       details: { reason: 'not_linked' },
     });
   }
@@ -169,8 +186,8 @@ async function twofa(res, user, body, subjects) {
     const counts = await codeCounts('applicant', user.id);
     if (counts.backup === 0) {
       return fail(
-        res,
-        ERR.BAD_REQUEST,
+        response,
+        ERROR_CODES.BAD_REQUEST,
         'Generate your two factor backup codes first. Losing Telegram with no codes means asking an admin to get back in.',
         { details: { reason: 'no_backup_codes' } }
       );
@@ -181,21 +198,25 @@ async function twofa(res, user, body, subjects) {
     // Already where they asked for. Not an error, and nothing is revoked for a
     // switch that did not move: two tabs open on this page should settle on the
     // truth rather than sign somebody out of their own laptop twice.
-    return ok(res, { linked: true, twofaEnabled: enabled, changed: false });
+    return ok(response, { linked: true, twofaEnabled: enabled, changed: false });
   }
 
-  await setTwofa(user.id, enabled);
+  await setTwoFactor(user.id, enabled);
   await revokeAllTrustedDevices('applicant', user.id);
 
   await recordFailures('telegramLink', subjects, LIMITS.telegramLink);
 
-  await auditApplicant(
-    user,
-    enabled ? AUDIT.TELEGRAM_2FA_ENABLED : AUDIT.TELEGRAM_2FA_DISABLED,
-    { source: 'settings' }
-  );
+  let auditAction;
 
-  return ok(res, { linked: true, twofaEnabled: enabled, changed: true });
+  if (enabled) {
+    auditAction = AUDIT.TELEGRAM_2FA_ENABLED;
+  } else {
+    auditAction = AUDIT.TELEGRAM_2FA_DISABLED;
+  }
+
+  await auditApplicant(user, auditAction, { source: 'settings' });
+
+  return ok(response, { linked: true, twofaEnabled: enabled, changed: true });
 }
 
 /**
@@ -206,10 +227,10 @@ async function twofa(res, user, body, subjects) {
  * The wording on the page says a message is on its way rather than that one has
  * arrived, for the same reason.
  */
-async function test(res, user, subjects) {
+async function test(response, user, subjects) {
   const link = await linkState(user.id);
   if (!link) {
-    return fail(res, ERR.BAD_REQUEST, 'There is nothing linked to send to.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'There is nothing linked to send to.', {
       details: { reason: 'not_linked' },
     });
   }
@@ -217,7 +238,7 @@ async function test(res, user, subjects) {
   await queueTestMessage(user.id);
   await recordFailures('telegramLink', subjects, LIMITS.telegramLink);
 
-  return ok(res, { queued: true });
+  return ok(response, { queued: true });
 }
 
 /**
@@ -234,23 +255,28 @@ async function test(res, user, subjects) {
  * and the thing worth bounding is how many times an hour a borrowed session can
  * do that.
  */
-async function code(res, user, subjects) {
-  if (await unavailable(res, 'telegram_2fa')) return;
+async function code(response, user, subjects) {
+  if (await unavailable(response, 'telegram_2fa')) return;
 
-  if (await limited(res, 'telegramCode', subjects)) return;
+  if (await limited(response, 'telegramCode', subjects)) return;
 
   const link = await linkState(user.id);
   if (!link?.twofaEnabled) {
     // Section 15: never send a code to a Telegram account that is not currently
     // linked to the account it is for. An account that has not switched the
     // factor on has nothing here to confirm.
-    return fail(res, ERR.BAD_REQUEST, 'Telegram sign in codes are not on for this account.', {
-      details: { reason: 'not_enabled' },
-    });
+    return fail(
+      response,
+      ERROR_CODES.BAD_REQUEST,
+      'Telegram sign in codes are not on for this account.',
+      {
+        details: { reason: 'not_enabled' },
+      }
+    );
   }
 
   const { expiresAt } = await requestLoginCode(user.id);
   await recordFailures('telegramCode', subjects, LIMITS.telegramCode);
 
-  return ok(res, { requested: true, expiresAt });
+  return ok(response, { requested: true, expiresAt });
 }

@@ -28,17 +28,17 @@
 // only thing that can deliver them and a secret this file generated would have
 // to cross the table in the clear to reach it. See PENDING_PREFIX.
 
-import { supabase, T } from './supabase.js';
+import { supabase, TABLES } from './supabase.js';
 import { randomToken, sha256 } from './tokens.js';
 import { verifySecret, verifyAgainstNothing } from './password.js';
 import { revokeAllTrustedDevices } from './session.js';
-import { optionalEnv } from './env.js';
+import { optionalEnvironmentVariable } from './env.js';
 
 /** Ten minutes, per section 15 step 5. */
-export const LINK_TOKEN_TTL_MS = 10 * 60 * 1000;
+export const LINK_TOKEN_TIME_TO_LIVE_MILLISECONDS = 10 * 60 * 1000;
 
 /** Five minutes, per section 15's login codes and magic links. */
-export const CODE_TTL_MS = 5 * 60 * 1000;
+export const CODE_TIME_TO_LIVE_MILLISECONDS = 5 * 60 * 1000;
 
 /**
  * How many wrong guesses one code takes before it is dead.
@@ -79,7 +79,7 @@ export const PENDING_PREFIX = 'pending:';
  * flow without pointing real applicants at a half built one, and because the
  * value is public: it is in the link itself.
  */
-export const BOT_USERNAME = optionalEnv('TELEGRAM_BOT_USERNAME', 'careersgftv_bot');
+export const BOT_USERNAME = optionalEnvironmentVariable('TELEGRAM_BOT_USERNAME', 'careersgftv_bot');
 
 /** The deep link that sends `/start <token>` to the bot. */
 export function deepLink(token) {
@@ -98,7 +98,7 @@ export function deepLink(token) {
  */
 export async function linkState(applicantId) {
   const { data, error } = await supabase
-    .from(T.telegramLinks)
+    .from(TABLES.telegramLinks)
     .select('id, telegram_username, telegram_display_name, twofa_enabled, linked_at')
     .eq('applicant_id', applicantId)
     .maybeSingle();
@@ -128,7 +128,7 @@ export async function createLinkToken(applicantId) {
   // nightly sweep still sees them and so a token that stopped working leaves a
   // trace of why.
   const { error: spendError } = await supabase
-    .from(T.telegramTokens)
+    .from(TABLES.telegramTokens)
     .update({ used_at: now.toISOString() })
     .eq('applicant_id', applicantId)
     .eq('purpose', 'link')
@@ -137,9 +137,9 @@ export async function createLinkToken(applicantId) {
   if (spendError) throw spendError;
 
   const token = randomToken(32);
-  const expiresAt = new Date(now.getTime() + LINK_TOKEN_TTL_MS);
+  const expiresAt = new Date(now.getTime() + LINK_TOKEN_TIME_TO_LIVE_MILLISECONDS);
 
-  const { error } = await supabase.from(T.telegramTokens).insert({
+  const { error } = await supabase.from(TABLES.telegramTokens).insert({
     applicant_id: applicantId,
     token_hash: sha256(token),
     purpose: 'link',
@@ -179,7 +179,7 @@ export async function requestLoginCode(applicantId, options = {}) {
   const now = new Date();
 
   const { error: spendError } = await supabase
-    .from(T.telegramTokens)
+    .from(TABLES.telegramTokens)
     .update({ used_at: now.toISOString() })
     .eq('applicant_id', applicantId)
     .in('purpose', ['login_code', 'magic_link'])
@@ -187,14 +187,22 @@ export async function requestLoginCode(applicantId, options = {}) {
 
   if (spendError) throw spendError;
 
-  const expiresAt = new Date(now.getTime() + CODE_TTL_MS);
+  const expiresAt = new Date(now.getTime() + CODE_TIME_TO_LIVE_MILLISECONDS);
 
-  const { error } = await supabase.from(T.telegramTokens).insert({
+  let browserNonceHash;
+
+  if (options.nonce) {
+    browserNonceHash = sha256(options.nonce);
+  } else {
+    browserNonceHash = null;
+  }
+
+  const { error } = await supabase.from(TABLES.telegramTokens).insert({
     applicant_id: applicantId,
     token_hash: `${PENDING_PREFIX}${randomToken(18)}`,
     purpose: 'login_code',
     expires_at: expiresAt.toISOString(),
-    browser_nonce_hash: options.nonce ? sha256(options.nonce) : null,
+    browser_nonce_hash: browserNonceHash,
   });
 
   if (error) throw error;
@@ -216,7 +224,7 @@ export async function requestLoginCode(applicantId, options = {}) {
  */
 export async function spendOutstandingCodes(applicantId) {
   const { error } = await supabase
-    .from(T.telegramTokens)
+    .from(TABLES.telegramTokens)
     .update({ used_at: new Date().toISOString() })
     .eq('applicant_id', applicantId)
     .in('purpose', ['login_code', 'magic_link'])
@@ -246,7 +254,7 @@ export async function verifyLoginCode(applicantId, typed) {
   const digits = String(typed ?? '').replace(/\D/g, '');
 
   const { data, error } = await supabase
-    .from(T.telegramTokens)
+    .from(TABLES.telegramTokens)
     .select('id, token_hash, attempts')
     .eq('applicant_id', applicantId)
     .eq('purpose', 'login_code')
@@ -271,7 +279,7 @@ export async function verifyLoginCode(applicantId, typed) {
   // guessed at five times is a code somebody else is working on.
   if ((row.attempts ?? 0) >= CODE_ATTEMPT_CAP) {
     await supabase
-      .from(T.telegramTokens)
+      .from(TABLES.telegramTokens)
       .update({ used_at: new Date().toISOString() })
       .eq('id', row.id);
     await verifyAgainstNothing(digits);
@@ -281,7 +289,7 @@ export async function verifyLoginCode(applicantId, typed) {
   // Counted before the comparison, not after. A cap that is written once the
   // answer is known is a cap that a request abandoned mid-flight walks past.
   const { error: countError } = await supabase
-    .from(T.telegramTokens)
+    .from(TABLES.telegramTokens)
     .update({ attempts: (row.attempts ?? 0) + 1 })
     .eq('id', row.id);
 
@@ -323,7 +331,7 @@ export async function consumeMagicLink(token, nonce) {
   if (value === '') return { ok: false, reason: 'unknown' };
 
   const { data, error } = await supabase
-    .from(T.telegramTokens)
+    .from(TABLES.telegramTokens)
     .select('id, applicant_id, browser_nonce_hash')
     .eq('token_hash', sha256(value))
     .eq('purpose', 'magic_link')
@@ -338,7 +346,7 @@ export async function consumeMagicLink(token, nonce) {
 
   const spend = async () => {
     const { error: spendError } = await supabase
-      .from(T.telegramTokens)
+      .from(TABLES.telegramTokens)
       .update({ used_at: new Date().toISOString() })
       .eq('id', data.id);
     if (spendError) throw spendError;
@@ -364,9 +372,9 @@ export async function consumeMagicLink(token, nonce) {
  * @param {boolean} enabled
  * @returns {Promise<boolean>} whether a link was updated
  */
-export async function setTwofa(applicantId, enabled) {
+export async function setTwoFactor(applicantId, enabled) {
   const { data, error } = await supabase
-    .from(T.telegramLinks)
+    .from(TABLES.telegramLinks)
     .update({ twofa_enabled: enabled === true })
     .eq('applicant_id', applicantId)
     .select('id');
@@ -443,7 +451,7 @@ export async function queueNotifications(rows) {
   if (wanted.length === 0) return 0;
 
   try {
-    const { error } = await supabase.from(T.notifications).insert(
+    const { error } = await supabase.from(TABLES.notifications).insert(
       wanted.map((row) => ({
         applicant_id: row.applicantId,
         kind: row.kind,
@@ -477,7 +485,7 @@ const KINDS = Object.values(KIND);
  * @returns {Promise<void>}
  */
 export async function queueTestMessage(applicantId) {
-  const { error } = await supabase.from(T.notifications).insert({
+  const { error } = await supabase.from(TABLES.notifications).insert({
     applicant_id: applicantId,
     kind: 'telegram_test',
     payload: { requested_at: new Date().toISOString() },
@@ -487,7 +495,7 @@ export async function queueTestMessage(applicantId) {
 }
 
 /** How much of the outbox's history the "recently" counts cover. */
-const OUTBOX_WINDOW_MS = 24 * 60 * 60 * 1000;
+const OUTBOX_WINDOW_MILLISECONDS = 24 * 60 * 60 * 1000;
 
 /** How many failures the panel names. Enough to see a pattern, short enough to read. */
 const OUTBOX_FAILURES = 5;
@@ -516,37 +524,36 @@ const OUTBOX_FAILURES = 5;
  *          empty.
  */
 export async function outboxSummary() {
-  const since = new Date(Date.now() - OUTBOX_WINDOW_MS).toISOString();
+  const since = new Date(Date.now() - OUTBOX_WINDOW_MILLISECONDS).toISOString();
 
   const countFor = async (build) => {
     const { count, error } = await build(
-      supabase.from(T.notifications).select('id', { count: 'exact', head: true })
+      supabase.from(TABLES.notifications).select('id', { count: 'exact', head: true })
     );
     if (error) throw error;
     return count ?? 0;
   };
 
   try {
-    const [queued, claimed, failed, skipped, sentRecently, oldest, failures] =
-      await Promise.all([
-        countFor((q) => q.eq('status', 'queued')),
-        countFor((q) => q.eq('status', 'claimed')),
-        countFor((q) => q.eq('status', 'failed')),
-        countFor((q) => q.eq('status', 'skipped').gte('created_at', since)),
-        countFor((q) => q.eq('status', 'sent').gte('sent_at', since)),
-        supabase
-          .from(T.notifications)
-          .select('created_at')
-          .eq('status', 'queued')
-          .order('created_at', { ascending: true })
-          .limit(1),
-        supabase
-          .from(T.notifications)
-          .select('id, kind, error, attempts, created_at')
-          .eq('status', 'failed')
-          .order('created_at', { ascending: false })
-          .limit(OUTBOX_FAILURES),
-      ]);
+    const [queued, claimed, failed, skipped, sentRecently, oldest, failures] = await Promise.all([
+      countFor((searchTerm) => searchTerm.eq('status', 'queued')),
+      countFor((searchTerm) => searchTerm.eq('status', 'claimed')),
+      countFor((searchTerm) => searchTerm.eq('status', 'failed')),
+      countFor((searchTerm) => searchTerm.eq('status', 'skipped').gte('created_at', since)),
+      countFor((searchTerm) => searchTerm.eq('status', 'sent').gte('sent_at', since)),
+      supabase
+        .from(TABLES.notifications)
+        .select('created_at')
+        .eq('status', 'queued')
+        .order('created_at', { ascending: true })
+        .limit(1),
+      supabase
+        .from(TABLES.notifications)
+        .select('id, kind, error, attempts, created_at')
+        .eq('status', 'failed')
+        .order('created_at', { ascending: false })
+        .limit(OUTBOX_FAILURES),
+    ]);
 
     if (oldest.error) throw oldest.error;
     if (failures.error) throw failures.error;
@@ -611,7 +618,7 @@ export async function outboxSummary() {
  */
 export async function unlink(applicantId) {
   const { data: deleted, error } = await supabase
-    .from(T.telegramLinks)
+    .from(TABLES.telegramLinks)
     .delete()
     .eq('applicant_id', applicantId)
     .select('id');
@@ -619,7 +626,7 @@ export async function unlink(applicantId) {
   if (error) throw error;
 
   const { data: stopped, error: skipError } = await supabase
-    .from(T.notifications)
+    .from(TABLES.notifications)
     .update({
       status: 'skipped',
       // The column is named error and this is not one. It is the answer to the

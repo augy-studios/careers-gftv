@@ -31,8 +31,15 @@
 // apply for this role" as clearly as the modal ever gets, and phase 8's funnel
 // keeps the distinction it cares about, which is a confirmed Yes.
 
-import { ok, fail, ERR, methodNotAllowed, failInternal, readJson } from '../_lib/respond.js';
-import { supabase, T } from '../_lib/supabase.js';
+import {
+  ok,
+  fail,
+  ERROR_CODES,
+  methodNotAllowed,
+  failInternal,
+  readJson,
+} from '../_lib/respond.js';
+import { supabase, TABLES } from '../_lib/supabase.js';
 import { requireApplicant } from '../_lib/session.js';
 import { isUuid } from '../_lib/job-detail.js';
 import {
@@ -54,20 +61,25 @@ import { unavailable } from '../_lib/maintenance.js';
 
 const WITHDRAWN = 'withdrawn';
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['POST'])) return;
+/**
+ * Withdraw the signed in applicant from an application they started or
+ * submitted. The application moves to withdrawn, its cooldown is cleared, and any
+ * unanswered question about it is closed.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['POST'])) return;
 
   // 8.12's shared guard. Off means off, including the API: a disabled
   // control stops nobody with a stale tab or a phase 10 queued action.
-  if (await unavailable(res, 'my_applications')) return;
+  if (await unavailable(response, 'my_applications')) return;
 
-  const session = await requireApplicant(req, res);
+  const session = await requireApplicant(request, response);
   if (!session) return;
 
-  const subjects = [subjectForUser('applicant', session.user.id), subjectForIp(req)];
-  if (await limited(res, 'withdraw', subjects)) return;
+  const subjects = [subjectForUser('applicant', session.user.id), subjectForIp(request)];
+  if (await limited(response, 'withdraw', subjects)) return;
 
-  const body = await readJson(req, res);
+  const body = await readJson(request, response);
   if (body === null) return;
 
   // Named by posting rather than by tracking row id. There is one row per
@@ -76,7 +88,7 @@ export default async function handler(req, res) {
   // no tracking row id is ever emitted to a browser, so none can be guessed at.
   const jobId = String(body.job_id ?? '').trim();
   if (!isUuid(jobId)) {
-    return fail(res, ERR.BAD_REQUEST, 'That is not a posting we can withdraw from.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not a posting we can withdraw from.', {
       details: { job_id: 'invalid' },
     });
   }
@@ -87,14 +99,18 @@ export default async function handler(req, res) {
     // Scoped by applicant on the way in, so a posting somebody has no row for
     // answers the same way one that does not exist does.
     if (!application) {
-      return fail(res, ERR.NOT_FOUND, 'You have no application to withdraw for that role.');
+      return fail(
+        response,
+        ERROR_CODES.NOT_FOUND,
+        'You have no application to withdraw for that role.'
+      );
     }
 
     if (application.status === WITHDRAWN) {
       // Idempotent. Two tabs, or an impatient second click, and the honest
       // answer to "I already did that" is the current state rather than an
       // error page.
-      return ok(res, {
+      return ok(response, {
         already_withdrawn: true,
         application: {
           ...(await publicApplication({ ...application, job_id: jobId })),
@@ -104,7 +120,7 @@ export default async function handler(req, res) {
     }
 
     const { data: updated, error } = await supabase
-      .from(T.applications)
+      .from(TABLES.applications)
       .update({ status: WITHDRAWN, applied_at: null, cooldown_until: null })
       .eq('id', application.id)
       // Filtered on the applicant as well as on the row id. The row was read
@@ -115,14 +131,19 @@ export default async function handler(req, res) {
       .select('id, status, started_at, applied_at, cooldown_until')
       .maybeSingle();
 
-    if (error) return failInternal(res, error, 'withdraw');
-    if (!updated) return fail(res, ERR.NOT_FOUND, 'You have no application to withdraw for that role.');
+    if (error) return failInternal(response, error, 'withdraw');
+    if (!updated)
+      return fail(
+        response,
+        ERROR_CODES.NOT_FOUND,
+        'You have no application to withdraw for that role.'
+      );
 
     await writeApplicationEvent(updated.id, application.status, WITHDRAWN, 'applicant');
     await answerOutstandingPrompts(jobId, session.user.id);
     await recordFailures('withdraw', subjects, LIMITS.withdraw);
 
-    return ok(res, {
+    return ok(response, {
       already_withdrawn: false,
       application: {
         ...(await publicApplication({ ...updated, job_id: jobId })),
@@ -130,7 +151,7 @@ export default async function handler(req, res) {
       },
     });
   } catch (cause) {
-    return failInternal(res, cause, 'withdraw');
+    return failInternal(response, cause, 'withdraw');
   }
 }
 
@@ -152,7 +173,7 @@ async function answerOutstandingPrompts(jobId, applicantId) {
   if (pending.length === 0) return;
 
   const { error } = await supabase
-    .from(T.analytics)
+    .from(TABLES.analytics)
     .update({
       response_state: 'answered',
       answer_source: 'applicant',

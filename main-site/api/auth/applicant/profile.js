@@ -10,7 +10,14 @@
 // move an account onto an address its owner does not control. The display
 // name and the phone number are not identifiers and do not ask.
 
-import { ok, fail, ERR, methodNotAllowed, readJson, failInternal } from '../../_lib/respond.js';
+import {
+  ok,
+  fail,
+  ERROR_CODES,
+  methodNotAllowed,
+  readJson,
+  failInternal,
+} from '../../_lib/respond.js';
 import { requireApplicant, publicApplicant } from '../../_lib/session.js';
 import {
   validateUsername,
@@ -27,7 +34,7 @@ import {
   uniqueViolationDetails,
   verifyRealmPassword,
 } from '../../_lib/accounts.js';
-import { supabase, T } from '../../_lib/supabase.js';
+import { supabase, TABLES } from '../../_lib/supabase.js';
 import {
   LIMITS,
   limited,
@@ -39,17 +46,22 @@ import {
 const RETURNING =
   'id, username, display_name, email, avatar_url, phone, locale, totp_secret, created_at';
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'PATCH'])) return;
+/**
+ * Read or edit the signed in applicant's own details: display name, username,
+ * email, phone and language. Every field is checked with the same rules used at
+ * registration.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'PATCH'])) return;
 
-  const session = await requireApplicant(req, res);
+  const session = await requireApplicant(request, response);
   if (!session) return;
 
-  if (req.method === 'GET') {
-    return ok(res, { user: publicApplicant(session.user) });
+  if (request.method === 'GET') {
+    return ok(response, { user: publicApplicant(session.user) });
   }
 
-  const body = await readJson(req, res);
+  const body = await readJson(request, response);
   if (!body) return;
 
   try {
@@ -63,12 +75,14 @@ export default async function handler(req, res) {
     if (has(body, 'phone')) checks.phone = validateText(body.phone, 40);
 
     if (Object.keys(checks).length === 0) {
-      return fail(res, ERR.BAD_REQUEST, 'There was nothing to change.');
+      return fail(response, ERROR_CODES.BAD_REQUEST, 'There was nothing to change.');
     }
 
     const { values, details } = collect(checks);
     if (details) {
-      return fail(res, ERR.BAD_REQUEST, 'Some of those details need fixing.', { details });
+      return fail(response, ERROR_CODES.BAD_REQUEST, 'Some of those details need fixing.', {
+        details,
+      });
     }
 
     const changingUsername =
@@ -76,13 +90,17 @@ export default async function handler(req, res) {
     const changingEmail = values.email !== undefined && values.email !== session.user.email;
 
     if (changingUsername || changingEmail) {
-      const subjects = [subjectForIp(req), subjectForUser('applicant', session.user.id)];
-      if (await limited(res, 'password_change', subjects)) return;
+      const subjects = [subjectForIp(request), subjectForUser('applicant', session.user.id)];
+      if (await limited(response, 'password_change', subjects)) return;
 
-      const correct = await verifyRealmPassword('applicant', session.user.id, body.current_password);
+      const correct = await verifyRealmPassword(
+        'applicant',
+        session.user.id,
+        body.current_password
+      );
       if (!correct) {
         await recordFailures('password_change', subjects, LIMITS.passwordChange);
-        return fail(res, ERR.UNAUTHORISED, 'That password was not right.', {
+        return fail(response, ERROR_CODES.UNAUTHORISED, 'That password was not right.', {
           details: { current_password: FIELD.INVALID },
         });
       }
@@ -95,7 +113,9 @@ export default async function handler(req, res) {
         taken.email = FIELD.TAKEN;
       }
       if (Object.keys(taken).length > 0) {
-        return fail(res, ERR.CONFLICT, 'Those details could not be saved.', { details: taken });
+        return fail(response, ERROR_CODES.CONFLICT, 'Those details could not be saved.', {
+          details: taken,
+        });
       }
     }
 
@@ -105,7 +125,7 @@ export default async function handler(req, res) {
     }
 
     const { data, error } = await supabase
-      .from(T.users)
+      .from(TABLES.users)
       .update(update)
       .eq('id', session.user.id)
       .select(RETURNING)
@@ -114,15 +134,15 @@ export default async function handler(req, res) {
     if (error) {
       const conflict = uniqueViolationDetails(error);
       if (conflict) {
-        return fail(res, ERR.CONFLICT, 'Those details could not be saved.', {
+        return fail(response, ERROR_CODES.CONFLICT, 'Those details could not be saved.', {
           details: conflict,
         });
       }
-      return failInternal(res, error, 'profile update');
+      return failInternal(response, error, 'profile update');
     }
 
-    return ok(res, { user: publicApplicant(data) });
+    return ok(response, { user: publicApplicant(data) });
   } catch (cause) {
-    return failInternal(res, cause, 'profile');
+    return failInternal(response, cause, 'profile');
   }
 }

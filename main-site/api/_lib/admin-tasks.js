@@ -32,7 +32,7 @@
 //   whether an answer is owed. A posting's question set raises its *own* task
 //   alongside the prompt; it does not extend it.
 
-import { supabase, T } from './supabase.js';
+import { supabase, TABLES } from './supabase.js';
 import { hasQuestions } from './questions.js';
 import { OPEN_STATUSES, TASK_TYPES } from './tasks.js';
 import { KIND, queueNotifications } from './telegram.js';
@@ -136,7 +136,21 @@ function notificationFor(task, input) {
  * @returns {Promise<object>} the task row
  */
 export async function raiseTask(input) {
-  const type = TASK_TYPES.includes(input.type) ? input.type : 'info_request';
+  let type;
+
+  if (TASK_TYPES.includes(input.type)) {
+    type = input.type;
+  } else {
+    type = 'info_request';
+  }
+
+  let questions;
+
+  if (Array.isArray(input.questions)) {
+    questions = input.questions;
+  } else {
+    questions = [];
+  }
 
   const row = {
     applicant_id: input.applicantId,
@@ -146,12 +160,16 @@ export async function raiseTask(input) {
     title: input.title,
     body: input.body ?? null,
     // Written once, here, and never updated. See the note at the top.
-    questions: Array.isArray(input.questions) ? input.questions : [],
+    questions: questions,
     status: 'open',
     raised_by: input.raisedBy ?? null,
   };
 
-  const { data, error } = await supabase.from(T.tasks).insert(row).select(TASK_COLUMNS).single();
+  const { data, error } = await supabase
+    .from(TABLES.tasks)
+    .insert(row)
+    .select(TASK_COLUMNS)
+    .single();
   if (error) throw error;
 
   // The task is written first and the notification second, which is the same
@@ -177,19 +195,37 @@ export async function raiseTask(input) {
 export async function raiseTasks(inputs) {
   if (inputs.length === 0) return [];
 
-  const rows = inputs.map((input) => ({
-    applicant_id: input.applicantId,
-    job_id: input.jobId ?? null,
-    application_id: input.applicationId ?? null,
-    task_type: TASK_TYPES.includes(input.type) ? input.type : 'info_request',
-    title: input.title,
-    body: input.body ?? null,
-    questions: Array.isArray(input.questions) ? input.questions : [],
-    status: 'open',
-    raised_by: input.raisedBy ?? null,
-  }));
+  const rows = inputs.map((input) => {
+    let taskType;
 
-  const { data, error } = await supabase.from(T.tasks).insert(rows).select(TASK_COLUMNS);
+    if (TASK_TYPES.includes(input.type)) {
+      taskType = input.type;
+    } else {
+      taskType = 'info_request';
+    }
+
+    let questions;
+
+    if (Array.isArray(input.questions)) {
+      questions = input.questions;
+    } else {
+      questions = [];
+    }
+
+    return {
+      applicant_id: input.applicantId,
+      job_id: input.jobId ?? null,
+      application_id: input.applicationId ?? null,
+      task_type: taskType,
+      title: input.title,
+      body: input.body ?? null,
+      questions: questions,
+      status: 'open',
+      raised_by: input.raisedBy ?? null,
+    };
+  });
+
+  const { data, error } = await supabase.from(TABLES.tasks).insert(rows).select(TASK_COLUMNS);
   if (error) throw error;
 
   const written = data ?? [];
@@ -238,7 +274,7 @@ export async function raisePostingQuestions(job, applicantId, applicationId) {
 
   try {
     const { data: existing, error: readError } = await supabase
-      .from(T.tasks)
+      .from(TABLES.tasks)
       .select('id')
       .eq('application_id', applicationId)
       .eq('task_type', 'info_request')
@@ -279,7 +315,7 @@ export async function raisePostingQuestions(job, applicantId, applicationId) {
  */
 export async function resolveTask(taskId, staffId) {
   const { data, error } = await supabase
-    .from(T.tasks)
+    .from(TABLES.tasks)
     .update({
       status: 'resolved',
       resolved_by: staffId,
@@ -312,8 +348,10 @@ export async function openTasksFor(applicantIds) {
   if (unique.length === 0) return map;
 
   const { data, error } = await supabase
-    .from(T.tasks)
-    .select('id, applicant_id, job_id, task_type, title, status, questions, responded_at, created_at')
+    .from(TABLES.tasks)
+    .select(
+      'id, applicant_id, job_id, task_type, title, status, questions, responded_at, created_at'
+    )
     .in('applicant_id', unique)
     .in('status', OPEN_STATUSES)
     .order('created_at', { ascending: false });
@@ -352,7 +390,7 @@ export async function openTasksFor(applicantIds) {
  */
 export async function tasksForApplicant(applicantId, options = {}) {
   let query = supabase
-    .from(T.tasks)
+    .from(TABLES.tasks)
     .select(TASK_COLUMNS)
     .eq('applicant_id', applicantId)
     .order('created_at', { ascending: false })
@@ -368,7 +406,7 @@ export async function tasksForApplicant(applicantId, options = {}) {
 /** One task, whoever it belongs to. Admin scope, so no applicant filter. */
 export async function fetchTask(taskId) {
   const { data, error } = await supabase
-    .from(T.tasks)
+    .from(TABLES.tasks)
     .select(TASK_COLUMNS)
     .eq('id', taskId)
     .maybeSingle();

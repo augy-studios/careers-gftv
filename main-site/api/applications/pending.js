@@ -21,27 +21,31 @@
 //   that trains everybody to ignore the console.
 
 import { ok, methodNotAllowed, failInternal } from '../_lib/respond.js';
-import { supabase, T } from '../_lib/supabase.js';
+import { supabase, TABLES } from '../_lib/supabase.js';
 import { getApplicantSession } from '../_lib/session.js';
 import { requestLocale } from '../_lib/locales.js';
 import { fetchOwnRatings, fetchPending } from '../_lib/apply.js';
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'HEAD'])) return;
+/**
+ * List the "Have you applied?" questions the signed in applicant has not
+ * answered yet, with each posting's title in their language.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'HEAD'])) return;
 
   // Never cached, anywhere. It is per session, it changes the moment somebody
   // answers, and a shared cache holding one applicant's prompts would show them
   // to the next reader through the same edge node.
-  res.setHeader('Cache-Control', 'no-store');
+  response.setHeader('Cache-Control', 'no-store');
 
-  const session = await getApplicantSession(req);
-  if (!session) return ok(res, { prompts: [] });
+  const session = await getApplicantSession(request);
+  if (!session) return ok(response, { prompts: [] });
 
-  const locale = await requestLocale(req);
+  const locale = await requestLocale(request);
 
   try {
     const rows = await fetchPending(session.user.id);
-    if (rows.length === 0) return ok(res, { prompts: [] });
+    if (rows.length === 0) return ok(response, { prompts: [] });
 
     const jobIds = [...new Set(rows.map((row) => row.job_id))];
 
@@ -64,9 +68,9 @@ export default async function handler(req, res) {
         created_at: row.created_at,
       }));
 
-    return ok(res, { prompts });
+    return ok(response, { prompts });
   } catch (cause) {
-    return failInternal(res, cause, 'pending prompts');
+    return failInternal(response, cause, 'pending prompts');
   }
 }
 
@@ -85,7 +89,7 @@ export default async function handler(req, res) {
 async function jobTitles(jobIds, locale) {
   const map = new Map();
 
-  const { data, error } = await supabase.from(T.jobs).select('id, title').in('id', jobIds);
+  const { data, error } = await supabase.from(TABLES.jobs).select('id, title').in('id', jobIds);
   if (error) throw error;
 
   for (const row of data ?? []) map.set(row.id, row.title);
@@ -93,7 +97,7 @@ async function jobTitles(jobIds, locale) {
   if (locale === 'en') return map;
 
   const { data: translated, error: translationError } = await supabase
-    .from(T.jobTranslations)
+    .from(TABLES.jobTranslations)
     .select('job_id, title')
     .in('job_id', jobIds)
     .eq('locale', locale)

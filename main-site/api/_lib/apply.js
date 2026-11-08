@@ -35,7 +35,7 @@
 //   **Prefill is best effort and never fails the handoff.** 7b: if a job has no
 //   form_prefill map, open the plain form URL.
 
-import { supabase, T } from './supabase.js';
+import { supabase, TABLES } from './supabase.js';
 import { cooldownUntil, isInCooldown, getSetting } from './settings.js';
 
 /* -------------------------------------------------------------------------
@@ -68,7 +68,7 @@ const APPLY_COLUMNS = [
  */
 export async function fetchApplyJob(jobId) {
   const { data, error } = await supabase
-    .from(T.jobs)
+    .from(TABLES.jobs)
     .select(APPLY_COLUMNS)
     .eq('id', jobId)
     .limit(1);
@@ -102,7 +102,7 @@ export async function resolveForm(job, locale) {
   if (locale === 'en') return base;
 
   const { data, error } = await supabase
-    .from(T.jobTranslations)
+    .from(TABLES.jobTranslations)
     .select('application_form_url, form_prefill')
     .eq('job_id', job.id)
     .eq('locale', locale)
@@ -305,7 +305,7 @@ export function refusalForApplicant(application) {
  */
 export async function fetchApplication(jobId, applicantId) {
   const { data, error } = await supabase
-    .from(T.applications)
+    .from(TABLES.applications)
     .select('id, applicant_id, status, started_at, applied_at, cooldown_until, updated_at')
     .eq('job_id', jobId)
     .eq('applicant_id', applicantId)
@@ -380,7 +380,7 @@ export async function writeApplicationEvent(
   note = null,
   options = {}
 ) {
-  const { error } = await supabase.from(T.applicationEvents).insert({
+  const { error } = await supabase.from(TABLES.applicationEvents).insert({
     application_id: applicationId,
     from_status: fromStatus,
     to_status: toStatus,
@@ -406,7 +406,7 @@ export async function writeApplicationEvent(
 export async function startApplication(jobId, applicantId, existing) {
   if (!existing) {
     const { data, error } = await supabase
-      .from(T.applications)
+      .from(TABLES.applications)
       .insert({ job_id: jobId, applicant_id: applicantId, status: 'started' })
       .select('id, status, started_at, applied_at, cooldown_until')
       .single();
@@ -426,7 +426,7 @@ export async function startApplication(jobId, applicantId, existing) {
   }
 
   const { data, error } = await supabase
-    .from(T.applications)
+    .from(TABLES.applications)
     .update({
       status: next,
       // Reopening after a withdrawal clears both, so the row reads as a fresh
@@ -468,10 +468,16 @@ export async function confirmApplication(application, source) {
   // resetting them to 'submitted'. CONFIRMABLE rather than RESETTABLE, per the
   // note on the two lists.
   const moves = CONFIRMABLE.includes(application.status);
-  const next = moves ? 'submitted' : application.status;
+  let next;
+
+  if (moves) {
+    next = 'submitted';
+  } else {
+    next = application.status;
+  }
 
   const { data, error } = await supabase
-    .from(T.applications)
+    .from(TABLES.applications)
     .update({
       status: next,
       applied_at: now.toISOString(),
@@ -485,12 +491,15 @@ export async function confirmApplication(application, source) {
   if (error) throw error;
 
   if (moves) {
-    await writeApplicationEvent(
-      data.id,
-      application.status,
-      next,
-      source === 'webhook' ? 'webhook' : 'applicant'
-    );
+    let eventSource;
+
+    if (source === 'webhook') {
+      eventSource = 'webhook';
+    } else {
+      eventSource = 'applicant';
+    }
+
+    await writeApplicationEvent(data.id, application.status, next, eventSource);
   }
 
   return data;
@@ -525,8 +534,16 @@ export const APPLY_CLICK = 'apply_click';
  * @returns {Promise<{ id: string }>}
  */
 export async function logApplyClick(jobId, applicantId, referrer) {
+  let referrerValue;
+
+  if (referrer) {
+    referrerValue = String(referrer).slice(0, 500);
+  } else {
+    referrerValue = null;
+  }
+
   const { data, error } = await supabase
-    .from(T.analytics)
+    .from(TABLES.analytics)
     .insert({
       job_id: jobId,
       applicant_id: applicantId,
@@ -535,7 +552,7 @@ export async function logApplyClick(jobId, applicantId, referrer) {
       response_state: 'pending',
       // No IP and no user agent, per section 6. Where the traffic came from is
       // enough, and it is capped so a long referrer cannot fill the column.
-      referrer: referrer ? String(referrer).slice(0, 500) : null,
+      referrer: referrerValue,
     })
     .select('id, created_at')
     .single();
@@ -553,7 +570,7 @@ export async function logApplyClick(jobId, applicantId, referrer) {
  */
 export async function fetchPending(applicantId, options = {}) {
   let query = supabase
-    .from(T.analytics)
+    .from(TABLES.analytics)
     .select('id, job_id, created_at')
     .eq('applicant_id', applicantId)
     .eq('event_type', APPLY_CLICK)
@@ -584,7 +601,7 @@ export async function fetchOwnRatings(applicantId, jobIds) {
   if (jobIds.length === 0) return map;
 
   const { data, error } = await supabase
-    .from(T.ratings)
+    .from(TABLES.ratings)
     .select('job_id, rating')
     .eq('applicant_id', applicantId)
     .in('job_id', jobIds);

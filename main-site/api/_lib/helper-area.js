@@ -69,7 +69,7 @@
 //   is that an admin leaves a staff session behind them and a helper leaves an
 //   applicant cookie and one column.
 
-import { supabase, T } from './supabase.js';
+import { supabase, TABLES } from './supabase.js';
 import { FIELD, validateText } from './validate.js';
 
 /** The three things 7i lets a helper translate. Interface strings are files. */
@@ -111,9 +111,9 @@ const WORDING = Object.freeze({
 });
 
 /** The sections builder's bounds, matching migration 019's validator. */
-const HEADING_MAX = 120;
-const SECTION_BODY_MAX = 20000;
-const MAX_SECTIONS = 20;
+const HEADING_MAXIMUM = 120;
+const SECTION_BODY_MAXIMUM = 20000;
+const MAXIMUM_SECTIONS = 20;
 
 /**
  * The three fields migration 014 insists on once a job translation is ready.
@@ -129,9 +129,9 @@ const READY_NEEDS = Object.freeze(['title', 'summary', 'description']);
 const REQUIRED = Object.freeze({ job: [], department: ['name'], tag: ['name'] });
 
 const TRANSLATION_TABLE = Object.freeze({
-  job: T.jobTranslations,
-  department: T.departmentTranslations,
-  tag: T.tagTranslations,
+  job: TABLES.jobTranslations,
+  department: TABLES.departmentTranslations,
+  tag: TABLES.tagTranslations,
 });
 
 const TRANSLATION_KEY = Object.freeze({
@@ -141,9 +141,9 @@ const TRANSLATION_KEY = Object.freeze({
 });
 
 const BASE_TABLE = Object.freeze({
-  job: T.jobs,
-  department: T.departments,
-  tag: T.tags,
+  job: TABLES.jobs,
+  department: TABLES.departments,
+  tag: TABLES.tags,
 });
 
 /** What names the thing on screen, per type. */
@@ -199,7 +199,7 @@ export function fieldSpecs(targetType) {
  */
 export async function grantedLocales(userId, locales) {
   const { data, error } = await supabase
-    .from(T.translationHelpers)
+    .from(TABLES.translationHelpers)
     .select('locale, granted_at')
     .eq('user_id', userId);
 
@@ -257,8 +257,43 @@ export async function fetchTranslationTarget({ targetType, targetId, locale }) {
   const source = {};
   const current = {};
   for (const field of fields) {
-    source[field] = typeof base[field] === 'string' ? base[field] : null;
-    current[field] = typeof translation?.[field] === 'string' ? translation[field] : null;
+    if (typeof base[field] === 'string') {
+      source[field] = base[field];
+    } else {
+      source[field] = null;
+    }
+
+    if (typeof translation?.[field] === 'string') {
+      current[field] = translation[field];
+    } else {
+      current[field] = null;
+    }
+  }
+
+  const label = base[LABEL_COLUMN[targetType]] ?? null;
+  const sourceStatusValue = sourceStatus(targetType, base);
+  let sourceSections;
+
+  if (targetType === 'job') {
+    sourceSections = sectionList(base.sections);
+  } else {
+    sourceSections = null;
+  }
+
+  let sections;
+
+  if (targetType === 'job') {
+    sections = sectionList(translation?.sections);
+  } else {
+    sections = null;
+  }
+
+  let isReady;
+
+  if (targetType === 'job') {
+    isReady = translation?.is_ready === true;
+  } else {
+    isReady = null;
   }
 
   return {
@@ -267,23 +302,23 @@ export async function fetchTranslationTarget({ targetType, targetId, locale }) {
       target_type: targetType,
       target_id: targetId,
       locale,
-      label: base[LABEL_COLUMN[targetType]] ?? null,
+      label,
       // What state the thing being translated is in, which is how much this
       // matters: a draft posting with no Chinese is nothing to worry about, and
       // a published one is a page somebody is reading in the wrong language now.
-      source_status: sourceStatus(targetType, base),
+      source_status: sourceStatusValue,
       source,
       current,
       // Sections are a posting's only jsonb wording, per migration 019. Both
       // sides, because a translation may carry a different number from the
       // source and 8.2 is explicit that merging two is not a mistake.
-      source_sections: targetType === 'job' ? sectionList(base.sections) : null,
-      sections: targetType === 'job' ? sectionList(translation?.sections) : null,
+      source_sections: sourceSections,
+      sections: sections,
       has_row: translation !== null,
       // Read only here, and said on screen rather than implied by the absence of
       // a control: 7i's "only an admin sets is_ready" is the sentence a helper
       // needs to understand why their finished work is not on the site yet.
-      is_ready: targetType === 'job' ? translation?.is_ready === true : null,
+      is_ready: isReady,
       updated_at: translation?.updated_at ?? null,
       fields: fieldSpecs(targetType),
     },
@@ -299,8 +334,18 @@ export async function fetchTranslationTarget({ targetType, targetId, locale }) {
  */
 function sourceStatus(targetType, base) {
   if (targetType === 'job') return base.status ?? null;
-  if (targetType === 'department') return base.is_active ? 'active' : 'inactive';
-  return (base.usage_count ?? 0) > 0 ? 'in_use' : 'unused';
+  if (targetType === 'department')
+    if (base.is_active) {
+      return 'active';
+    } else {
+      return 'inactive';
+    }
+
+  if ((base.usage_count ?? 0) > 0) {
+    return 'in_use';
+  } else {
+    return 'unused';
+  }
 }
 
 const BASE_SELECT = Object.freeze({
@@ -349,10 +394,28 @@ function sectionList(value) {
   if (!Array.isArray(value)) return [];
   return value
     .filter((entry) => entry && typeof entry === 'object')
-    .map((entry) => ({
-      heading: typeof entry.heading === 'string' ? entry.heading : '',
-      body: typeof entry.body === 'string' ? entry.body : '',
-    }));
+    .map((entry) => {
+      let heading;
+
+      if (typeof entry.heading === 'string') {
+        heading = entry.heading;
+      } else {
+        heading = '';
+      }
+
+      let body;
+
+      if (typeof entry.body === 'string') {
+        body = entry.body;
+      } else {
+        body = '';
+      }
+
+      return {
+        heading: heading,
+        body: body,
+      };
+    });
 }
 
 /* -------------------------------------------------------------------------
@@ -392,20 +455,20 @@ export async function searchTranslatable(locale, term) {
 
   const [jobs, departments, tags] = await Promise.all([
     supabase
-      .from(T.jobs)
+      .from(TABLES.jobs)
       .select('id, title, status')
       .neq('status', 'archived')
       .ilike('title', pattern)
       .order('updated_at', { ascending: false })
       .limit(SEARCH_LIMIT),
     supabase
-      .from(T.departments)
+      .from(TABLES.departments)
       .select('id, name, is_active')
       .ilike('name', pattern)
       .order('name', { ascending: true })
       .limit(SEARCH_LIMIT),
     supabase
-      .from(T.tags)
+      .from(TABLES.tags)
       .select('id, name, usage_count')
       .ilike('name', pattern)
       .order('usage_count', { ascending: false })
@@ -423,18 +486,38 @@ export async function searchTranslatable(locale, term) {
       label: row.title,
       source_status: row.status,
     })),
-    ...(departments.data ?? []).map((row) => ({
-      target_type: 'department',
-      target_id: row.id,
-      label: row.name,
-      source_status: row.is_active ? 'active' : 'inactive',
-    })),
-    ...(tags.data ?? []).map((row) => ({
-      target_type: 'tag',
-      target_id: row.id,
-      label: row.name,
-      source_status: (row.usage_count ?? 0) > 0 ? 'in_use' : 'unused',
-    })),
+    ...(departments.data ?? []).map((row) => {
+      let sourceStatusValue;
+
+      if (row.is_active) {
+        sourceStatusValue = 'active';
+      } else {
+        sourceStatusValue = 'inactive';
+      }
+
+      return {
+        target_type: 'department',
+        target_id: row.id,
+        label: row.name,
+        source_status: sourceStatusValue,
+      };
+    }),
+    ...(tags.data ?? []).map((row) => {
+      let sourceStatusValue;
+
+      if ((row.usage_count ?? 0) > 0) {
+        sourceStatusValue = 'in_use';
+      } else {
+        sourceStatusValue = 'unused';
+      }
+
+      return {
+        target_type: 'tag',
+        target_id: row.id,
+        label: row.name,
+        source_status: sourceStatusValue,
+      };
+    }),
   ];
 
   return await withStates(rows, locale);
@@ -478,20 +561,32 @@ async function withStates(rows, locale) {
     HELPER_TARGETS.map(async (type) => {
       if (wanted[type].length === 0) return;
 
+      // Only a posting's translation has a ready flag.
+      let readyColumn = '';
+      if (type === 'job') readyColumn = ', is_ready';
+
       const { data, error } = await supabase
         .from(TRANSLATION_TABLE[type])
-        .select(`${TRANSLATION_KEY[type]}${type === 'job' ? ', is_ready' : ''}`)
+        .select(`${TRANSLATION_KEY[type]}${readyColumn}`)
         .eq('locale', locale)
         .in(TRANSLATION_KEY[type], wanted[type]);
 
       if (error) throw error;
 
       for (const row of data ?? []) {
+        let ready;
+
+        if (type === 'job') {
+          ready = row.is_ready === true;
+        } else {
+          ready = true;
+        }
+
         found.set(`${type}:${row[TRANSLATION_KEY[type]]}`, {
           // A team or tag translation has no is_ready. Migration 014 leaves it
           // off both tables on purpose: a team name is either written in a
           // language or it is not, and nothing about it is half published.
-          ready: type === 'job' ? row.is_ready === true : true,
+          ready: ready,
         });
       }
     })
@@ -499,9 +594,19 @@ async function withStates(rows, locale) {
 
   return rows.map((row) => {
     const state = found.get(`${row.target_type}:${row.target_id}`);
+    let stateValue;
+
+    if (!state) {
+      stateValue = 'missing';
+    } else if (state.ready) {
+      stateValue = 'done';
+    } else {
+      stateValue = 'drafted';
+    }
+
     return {
       ...row,
-      state: !state ? 'missing' : state.ready ? 'done' : 'drafted',
+      state: stateValue,
     };
   });
 }
@@ -541,7 +646,15 @@ export function checkHelperFields(targetType, body) {
     else details.sections = sections.code;
   }
 
-  return { values, details: Object.keys(details).length > 0 ? details : null };
+  let detailsValue;
+
+  if (Object.keys(details).length > 0) {
+    detailsValue = details;
+  } else {
+    detailsValue = null;
+  }
+
+  return { values, details: detailsValue };
 }
 
 /**
@@ -559,20 +672,22 @@ export function checkHelperFields(targetType, body) {
 function checkSections(value) {
   if (value === null || value === undefined) return { ok: true, value: [] };
   if (!Array.isArray(value)) return { ok: false, code: FIELD.INVALID };
-  if (value.length > MAX_SECTIONS) return { ok: false, code: FIELD.TOO_LONG };
+  if (value.length > MAXIMUM_SECTIONS) return { ok: false, code: FIELD.TOO_LONG };
 
   const cleaned = [];
 
   for (const section of value) {
     if (!section || typeof section !== 'object') return { ok: false, code: FIELD.INVALID };
 
-    const heading = String(section.heading ?? '').replace(/\s+/g, ' ').trim();
+    const heading = String(section.heading ?? '')
+      .replace(/\s+/g, ' ')
+      .trim();
     const body = String(section.body ?? '').trim();
 
     if (heading === '' && body === '') continue;
     if (heading === '' || body === '') return { ok: false, code: FIELD.REQUIRED };
-    if (heading.length > HEADING_MAX) return { ok: false, code: FIELD.TOO_LONG };
-    if (body.length > SECTION_BODY_MAX) return { ok: false, code: FIELD.TOO_LONG };
+    if (heading.length > HEADING_MAXIMUM) return { ok: false, code: FIELD.TOO_LONG };
+    if (body.length > SECTION_BODY_MAXIMUM) return { ok: false, code: FIELD.TOO_LONG };
 
     cleaned.push({ heading, body });
   }
@@ -620,7 +735,14 @@ export async function saveTranslation(input) {
   // is refused rather than attempted, whether the row is being created or
   // rewritten.
   for (const field of REQUIRED[targetType] ?? []) {
-    const value = field in values ? values[field] : (existing?.[field] ?? null);
+    let value;
+
+    if (field in values) {
+      value = values[field];
+    } else {
+      value = existing?.[field] ?? null;
+    }
+
     if (value === null || String(value).trim() === '') {
       return { ok: false, reason: 'cannot_be_blank', details: { [field]: FIELD.REQUIRED } };
     }
@@ -632,7 +754,14 @@ export async function saveTranslation(input) {
   if (targetType === 'job' && existing?.is_ready === true) {
     const details = {};
     for (const field of READY_NEEDS) {
-      const value = field in values ? values[field] : (existing[field] ?? null);
+      let value;
+
+      if (field in values) {
+        value = values[field];
+      } else {
+        value = existing[field] ?? null;
+      }
+
       if (value === null || String(value).trim() === '') details[field] = FIELD.REQUIRED;
     }
     if (Object.keys(details).length > 0) {

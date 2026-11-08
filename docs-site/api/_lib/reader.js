@@ -27,9 +27,15 @@ import { readerTier, roleLabel } from './tiers.js';
  * @param {import('http').IncomingMessage} req
  * @returns {Promise<{ user: object|null, tier: string, role: string|null }>}
  */
-export async function reader(req) {
-  const session = await getStaffSession(req);
-  const user = session && (await hasPortalAccess(session.user)) ? session.user : null;
+export async function reader(request) {
+  const session = await getStaffSession(request);
+  let user;
+
+  if (session && (await hasPortalAccess(session.user))) {
+    user = session.user;
+  } else {
+    user = null;
+  }
 
   return {
     user,

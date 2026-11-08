@@ -52,7 +52,7 @@
 import { createRequire } from 'node:module';
 
 import { getSetting, putSetting } from './settings.js';
-import { ERR, fail } from './respond.js';
+import { ERROR_CODES, fail } from './respond.js';
 
 // The feature map, from the one file 0c makes the source of truth. Required
 // rather than imported with an attribute so the bundler traces it into the
@@ -85,7 +85,7 @@ export const OVERRIDES_KEY = 'feature_overrides';
  * per request: a burst of traffic still collapses to one query per instance per
  * five seconds, which is the property that made the cache worth having.
  */
-const FRESH_MS = 5 * 1000;
+const FRESH_MILLISECONDS = 5 * 1000;
 
 /**
  * Features that can never be flipped, with the reason each one is on the list.
@@ -127,14 +127,19 @@ export const DENYLIST = Object.freeze({
   // control that lies is the problem, and a sentence saying why there is no
   // switch is the honest half of it. Whoever wires it up later deletes the four
   // docs entries here and writes their sentences instead.
-  docs_site: 'A separate deployment that reads no switch from here, so this would change nothing on the site it names.',
-  docs_staff_login: 'Sign in, on a site that reads no switch from here. It would lock staff out of the guides if it worked.',
-  admin_docs_content: 'The staff guides are pages on the docs site, which reads no switch from here.',
+  docs_site:
+    'A separate deployment that reads no switch from here, so this would change nothing on the site it names.',
+  docs_staff_login:
+    'Sign in, on a site that reads no switch from here. It would lock staff out of the guides if it worked.',
+  admin_docs_content:
+    'The staff guides are pages on the docs site, which reads no switch from here.',
   translation_helper_guide: 'A page on the docs site, which reads no switch from here.',
-  admin_docs: 'A redirect in vercel.json to the docs site. A redirect consults nothing, so there is no switch to flip.',
+  admin_docs:
+    'A redirect in vercel.json to the docs site. A redirect consults nothing, so there is no switch to flip.',
   // Not a docs site key, and here on its own merits: the reason the applicant
   // set above is on this list is the reason the staff set is.
-  staff_recovery_codes: 'Part of getting a staff account back, exactly as the applicant codes above are.',
+  staff_recovery_codes:
+    'Part of getting a staff account back, exactly as the applicant codes above are.',
   // Phase 15 part 1, 12 September 2026. **Every other language is a switch on
   // this page and English is not.** `locale_zh`, `locale_ms` and
   // `locale_ta` are feature keys, and a language is published when its key's
@@ -148,7 +153,8 @@ export const DENYLIST = Object.freeze({
   // This entry replaced `more_languages`, which sat here for a day saying no
   // route consulted a switch to serve a language. Now every route does, through
   // api/_lib/locales.js.
-  locale_en: 'English is the default and the layer every other dictionary falls back to. Switching it off would leave nothing to fall back to.',
+  locale_en:
+    'English is the default and the layer every other dictionary falls back to. Switching it off would leave nothing to fall back to.',
 });
 
 /** Whether a feature key may be flipped at all. */
@@ -183,8 +189,10 @@ export function isFlippable(key) {
  * one.
  */
 export const HELD = Object.freeze({
-  locale_ms: 'Not yet translated. The Malay dictionary is a copy of the English until somebody writes it, and the switch goes on the day it is in.',
-  locale_ta: 'Not yet translated. The Tamil dictionary is a copy of the English until somebody writes it, and the switch goes on the day it is in.',
+  locale_ms:
+    'Not yet translated. The Malay dictionary is a copy of the English until somebody writes it, and the switch goes on the day it is in.',
+  locale_ta:
+    'Not yet translated. The Tamil dictionary is a copy of the English until somebody writes it, and the switch goes on the day it is in.',
 });
 
 /** Whether a feature key is off until switched on. */
@@ -233,7 +241,7 @@ export function flippableFeatures() {
     .filter(([key]) => isFlippable(key))
     .filter(([key]) => hasShipped(key))
     .map(([key, phase]) => ({ key, phase }))
-    .sort((a, b) => a.phase - b.phase || a.key.localeCompare(b.key));
+    .sort((first, second) => first.phase - second.phase || first.key.localeCompare(second.key));
 }
 
 /**
@@ -248,7 +256,10 @@ export function deniedFeatures() {
       phase: featureMap()[key] ?? null,
       shipped: hasShipped(key),
     }))
-    .sort((a, b) => (a.phase ?? 99) - (b.phase ?? 99) || a.key.localeCompare(b.key));
+    .sort(
+      (first, second) =>
+        (first.phase ?? 99) - (second.phase ?? 99) || first.key.localeCompare(second.key)
+    );
 }
 
 /* -------------------------------------------------------------------------
@@ -276,8 +287,14 @@ export function deniedFeatures() {
  * @returns {Promise<Record<string, { off: boolean, note: string|null, at: string|null, by: string|null }>>}
  */
 export async function featureOverrides() {
-  const value = await getSetting(OVERRIDES_KEY, {}, { maxAgeMs: FRESH_MS });
-  const stored = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const value = await getSetting(OVERRIDES_KEY, {}, { maxAgeMs: FRESH_MILLISECONDS });
+  let stored;
+
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    stored = value;
+  } else {
+    stored = {};
+  }
 
   const overrides = {};
 
@@ -311,11 +328,35 @@ export async function featureOverrides() {
 
 /** One stored off record, with the three fields the page shows. */
 function readRecord(record) {
+  let note;
+
+  if (typeof record.note === 'string' && record.note.trim() !== '') {
+    note = record.note;
+  } else {
+    note = null;
+  }
+
+  let at;
+
+  if (typeof record.at === 'string') {
+    at = record.at;
+  } else {
+    at = null;
+  }
+
+  let by;
+
+  if (typeof record.by === 'string') {
+    by = record.by;
+  } else {
+    by = null;
+  }
+
   return {
     off: true,
-    note: typeof record.note === 'string' && record.note.trim() !== '' ? record.note : null,
-    at: typeof record.at === 'string' ? record.at : null,
-    by: typeof record.by === 'string' ? record.by : null,
+    note: note,
+    at: at,
+    by: by,
     held: false,
   };
 }
@@ -367,7 +408,12 @@ export async function publicFeatureStatus() {
  */
 export function maintenanceMessage(note) {
   const base = 'Temporarily unavailable while we fix something.';
-  return note ? `${base} ${note}` : base;
+
+  if (note) {
+    return `${base} ${note}`;
+  } else {
+    return base;
+  }
 }
 
 /**
@@ -393,12 +439,12 @@ export function maintenanceMessage(note) {
  * @param {string} key
  * @returns {Promise<boolean>}
  */
-export async function unavailable(res, key) {
+export async function unavailable(response, key) {
   const overrides = await featureOverrides();
   const record = overrides[key];
   if (!record?.off) return false;
 
-  fail(res, ERR.NOT_YET_AVAILABLE, maintenanceMessage(record.note), {
+  fail(response, ERROR_CODES.NOT_YET_AVAILABLE, maintenanceMessage(record.note), {
     details: { reason: 'maintenance', feature: key, note: record.note },
   });
   return true;
@@ -409,7 +455,7 @@ export async function unavailable(res, key) {
  * ---------------------------------------------------------------------- */
 
 /** The longest a public note may be. Long enough for two sentences. */
-export const NOTE_MAX = 300;
+export const NOTE_MAXIMUM = 300;
 
 /**
  * Turn a feature off or back on.
@@ -428,7 +474,13 @@ export const NOTE_MAX = 300;
  */
 export async function setFeatureOverride(key, off, context) {
   const value = await getSetting(OVERRIDES_KEY, {}, { maxAgeMs: 0 });
-  const current = value && typeof value === 'object' && !Array.isArray(value) ? { ...value } : {};
+  let current;
+
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    current = { ...value };
+  } else {
+    current = {};
+  }
 
   const stamp = { at: new Date().toISOString(), by: context.staffUser?.username ?? null };
 

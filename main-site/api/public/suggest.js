@@ -22,35 +22,51 @@
 import { ok, methodNotAllowed, failInternal } from '../_lib/respond.js';
 import { supabase, RPC } from '../_lib/supabase.js';
 import { requestLocale } from '../_lib/locales.js';
-import { searchParams } from '../_lib/jobs.js';
+import { searchParameters } from '../_lib/jobs.js';
 
 // Longer than any real prefix somebody types into a suggestion box. The RPC
 // substring matches, so a very long argument is wasted work on both sides.
-const MAX_QUERY = 80;
+const MAXIMUM_QUERY = 80;
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'HEAD'])) return;
+/**
+ * Suggest postings as somebody types in the search box. Short or empty input is
+ * answered with nothing without asking the database.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'HEAD'])) return;
 
-  const locale = await requestLocale(req);
-  const raw = searchParams(req).get('q');
-  const q = typeof raw === 'string' ? raw.trim().slice(0, MAX_QUERY) : '';
+  const locale = await requestLocale(request);
+  const raw = searchParameters(request).get('q');
+  let searchTerm;
+
+  if (typeof raw === 'string') {
+    searchTerm = raw.trim().slice(0, MAXIMUM_QUERY);
+  } else {
+    searchTerm = '';
+  }
 
   // Answered without touching the database. The RPC returns nothing for an
   // empty query anyway, and a keystroke that cannot match is not worth a round
   // trip.
-  if (q === '') {
-    return ok(res, empty(q, locale), { headers: CACHE });
+  if (searchTerm === '') {
+    return ok(response, empty(searchTerm, locale), { headers: CACHE });
   }
 
   try {
     const { data, error } = await supabase.rpc(RPC.suggest, {
-      q,
+      q: searchTerm,
       p_locale: locale,
     });
 
-    if (error) return failInternal(res, error, 'public suggest');
+    if (error) return failInternal(response, error, 'public suggest');
 
-    const rows = Array.isArray(data) ? data : [];
+    let rows;
+
+    if (Array.isArray(data)) {
+      rows = data;
+    } else {
+      rows = [];
+    }
 
     const grouped = {
       titles: [],
@@ -75,24 +91,23 @@ export default async function handler(req, res) {
     }
 
     return ok(
-      res,
+      response,
       {
-        query: q,
+        query: searchTerm,
         locale,
         suggestions: grouped,
-        total:
-          grouped.titles.length + grouped.tags.length + grouped.departments.length,
+        total: grouped.titles.length + grouped.tags.length + grouped.departments.length,
       },
       { headers: CACHE }
     );
   } catch (cause) {
-    return failInternal(res, cause, 'public suggest');
+    return failInternal(response, cause, 'public suggest');
   }
 }
 
-function empty(q, locale) {
+function empty(searchTerm, locale) {
   return {
-    query: q,
+    query: searchTerm,
     locale,
     suggestions: { titles: [], tags: [], departments: [] },
     total: 0,

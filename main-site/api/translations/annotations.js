@@ -29,31 +29,38 @@
 // rather than 403: whether somebody holds a role is not a failure, and a page
 // that treated it as one would log an error on every load for every reader.
 
-import { ok, fail, ERR, methodNotAllowed, failInternal, readJson } from '../_lib/respond.js';
+import {
+  ok,
+  fail,
+  ERROR_CODES,
+  methodNotAllowed,
+  failInternal,
+  readJson,
+} from '../_lib/respond.js';
 import { unavailable } from '../_lib/maintenance.js';
 import { FIELD, validateText } from '../_lib/validate.js';
 import { validatePublishedLocale } from '../_lib/locales.js';
 import { LIMITS, limited, recordFailures, subjectForUser } from '../_lib/rate-limit.js';
-import { searchParams } from '../_lib/jobs.js';
+import { searchParameters } from '../_lib/jobs.js';
 // The same three readers 7h's form uses to decide whether a target exists and
 // may be seen. Imported rather than repeated: what a posting's visibility means
 // is job-detail.js's answer, and a second copy of it here is a second place for
 // a draft to start resolving.
 import { fetchJobRecord, hasHistoryWithJob, isVisible, isUuid } from '../_lib/job-detail.js';
-import { supabase, T } from '../_lib/supabase.js';
+import { supabase, TABLES } from '../_lib/supabase.js';
 import {
   ANNOTATABLE_FIELDS,
-  CONTEXT_MAX,
-  QUOTE_MAX,
+  CONTEXT_MAXIMUM,
+  QUOTE_MAXIMUM,
   annotator,
   createAnnotation,
   listAnnotations,
   mayAnnotateLocale,
 } from '../_lib/annotations.js';
 
-const NOTE_MAX = 2000;
-const SUGGESTION_MAX = 2000;
-const KEY_MAX = 120;
+const NOTE_MAXIMUM = 2000;
+const SUGGESTION_MAXIMUM = 2000;
+const KEY_MAXIMUM = 120;
 
 /** Migration 015's four target types. */
 const TARGET_TYPES = ['job', 'department', 'tag', 'interface'];
@@ -61,23 +68,23 @@ const TARGET_TYPES = ['job', 'department', 'tag', 'interface'];
 /** A dictionary key, the same shape 7h's form checks. */
 const KEY_SHAPE = /^[A-Za-z][\w]*(?:\.[\w]+)+$/;
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'HEAD', 'POST'])) return;
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'HEAD', 'POST'])) return;
 
   // 8.12's shared guard. The layer has its own key rather than sharing the
   // helper area's: one of the two misbehaving is not a reason to take the other
   // down, and this one is the half that appears on pages a stranger is reading.
-  if (await unavailable(res, 'translation_annotations')) return;
+  if (await unavailable(response, 'translation_annotations')) return;
 
-  res.setHeader('Cache-Control', 'no-store');
+  response.setHeader('Cache-Control', 'no-store');
 
   try {
-    const who = await annotator(req);
+    const who = await annotator(request);
 
-    if (req.method === 'POST') return await write(req, res, who);
-    return await read(req, res, who);
+    if (request.method === 'POST') return await write(request, response, who);
+    return await read(request, response, who);
   } catch (cause) {
-    return failInternal(res, cause, 'annotations');
+    return failInternal(response, cause, 'annotations');
   }
 }
 
@@ -85,15 +92,15 @@ export default async function handler(req, res) {
  * Reading
  * ---------------------------------------------------------------------- */
 
-async function read(req, res, who) {
-  const search = searchParams(req);
+async function read(request, response, who) {
+  const search = searchParameters(request);
   const type = search.get('type');
 
   if (!type) {
     // "May I, and in what?" A plain answer rather than a refusal: to everybody
     // else the markers are inert and the layer never loads, which is a state
     // rather than an error.
-    return ok(res, {
+    return ok(response, {
       // Whether the layer loads at all, which is a wider question than whether
       // this caller may write: staff get the underlines and not the box, per
       // deviation 52.
@@ -104,19 +111,21 @@ async function read(req, res, who) {
     });
   }
 
-  if (!who) return fail(res, ERR.FORBIDDEN, 'That is not something you can do.');
+  if (!who) return fail(response, ERROR_CODES.FORBIDDEN, 'That is not something you can do.');
 
   if (!TARGET_TYPES.includes(type) || type === 'interface') {
     // Interface strings have no underlines, and the reason is in annotations.js:
     // the layer would have to ask about every key the page happened to render.
-    return fail(res, ERR.BAD_REQUEST, 'That is not something with suggestions on it.');
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not something with suggestions on it.');
   }
 
   const targetId = search.get('id');
-  if (!isUuid(targetId ?? '')) return fail(res, ERR.BAD_REQUEST, 'That is not a valid id.');
+  if (!isUuid(targetId ?? ''))
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not a valid id.');
 
   const locale = await validatePublishedLocale(search.get('locale'));
-  if (!locale.ok) return fail(res, ERR.BAD_REQUEST, 'That is not a language this site has.');
+  if (!locale.ok)
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not a language this site has.');
 
   const spans = await listAnnotations({
     targetType: type,
@@ -124,27 +133,27 @@ async function read(req, res, who) {
     locale: locale.value,
   });
 
-  return ok(res, { spans, locale: locale.value });
+  return ok(response, { spans, locale: locale.value });
 }
 
 /* -------------------------------------------------------------------------
  * Writing
  * ---------------------------------------------------------------------- */
 
-async function write(req, res, who) {
+async function write(request, response, who) {
   if (!who?.mayWrite) {
     // Staff land here too, per deviation 52, and the sentence is written for
     // them as much as for anybody: an admin reading a posting has the editor and
     // 8.11's queue, and can hold the helper role on their own applicant account
     // if they would rather suggest than change it.
     return fail(
-      res,
-      ERR.FORBIDDEN,
+      response,
+      ERROR_CODES.FORBIDDEN,
       'Suggesting a correction in place is for translation helpers. The report link at the foot of a posting is open to everybody, and an admin can change the wording directly.'
     );
   }
 
-  const body = await readJson(req, res);
+  const body = await readJson(request, response);
   if (body === null) return;
 
   const details = {};
@@ -159,16 +168,16 @@ async function write(req, res, who) {
   // suggestion is the wording, and the note is the person. A row that carried a
   // replacement and nothing else would leave an admin guessing whether the
   // current text is wrong, ambiguous, or merely not to somebody's taste.
-  const note = validateText(body.note, NOTE_MAX, { required: true });
+  const note = validateText(body.note, NOTE_MAXIMUM, { required: true });
   if (!note.ok) details.note = note.code;
 
-  const suggestion = validateText(body.suggested_text, SUGGESTION_MAX);
+  const suggestion = validateText(body.suggested_text, SUGGESTION_MAXIMUM);
   if (!suggestion.ok) details.suggested_text = suggestion.code;
 
   // The span itself. Required here and optional on 7h's form, which is the whole
   // difference between the two: an annotation that does not say which words it
   // is about is a report, and there is already a route for one.
-  const quote = validateText(body.quote, QUOTE_MAX, { required: true });
+  const quote = validateText(body.quote, QUOTE_MAXIMUM, { required: true });
   if (!quote.ok) details.quote = quote.code;
 
   const prefix = context(body.quote_prefix);
@@ -189,7 +198,7 @@ async function write(req, res, who) {
 
   if (targetType === 'interface') {
     const key = String(body.target_key ?? '').trim();
-    if (key === '' || key.length > KEY_MAX || !KEY_SHAPE.test(key)) {
+    if (key === '' || key.length > KEY_MAXIMUM || !KEY_SHAPE.test(key)) {
       details.target_key = FIELD.INVALID;
     } else {
       targetKey = key;
@@ -201,16 +210,23 @@ async function write(req, res, who) {
   }
 
   if (Object.keys(details).length > 0) {
-    return fail(res, ERR.BAD_REQUEST, 'That suggestion could not be sent.', { details });
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That suggestion could not be sent.', {
+      details,
+    });
   }
 
   // The language is checked against what this caller holds *after* the shape, so
   // a helper who has picked up a second language mid-session gets a sentence
   // about the language rather than a validation error listing four fields.
   if (!mayAnnotateLocale(who, locale.value)) {
-    return fail(res, ERR.FORBIDDEN, 'You do not hold the helper role for that language.', {
-      details: { locale: FIELD.INVALID, reason: 'not_a_helper' },
-    });
+    return fail(
+      response,
+      ERROR_CODES.FORBIDDEN,
+      'You do not hold the helper role for that language.',
+      {
+        details: { locale: FIELD.INVALID, reason: 'not_a_helper' },
+      }
+    );
   }
 
   // Per account, counted on success, like the apply and report buckets: nothing
@@ -219,11 +235,15 @@ async function write(req, res, who) {
   // because a helper working through a posting properly raises several spans in
   // one sitting and that is the behaviour the role exists to produce.
   const subjects = [subjectForUser(who.realm, who.user.id)];
-  if (await limited(res, 'annotate', subjects)) return;
+  if (await limited(response, 'annotate', subjects)) return;
 
   const reachable = await targetExists(targetType, targetId, who);
   if (!reachable) {
-    return fail(res, ERR.NOT_FOUND, 'That is not something we can take a suggestion about.');
+    return fail(
+      response,
+      ERROR_CODES.NOT_FOUND,
+      'That is not something we can take a suggestion about.'
+    );
   }
 
   const created = await createAnnotation({
@@ -244,7 +264,7 @@ async function write(req, res, who) {
 
   await recordFailures('annotate', subjects, LIMITS.annotate);
 
-  return ok(res, { id: created.id, created_at: created.created_at }, { status: 201 });
+  return ok(response, { id: created.id, created_at: created.created_at }, { status: 201 });
 }
 
 /**
@@ -258,7 +278,7 @@ async function write(req, res, who) {
  */
 function context(value) {
   if (typeof value !== 'string') return '';
-  return value.slice(0, CONTEXT_MAX);
+  return value.slice(0, CONTEXT_MAXIMUM);
 }
 
 /**
@@ -282,15 +302,25 @@ async function targetExists(targetType, targetId, who) {
     const record = await fetchJobRecord({ id: targetId });
     if (!record) return false;
 
-    const hasHistory =
-      record.job.status === 'archived'
-        ? await hasHistoryWithJob(record.job.id, who.user.id)
-        : false;
+    let hasHistory;
+
+    if (record.job.status === 'archived') {
+      hasHistory = await hasHistoryWithJob(record.job.id, who.user.id);
+    } else {
+      hasHistory = false;
+    }
 
     return isVisible(record.job, hasHistory);
   }
 
-  const table = targetType === 'department' ? T.departments : T.tags;
+  let table;
+
+  if (targetType === 'department') {
+    table = TABLES.departments;
+  } else {
+    table = TABLES.tags;
+  }
+
   const { data, error } = await supabase.from(table).select('id').eq('id', targetId).limit(1);
 
   if (error) throw error;

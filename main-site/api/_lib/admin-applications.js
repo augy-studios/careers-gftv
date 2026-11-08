@@ -24,7 +24,7 @@
 //   **Neither touches the posting.** Its status and its openings count are the
 //   admin's to change from 8.2. Accepting somebody does not close a role.
 
-import { supabase, T } from './supabase.js';
+import { supabase, TABLES } from './supabase.js';
 import { writeApplicationEvent } from './apply.js';
 import { raiseTask } from './admin-tasks.js';
 // For the deletion impact panel only. Asked rather than compared to the clock,
@@ -62,8 +62,8 @@ export const APPLICATION_SORTS = Object.freeze(['updated', 'started', 'applied']
 const ROW_COLUMNS = `
   id, job_id, applicant_id, status, admin_note, started_at, applied_at,
   cooldown_until, updated_at,
-  applicant:${T.users} ( id, username, display_name, email, phone, locale, avatar_url, is_active ),
-  job:${T.jobs} ( id, title, slug, status, department_id, response_sheet_url )
+  applicant:${TABLES.users} ( id, username, display_name, email, phone, locale, avatar_url, is_active ),
+  job:${TABLES.jobs} ( id, title, slug, status, department_id, response_sheet_url )
 `;
 
 /* -------------------------------------------------------------------------
@@ -84,7 +84,7 @@ const ROW_COLUMNS = `
  */
 export async function listApplications(options) {
   let query = supabase
-    .from(T.applications)
+    .from(TABLES.applications)
     .select(ROW_COLUMNS, { count: 'exact' })
     .range(options.rangeFrom, options.rangeTo);
 
@@ -154,7 +154,7 @@ const MATCH_CAP = 200;
  */
 async function matchingApplicationIds(options) {
   let query = supabase
-    .from(T.applicationSearch)
+    .from(TABLES.applicationSearch)
     .select('application_id')
     .ilike('search_text', `%${likeNeedle(options.q)}%`)
     // Ordered so that a capped set is the same 200 on page two as it was on page
@@ -209,7 +209,7 @@ function likeNeedle(value) {
  */
 export async function bucketCounts(filters = {}) {
   const countFor = async (status) => {
-    let query = supabase.from(T.applications).select('id', { count: 'exact', head: true });
+    let query = supabase.from(TABLES.applications).select('id', { count: 'exact', head: true });
     if (status) query = query.eq('status', status);
     if (filters.jobId) query = query.eq('job_id', filters.jobId);
     if (filters.from) query = query.gte('started_at', filters.from);
@@ -299,17 +299,27 @@ export function adminApplicationRow(row, extra = {}) {
  * @returns {Promise<object>} the row as it now stands
  */
 export async function changeStatus(application, next, note, staffUser) {
+  let adminNoteField;
+
+  if (note) {
+    adminNoteField = { admin_note: note };
+  } else {
+    adminNoteField = {};
+  }
+
   const { data, error } = await supabase
-    .from(T.applications)
+    .from(TABLES.applications)
     .update({
       status: next,
       // The note is the admin's running comment on the row, per migration 006.
       // Only overwritten when one was given, so a status change with nothing to
       // say does not wipe what the last admin wrote.
-      ...(note ? { admin_note: note } : {}),
+      ...adminNoteField,
     })
     .eq('id', application.id)
-    .select('id, job_id, applicant_id, status, admin_note, started_at, applied_at, cooldown_until, updated_at')
+    .select(
+      'id, job_id, applicant_id, status, admin_note, started_at, applied_at, cooldown_until, updated_at'
+    )
     .single();
 
   if (error) throw error;
@@ -339,7 +349,7 @@ export async function changeStatus(application, next, note, staffUser) {
  */
 export async function waiveCooldown(application, staffUser, note = null) {
   const { data, error } = await supabase
-    .from(T.applications)
+    .from(TABLES.applications)
     .update({ cooldown_until: null })
     .eq('id', application.id)
     .select('id, status, applied_at, cooldown_until, updated_at')
@@ -403,7 +413,7 @@ export async function raiseDecisionNotice(application, message, staffUser) {
  */
 export async function statusHistory(applicationId) {
   const { data, error } = await supabase
-    .from(T.applicationEvents)
+    .from(TABLES.applicationEvents)
     .select('id, from_status, to_status, note, source, changed_by, created_at')
     .eq('application_id', applicationId)
     .order('created_at', { ascending: false })
@@ -416,7 +426,7 @@ export async function statusHistory(applicationId) {
 /** One application with its applicant and posting, for the detail view. */
 export async function fetchApplicationRow(applicationId) {
   const { data, error } = await supabase
-    .from(T.applications)
+    .from(TABLES.applications)
     .select(ROW_COLUMNS)
     .eq('id', applicationId)
     .maybeSingle();
@@ -467,11 +477,14 @@ export async function deletionImpact(ids) {
 
   const [events, tasks, rows] = await Promise.all([
     supabase
-      .from(T.applicationEvents)
+      .from(TABLES.applicationEvents)
       .select('id', { count: 'exact', head: true })
       .in('application_id', ids),
-    supabase.from(T.tasks).select('id', { count: 'exact', head: true }).in('application_id', ids),
-    supabase.from(T.applications).select('id, cooldown_until').in('id', ids),
+    supabase
+      .from(TABLES.tasks)
+      .select('id', { count: 'exact', head: true })
+      .in('application_id', ids),
+    supabase.from(TABLES.applications).select('id, cooldown_until').in('id', ids),
   ]);
 
   if (rows.error) throw rows.error;
@@ -485,13 +498,29 @@ export async function deletionImpact(ids) {
     if (await isInCooldown(row)) cooldowns += 1;
   }
 
+  let eventsValue;
+
+  if (events.error) {
+    eventsValue = null;
+  } else {
+    eventsValue = events.count ?? 0;
+  }
+
+  let tasksValue;
+
+  if (tasks.error) {
+    tasksValue = null;
+  } else {
+    tasksValue = tasks.count ?? 0;
+  }
+
   return {
     rows: (rows.data ?? []).length,
     // Null rather than zero when the count could not be read, and the route
     // refuses the deletion on a null. An impact panel that cannot count is not
     // a panel showing zero.
-    events: events.error ? null : (events.count ?? 0),
-    tasks: tasks.error ? null : (tasks.count ?? 0),
+    events: eventsValue,
+    tasks: tasksValue,
     cooldowns,
   };
 }
@@ -516,7 +545,11 @@ export async function deletionImpact(ids) {
 export async function deleteApplications(ids) {
   if (ids.length === 0) return [];
 
-  const { data, error } = await supabase.from(T.applications).delete().in('id', ids).select('id');
+  const { data, error } = await supabase
+    .from(TABLES.applications)
+    .delete()
+    .in('id', ids)
+    .select('id');
 
   if (error) throw error;
   return (data ?? []).map((row) => row.id);

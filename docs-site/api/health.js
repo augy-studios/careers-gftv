@@ -5,7 +5,7 @@
 // **The site this was written for is this one.** `SITE_URL` was never set on
 // this Vercel project, `relyingParty()` reads it, and the two routes that call
 // that answered 500 to every staff account from phase 13 part 6 until somebody
-// signed in by hand a fortnight later. `checkEnv()` existed the whole time and
+// signed in by hand a fortnight later. `checkEnvironmentVariables()` existed the whole time and
 // nothing called it.
 //
 // The portal carries the twin of this file, deliberately not generated: the two
@@ -18,13 +18,13 @@
 // trace already was and where nobody was looking.
 
 import { ok, methodNotAllowed, failInternal } from './_lib/respond.js';
-import { checkEnv } from './_lib/env.js';
+import { checkEnvironmentVariables } from './_lib/env.js';
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'HEAD'])) return;
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'HEAD'])) return;
 
   try {
-    const state = checkEnv();
+    const state = checkEnvironmentVariables();
 
     if (!state.ok) {
       console.error(
@@ -33,10 +33,10 @@ export default async function handler(req, res) {
       );
     }
 
-    res.setHeader('Cache-Control', 'no-store');
+    response.setHeader('Cache-Control', 'no-store');
 
-    return ok(res, { ok: state.ok, missing: state.missing.length });
+    return ok(response, { ok: state.ok, missing: state.missing.length });
   } catch (cause) {
-    return failInternal(res, cause, 'health');
+    return failInternal(response, cause, 'health');
   }
 }

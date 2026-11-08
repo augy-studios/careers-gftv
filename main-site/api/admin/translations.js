@@ -52,12 +52,19 @@
 // files; the wording is a code change and a deploy. The page says so, and this
 // end refuses it as well, because a hidden control stops nobody.
 
-import { ok, fail, ERR, methodNotAllowed, failInternal, readJson } from '../_lib/respond.js';
+import {
+  ok,
+  fail,
+  ERROR_CODES,
+  methodNotAllowed,
+  failInternal,
+  readJson,
+} from '../_lib/respond.js';
 import { requireStaff } from '../_lib/session.js';
 import {
-  params,
+  parameters,
   pageRange,
-  enumParam,
+  enumParameter,
   isAdmin,
   isUuid,
   defaultLocale,
@@ -66,7 +73,7 @@ import {
 import { FIELD, validateText } from '../_lib/validate.js';
 import { unavailable } from '../_lib/maintenance.js';
 import { LIMITS, limited, recordFailures, subjectForUser } from '../_lib/rate-limit.js';
-import { supabase, T } from '../_lib/supabase.js';
+import { supabase, TABLES } from '../_lib/supabase.js';
 import { AUDIT, auditStaff } from '../_lib/audit.js';
 // The invite picker, reused rather than copied. 8.5's reader is already exactly
 // what this needs and for the same reason: enough to be sure you have the right
@@ -105,7 +112,7 @@ import {
 } from '../_lib/translation-helpers.js';
 
 /** Long enough for a paragraph of explanation, short of an essay. */
-const NOTE_MAX = 2000;
+const NOTE_MAXIMUM = 2000;
 
 /**
  * The ceiling on a corrected wording.
@@ -117,7 +124,7 @@ const NOTE_MAX = 2000;
  * in characters has to leave room for the worst case or it refuses a valid
  * correction with a body-too-large rather than a field error.
  */
-const WORDING_MAX = 12000;
+const WORDING_MAXIMUM = 12000;
 
 /**
  * The ceiling on a grant or revoke reason.
@@ -126,23 +133,23 @@ const WORDING_MAX = 12000;
  * person, read a year later off a list, and the dialog says as much: 8.8's
  * access reasons are bounded the same way and for the same reason.
  */
-const HELPER_REASON_MAX = 300;
+const HELPER_REASON_MAXIMUM = 300;
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'HEAD', 'POST'])) return;
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'HEAD', 'POST'])) return;
 
-  const session = await requireStaff(req, res);
+  const session = await requireStaff(request, response);
   if (!session) return;
 
-  if (await unavailable(res, 'admin_translations')) return;
+  if (await unavailable(response, 'admin_translations')) return;
 
-  res.setHeader('Cache-Control', 'no-store');
+  response.setHeader('Cache-Control', 'no-store');
 
   try {
-    if (req.method === 'POST') return await write(req, res, session);
-    return await read(req, res, session);
+    if (request.method === 'POST') return await write(request, response, session);
+    return await read(request, response, session);
   } catch (cause) {
-    return failInternal(res, cause, 'admin translations');
+    return failInternal(response, cause, 'admin translations');
   }
 }
 
@@ -150,44 +157,52 @@ export default async function handler(req, res) {
  * Reading
  * ---------------------------------------------------------------------- */
 
-async function read(req, res, session) {
-  const search = params(req);
+async function read(request, response, session) {
+  const search = parameters(request);
   const source = await defaultLocale();
 
   const id = search.get('id');
   if (id) {
-    if (!isUuid(id)) return fail(res, ERR.BAD_REQUEST, 'That is not a report id.');
+    if (!isUuid(id)) return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not a report id.');
 
     const report = await fetchReport(id, source);
-    if (!report) return fail(res, ERR.NOT_FOUND, 'That report could not be found.');
+    if (!report) return fail(response, ERROR_CODES.NOT_FOUND, 'That report could not be found.');
 
-    return ok(res, { report, source_locale: source });
+    return ok(response, { report, source_locale: source });
   }
 
-  if (search.get('view') === 'audit') return await audit(res, search, source);
+  if (search.get('view') === 'audit') return await audit(response, search, source);
   if (search.get('view') === 'helpers') {
-    if (!adminOnly(res, session)) return;
-    return await helpers(res, search, source);
+    if (!adminOnly(response, session)) return;
+    return await helpers(response, search, source);
   }
 
-  const { from, to, page, size } = pageRange(search, { size: PAGE_SIZE, max: 100 });
+  const { from, to: rangeEnd, page, size } = pageRange(search, { size: PAGE_SIZE, max: 100 });
+
+  let bucket;
+
+  if (search.get('bucket') === 'all') {
+    bucket = 'all';
+  } else {
+    bucket = 'unfinished';
+  }
 
   const [{ rows, total }, counts] = await Promise.all([
     listReports({
-      bucket: search.get('bucket') === 'all' ? 'all' : 'unfinished',
-      status: enumParam(search, 'status', REPORT_STATUSES),
+      bucket: bucket,
+      status: enumParameter(search, 'status', REPORT_STATUSES),
       // The language is checked against the query rather than a constant, so a
       // language added to gftvjobs_locales later filters without a deploy.
-      locale: await localeParam(search),
-      targetType: enumParam(search, 'target', TARGET_TYPES),
-      origin: enumParam(search, 'origin', ORIGINS),
+      locale: await localeParameter(search),
+      targetType: enumParameter(search, 'target', TARGET_TYPES),
+      origin: enumParameter(search, 'origin', ORIGINS),
       from,
-      to,
+      to: rangeEnd,
     }),
     reportCounts(),
   ]);
 
-  return ok(res, {
+  return ok(response, {
     reports: rows,
     counts,
     total,
@@ -205,14 +220,22 @@ async function read(req, res, session) {
  * report may exist against a language that has since been deactivated, and an
  * admin filtering for it should still find it.
  */
-async function localeParam(search) {
+async function localeParameter(search) {
   const raw = (search.get('locale') ?? '').trim();
   if (!raw || !/^[a-z]{2}(-[A-Za-z0-9]{2,8})*$/.test(raw)) return null;
 
-  const { data, error } = await supabase.from(T.locales).select('code').eq('code', raw).maybeSingle();
+  const { data, error } = await supabase
+    .from(TABLES.locales)
+    .select('code')
+    .eq('code', raw)
+    .maybeSingle();
   if (error) throw error;
 
-  return data ? raw : null;
+  if (data) {
+    return raw;
+  } else {
+    return null;
+  }
 }
 
 /**
@@ -230,7 +253,7 @@ async function localeParam(search) {
  * because a report against it still exists and still deserves an answer, while
  * there is nothing to audit in a language the site has stopped serving.
  */
-async function audit(res, search, source) {
+async function audit(response, search, source) {
   const locales = await activeLocales();
   const chosen = auditLocale(search.get('locale'), locales);
 
@@ -238,7 +261,7 @@ async function audit(res, search, source) {
     // One language configured, which is a real state on the day a second one is
     // being set up rather than an error. An empty list with a null language is
     // what the page reads to say so.
-    return ok(res, {
+    return ok(response, {
       audit: [],
       counts: {},
       total: 0,
@@ -250,16 +273,16 @@ async function audit(res, search, source) {
     });
   }
 
-  const { from, to, page, size } = pageRange(search, { size: AUDIT_PAGE_SIZE, max: 100 });
-  const targetType = enumParam(search, 'target', AUDIT_TARGETS);
-  const state = enumParam(search, 'state', AUDIT_STATES);
+  const { from, to: rangeEnd, page, size } = pageRange(search, { size: AUDIT_PAGE_SIZE, max: 100 });
+  const targetType = enumParameter(search, 'target', AUDIT_TARGETS);
+  const state = enumParameter(search, 'state', AUDIT_STATES);
 
   const [{ rows, total }, counts] = await Promise.all([
-    listNeedsTranslation({ locale: chosen.code, targetType, state, from, to }),
+    listNeedsTranslation({ locale: chosen.code, targetType, state, from, to: rangeEnd }),
     auditCounts({ locale: chosen.code, targetType }),
   ]);
 
-  return ok(res, {
+  return ok(response, {
     audit: rows,
     counts,
     total,
@@ -283,9 +306,9 @@ async function audit(res, search, source) {
  * rather than at the door. Same 403 and the same sentence, so a caller cannot
  * tell the two apart.
  */
-function adminOnly(res, session) {
+function adminOnly(response, session) {
   if (isAdmin(session.user)) return true;
-  fail(res, ERR.FORBIDDEN, 'Only an admin can do that.');
+  fail(response, ERROR_CODES.FORBIDDEN, 'Only an admin can do that.');
   return false;
 }
 
@@ -296,7 +319,7 @@ function adminOnly(res, session) {
  * ?id=: it is the same page asking a second question about the same subject, and
  * a separate view name would need the same admin guard written twice.
  */
-async function helpers(res, search, source) {
+async function helpers(response, search, source) {
   const term = search.get('search');
   if (term !== null) {
     const applicants = await searchInviteApplicants(term);
@@ -304,7 +327,7 @@ async function helpers(res, search, source) {
     // inferring it from the page of the list that happens to be loaded.
     const held = await helperLocalesFor(applicants.map((applicant) => applicant.id));
 
-    return ok(res, {
+    return ok(response, {
       applicants: applicants.map((applicant) => ({
         ...applicant,
         helps_with: held.get(applicant.id) ?? [],
@@ -313,15 +336,20 @@ async function helpers(res, search, source) {
   }
 
   const locales = await activeLocales();
-  const { from, to, page, size } = pageRange(search, { size: HELPER_PAGE_SIZE, max: 100 });
+  const {
+    from,
+    to: rangeEnd,
+    page,
+    size,
+  } = pageRange(search, { size: HELPER_PAGE_SIZE, max: 100 });
 
   const { rows, total } = await listHelpers({
     locale: helperLocale(search.get('locale'), locales),
     from,
-    to,
+    to: rangeEnd,
   });
 
-  return ok(res, {
+  return ok(response, {
     helpers: rows,
     total,
     page,
@@ -359,7 +387,12 @@ function helperLocale(wanted, locales) {
   // `grantable` above. A deactivated one still is not: that would be a role
   // over a language the site has stopped serving.
   const found = locales.find((locale) => locale.code === code);
-  return found ? found.code : null;
+
+  if (found) {
+    return found.code;
+  } else {
+    return null;
+  }
 }
 
 /* -------------------------------------------------------------------------
@@ -380,38 +413,42 @@ const REFUSALS = {
   needs_name_first: 'Write the name in this language before its description.',
 };
 
-async function write(req, res, session) {
-  const body = await readJson(req, res);
+/**
+ * Work through a translation report: accept it, fix the wording it is about,
+ * mark it fixed, or reject it. A resolution needs a note.
+ */
+async function write(request, response, session) {
+  const body = await readJson(request, response);
   if (body === null) return;
 
   const action = String(body.action ?? '').trim();
   if (!ACTIONS.includes(action)) {
-    return fail(res, ERR.BAD_REQUEST, 'That is not something this endpoint does.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not something this endpoint does.', {
       details: { action: FIELD.INVALID },
     });
   }
 
   const subjects = [subjectForUser('staff', session.user.id)];
-  if (await limited(res, 'admin', subjects)) return;
+  if (await limited(response, 'admin', subjects)) return;
 
   if (HELPER_ACTIONS.includes(action)) {
-    if (!adminOnly(res, session)) return;
-    return await helperAction(res, session, action, body, () =>
+    if (!adminOnly(response, session)) return;
+    return await helperAction(response, session, action, body, () =>
       recordFailures('admin', subjects, LIMITS.admin)
     );
   }
 
   const reportId = String(body.report_id ?? '');
-  if (!isUuid(reportId)) return fail(res, ERR.BAD_REQUEST, 'That is not a report id.');
+  if (!isUuid(reportId)) return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not a report id.');
 
   const source = await defaultLocale();
   const report = await fetchReport(reportId, source);
-  if (!report) return fail(res, ERR.NOT_FOUND, 'That report could not be found.');
+  if (!report) return fail(response, ERROR_CODES.NOT_FOUND, 'That report could not be found.');
 
   const done = () => recordFailures('admin', subjects, LIMITS.admin);
 
-  if (action === 'edit') return edit(res, report, body, source, done);
-  return resolve(res, session, report, body, source, done);
+  if (action === 'edit') return edit(response, report, body, source, done);
+  return resolve(response, session, report, body, source, done);
 }
 
 /**
@@ -426,7 +463,7 @@ async function write(req, res, session) {
  * so the second step is one sentence and a click, rather than a thing to
  * remember.
  */
-async function edit(res, report, body, source, done) {
+async function edit(response, report, body, source, done) {
   // **The field is the report's own, never the caller's.** This page fixes what
   // somebody complained about; anything else on that row is the editor's job and
   // has the editor's validation behind it. Taking the field from the request
@@ -442,21 +479,21 @@ async function edit(res, report, body, source, done) {
   // in REFUSALS was unreachable for the ordinary case. Found by the run of
   // 25 August 2026, item 63.
   if (report.target_type === 'interface') {
-    return fail(res, ERR.BAD_REQUEST, REFUSALS.interface_is_code, {
+    return fail(response, ERROR_CODES.BAD_REQUEST, REFUSALS.interface_is_code, {
       details: { text: FIELD.INVALID, reason: 'interface_is_code' },
     });
   }
 
   const field = report.field ?? '';
   if (!field) {
-    return fail(res, ERR.BAD_REQUEST, 'That report does not name a part to rewrite.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That report does not name a part to rewrite.', {
       details: { text: FIELD.INVALID, reason: 'not_editable' },
     });
   }
 
-  const wording = validateText(body.text, WORDING_MAX);
+  const wording = validateText(body.text, WORDING_MAXIMUM);
   if (!wording.ok) {
-    return fail(res, ERR.BAD_REQUEST, 'That wording could not be saved.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That wording could not be saved.', {
       details: { text: wording.code },
     });
   }
@@ -473,9 +510,14 @@ async function edit(res, report, body, source, done) {
   );
 
   if (!result.ok) {
-    return fail(res, ERR.BAD_REQUEST, REFUSALS[result.reason] ?? 'That could not be changed.', {
-      details: { text: FIELD.INVALID, reason: result.reason },
-    });
+    return fail(
+      response,
+      ERROR_CODES.BAD_REQUEST,
+      REFUSALS[result.reason] ?? 'That could not be changed.',
+      {
+        details: { text: FIELD.INVALID, reason: result.reason },
+      }
+    );
   }
 
   await done();
@@ -485,7 +527,7 @@ async function edit(res, report, body, source, done) {
   // anchor check, so an annotation whose quote the edit has just removed shows
   // as detached at once instead of at the next page load.
   const updated = await fetchReport(report.id, source);
-  return ok(res, { report: updated, saved: true });
+  return ok(response, { report: updated, saved: true });
 }
 
 /**
@@ -497,19 +539,19 @@ async function edit(res, report, body, source, done) {
  * by the reporter through api/translations/mine.js, and one left behind on a
  * reopened report would tell somebody they had been answered when they had not.
  */
-async function resolve(res, session, report, body, source, done) {
+async function resolve(response, session, report, body, source, done) {
   const status = String(body.status ?? '').trim();
   if (!REPORT_STATUSES.includes(status)) {
-    return fail(res, ERR.BAD_REQUEST, 'That is not a state a report can be in.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not a state a report can be in.', {
       details: { status: FIELD.INVALID },
     });
   }
 
-  const note = validateText(body.note, NOTE_MAX, {
+  const note = validateText(body.note, NOTE_MAXIMUM, {
     required: RESOLVED_STATUSES.includes(status),
   });
   if (!note.ok) {
-    return fail(res, ERR.BAD_REQUEST, 'Say what happened before closing this.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'Say what happened before closing this.', {
       details: { note: note.code },
     });
   }
@@ -523,7 +565,7 @@ async function resolve(res, session, report, body, source, done) {
   await done();
 
   const updated = await fetchReport(report.id, source);
-  return ok(res, { report: updated });
+  return ok(response, { report: updated });
 }
 
 /**
@@ -541,29 +583,43 @@ async function resolve(res, session, report, body, source, done) {
  * but the row is what is being deleted here and reading the account first would
  * turn a tidy up into a 404.
  */
-async function helperAction(res, session, action, body, done) {
+async function helperAction(response, session, action, body, done) {
   const userId = String(body.user_id ?? '');
-  if (!isUuid(userId)) return fail(res, ERR.BAD_REQUEST, 'That is not an account id.');
+  if (!isUuid(userId)) return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not an account id.');
 
   const locales = await activeLocales();
   const locale = helperLocale(body.locale, locales);
   if (!locale) {
-    return fail(res, ERR.BAD_REQUEST, 'That is not a language somebody can help with.', {
-      details: { locale: FIELD.INVALID },
-    });
+    return fail(
+      response,
+      ERROR_CODES.BAD_REQUEST,
+      'That is not a language somebody can help with.',
+      {
+        details: { locale: FIELD.INVALID },
+      }
+    );
   }
 
-  const reason = validateText(body.reason, HELPER_REASON_MAX, { required: true });
+  const reason = validateText(body.reason, HELPER_REASON_MAXIMUM, { required: true });
   if (!reason.ok) {
-    return fail(res, ERR.BAD_REQUEST, 'Say why, so whoever reads this list later knows.', {
-      details: { reason: reason.code },
-    });
+    return fail(
+      response,
+      ERROR_CODES.BAD_REQUEST,
+      'Say why, so whoever reads this list later knows.',
+      {
+        details: { reason: reason.code },
+      }
+    );
   }
 
   if (action === 'revoke_helper') {
     const removed = await revokeHelper(userId, locale);
     if (!removed) {
-      return fail(res, ERR.NOT_FOUND, 'That account does not help with that language.');
+      return fail(
+        response,
+        ERROR_CODES.NOT_FOUND,
+        'That account does not help with that language.'
+      );
     }
 
     await done();
@@ -572,26 +628,31 @@ async function helperAction(res, session, action, body, done) {
       AUDIT.TRANSLATION_HELPER_REVOKED,
       { locale },
       {
-        targetTable: T.translationHelpers,
+        targetTable: TABLES.translationHelpers,
         targetId: userId,
         reason: reason.value,
       }
     );
 
-    return ok(res, { revoked: true, locale });
+    return ok(response, { revoked: true, locale });
   }
 
   const account = await fetchHelperAccount(userId);
-  if (!account) return fail(res, ERR.NOT_FOUND, 'That account could not be found.');
+  if (!account) return fail(response, ERROR_CODES.NOT_FOUND, 'That account could not be found.');
 
   // A deactivated account cannot sign in, so granting it the role would put
   // somebody on the list who cannot open the helper area. Refused rather than
   // warned about: 8.9 is where an account is reactivated, and doing it in the
   // other order costs nothing.
   if (!account.is_active) {
-    return fail(res, ERR.BAD_REQUEST, 'That account is deactivated. Reactivate it first.', {
-      details: { user_id: FIELD.INVALID, reason: 'account_deactivated' },
-    });
+    return fail(
+      response,
+      ERROR_CODES.BAD_REQUEST,
+      'That account is deactivated. Reactivate it first.',
+      {
+        details: { user_id: FIELD.INVALID, reason: 'account_deactivated' },
+      }
+    );
   }
 
   const existing = await fetchHelper(userId, locale);
@@ -612,11 +673,11 @@ async function helperAction(res, session, action, body, done) {
     // the only place the difference survives.
     { locale, username: account.username, regranted: Boolean(existing) },
     {
-      targetTable: T.translationHelpers,
+      targetTable: TABLES.translationHelpers,
       targetId: userId,
       reason: reason.value,
     }
   );
 
-  return ok(res, { granted: true, locale, regranted: Boolean(existing) });
+  return ok(response, { granted: true, locale, regranted: Boolean(existing) });
 }

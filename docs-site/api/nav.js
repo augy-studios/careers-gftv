@@ -22,23 +22,27 @@
 import { ok, methodNotAllowed, failInternal } from './_lib/respond.js';
 import { reader } from './_lib/reader.js';
 import { navFor } from './_lib/pages.js';
-import { localeParam, titlesFor, localiseNav } from './_lib/docs-translations.js';
+import { localeParameter, titlesFor, localiseNav } from './_lib/docs-translations.js';
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'HEAD'])) return;
+/**
+ * The documentation's navigation tree for this reader: the public sections for
+ * everybody, plus the staff sections their tier allows, named in their language.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'HEAD'])) return;
 
   try {
-    const { user, tier, role } = await reader(req);
+    const { user, tier, role } = await reader(request);
 
     // **The gate first and the language second, always in that order.** What is
     // in the tree is decided by the tier; what it is called is decided by the
     // reader's language. Swapping the two would mean a title lookup that could
     // put a page back into a nav the gate had taken out of it.
-    const locale = localeParam(req.query?.locale);
+    const locale = localeParameter(request.query?.locale);
     const nav = localiseNav(navFor(tier), await titlesFor(locale));
 
     return ok(
-      res,
+      response,
       {
         reader: {
           signed_in: user !== null,
@@ -54,6 +58,6 @@ export default async function handler(req, res) {
       { headers: { 'Cache-Control': 'private, no-store' } }
     );
   } catch (cause) {
-    return failInternal(res, cause, 'nav');
+    return failInternal(response, cause, 'nav');
   }
 }

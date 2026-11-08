@@ -17,13 +17,13 @@
 import { ok, methodNotAllowed, failInternal } from '../_lib/respond.js';
 import { requireStaff } from '../_lib/session.js';
 import { staffContext, activeLocales } from '../_lib/admin.js';
-import { supabase, T } from '../_lib/supabase.js';
+import { supabase, TABLES } from '../_lib/supabase.js';
 import { OPEN_STATUSES } from '../_lib/tasks.js';
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'HEAD'])) return;
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'HEAD'])) return;
 
-  const session = await requireStaff(req, res);
+  const session = await requireStaff(request, response);
   if (!session) return;
 
   try {
@@ -34,11 +34,11 @@ export default async function handler(req, res) {
     // No caching. The whole point of re-checking access on every request is
     // that a revoked grant takes effect at once, and a cached identity would
     // undo that for whatever the cache lasted.
-    res.setHeader('Cache-Control', 'no-store');
+    response.setHeader('Cache-Control', 'no-store');
 
-    return ok(res, { staff: staffContext(session), locales, counts });
+    return ok(response, { staff: staffContext(session), locales, counts });
   } catch (cause) {
-    return failInternal(res, cause, 'admin me');
+    return failInternal(response, cause, 'admin me');
   }
 }
 
@@ -59,22 +59,49 @@ export default async function handler(req, res) {
  */
 async function sidebarCounts() {
   const [openTasks, newApplications, openReports] = await Promise.all([
-    supabase.from(T.tasks).select('id', { count: 'exact', head: true }).in('status', OPEN_STATUSES),
     supabase
-      .from(T.applications)
+      .from(TABLES.tasks)
+      .select('id', { count: 'exact', head: true })
+      .in('status', OPEN_STATUSES),
+    supabase
+      .from(TABLES.applications)
       .select('id', { count: 'exact', head: true })
       // The two buckets that are waiting on somebody here rather than on the
       // applicant. Anything past 'submitted' has been picked up.
       .in('status', ['started', 'submitted']),
     supabase
-      .from(T.translationReports)
+      .from(TABLES.translationReports)
       .select('id', { count: 'exact', head: true })
       .eq('status', 'open'),
   ]);
 
+  let openTasksValue;
+
+  if (openTasks.error) {
+    openTasksValue = null;
+  } else {
+    openTasksValue = openTasks.count ?? 0;
+  }
+
+  let newApplicationsValue;
+
+  if (newApplications.error) {
+    newApplicationsValue = null;
+  } else {
+    newApplicationsValue = newApplications.count ?? 0;
+  }
+
+  let openTranslationReports;
+
+  if (openReports.error) {
+    openTranslationReports = null;
+  } else {
+    openTranslationReports = openReports.count ?? 0;
+  }
+
   return {
-    open_tasks: openTasks.error ? null : (openTasks.count ?? 0),
-    new_applications: newApplications.error ? null : (newApplications.count ?? 0),
-    open_translation_reports: openReports.error ? null : (openReports.count ?? 0),
+    open_tasks: openTasksValue,
+    new_applications: newApplicationsValue,
+    open_translation_reports: openTranslationReports,
   };
 }

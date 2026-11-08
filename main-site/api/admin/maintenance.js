@@ -28,12 +28,19 @@
 //   suggest nothing: an admin who has just broken something writes a better
 //   sentence than a dropdown does."
 
-import { ok, fail, ERR, methodNotAllowed, failInternal, readJson } from '../_lib/respond.js';
+import {
+  ok,
+  fail,
+  ERROR_CODES,
+  methodNotAllowed,
+  failInternal,
+  readJson,
+} from '../_lib/respond.js';
 import { requireAdmin } from '../_lib/admin.js';
 import { AUDIT, auditStaff } from '../_lib/audit.js';
 import { FIELD, validateText } from '../_lib/validate.js';
 import {
-  NOTE_MAX,
+  NOTE_MAXIMUM,
   deniedFeatures,
   featureOverrides,
   flippableFeatures,
@@ -44,24 +51,28 @@ import {
 } from '../_lib/maintenance.js';
 import { LIMITS, limited, recordFailures, subjectForUser } from '../_lib/rate-limit.js';
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'HEAD', 'POST'])) return;
+/**
+ * Read or change the maintenance switches. Admins only, because a switch turns a
+ * feature off for every visitor of both sites.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'HEAD', 'POST'])) return;
 
   // Not requireStaff. 10 item 2 names the maintenance switches as admins only.
   // Turning a shipped feature off reaches every visitor of both sites and
   // nothing turns it back on by itself, which is not a job poster's decision to
   // take alone. Phase 14 part 5, deviation 130.
-  const session = await requireAdmin(req, res);
+  const session = await requireAdmin(request, response);
   if (!session) return;
 
-  res.setHeader('Cache-Control', 'no-store');
+  response.setHeader('Cache-Control', 'no-store');
 
   try {
-    if (req.method === 'POST') return await flip(req, res, session);
+    if (request.method === 'POST') return await flip(request, response, session);
 
     const overrides = await featureOverrides();
 
-    return ok(res, {
+    return ok(response, {
       features: flippableFeatures().map((feature) => ({
         ...feature,
         off: overrides[feature.key]?.off === true,
@@ -72,29 +83,39 @@ export default async function handler(req, res) {
         // nobody has: the page says that instead of "switched off by", since
         // nobody did. Once an admin has switched it off themselves the record
         // carries their name and this reads false.
-        held: isHeld(feature.key) && overrides[feature.key]?.off === true && !overrides[feature.key]?.by,
+        held:
+          isHeld(feature.key) &&
+          overrides[feature.key]?.off === true &&
+          !overrides[feature.key]?.by,
       })),
       // Shown greyed with the reason rather than hidden, per 8.12.
       denied: deniedFeatures(),
     });
   } catch (cause) {
-    return failInternal(res, cause, 'admin maintenance');
+    return failInternal(response, cause, 'admin maintenance');
   }
 }
 
-async function flip(req, res, session) {
-  const body = await readJson(req, res);
+/**
+ * Switch one shipped feature off for everybody, or back on, with a note shown to
+ * visitors explaining why. Features that cannot be switched off, or have not
+ * shipped, are refused.
+ */
+async function flip(request, response, session) {
+  const body = await readJson(request, response);
   if (body === null) return;
 
   const key = String(body.key ?? '').trim();
   const off = body.off === true;
 
   if (!key) {
-    return fail(res, ERR.BAD_REQUEST, 'Which feature?', { details: { key: FIELD.REQUIRED } });
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'Which feature?', {
+      details: { key: FIELD.REQUIRED },
+    });
   }
 
   if (!isFlippable(key)) {
-    return fail(res, ERR.FORBIDDEN, 'That one cannot be switched off from here.', {
+    return fail(response, ERROR_CODES.FORBIDDEN, 'That one cannot be switched off from here.', {
       details: { key: FIELD.INVALID },
     });
   }
@@ -103,26 +124,36 @@ async function flip(req, res, session) {
     // A feature that has not shipped is already off. Offering to turn it off
     // again is noise, and honouring it would put an override on a key whose
     // phase might later ship into an outage nobody remembers declaring.
-    return fail(res, ERR.CONFLICT, 'That feature has not shipped yet.', {
+    return fail(response, ERROR_CODES.CONFLICT, 'That feature has not shipped yet.', {
       details: { key: FIELD.INVALID },
     });
   }
 
-  const note = validateText(body.note, NOTE_MAX);
+  const note = validateText(body.note, NOTE_MAXIMUM);
   if (!note.ok) {
-    return fail(res, ERR.BAD_REQUEST, 'That note is too long.', { details: { note: note.code } });
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That note is too long.', {
+      details: { note: note.code },
+    });
   }
 
   const subjects = [subjectForUser('staff', session.user.id)];
-  if (await limited(res, 'admin', subjects)) return;
+  if (await limited(response, 'admin', subjects)) return;
 
   await setFeatureOverride(key, off, { note: note.value, staffUser: session.user });
 
   // Both directions, per 8.12: an outage nobody recorded the end of is one
   // nobody can measure.
+  let auditAction;
+
+  if (off) {
+    auditAction = AUDIT.FEATURE_DISABLED;
+  } else {
+    auditAction = AUDIT.FEATURE_ENABLED;
+  }
+
   await auditStaff(
     session.user,
-    off ? AUDIT.FEATURE_DISABLED : AUDIT.FEATURE_ENABLED,
+    auditAction,
     { feature: key, note: note.value },
     { targetTable: 'gftvjobs_settings', targetId: null }
   );
@@ -130,7 +161,7 @@ async function flip(req, res, session) {
   await recordFailures('admin', subjects, LIMITS.admin);
 
   const overrides = await featureOverrides();
-  return ok(res, {
+  return ok(response, {
     key,
     off,
     note: overrides[key]?.note ?? null,

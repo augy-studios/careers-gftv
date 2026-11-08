@@ -11,21 +11,21 @@
 import { ok, methodNotAllowed, failInternal } from '../../_lib/respond.js';
 import { getStaffSession, hasPortalAccess, publicStaff } from '../../_lib/session.js';
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET'])) return;
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET'])) return;
 
   try {
-    const session = await getStaffSession(req);
-    if (!session) return ok(res, { user: null });
+    const session = await getStaffSession(request);
+    if (!session) return ok(response, { user: null });
 
-    if (!(await hasPortalAccess(session.user))) return ok(res, { user: null });
+    if (!(await hasPortalAccess(session.user))) return ok(response, { user: null });
 
-    return ok(res, {
+    return ok(response, {
       user: publicStaff(session.user),
       expires_at: session.expiresAt ?? null,
       two_factor_enabled: Boolean(session.user.totp_secret),
     });
   } catch (cause) {
-    return failInternal(res, cause, 'staff session');
+    return failInternal(response, cause, 'staff session');
   }
 }

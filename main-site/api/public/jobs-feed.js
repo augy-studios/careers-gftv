@@ -31,22 +31,31 @@ import { methodNotAllowed, failInternal } from '../_lib/respond.js';
 import { supabase, RPC } from '../_lib/supabase.js';
 import { siteUrl } from '../_lib/env.js';
 import { requestLocale } from '../_lib/locales.js';
-import { searchParams, publicJob } from '../_lib/jobs.js';
+import { searchParameters, publicJob } from '../_lib/jobs.js';
 
 // The RPC's own ceiling. A caller wanting more pages the feed rather than
 // asking for everything in one response.
 const PAGE_SIZE = 100;
-const MAX_PAGE = 50;
+const MAXIMUM_PAGE = 50;
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'HEAD'])) return;
+/**
+ * The public openings feed: every published posting as JSON, in the default
+ * language, with enough for another site to list and link to them.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'HEAD'])) return;
 
-  const locale = await requestLocale(req);
-  const params = searchParams(req);
+  const locale = await requestLocale(request);
+  const parameters = searchParameters(request);
 
-  const requested = Number(params.get('page'));
-  const page =
-    Number.isInteger(requested) && requested >= 1 && requested <= MAX_PAGE ? requested : 1;
+  const requested = Number(parameters.get('page'));
+  let page;
+
+  if (Number.isInteger(requested) && requested >= 1 && requested <= MAXIMUM_PAGE) {
+    page = requested;
+  } else {
+    page = 1;
+  }
 
   try {
     const { data, error } = await supabase.rpc(RPC.searchJobs, {
@@ -59,10 +68,24 @@ export default async function handler(req, res) {
       p_offset: (page - 1) * PAGE_SIZE,
     });
 
-    if (error) return failInternal(res, error, 'jobs feed');
+    if (error) return failInternal(response, error, 'jobs feed');
 
-    const rows = Array.isArray(data) ? data : [];
-    const total = rows.length > 0 ? Number(rows[0].total_count ?? 0) : 0;
+    let rows;
+
+    if (Array.isArray(data)) {
+      rows = data;
+    } else {
+      rows = [];
+    }
+
+    let total;
+
+    if (rows.length > 0) {
+      total = Number(rows[0].total_count ?? 0);
+    } else {
+      total = 0;
+    }
+
     const site = siteUrl();
 
     const body = {
@@ -103,26 +126,26 @@ export default async function handler(req, res) {
       }),
     };
 
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    response.setHeader('Content-Type', 'application/json; charset=utf-8');
     // Longer than the board's minute. An aggregator polls on its own schedule
     // and does not need a posting within sixty seconds of it going up.
-    res.setHeader(
+    response.setHeader(
       'Cache-Control',
       'public, max-age=0, s-maxage=300, stale-while-revalidate=900'
     );
     // Read by third party servers by definition, so this is the one route that
     // says so out loud.
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.statusCode = 200;
-    res.end(JSON.stringify(body, null, 2));
+    response.setHeader('Access-Control-Allow-Origin', '*');
+    response.statusCode = 200;
+    response.end(JSON.stringify(body, null, 2));
   } catch (cause) {
     // The success path writes headers itself rather than going through ok(), so
     // a throw after that point cannot be answered with an error body. Log it and
     // let the connection close rather than appending JSON to JSON.
-    if (res.headersSent) {
+    if (response.headersSent) {
       console.error('[careers-gftv] jobs feed, after headers:', cause);
-      return res.end();
+      return response.end();
     }
-    return failInternal(res, cause, 'jobs feed');
+    return failInternal(response, cause, 'jobs feed');
   }
 }

@@ -33,7 +33,7 @@
 // turned it off" and "the scheduler has been broken for a month", which are the
 // two states it exists to tell apart.
 
-import { supabase, T } from './supabase.js';
+import { supabase, TABLES } from './supabase.js';
 import { recordAudit, AUDIT } from './audit.js';
 import { checkFormUrl } from './form-check.js';
 import { HELLO } from './session.js';
@@ -100,7 +100,7 @@ const RATE_LIMIT_KEEP_HOURS = 25;
 export async function startRun(jobName = DAILY) {
   try {
     const { data, error } = await supabase
-      .from(T.cronRuns)
+      .from(TABLES.cronRuns)
       .insert({ job_name: jobName, started_at: new Date().toISOString() })
       .select('id')
       .single();
@@ -123,15 +123,23 @@ export async function finishRun(runId, outcome) {
   if (!runId) return;
 
   try {
+    let cappedError;
+
+    if (outcome.error) {
+      cappedError = String(outcome.error).slice(0, 2000);
+    } else {
+      cappedError = null;
+    }
+
     const { error } = await supabase
-      .from(T.cronRuns)
+      .from(TABLES.cronRuns)
       .update({
         finished_at: new Date().toISOString(),
         ok: outcome.ok,
         results: outcome.results ?? {},
         // Capped, because this is the one column in the table that holds a
         // string somebody else wrote and a stack trace has no natural length.
-        error: outcome.error ? String(outcome.error).slice(0, 2000) : null,
+        error: cappedError,
       })
       .eq('id', runId);
 
@@ -155,7 +163,7 @@ export async function finishRun(runId, outcome) {
 export async function lastRun(jobName = DAILY) {
   try {
     const { data, error } = await supabase
-      .from(T.cronRuns)
+      .from(TABLES.cronRuns)
       .select('id, job_name, started_at, finished_at, ok, results, error')
       .eq('job_name', jobName)
       .order('started_at', { ascending: false })
@@ -190,7 +198,7 @@ export async function autoClosePostings() {
   const now = new Date().toISOString();
 
   const { data, error } = await supabase
-    .from(T.jobs)
+    .from(TABLES.jobs)
     .update({ status: 'closed' })
     .eq('status', 'published')
     // Both halves matter. PostgREST would happily apply this update to every
@@ -213,7 +221,7 @@ export async function autoClosePostings() {
       actorId: null,
       actorLabel: 'daily cron',
       action: AUDIT.JOB_STATUS_CHANGED,
-      targetTable: T.jobs,
+      targetTable: TABLES.jobs,
       targetId: posting.id,
       reason: 'The closing date passed.',
       metadata: {
@@ -255,7 +263,7 @@ export async function resolveStalePrompts() {
   const cutoff = new Date(Date.now() - PROMPT_TIMEOUT_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
   const { data, error } = await supabase
-    .from(T.analytics)
+    .from(TABLES.analytics)
     .update({
       response_state: 'no_response',
       answer_source: 'timeout',
@@ -306,20 +314,20 @@ export async function resolveStalePrompts() {
  * applicant's is, and this is what clears the ones nobody ever comes back for.
  */
 const EXPIRING = Object.freeze([
-  { table: T.sessions, column: 'expires_at', label: 'applicant sessions' },
-  { table: T.staffSessions, column: 'expires_at', label: 'staff sessions' },
-  { table: T.trustedDevices, column: 'expires_at', label: 'applicant trusted devices' },
-  { table: T.passwordResets, column: 'expires_at', label: 'password resets' },
-  { table: T.telegramTokens, column: 'expires_at', label: 'telegram tokens' },
+  { table: TABLES.sessions, column: 'expires_at', label: 'applicant sessions' },
+  { table: TABLES.staffSessions, column: 'expires_at', label: 'staff sessions' },
+  { table: TABLES.trustedDevices, column: 'expires_at', label: 'applicant trusted devices' },
+  { table: TABLES.passwordResets, column: 'expires_at', label: 'password resets' },
+  { table: TABLES.telegramTokens, column: 'expires_at', label: 'telegram tokens' },
   // Phase 2's passkey tables, from migration 025. Not in section 11's list
   // because they did not exist when it was written; both hold short lived
   // challenge rows that are dead weight the moment they expire.
-  { table: T.passkeyChallenges, column: 'expires_at', label: 'passkey challenges' },
-  { table: T.loginChallenges, column: 'expires_at', label: 'login challenges' },
+  { table: TABLES.passkeyChallenges, column: 'expires_at', label: 'passkey challenges' },
+  { table: TABLES.loginChallenges, column: 'expires_at', label: 'login challenges' },
   // Named by section 11. The one gftvhello_ table this sweep touches, and the
   // one whose primary key is its token rather than an id, per HELLO.
   {
-    table: T.staffTotpChallenges,
+    table: TABLES.staffTotpChallenges,
     column: HELLO.challenges.expiresAt,
     label: 'staff 2FA challenges',
     key: HELLO.challenges.token,
@@ -371,7 +379,7 @@ export async function sweepExpiredRows() {
     const cutoff = new Date(Date.now() - RATE_LIMIT_KEEP_HOURS * 60 * 60 * 1000).toISOString();
 
     const { data, error } = await supabase
-      .from(T.rateLimits)
+      .from(TABLES.rateLimits)
       .delete()
       .lt('window_start', cutoff)
       // The timestamp is quoted because PostgREST's or() splits on periods and
@@ -383,11 +391,11 @@ export async function sweepExpiredRows() {
     if (error) throw error;
 
     const count = data?.length ?? 0;
-    byTable[T.rateLimits] = count;
+    byTable[TABLES.rateLimits] = count;
     deleted += count;
   } catch (cause) {
     console.error('[careers-gftv] sweep rate limits:', cause);
-    failed.push(T.rateLimits);
+    failed.push(TABLES.rateLimits);
   }
 
   // The probe's own two tables, per section 11: "Delete gftvjobs_status_checks
@@ -410,7 +418,7 @@ export async function sweepExpiredRows() {
 
   try {
     const { data, error } = await supabase
-      .from(T.statusDays)
+      .from(TABLES.statusDays)
       .delete()
       .lt('day', statusCutoff.slice(0, 10))
       .select('target');
@@ -418,16 +426,16 @@ export async function sweepExpiredRows() {
     if (error) throw error;
 
     const count = data?.length ?? 0;
-    byTable[T.statusDays] = count;
+    byTable[TABLES.statusDays] = count;
     deleted += count;
   } catch (cause) {
     console.error('[careers-gftv] sweep status days:', cause);
-    failed.push(T.statusDays);
+    failed.push(TABLES.statusDays);
   }
 
   try {
     const { data, error } = await supabase
-      .from(T.statusIncidents)
+      .from(TABLES.statusIncidents)
       .delete()
       .lt('started_at', statusCutoff)
       .not('ended_at', 'is', null)
@@ -436,11 +444,11 @@ export async function sweepExpiredRows() {
     if (error) throw error;
 
     const count = data?.length ?? 0;
-    byTable[T.statusIncidents] = count;
+    byTable[TABLES.statusIncidents] = count;
     deleted += count;
   } catch (cause) {
     console.error('[careers-gftv] sweep status incidents:', cause);
-    failed.push(T.statusIncidents);
+    failed.push(TABLES.statusIncidents);
   }
 
   return { deleted, by_table: byTable, failed };
@@ -479,7 +487,7 @@ export async function checkPublishedForms(options = {}) {
   const limit = options.limit ?? FORM_CHECK_LIMIT;
 
   const { data, error } = await supabase
-    .from(T.jobs)
+    .from(TABLES.jobs)
     .select('id, title, application_form_url, form_check_state, form_check_note, form_checked_at')
     .eq('status', 'published')
     .not('application_form_url', 'is', null)
@@ -521,7 +529,7 @@ export async function checkPublishedForms(options = {}) {
       if (unchanged) continue;
 
       const { error: writeError } = await supabase
-        .from(T.jobs)
+        .from(TABLES.jobs)
         .update({
           form_check_state: result.state,
           form_check_note: result.note,
@@ -552,7 +560,7 @@ export async function checkPublishedForms(options = {}) {
 /** Split a list into batches of n. */
 function chunk(list, size) {
   const out = [];
-  for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
+  for (let index = 0; index < list.length; index += size) out.push(list.slice(index, index + size));
   return out;
 }
 
@@ -581,9 +589,15 @@ export async function runDailyMaintenance(options = {}) {
     } catch (cause) {
       console.error(`[careers-gftv] cron task ${name}:`, cause);
       failed.push(name);
+
       // The message and not the stack. The run record is read on an admin page
       // and a stack trace there is neither useful nor ours to show.
-      results[`${name}_error`] = cause instanceof Error ? cause.message : String(cause);
+      if (cause instanceof Error) {
+        results[`${name}_error`] = cause.message;
+      } else {
+        results[`${name}_error`] = String(cause);
+      }
+
       return null;
     }
   };
@@ -610,9 +624,15 @@ export async function runDailyMaintenance(options = {}) {
     );
     results.forms_checked = forms?.checked ?? null;
     results.form_checks_changed = forms?.changed ?? null;
+
     // The key migration 012's comment names, kept exactly: postings whose form
     // is currently not usable.
-    results.form_checks_failed = forms ? forms.warning + forms.error : null;
+    if (forms) {
+      results.form_checks_failed = forms.warning + forms.error;
+    } else {
+      results.form_checks_failed = null;
+    }
+
     if (forms?.flagged?.length) results.flagged_postings = forms.flagged;
   }
 

@@ -64,51 +64,52 @@ const ALIGNMENT = {
 // Bits of nothing at the end of the data stream, after the last codeword.
 const REMAINDER_BITS = { 1: 0, 2: 7, 3: 7, 4: 7, 5: 7, 6: 7, 7: 0, 8: 0, 9: 0 };
 
-const MAX_VERSION = 9;
+const MAXIMUM_VERSION = 9;
 
 // Level M as the two bits the format information carries. Not the same as the
 // level's position in any list, which is a common way to get this wrong: the
 // order in the standard is L=01, M=00, Q=11, H=10.
-const ECC_BITS_M = 0b00;
+const ERROR_CORRECTION_BITS_M = 0b00;
 
 /* -------------------------------------------------------------------------
  * GF(256), for Reed-Solomon
  * ---------------------------------------------------------------------- */
 
 // The field the standard uses: modulo x^8 + x^4 + x^3 + x^2 + 1, generator 2.
-const EXP = new Uint8Array(512);
-const LOG = new Uint8Array(256);
+const GALOIS_EXPONENTS = new Uint8Array(512);
+const GALOIS_LOGARITHMS = new Uint8Array(256);
 
 (() => {
-  let x = 1;
-  for (let i = 0; i < 255; i += 1) {
-    EXP[i] = x;
-    LOG[x] = i;
-    x <<= 1;
-    if (x & 0x100) x ^= 0x11d;
+  let value = 1;
+  for (let index = 0; index < 255; index += 1) {
+    GALOIS_EXPONENTS[index] = value;
+    GALOIS_LOGARITHMS[value] = index;
+    value <<= 1;
+    if (value & 0x100) value ^= 0x11d;
   }
   // Doubled so a product of two logs can be read without a modulo.
-  for (let i = 255; i < 512; i += 1) EXP[i] = EXP[i - 255];
+  for (let index = 255; index < 512; index += 1)
+    GALOIS_EXPONENTS[index] = GALOIS_EXPONENTS[index - 255];
 })();
 
-function gfMultiply(a, b) {
-  if (a === 0 || b === 0) return 0;
-  return EXP[LOG[a] + LOG[b]];
+function galoisFieldMultiply(first, second) {
+  if (first === 0 || second === 0) return 0;
+  return GALOIS_EXPONENTS[GALOIS_LOGARITHMS[first] + GALOIS_LOGARITHMS[second]];
 }
 
 /** The generator polynomial for `count` error correction codewords. */
 function generatorPolynomial(count) {
-  let poly = [1];
-  for (let i = 0; i < count; i += 1) {
+  let polynomial = [1];
+  for (let index = 0; index < count; index += 1) {
     // Multiply by (x - α^i), which in this field is (x + α^i).
-    const next = new Array(poly.length + 1).fill(0);
-    for (let j = 0; j < poly.length; j += 1) {
-      next[j] ^= poly[j];
-      next[j + 1] ^= gfMultiply(poly[j], EXP[i]);
+    const next = new Array(polynomial.length + 1).fill(0);
+    for (let bitIndex = 0; bitIndex < polynomial.length; bitIndex += 1) {
+      next[bitIndex] ^= polynomial[bitIndex];
+      next[bitIndex + 1] ^= galoisFieldMultiply(polynomial[bitIndex], GALOIS_EXPONENTS[index]);
     }
-    poly = next;
+    polynomial = next;
   }
-  return poly;
+  return polynomial;
 }
 
 /** The error correction codewords for one block. */
@@ -120,8 +121,8 @@ function errorCorrection(data, count) {
     const factor = byte ^ remainder[0];
     remainder.shift();
     remainder.push(0);
-    for (let i = 0; i < count; i += 1) {
-      remainder[i] ^= gfMultiply(generator[i + 1], factor);
+    for (let index = 0; index < count; index += 1) {
+      remainder[index] ^= galoisFieldMultiply(generator[index + 1], factor);
     }
   }
 
@@ -143,7 +144,7 @@ function bch(value, generator, bits) {
 
 /** The 15 bit format information for a level and a mask. */
 function formatBits(mask) {
-  const value = (ECC_BITS_M << 3) | mask;
+  const value = (ERROR_CORRECTION_BITS_M << 3) | mask;
   // The XOR is in the standard and stops an all zero format area, which would
   // otherwise be a valid reading of a blank code.
   return bch(value, 0b101_0011_0111, 10) ^ 0b101_0100_0001_0010;
@@ -160,8 +161,9 @@ function versionBits(version) {
 
 /** Data codewords a version holds, across every block. */
 function dataCodewords(version) {
-  const [, group1, size1, group2, size2] = BLOCKS_M[version];
-  return group1 * size1 + group2 * size2;
+  const [, firstGroupBlocks, firstGroupBlockSize, secondGroupBlocks, secondGroupBlockSize] =
+    BLOCKS_M[version];
+  return firstGroupBlocks * firstGroupBlockSize + secondGroupBlocks * secondGroupBlockSize;
 }
 
 /**
@@ -171,7 +173,7 @@ function dataCodewords(version) {
  * the capacity is two codewords short of the data capacity rather than one.
  */
 function versionFor(byteLength) {
-  for (let version = 1; version <= MAX_VERSION; version += 1) {
+  for (let version = 1; version <= MAXIMUM_VERSION; version += 1) {
     if (byteLength <= dataCodewords(version) - 2) return version;
   }
   return null;
@@ -183,7 +185,7 @@ function buildCodewords(bytes, version) {
   const bits = [];
 
   const push = (value, count) => {
-    for (let i = count - 1; i >= 0; i -= 1) bits.push((value >> i) & 1);
+    for (let index = count - 1; index >= 0; index -= 1) bits.push((value >> index) & 1);
   };
 
   push(0b0100, 4);
@@ -196,9 +198,9 @@ function buildCodewords(bytes, version) {
   while (bits.length % 8 !== 0) bits.push(0);
 
   const codewords = [];
-  for (let i = 0; i < bits.length; i += 8) {
+  for (let index = 0; index < bits.length; index += 8) {
     let byte = 0;
-    for (let j = 0; j < 8; j += 1) byte = (byte << 1) | bits[i + j];
+    for (let bitIndex = 0; bitIndex < 8; bitIndex += 1) byte = (byte << 1) | bits[index + bitIndex];
     codewords.push(byte);
   }
 
@@ -218,28 +220,34 @@ function buildCodewords(bytes, version) {
  * destroying one outright.
  */
 function interleave(codewords, version) {
-  const [ecCount, group1, size1, group2, size2] = BLOCKS_M[version];
+  const [
+    errorCorrectionCount,
+    firstGroupBlocks,
+    firstGroupBlockSize,
+    secondGroupBlocks,
+    secondGroupBlockSize,
+  ] = BLOCKS_M[version];
 
   const blocks = [];
   let offset = 0;
-  for (let i = 0; i < group1; i += 1) {
-    blocks.push(codewords.slice(offset, offset + size1));
-    offset += size1;
+  for (let index = 0; index < firstGroupBlocks; index += 1) {
+    blocks.push(codewords.slice(offset, offset + firstGroupBlockSize));
+    offset += firstGroupBlockSize;
   }
-  for (let i = 0; i < group2; i += 1) {
-    blocks.push(codewords.slice(offset, offset + size2));
-    offset += size2;
+  for (let index = 0; index < secondGroupBlocks; index += 1) {
+    blocks.push(codewords.slice(offset, offset + secondGroupBlockSize));
+    offset += secondGroupBlockSize;
   }
 
-  const ecBlocks = blocks.map((block) => errorCorrection(block, ecCount));
+  const errorCorrectionBlocks = blocks.map((block) => errorCorrection(block, errorCorrectionCount));
 
   const out = [];
   const longest = Math.max(...blocks.map((block) => block.length));
-  for (let i = 0; i < longest; i += 1) {
-    for (const block of blocks) if (i < block.length) out.push(block[i]);
+  for (let index = 0; index < longest; index += 1) {
+    for (const block of blocks) if (index < block.length) out.push(block[index]);
   }
-  for (let i = 0; i < ecCount; i += 1) {
-    for (const block of ecBlocks) out.push(block[i]);
+  for (let index = 0; index < errorCorrectionCount; index += 1) {
+    for (const block of errorCorrectionBlocks) out.push(block[index]);
   }
 
   return out;
@@ -260,18 +268,20 @@ function blank(size) {
 }
 
 function drawFinder(grid, size, top, left) {
-  for (let y = -1; y <= 7; y += 1) {
-    for (let x = -1; x <= 7; x += 1) {
-      const row = top + y;
-      const col = left + x;
-      if (row < 0 || row >= size || col < 0 || col >= size) continue;
+  // rowOffset and columnOffset run one module past the 7x7 finder on every
+  // side, so the white separator around it is reserved too.
+  for (let rowOffset = -1; rowOffset <= 7; rowOffset += 1) {
+    for (let columnOffset = -1; columnOffset <= 7; columnOffset += 1) {
+      const row = top + rowOffset;
+      const column = left + columnOffset;
+      if (row < 0 || row >= size || column < 0 || column >= size) continue;
 
-      const outer = y >= 0 && y <= 6 && (x === 0 || x === 6);
-      const sides = x >= 0 && x <= 6 && (y === 0 || y === 6);
-      const centre = x >= 2 && x <= 4 && y >= 2 && y <= 4;
+      const outer = rowOffset >= 0 && rowOffset <= 6 && (columnOffset === 0 || columnOffset === 6);
+      const sides = columnOffset >= 0 && columnOffset <= 6 && (rowOffset === 0 || rowOffset === 6);
+      const centre = columnOffset >= 2 && columnOffset <= 4 && rowOffset >= 2 && rowOffset <= 4;
 
-      grid.modules[row][col] = outer || sides || centre;
-      grid.fixed[row][col] = true;
+      grid.modules[row][column] = outer || sides || centre;
+      grid.fixed[row][column] = true;
     }
   }
 }
@@ -279,19 +289,19 @@ function drawFinder(grid, size, top, left) {
 function drawAlignment(grid, size, version) {
   const centres = ALIGNMENT[version];
   for (const row of centres) {
-    for (const col of centres) {
+    for (const column of centres) {
       // The three that would sit on a finder are not drawn.
       const onFinder =
-        (row === 6 && col === 6) ||
-        (row === 6 && col === size - 7) ||
-        (row === size - 7 && col === 6);
+        (row === 6 && column === 6) ||
+        (row === 6 && column === size - 7) ||
+        (row === size - 7 && column === 6);
       if (onFinder) continue;
 
-      for (let y = -2; y <= 2; y += 1) {
-        for (let x = -2; x <= 2; x += 1) {
-          grid.modules[row + y][col + x] =
-            Math.max(Math.abs(x), Math.abs(y)) !== 1;
-          grid.fixed[row + y][col + x] = true;
+      for (let rowOffset = -2; rowOffset <= 2; rowOffset += 1) {
+        for (let columnOffset = -2; columnOffset <= 2; columnOffset += 1) {
+          grid.modules[row + rowOffset][column + columnOffset] =
+            Math.max(Math.abs(columnOffset), Math.abs(rowOffset)) !== 1;
+          grid.fixed[row + rowOffset][column + columnOffset] = true;
         }
       }
     }
@@ -299,12 +309,12 @@ function drawAlignment(grid, size, version) {
 }
 
 function drawTiming(grid, size) {
-  for (let i = 8; i < size - 8; i += 1) {
-    const dark = i % 2 === 0;
-    grid.modules[6][i] = dark;
-    grid.fixed[6][i] = true;
-    grid.modules[i][6] = dark;
-    grid.fixed[i][6] = true;
+  for (let index = 8; index < size - 8; index += 1) {
+    const dark = index % 2 === 0;
+    grid.modules[6][index] = dark;
+    grid.fixed[6][index] = true;
+    grid.modules[index][6] = dark;
+    grid.fixed[index][6] = true;
   }
 }
 
@@ -313,13 +323,13 @@ function reserveFormat(grid, size) {
   grid.modules[size - 8][8] = true;
   grid.fixed[size - 8][8] = true;
 
-  for (let i = 0; i <= 8; i += 1) {
-    if (!grid.fixed[8][i]) grid.fixed[8][i] = true;
-    if (!grid.fixed[i][8]) grid.fixed[i][8] = true;
+  for (let index = 0; index <= 8; index += 1) {
+    if (!grid.fixed[8][index]) grid.fixed[8][index] = true;
+    if (!grid.fixed[index][8]) grid.fixed[index][8] = true;
   }
-  for (let i = 0; i < 8; i += 1) {
-    grid.fixed[8][size - 1 - i] = true;
-    grid.fixed[size - 1 - i][8] = true;
+  for (let index = 0; index < 8; index += 1) {
+    grid.fixed[8][size - 1 - index] = true;
+    grid.fixed[size - 1 - index][8] = true;
   }
 }
 
@@ -327,33 +337,33 @@ function drawVersion(grid, size, version) {
   if (version < 7) return;
   const bits = versionBits(version);
 
-  for (let i = 0; i < 18; i += 1) {
-    const dark = ((bits >> i) & 1) === 1;
-    const row = Math.floor(i / 3);
-    const col = size - 11 + (i % 3);
-    grid.modules[row][col] = dark;
-    grid.fixed[row][col] = true;
-    grid.modules[col][row] = dark;
-    grid.fixed[col][row] = true;
+  for (let index = 0; index < 18; index += 1) {
+    const dark = ((bits >> index) & 1) === 1;
+    const row = Math.floor(index / 3);
+    const column = size - 11 + (index % 3);
+    grid.modules[row][column] = dark;
+    grid.fixed[row][column] = true;
+    grid.modules[column][row] = dark;
+    grid.fixed[column][row] = true;
   }
 }
 
 function drawFormat(grid, size, mask) {
   const bits = formatBits(mask);
 
-  for (let i = 0; i < 15; i += 1) {
-    const dark = ((bits >> i) & 1) === 1;
+  for (let index = 0; index < 15; index += 1) {
+    const dark = ((bits >> index) & 1) === 1;
 
     // The copy beside the top left finder, which skips the timing row and
     // column, and the split copy beside the other two.
-    if (i < 6) grid.modules[8][i] = dark;
-    else if (i === 6) grid.modules[8][7] = dark;
-    else if (i === 7) grid.modules[8][8] = dark;
-    else if (i === 8) grid.modules[7][8] = dark;
-    else grid.modules[14 - i][8] = dark;
+    if (index < 6) grid.modules[8][index] = dark;
+    else if (index === 6) grid.modules[8][7] = dark;
+    else if (index === 7) grid.modules[8][8] = dark;
+    else if (index === 8) grid.modules[7][8] = dark;
+    else grid.modules[14 - index][8] = dark;
 
-    if (i < 8) grid.modules[8][size - 1 - i] = dark;
-    else grid.modules[size - 15 + i][8] = dark;
+    if (index < 8) grid.modules[8][size - 1 - index] = dark;
+    else grid.modules[size - 15 + index][8] = dark;
   }
 }
 
@@ -366,41 +376,47 @@ function placeData(grid, size, stream) {
     if (right === 6) right = 5;
 
     for (let step = 0; step < size; step += 1) {
-      for (let column = 0; column < 2; column += 1) {
-        const x = right - column;
+      for (let columnOffset = 0; columnOffset < 2; columnOffset += 1) {
+        const column = right - columnOffset;
         const upward = ((right + 1) & 2) === 0;
-        const y = upward ? size - 1 - step : step;
+        let row;
 
-        if (grid.fixed[y][x]) continue;
+        if (upward) {
+          row = size - 1 - step;
+        } else {
+          row = step;
+        }
+
+        if (grid.fixed[row][column]) continue;
 
         let dark = false;
         if (index < stream.length) {
           dark = stream[index] === 1;
           index += 1;
         }
-        grid.modules[y][x] = dark;
+        grid.modules[row][column] = dark;
       }
     }
   }
 }
 
 const MASKS = [
-  (y, x) => (y + x) % 2 === 0,
-  (y) => y % 2 === 0,
-  (y, x) => x % 3 === 0,
-  (y, x) => (y + x) % 3 === 0,
-  (y, x) => (Math.floor(y / 2) + Math.floor(x / 3)) % 2 === 0,
-  (y, x) => ((y * x) % 2) + ((y * x) % 3) === 0,
-  (y, x) => (((y * x) % 2) + ((y * x) % 3)) % 2 === 0,
-  (y, x) => (((y + x) % 2) + ((y * x) % 3)) % 2 === 0,
+  (row, column) => (row + column) % 2 === 0,
+  (row) => row % 2 === 0,
+  (row, column) => column % 3 === 0,
+  (row, column) => (row + column) % 3 === 0,
+  (row, column) => (Math.floor(row / 2) + Math.floor(column / 3)) % 2 === 0,
+  (row, column) => ((row * column) % 2) + ((row * column) % 3) === 0,
+  (row, column) => (((row * column) % 2) + ((row * column) % 3)) % 2 === 0,
+  (row, column) => (((row + column) % 2) + ((row * column) % 3)) % 2 === 0,
 ];
 
 function applyMask(grid, size, mask) {
   const test = MASKS[mask];
-  for (let y = 0; y < size; y += 1) {
-    for (let x = 0; x < size; x += 1) {
-      if (grid.fixed[y][x]) continue;
-      if (test(y, x)) grid.modules[y][x] = !grid.modules[y][x];
+  for (let row = 0; row < size; row += 1) {
+    for (let column = 0; column < size; column += 1) {
+      if (grid.fixed[row][column]) continue;
+      if (test(row, column)) grid.modules[row][column] = !grid.modules[row][column];
     }
   }
 }
@@ -418,11 +434,14 @@ function penalty(grid, size) {
   let score = 0;
 
   // 1. Runs of five or more.
-  for (let i = 0; i < size; i += 1) {
-    for (const read of [(k) => modules[i][k], (k) => modules[k][i]]) {
+  for (let index = 0; index < size; index += 1) {
+    for (const read of [
+      (position) => modules[index][position],
+      (position) => modules[position][index],
+    ]) {
       let run = 1;
-      for (let k = 1; k < size; k += 1) {
-        if (read(k) === read(k - 1)) {
+      for (let position = 1; position < size; position += 1) {
+        if (read(position) === read(position - 1)) {
           run += 1;
           if (run === 5) score += 3;
           else if (run > 5) score += 1;
@@ -434,13 +453,13 @@ function penalty(grid, size) {
   }
 
   // 2. Two by two blocks of one colour.
-  for (let y = 0; y < size - 1; y += 1) {
-    for (let x = 0; x < size - 1; x += 1) {
-      const first = modules[y][x];
+  for (let row = 0; row < size - 1; row += 1) {
+    for (let column = 0; column < size - 1; column += 1) {
+      const first = modules[row][column];
       if (
-        first === modules[y][x + 1] &&
-        first === modules[y + 1][x] &&
-        first === modules[y + 1][x + 1]
+        first === modules[row][column + 1] &&
+        first === modules[row + 1][column] &&
+        first === modules[row + 1][column + 1]
       ) {
         score += 3;
       }
@@ -452,14 +471,14 @@ function penalty(grid, size) {
     [true, false, true, true, true, false, true, false, false, false, false],
     [false, false, false, false, true, false, true, true, true, false, true],
   ];
-  for (let i = 0; i < size; i += 1) {
-    for (let k = 0; k + 11 <= size; k += 1) {
+  for (let index = 0; index < size; index += 1) {
+    for (let position = 0; position + 11 <= size; position += 1) {
       for (const pattern of PATTERNS) {
         let row = true;
         let column = true;
-        for (let p = 0; p < 11; p += 1) {
-          if (modules[i][k + p] !== pattern[p]) row = false;
-          if (modules[k + p][i] !== pattern[p]) column = false;
+        for (let patternIndex = 0; patternIndex < 11; patternIndex += 1) {
+          if (modules[index][position + patternIndex] !== pattern[patternIndex]) row = false;
+          if (modules[position + patternIndex][index] !== pattern[patternIndex]) column = false;
         }
         if (row) score += 40;
         if (column) score += 40;
@@ -469,8 +488,8 @@ function penalty(grid, size) {
 
   // 4. How far from half dark the whole symbol is.
   let dark = 0;
-  for (let y = 0; y < size; y += 1) {
-    for (let x = 0; x < size; x += 1) if (modules[y][x]) dark += 1;
+  for (let row = 0; row < size; row += 1) {
+    for (let column = 0; column < size; column += 1) if (modules[row][column]) dark += 1;
   }
   const percent = (dark * 100) / (size * size);
   score += Math.floor(Math.abs(percent - 50) / 5) * 10;
@@ -515,7 +534,7 @@ export function encodeQr(text) {
   const version = versionFor(bytes.length);
   if (version === null) {
     throw new Error(
-      `qr: ${bytes.length} bytes does not fit in version ${MAX_VERSION} at level M`
+      `qr: ${bytes.length} bytes does not fit in version ${MAXIMUM_VERSION} at level M`
     );
   }
 
@@ -523,9 +542,9 @@ export function encodeQr(text) {
 
   const stream = [];
   for (const codeword of codewords) {
-    for (let i = 7; i >= 0; i -= 1) stream.push((codeword >> i) & 1);
+    for (let index = 7; index >= 0; index -= 1) stream.push((codeword >> index) & 1);
   }
-  for (let i = 0; i < REMAINDER_BITS[version]; i += 1) stream.push(0);
+  for (let index = 0; index < REMAINDER_BITS[version]; index += 1) stream.push(0);
 
   // Every mask is built and scored, and the lowest wins. Picking one and
   // trusting it works most of the time, which is the worst kind of wrong here.
@@ -543,6 +562,16 @@ export function encodeQr(text) {
   return {
     version,
     size: version * 4 + 17,
-    rows: best.modules.map((row) => row.map((dark) => (dark ? '1' : '0')).join('')),
+    rows: best.modules.map((row) =>
+      row
+        .map((dark) => {
+          if (dark) {
+            return '1';
+          } else {
+            return '0';
+          }
+        })
+        .join('')
+    ),
   };
 }

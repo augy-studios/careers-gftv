@@ -26,13 +26,20 @@
 // The Telegram message 5c asks for on a password change belongs to phase 11.
 // Nothing here fakes it.
 
-import { ok, fail, ERR, methodNotAllowed, readJson, failInternal } from '../../_lib/respond.js';
+import {
+  ok,
+  fail,
+  ERROR_CODES,
+  methodNotAllowed,
+  readJson,
+  failInternal,
+} from '../../_lib/respond.js';
 import { hashSecret, checkPasswordStrength } from '../../_lib/password.js';
 import { FIELD } from '../../_lib/validate.js';
 import { deleteCode, codeCounts, codesLow, LOW_CODE_WARNING } from '../../_lib/accounts.js';
-import { sha256, timingSafeEqualStr } from '../../_lib/tokens.js';
+import { sha256, timingSafeEqualStrings } from '../../_lib/tokens.js';
 import { COOKIE, readCookie, clearCookie } from '../../_lib/cookies.js';
-import { supabase, T } from '../../_lib/supabase.js';
+import { supabase, TABLES } from '../../_lib/supabase.js';
 import {
   createApplicantSession,
   invalidateAllSessions,
@@ -44,20 +51,32 @@ import { auditApplicant, AUDIT } from '../../_lib/audit.js';
 
 const GENERIC = 'That reset could not be completed. Start again from the beginning.';
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['POST'])) return;
+/**
+ * Set a new applicant password with the ticket from forgot-password. The ticket
+ * is checked against this browser and spent once, the new password is checked, and
+ * every session and trusted device is signed out.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['POST'])) return;
 
-  const body = await readJson(req, res);
+  const body = await readJson(request, response);
   if (!body) return;
 
-  const subjects = [subjectForIp(req)];
-  if (await limited(res, 'recovery_code', subjects)) return;
+  const subjects = [subjectForIp(request)];
+  if (await limited(response, 'recovery_code', subjects)) return;
 
-  const ticket = typeof body.ticket === 'string' ? body.ticket : '';
-  const nonce = readCookie(req, COOKIE.resetNonce);
+  let ticket;
+
+  if (typeof body.ticket === 'string') {
+    ticket = body.ticket;
+  } else {
+    ticket = '';
+  }
+
+  const nonce = readCookie(request, COOKIE.resetNonce);
 
   if (ticket === '' || !nonce) {
-    return fail(res, ERR.UNAUTHORISED, GENERIC);
+    return fail(response, ERROR_CODES.UNAUTHORISED, GENERIC);
   }
 
   const strength = checkPasswordStrength(body.password);
@@ -67,19 +86,21 @@ export default async function handler(req, res) {
     details.password_confirm = FIELD.MISMATCH;
   }
   if (Object.keys(details).length > 0) {
-    return fail(res, ERR.BAD_REQUEST, 'That new password could not be used.', { details });
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That new password could not be used.', {
+      details,
+    });
   }
 
   try {
     const { data: reset, error } = await supabase
-      .from(T.passwordResets)
+      .from(TABLES.passwordResets)
       .select(
         'id, user_id, browser_nonce_hash, recovery_code_id, second_factor_at, expires_at, used_at'
       )
       .eq('ticket_hash', sha256(ticket))
       .maybeSingle();
 
-    if (error) return failInternal(res, error, 'reset password lookup');
+    if (error) return failInternal(response, error, 'reset password lookup');
 
     // second_factor_at is the whole point of migration 027. A ticket for an
     // account with a passkey is issued unsatisfied, and stays unusable until
@@ -92,16 +113,16 @@ export default async function handler(req, res) {
       reset.used_at !== null ||
       reset.second_factor_at === null ||
       new Date(reset.expires_at).getTime() <= Date.now() ||
-      !timingSafeEqualStr(reset.browser_nonce_hash, sha256(nonce));
+      !timingSafeEqualStrings(reset.browser_nonce_hash, sha256(nonce));
 
     if (unusable) {
       await recordFailures('recovery_code', subjects, LIMITS.recoveryCode);
-      clearCookie(res, COOKIE.resetNonce);
-      return fail(res, ERR.UNAUTHORISED, GENERIC);
+      clearCookie(response, COOKIE.resetNonce);
+      return fail(response, ERROR_CODES.UNAUTHORISED, GENERIC);
     }
 
     const { data: user, error: updateError } = await supabase
-      .from(T.users)
+      .from(TABLES.users)
       .update({
         password_hash: await hashSecret(body.password),
         // 8.9's forced reset is satisfied here as well as in change-password.
@@ -117,13 +138,13 @@ export default async function handler(req, res) {
       )
       .single();
 
-    if (updateError) return failInternal(res, updateError, 'reset password update');
+    if (updateError) return failInternal(response, updateError, 'reset password update');
 
     // Marked used before the code is consumed, because consuming the code
     // cascades this row away and the marking would then have nothing to write
     // to. Either way the ticket cannot be presented twice.
     await supabase
-      .from(T.passwordResets)
+      .from(TABLES.passwordResets)
       .update({ used_at: new Date().toISOString() })
       .eq('id', reset.id);
 
@@ -141,19 +162,19 @@ export default async function handler(req, res) {
       trusted_devices_revoked: true,
     });
 
-    clearCookie(res, COOKIE.resetNonce);
+    clearCookie(response, COOKIE.resetNonce);
 
     const counts = await codeCounts('applicant', reset.user_id);
 
     // Deactivated accounts do not get signed in. The password is still reset,
     // since an admin may be about to reactivate them.
     if (user.is_active === false) {
-      return ok(res, { reset: true, signed_in: false, codes: counts });
+      return ok(response, { reset: true, signed_in: false, codes: counts });
     }
 
-    await createApplicantSession(res, user.id, false);
+    await createApplicantSession(response, user.id, false);
 
-    return ok(res, {
+    return ok(response, {
       reset: true,
       signed_in: true,
       user: publicApplicant(user),
@@ -162,6 +183,6 @@ export default async function handler(req, res) {
       low_code_threshold: LOW_CODE_WARNING,
     });
   } catch (cause) {
-    return failInternal(res, cause, 'reset password');
+    return failInternal(response, cause, 'reset password');
   }
 }

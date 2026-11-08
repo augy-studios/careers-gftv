@@ -20,30 +20,44 @@
 // is destroyed and some postings quietly lose their team. The count comes back
 // with the refusal so an admin sees the number before they decide.
 
-import { ok, fail, ERR, methodNotAllowed, failInternal, readJson } from '../_lib/respond.js';
-import { supabase, T } from '../_lib/supabase.js';
+import {
+  ok,
+  fail,
+  ERROR_CODES,
+  methodNotAllowed,
+  failInternal,
+  readJson,
+} from '../_lib/respond.js';
+import { supabase, TABLES } from '../_lib/supabase.js';
 import { requireStaff } from '../_lib/session.js';
 import { AUDIT, auditStaff } from '../_lib/audit.js';
 import { FIELD, validateText } from '../_lib/validate.js';
-import { isUuid, params, slugify, freeSlug, activeLocales, defaultLocale } from '../_lib/admin.js';
+import {
+  isUuid,
+  parameters,
+  slugify,
+  freeSlug,
+  activeLocales,
+  defaultLocale,
+} from '../_lib/admin.js';
 import { LIMITS, limited, recordFailures, subjectForUser } from '../_lib/rate-limit.js';
 
-const NAME_MAX = 80;
-const DESCRIPTION_MAX = 500;
+const NAME_MAXIMUM = 80;
+const DESCRIPTION_MAXIMUM = 500;
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'HEAD', 'POST'])) return;
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'HEAD', 'POST'])) return;
 
-  const session = await requireStaff(req, res);
+  const session = await requireStaff(request, response);
   if (!session) return;
 
-  res.setHeader('Cache-Control', 'no-store');
+  response.setHeader('Cache-Control', 'no-store');
 
   try {
-    if (req.method === 'POST') return await write(req, res, session);
-    return await read(req, res);
+    if (request.method === 'POST') return await write(request, response, session);
+    return await read(request, response);
   } catch (cause) {
-    return failInternal(res, cause, 'admin departments');
+    return failInternal(response, cause, 'admin departments');
   }
 }
 
@@ -51,16 +65,16 @@ export default async function handler(req, res) {
  * Reading
  * ---------------------------------------------------------------------- */
 
-async function read(req, res) {
-  const search = params(req);
+async function read(request, response) {
+  const search = parameters(request);
 
   const [departments, translations, locales] = await Promise.all([
     supabase
-      .from(T.departments)
+      .from(TABLES.departments)
       .select('id, name, slug, description, sort_order, is_active, created_at, updated_at')
       .order('sort_order', { ascending: true })
       .order('name', { ascending: true }),
-    supabase.from(T.departmentTranslations).select('department_id, locale, name, description'),
+    supabase.from(TABLES.departmentTranslations).select('department_id, locale, name, description'),
     activeLocales(),
   ]);
 
@@ -74,10 +88,17 @@ async function read(req, res) {
     byDepartment.set(row.department_id, map);
   }
 
-  const counts = search.get('counts') === 'false' ? new Map() : await postingCounts();
+  let counts;
+
+  if (search.get('counts') === 'false') {
+    counts = new Map();
+  } else {
+    counts = await postingCounts();
+  }
+
   const needed = locales.filter((locale) => !locale.is_default).map((locale) => locale.code);
 
-  return ok(res, {
+  return ok(response, {
     locales,
     departments: (departments.data ?? []).map((row) => {
       const translated = byDepartment.get(row.id) ?? {};
@@ -102,7 +123,7 @@ async function read(req, res) {
  * a group by would need an RPC and therefore a migration.
  */
 async function postingCounts() {
-  const { data, error } = await supabase.from(T.jobs).select('department_id');
+  const { data, error } = await supabase.from(TABLES.jobs).select('department_id');
   if (error) throw error;
 
   const counts = new Map();
@@ -119,41 +140,54 @@ async function postingCounts() {
 
 const ACTIONS = ['save', 'delete', 'reorder'];
 
-async function write(req, res, session) {
-  const body = await readJson(req, res);
+async function write(request, response, session) {
+  const body = await readJson(request, response);
   if (body === null) return;
 
   const action = String(body.action ?? '').trim();
   if (!ACTIONS.includes(action)) {
-    return fail(res, ERR.BAD_REQUEST, 'That is not something this endpoint does.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not something this endpoint does.', {
       details: { action: FIELD.INVALID },
     });
   }
 
   const subjects = [subjectForUser('staff', session.user.id)];
-  if (await limited(res, 'admin', subjects)) return;
+  if (await limited(response, 'admin', subjects)) return;
   const done = () => recordFailures('admin', subjects, LIMITS.admin);
 
   switch (action) {
     case 'save':
-      return save(res, session, body, done);
+      return save(response, session, body, done);
     case 'delete':
-      return remove(res, session, body, done);
+      return remove(response, session, body, done);
     default:
-      return reorder(res, body, done);
+      return reorder(response, body, done);
   }
 }
 
-async function save(res, session, body, done) {
-  const id = body.id ? String(body.id) : null;
-  if (id && !isUuid(id)) return fail(res, ERR.BAD_REQUEST, 'That is not a department id.');
+/**
+ * Create or update a team, with its name and description in every active
+ * language. Checks every language is filled in before anything is written, then
+ * saves the team and its translations together.
+ */
+async function save(response, session, body, done) {
+  let id;
+
+  if (body.id) {
+    id = String(body.id);
+  } else {
+    id = null;
+  }
+
+  if (id && !isUuid(id))
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not a department id.');
 
   const details = {};
 
-  const name = validateText(body.name, NAME_MAX, { required: true });
+  const name = validateText(body.name, NAME_MAXIMUM, { required: true });
   if (!name.ok) details.name = name.code;
 
-  const description = validateText(body.description, DESCRIPTION_MAX);
+  const description = validateText(body.description, DESCRIPTION_MAXIMUM);
   if (!description.ok) details.description = description.code;
 
   const locales = await activeLocales();
@@ -168,8 +202,8 @@ async function save(res, session, body, done) {
 
     // Migration 014 makes name not null on a translation row, so a blank name
     // means "no translation" and the row is deleted rather than written empty.
-    const translatedName = validateText(value?.name, NAME_MAX);
-    const translatedDescription = validateText(value?.description, DESCRIPTION_MAX);
+    const translatedName = validateText(value?.name, NAME_MAXIMUM);
+    const translatedDescription = validateText(value?.description, DESCRIPTION_MAXIMUM);
 
     if (!translatedName.ok) details[`${locale}.name`] = translatedName.code;
     if (!translatedDescription.ok) details[`${locale}.description`] = translatedDescription.code;
@@ -196,30 +230,53 @@ async function save(res, session, body, done) {
   }
 
   if (Object.keys(details).length > 0) {
-    return fail(res, ERR.BAD_REQUEST, 'That department could not be saved.', { details });
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That department could not be saved.', {
+      details,
+    });
   }
 
-  const slug = id
-    ? undefined
-    : await freeSlug(T.departments, slugify(name.value) || 'team');
+  let slug;
+
+  if (id) {
+    slug = undefined;
+  } else {
+    slug = await freeSlug(TABLES.departments, slugify(name.value) || 'team');
+  }
+
+  let slugField;
+
+  if (slug) {
+    slugField = { slug };
+  } else {
+    slugField = {};
+  }
 
   const row = {
     name: name.value,
     description: description.value,
     is_active: isActive,
-    ...(slug ? { slug } : {}),
+    ...slugField,
   };
 
-  const saved = id
-    ? await supabase.from(T.departments).update(row).eq('id', id).select('id, name, slug').single()
-    : await supabase.from(T.departments).insert(row).select('id, name, slug').single();
+  let saved;
+
+  if (id) {
+    saved = await supabase
+      .from(TABLES.departments)
+      .update(row)
+      .eq('id', id)
+      .select('id, name, slug')
+      .single();
+  } else {
+    saved = await supabase.from(TABLES.departments).insert(row).select('id, name, slug').single();
+  }
 
   if (saved.error) {
     // The unique index on lower(name) is the likely cause, and it is a field
     // error rather than a server one: two teams called Production is a thing
     // somebody typed, not a thing that went wrong.
     if (saved.error.code === '23505') {
-      return fail(res, ERR.CONFLICT, 'There is already a team with that name.', {
+      return fail(response, ERROR_CODES.CONFLICT, 'There is already a team with that name.', {
         details: { name: FIELD.TAKEN },
       });
     }
@@ -229,9 +286,21 @@ async function save(res, session, body, done) {
   await writeTranslations(saved.data.id, translations, locales, base);
 
   await done();
-  return ok(res, { department: saved.data }, { status: id ? 200 : 201 });
+  let status;
+
+  if (id) {
+    status = 200;
+  } else {
+    status = 201;
+  }
+
+  return ok(response, { department: saved.data }, { status: status });
 }
 
+/**
+ * Save a team's name and description in each language given. Languages left
+ * empty are removed so they fall back to the default language.
+ */
 async function writeTranslations(departmentId, translations, locales, base) {
   const rows = [];
   const blanked = [];
@@ -254,14 +323,14 @@ async function writeTranslations(departmentId, translations, locales, base) {
 
   if (rows.length > 0) {
     const { error } = await supabase
-      .from(T.departmentTranslations)
+      .from(TABLES.departmentTranslations)
       .upsert(rows, { onConflict: 'department_id,locale' });
     if (error) throw error;
   }
 
   if (blanked.length > 0) {
     const { error } = await supabase
-      .from(T.departmentTranslations)
+      .from(TABLES.departmentTranslations)
       .delete()
       .eq('department_id', departmentId)
       .in('locale', blanked);
@@ -277,21 +346,21 @@ async function writeTranslations(departmentId, translations, locales, base) {
  * the count has to be confirmed rather than described, exactly as 8.2 does for
  * a posting's own deletion.
  */
-async function remove(res, session, body, done) {
+async function remove(response, session, body, done) {
   const id = String(body.id ?? '');
-  if (!isUuid(id)) return fail(res, ERR.BAD_REQUEST, 'That is not a department id.');
+  if (!isUuid(id)) return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not a department id.');
 
   const { data: department, error: readError } = await supabase
-    .from(T.departments)
+    .from(TABLES.departments)
     .select('id, name, slug')
     .eq('id', id)
     .maybeSingle();
 
   if (readError) throw readError;
-  if (!department) return fail(res, ERR.NOT_FOUND, 'That team could not be found.');
+  if (!department) return fail(response, ERROR_CODES.NOT_FOUND, 'That team could not be found.');
 
   const { count, error: countError } = await supabase
-    .from(T.jobs)
+    .from(TABLES.jobs)
     .select('id', { count: 'exact', head: true })
     .eq('department_id', id);
 
@@ -299,7 +368,7 @@ async function remove(res, session, body, done) {
   const affected = count ?? 0;
 
   if (Number(body.confirm_count) !== affected) {
-    return fail(res, ERR.CONFLICT, 'Confirm what this affects before deleting it.', {
+    return fail(response, ERROR_CODES.CONFLICT, 'Confirm what this affects before deleting it.', {
       details: { confirm_count: FIELD.MISMATCH, job_count: affected },
     });
   }
@@ -308,14 +377,14 @@ async function remove(res, session, body, done) {
     session.user,
     AUDIT.DEPARTMENT_DELETED,
     { name: department.name, slug: department.slug, jobs_affected: affected },
-    { targetTable: T.departments, targetId: id }
+    { targetTable: TABLES.departments, targetId: id }
   );
 
-  const { error } = await supabase.from(T.departments).delete().eq('id', id);
+  const { error } = await supabase.from(TABLES.departments).delete().eq('id', id);
   if (error) throw error;
 
   await done();
-  return ok(res, { id, deleted: true, jobs_affected: affected });
+  return ok(response, { id, deleted: true, jobs_affected: affected });
 }
 
 /**
@@ -325,20 +394,27 @@ async function remove(res, session, body, done) {
  * so it is a display choice rather than a change to anybody's data, and it is
  * not audited.
  */
-async function reorder(res, body, done) {
-  const ids = Array.isArray(body.ids) ? body.ids.filter((id) => isUuid(id)) : [];
-  if (ids.length === 0) return fail(res, ERR.BAD_REQUEST, 'Nothing to reorder.');
+async function reorder(response, body, done) {
+  let ids;
+
+  if (Array.isArray(body.ids)) {
+    ids = body.ids.filter((id) => isUuid(id));
+  } else {
+    ids = [];
+  }
+
+  if (ids.length === 0) return fail(response, ERROR_CODES.BAD_REQUEST, 'Nothing to reorder.');
 
   // Tens rather than ones, so a team can be dropped between two later without
   // rewriting the whole list.
   for (let index = 0; index < ids.length; index += 1) {
     const { error } = await supabase
-      .from(T.departments)
+      .from(TABLES.departments)
       .update({ sort_order: (index + 1) * 10 })
       .eq('id', ids[index]);
     if (error) throw error;
   }
 
   await done();
-  return ok(res, { ordered: ids.length });
+  return ok(response, { ordered: ids.length });
 }

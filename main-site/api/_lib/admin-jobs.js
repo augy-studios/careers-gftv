@@ -30,7 +30,7 @@
 //   a translation marked ready without a title, summary, and description, which
 //   is surfaced here as a field error rather than left to fail on a constraint.
 
-import { supabase, T } from './supabase.js';
+import { supabase, TABLES } from './supabase.js';
 import { FIELD, validateText } from './validate.js';
 import { COMMITMENT_TYPES } from './jobs.js';
 import { canPrefill } from './apply.js';
@@ -146,7 +146,7 @@ export const JOB_SORTS = Object.freeze(['updated', 'created', 'title', 'closing'
  */
 export async function listAdminJobs(options) {
   let query = supabase
-    .from(T.jobs)
+    .from(TABLES.jobs)
     .select(LIST_COLUMNS, { count: 'exact' })
     .range(options.from, options.to);
 
@@ -196,12 +196,28 @@ export async function listAdminJobs(options) {
  *        are ready, so a half finished translation is visible without opening it
  */
 export function adminJobRow(row, departments, translationStates) {
+  let department;
+
+  if (row.department_id) {
+    department = departments.get(row.department_id) ?? null;
+  } else {
+    department = null;
+  }
+
+  let questionCount;
+
+  if (Array.isArray(row.task_questions)) {
+    questionCount = row.task_questions.length;
+  } else {
+    questionCount = 0;
+  }
+
   return {
     id: row.id,
     slug: row.slug,
     title: row.title,
     status: row.status,
-    department: row.department_id ? (departments.get(row.department_id) ?? null) : null,
+    department: department,
     commitment_type: row.commitment_type,
     location: row.location,
     is_remote: row.is_remote === true,
@@ -219,7 +235,7 @@ export function adminJobRow(row, departments, translationStates) {
     form_check_state: row.form_check_state,
     form_check_note: row.form_check_note ?? null,
     has_questions: Array.isArray(row.task_questions) && row.task_questions.length > 0,
-    question_count: Array.isArray(row.task_questions) ? row.task_questions.length : 0,
+    question_count: questionCount,
     translations: translationStates.get(row.id) ?? [],
   };
 }
@@ -243,7 +259,7 @@ export async function translationStates(jobIds) {
   if (jobIds.length === 0) return states;
 
   const { data, error } = await supabase
-    .from(T.jobTranslations)
+    .from(TABLES.jobTranslations)
     .select('job_id, locale, is_ready')
     .in('job_id', jobIds);
 
@@ -255,7 +271,15 @@ export async function translationStates(jobIds) {
 
   for (const row of data ?? []) {
     const list = states.get(row.job_id) ?? [];
-    list.push({ locale: row.locale, state: row.is_ready ? 'complete' : 'in_progress' });
+    let state;
+
+    if (row.is_ready) {
+      state = 'complete';
+    } else {
+      state = 'in_progress';
+    }
+
+    list.push({ locale: row.locale, state: state });
     states.set(row.job_id, list);
   }
 
@@ -273,7 +297,7 @@ export async function translationStates(jobIds) {
  */
 export async function fetchAdminJob(jobId) {
   const { data, error } = await supabase
-    .from(T.jobs)
+    .from(TABLES.jobs)
     .select(EDITOR_COLUMNS)
     .eq('id', jobId)
     .maybeSingle();
@@ -282,8 +306,11 @@ export async function fetchAdminJob(jobId) {
   if (!data) return null;
 
   const [translations, tags] = await Promise.all([
-    supabase.from(T.jobTranslations).select(TRANSLATION_COLUMNS).eq('job_id', jobId),
-    supabase.from(T.jobTags).select(`tag_id, tag:${T.tags} ( id, name, slug, colour )`).eq('job_id', jobId),
+    supabase.from(TABLES.jobTranslations).select(TRANSLATION_COLUMNS).eq('job_id', jobId),
+    supabase
+      .from(TABLES.jobTags)
+      .select(`tag_id, tag:${TABLES.tags} ( id, name, slug, colour )`)
+      .eq('job_id', jobId),
   ]);
 
   if (translations.error) throw translations.error;
@@ -291,9 +318,7 @@ export async function fetchAdminJob(jobId) {
 
   return {
     ...data,
-    translations: Object.fromEntries(
-      (translations.data ?? []).map((row) => [row.locale, row])
-    ),
+    translations: Object.fromEntries((translations.data ?? []).map((row) => [row.locale, row])),
     tags: (tags.data ?? []).map((row) => row.tag).filter(Boolean),
   };
 }
@@ -302,14 +327,14 @@ export async function fetchAdminJob(jobId) {
  * Validation
  * ---------------------------------------------------------------------- */
 
-const TITLE_MAX = 200;
-const SUMMARY_MAX = 500;
-const BODY_MAX = 20000;
-const LOCATION_MAX = 120;
-const OG_MAX = 300;
-const URL_MAX = 500;
-const HEADING_MAX = 120;
-const MAX_SECTIONS = 20;
+const TITLE_MAXIMUM = 200;
+const SUMMARY_MAXIMUM = 500;
+const BODY_MAXIMUM = 20000;
+const LOCATION_MAXIMUM = 120;
+const OG_MAXIMUM = 300;
+const URL_MAXIMUM = 500;
+const HEADING_MAXIMUM = 120;
+const MAXIMUM_SECTIONS = 20;
 
 /**
  * Whether a URL is a Google Forms address at all, per 8.2: "Validate that the
@@ -338,10 +363,14 @@ export function isGoogleFormUrl(url) {
 }
 
 function checkFormUrl(value, { required = false } = {}) {
-  const text = validateText(value, URL_MAX);
+  const text = validateText(value, URL_MAXIMUM);
   if (!text.ok) return text;
   if (text.value === null) {
-    return required ? { ok: false, code: FIELD.REQUIRED } : { ok: true, value: null };
+    if (required) {
+      return { ok: false, code: FIELD.REQUIRED };
+    } else {
+      return { ok: true, value: null };
+    }
   }
   if (!isGoogleFormUrl(text.value)) return { ok: false, code: FIELD.INVALID };
   return { ok: true, value: text.value };
@@ -392,20 +421,22 @@ function checkPrefill(value, formUrl) {
 function checkSections(value) {
   if (value === null || value === undefined) return { ok: true, value: [] };
   if (!Array.isArray(value)) return { ok: false, code: FIELD.INVALID };
-  if (value.length > MAX_SECTIONS) return { ok: false, code: FIELD.TOO_LONG };
+  if (value.length > MAXIMUM_SECTIONS) return { ok: false, code: FIELD.TOO_LONG };
 
   const cleaned = [];
 
   for (const section of value) {
     if (!section || typeof section !== 'object') return { ok: false, code: FIELD.INVALID };
 
-    const heading = String(section.heading ?? '').replace(/\s+/g, ' ').trim();
+    const heading = String(section.heading ?? '')
+      .replace(/\s+/g, ' ')
+      .trim();
     const body = String(section.body ?? '').trim();
 
     if (heading === '' && body === '') continue;
     if (heading === '' || body === '') return { ok: false, code: FIELD.REQUIRED };
-    if (heading.length > HEADING_MAX) return { ok: false, code: FIELD.TOO_LONG };
-    if (body.length > BODY_MAX) return { ok: false, code: FIELD.TOO_LONG };
+    if (heading.length > HEADING_MAXIMUM) return { ok: false, code: FIELD.TOO_LONG };
+    if (body.length > BODY_MAXIMUM) return { ok: false, code: FIELD.TOO_LONG };
 
     cleaned.push({ heading, body });
   }
@@ -448,20 +479,21 @@ export function checkJobFields(body, context) {
   };
 
   if ('title' in body) {
-    set('title', validateText(body.title, TITLE_MAX, { required: true }));
+    set('title', validateText(body.title, TITLE_MAXIMUM, { required: true }));
   }
-  if ('summary' in body) set('summary', validateText(body.summary, SUMMARY_MAX));
-  if ('description' in body) set('description', validateText(body.description, BODY_MAX));
+  if ('summary' in body) set('summary', validateText(body.summary, SUMMARY_MAXIMUM));
+  if ('description' in body) set('description', validateText(body.description, BODY_MAXIMUM));
   if ('responsibilities' in body) {
-    set('responsibilities', validateText(body.responsibilities, BODY_MAX));
+    set('responsibilities', validateText(body.responsibilities, BODY_MAXIMUM));
   }
-  if ('requirements' in body) set('requirements', validateText(body.requirements, BODY_MAX));
-  if ('nice_to_have' in body) set('nice_to_have', validateText(body.nice_to_have, BODY_MAX));
-  if ('location' in body) set('location', validateText(body.location, LOCATION_MAX));
+  if ('requirements' in body) set('requirements', validateText(body.requirements, BODY_MAXIMUM));
+  if ('nice_to_have' in body) set('nice_to_have', validateText(body.nice_to_have, BODY_MAXIMUM));
+  if ('location' in body) set('location', validateText(body.location, LOCATION_MAXIMUM));
   if ('compensation_note' in body) {
-    set('compensation_note', validateText(body.compensation_note, SUMMARY_MAX));
+    set('compensation_note', validateText(body.compensation_note, SUMMARY_MAXIMUM));
   }
-  if ('og_description' in body) set('og_description', validateText(body.og_description, OG_MAX));
+  if ('og_description' in body)
+    set('og_description', validateText(body.og_description, OG_MAXIMUM));
   if ('sections' in body) set('sections', checkSections(body.sections));
   if ('closes_at' in body) set('closes_at', checkDate(body.closes_at));
 
@@ -499,7 +531,7 @@ export function checkJobFields(body, context) {
     set('application_form_url', checkFormUrl(body.application_form_url));
   }
   if ('response_sheet_url' in body) {
-    const sheet = validateText(body.response_sheet_url, URL_MAX);
+    const sheet = validateText(body.response_sheet_url, URL_MAXIMUM);
     if (!sheet.ok) details.response_sheet_url = sheet.code;
     else if (sheet.value === null) values.response_sheet_url = null;
     else if (!/^https:\/\/docs\.google\.com\/spreadsheets\//.test(sheet.value)) {
@@ -511,10 +543,14 @@ export function checkJobFields(body, context) {
     // Checked against the form URL in the same submission where there is one,
     // and against the stored one otherwise. The caller passes the stored value
     // in through context when it has it.
-    const url =
-      'application_form_url' in values
-        ? values.application_form_url
-        : (context.currentFormUrl ?? null);
+    let url;
+
+    if ('application_form_url' in values) {
+      url = values.application_form_url;
+    } else {
+      url = context.currentFormUrl ?? null;
+    }
+
     set('form_prefill', checkPrefill(body.form_prefill, url));
   }
 
@@ -529,7 +565,15 @@ export function checkJobFields(body, context) {
     }
   }
 
-  return { values, details: Object.keys(details).length > 0 ? details : null };
+  let detailsValue;
+
+  if (Object.keys(details).length > 0) {
+    detailsValue = details;
+  } else {
+    detailsValue = null;
+  }
+
+  return { values, details: detailsValue };
 }
 
 /**
@@ -552,19 +596,20 @@ export function checkTranslationFields(body, context) {
     else details[field] = result.code;
   };
 
-  if ('title' in body) set('title', validateText(body.title, TITLE_MAX));
-  if ('summary' in body) set('summary', validateText(body.summary, SUMMARY_MAX));
-  if ('description' in body) set('description', validateText(body.description, BODY_MAX));
+  if ('title' in body) set('title', validateText(body.title, TITLE_MAXIMUM));
+  if ('summary' in body) set('summary', validateText(body.summary, SUMMARY_MAXIMUM));
+  if ('description' in body) set('description', validateText(body.description, BODY_MAXIMUM));
   if ('responsibilities' in body) {
-    set('responsibilities', validateText(body.responsibilities, BODY_MAX));
+    set('responsibilities', validateText(body.responsibilities, BODY_MAXIMUM));
   }
-  if ('requirements' in body) set('requirements', validateText(body.requirements, BODY_MAX));
-  if ('nice_to_have' in body) set('nice_to_have', validateText(body.nice_to_have, BODY_MAX));
-  if ('location' in body) set('location', validateText(body.location, LOCATION_MAX));
+  if ('requirements' in body) set('requirements', validateText(body.requirements, BODY_MAXIMUM));
+  if ('nice_to_have' in body) set('nice_to_have', validateText(body.nice_to_have, BODY_MAXIMUM));
+  if ('location' in body) set('location', validateText(body.location, LOCATION_MAXIMUM));
   if ('compensation_note' in body) {
-    set('compensation_note', validateText(body.compensation_note, SUMMARY_MAX));
+    set('compensation_note', validateText(body.compensation_note, SUMMARY_MAXIMUM));
   }
-  if ('og_description' in body) set('og_description', validateText(body.og_description, OG_MAX));
+  if ('og_description' in body)
+    set('og_description', validateText(body.og_description, OG_MAXIMUM));
 
   if ('sections' in body) {
     // A translation may carry a different number of sections from the base row,
@@ -577,26 +622,45 @@ export function checkTranslationFields(body, context) {
     set('application_form_url', checkFormUrl(body.application_form_url));
   }
   if ('form_prefill' in body) {
-    const url =
-      'application_form_url' in values
-        ? values.application_form_url
-        : (body.__current_form_url ?? null);
+    let url;
+
+    if ('application_form_url' in values) {
+      url = values.application_form_url;
+    } else {
+      url = body.__current_form_url ?? null;
+    }
+
     set('form_prefill', checkPrefill(body.form_prefill, url));
   }
   if ('response_sheet_url' in body) {
-    set('response_sheet_url', validateText(body.response_sheet_url, URL_MAX));
+    set('response_sheet_url', validateText(body.response_sheet_url, URL_MAXIMUM));
   }
 
   if (context.ready) {
     for (const field of ['title', 'summary', 'description']) {
-      const value = field in values ? values[field] : body[field];
+      let value;
+
+      if (field in values) {
+        value = values[field];
+      } else {
+        value = body[field];
+      }
+
       if (!value || String(value).trim() === '') details[field] = FIELD.REQUIRED;
     }
   }
 
   values.is_ready = context.ready === true;
 
-  return { values, details: Object.keys(details).length > 0 ? details : null };
+  let detailsValue;
+
+  if (Object.keys(details).length > 0) {
+    detailsValue = details;
+  } else {
+    detailsValue = null;
+  }
+
+  return { values, details: detailsValue };
 }
 
 /* -------------------------------------------------------------------------
@@ -610,11 +674,18 @@ export function checkTranslationFields(body, context) {
  * @param {string|null} jobId the row being edited, which may keep its own slug
  */
 export async function resolveSlug(body, jobId = null) {
-  const manual = typeof body.slug === 'string' ? slugify(body.slug) : '';
+  let manual;
+
+  if (typeof body.slug === 'string') {
+    manual = slugify(body.slug);
+  } else {
+    manual = '';
+  }
+
   if (manual) {
     // A manual slug that is taken is an error rather than something to silently
     // suffix: the admin typed a specific address and should be told it is gone.
-    if (await slugTaken(T.jobs, manual, jobId)) {
+    if (await slugTaken(TABLES.jobs, manual, jobId)) {
       return { ok: false, code: FIELD.TAKEN };
     }
     return { ok: true, value: manual };
@@ -624,7 +695,7 @@ export async function resolveSlug(body, jobId = null) {
   // A posting written in Chinese slugifies to nothing, which is fine: the uuid
   // is the canonical address and the slug is an alias. 'posting' plus a suffix
   // is a working alias, and an admin who wants a readable one can type it.
-  return { ok: true, value: await freeSlug(T.jobs, fromTitle || 'posting', jobId) };
+  return { ok: true, value: await freeSlug(TABLES.jobs, fromTitle || 'posting', jobId) };
 }
 
 /**
@@ -641,13 +712,13 @@ export async function resolveSlug(body, jobId = null) {
 export async function replaceJobTags(jobId, tagIds) {
   const unique = [...new Set(tagIds.filter(Boolean))].slice(0, 40);
 
-  const { error: deleteError } = await supabase.from(T.jobTags).delete().eq('job_id', jobId);
+  const { error: deleteError } = await supabase.from(TABLES.jobTags).delete().eq('job_id', jobId);
   if (deleteError) throw deleteError;
 
   if (unique.length === 0) return;
 
   const { error } = await supabase
-    .from(T.jobTags)
+    .from(TABLES.jobTags)
     .insert(unique.map((tagId) => ({ job_id: jobId, tag_id: tagId })));
 
   if (error) throw error;
@@ -693,16 +764,15 @@ export async function deletionImpact(jobId) {
     return rows ?? 0;
   };
 
-  const [applications, analytics, ratings, saved, tasks, invites, submissions] =
-    await Promise.all([
-      count(T.applications),
-      count(T.analytics),
-      count(T.ratings),
-      count(T.savedJobs),
-      count(T.tasks),
-      count(T.invites),
-      count(T.formSubmissions),
-    ]);
+  const [applications, analytics, ratings, saved, tasks, invites, submissions] = await Promise.all([
+    count(TABLES.applications),
+    count(TABLES.analytics),
+    count(TABLES.ratings),
+    count(TABLES.savedJobs),
+    count(TABLES.tasks),
+    count(TABLES.invites),
+    count(TABLES.formSubmissions),
+  ]);
 
   return {
     applications,

@@ -30,7 +30,7 @@
 
 import { methodNotAllowed } from './_lib/respond.js';
 import { sendHtml } from './_lib/page-shell.js';
-import { supabase, T } from './_lib/supabase.js';
+import { supabase, TABLES } from './_lib/supabase.js';
 import { getStaffSession, hasPortalAccess } from './_lib/session.js';
 import { AUDIT } from './_lib/audit.js';
 import { featureOverrides, flippableFeatures, deniedFeatures } from './_lib/maintenance.js';
@@ -62,14 +62,19 @@ import {
  */
 const CACHE = 'public, max-age=0, s-maxage=60, stale-while-revalidate=120';
 
-export default async function handler(req, res) {
+/**
+ * Render /status. While the site is still being built it lists the build
+ * phases; once everything has shipped it becomes the service status page with
+ * uptime and incidents. A staff member can ask for the other view.
+ */
+export default async function handler(request, response) {
   // HEAD alongside GET, per the rule phase 4 added after the phase 3 routes
   // answered 405 to a monitor. This page is the one a monitor is most likely to
   // ask about.
-  if (methodNotAllowed(req, res, ['GET', 'HEAD'])) return;
+  if (methodNotAllowed(request, response, ['GET', 'HEAD'])) return;
 
   try {
-    const asked = await staffView(req);
+    const asked = await staffView(request);
     const preview = asked === VIEW.service;
     const back = asked === VIEW.build;
     const view = viewFor({ preview, back });
@@ -80,29 +85,61 @@ export default async function handler(req, res) {
       // a staff session asked for it after the flip, in which case it is that
       // person's render at the public address and must not be cached for the
       // next reader, exactly as the preview below.
-      return sendHtml(res, statusDocument({ view, body: renderBuildBody() }), {
+      let cacheControl;
+
+      if (back) {
+        cacheControl = 'private, no-store';
+      } else {
+        cacheControl = CACHE;
+      }
+
+      let varyField;
+
+      if (back) {
+        varyField = { Vary: 'Cookie' };
+      } else {
+        varyField = {};
+      }
+
+      return sendHtml(response, statusDocument({ view, body: renderBuildBody() }), {
         headers: {
-          'Cache-Control': back ? 'private, no-store' : CACHE,
-          ...(back ? { Vary: 'Cookie' } : {}),
+          'Cache-Control': cacheControl,
+          ...varyField,
         },
       });
     }
 
     const model = await serviceModel();
 
-    return sendHtml(res, statusDocument({ view, body: renderServiceBody(model) }), {
+    let cacheControlValue;
+
+    if (preview) {
+      cacheControlValue = 'private, no-store';
+    } else {
+      cacheControlValue = CACHE;
+    }
+
+    let varyFieldValue;
+
+    if (preview) {
+      varyFieldValue = { Vary: 'Cookie' };
+    } else {
+      varyFieldValue = {};
+    }
+
+    return sendHtml(response, statusDocument({ view, body: renderServiceBody(model) }), {
       headers: {
         // A preview belongs to the person looking at it and to nobody else. It
         // is the same URL as the public page, so anything cacheable here would
         // be a staff-only render served to the next reader. **Vary: Cookie**
         // because the two renders share an address and differ by session, which
         // is the rule api/job-page.js already follows for its private renders.
-        'Cache-Control': preview ? 'private, no-store' : CACHE,
-        ...(preview ? { Vary: 'Cookie' } : {}),
+        'Cache-Control': cacheControlValue,
+        ...varyFieldValue,
       },
     });
   } catch (cause) {
-    return floor(res, cause);
+    return floor(response, cause);
   }
 }
 
@@ -124,11 +161,11 @@ export default async function handler(req, res) {
  * sentence rather than a stack trace. What went wrong is in the log, where the
  * person who can fix it will look.
  */
-function floor(res, cause) {
+function floor(response, cause) {
   console.error('[careers-gftv] status page:', cause);
 
   return sendHtml(
-    res,
+    response,
     `<!doctype html>
 <html lang="en">
 <head>
@@ -164,9 +201,9 @@ the rest of the site is working.</p>
  * A session lookup that throws is not a reason to fail the page: it answers
  * false and the reader gets whatever `build-status.json` says they should.
  */
-async function staffView(req) {
+async function staffView(request) {
   try {
-    const url = new URL(req.url, 'http://localhost');
+    const url = new URL(request.url, 'http://localhost');
     const wanted = url.searchParams.get('view');
     // `service` previewed the service page before the flip; `build` reaches
     // the phase list after it. Both need the same staff session, and anybody
@@ -174,9 +211,14 @@ async function staffView(req) {
     // anything.
     if (wanted !== VIEW.service && wanted !== VIEW.build) return null;
 
-    const session = await getStaffSession(req);
+    const session = await getStaffSession(request);
     if (!session?.user) return null;
-    return (await hasPortalAccess(session.user)) ? wanted : null;
+
+    if (await hasPortalAccess(session.user)) {
+      return wanted;
+    } else {
+      return null;
+    }
   } catch (cause) {
     console.error('[careers-gftv] status view hatch:', cause);
     return null;
@@ -211,7 +253,12 @@ async function serviceModel() {
   const probeLastSeen = days.reduce((newest, row) => {
     const when = row?.last_checked_at;
     if (!when) return newest;
-    return !newest || new Date(when) > new Date(newest) ? when : newest;
+
+    if (!newest || new Date(when) > new Date(newest)) {
+      return when;
+    } else {
+      return newest;
+    }
   }, null);
 
   return {
@@ -264,7 +311,9 @@ function components(overrides) {
       reason: entry.reason,
     }));
 
-  return [...flippable, ...denied].sort((a, b) => a.phase - b.phase || a.key.localeCompare(b.key));
+  return [...flippable, ...denied].sort(
+    (first, second) => first.phase - second.phase || first.key.localeCompare(second.key)
+  );
 }
 
 /* -------------------------------------------------------------------------
@@ -288,7 +337,7 @@ async function readOverrides() {
  */
 async function readDays(since) {
   const { data, error } = await supabase
-    .from(T.statusDays)
+    .from(TABLES.statusDays)
     .select('target, day, checks, failures, duration_total_ms, slowest_ms, last_checked_at')
     .gte('day', since.slice(0, 10))
     .order('day', { ascending: true });
@@ -312,7 +361,7 @@ async function readDays(since) {
  */
 async function readIncidents(since) {
   const { data, error } = await supabase
-    .from(T.statusIncidents)
+    .from(TABLES.statusIncidents)
     .select('target, started_at, last_failed_at, ended_at, failures, status_code')
     .or(`started_at.gte.${since},ended_at.is.null`)
     .order('started_at', { ascending: false });
@@ -327,7 +376,7 @@ async function readIncidents(since) {
 /** The declared half, from the audit rows 8.12 has written since phase 8. */
 async function readAudit(since) {
   const { data, error } = await supabase
-    .from(T.auditLog)
+    .from(TABLES.auditLog)
     .select('action, created_at, metadata')
     .in('action', [AUDIT.FEATURE_DISABLED, AUDIT.FEATURE_ENABLED])
     .gte('created_at', since)

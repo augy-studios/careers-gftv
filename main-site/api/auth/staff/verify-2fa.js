@@ -16,12 +16,19 @@
 // the authorisation to be here: without a valid unexpired one, a correct code
 // is worth nothing.
 
-import { ok, fail, ERR, methodNotAllowed, readJson, failInternal } from '../../_lib/respond.js';
+import {
+  ok,
+  fail,
+  ERROR_CODES,
+  methodNotAllowed,
+  readJson,
+  failInternal,
+} from '../../_lib/respond.js';
 import { verifyTotp, hasTotp } from '../../_lib/totp.js';
 import { startAuthentication, finishAuthentication } from '../../_lib/webauthn.js';
 import { auditStaff, AUDIT } from '../../_lib/audit.js';
 import { findMatchingCode, verifyAgainstNothing } from '../../_lib/password.js';
-import { supabase, T } from '../../_lib/supabase.js';
+import { supabase, TABLES } from '../../_lib/supabase.js';
 import {
   HELLO,
   createStaffSession,
@@ -41,43 +48,62 @@ import {
 
 const GENERIC = 'That code was not right.';
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['POST'])) return;
+/**
+ * Finish a staff sign in with the second factor. Spends the challenge from the
+ * password step first, so it cannot be replayed, then checks the passkey,
+ * authenticator code or backup code, and only then creates the session and,
+ * when asked, remembers the device.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['POST'])) return;
 
-  const body = await readJson(req, res);
+  const body = await readJson(request, response);
   if (!body) return;
 
-  const challenge = typeof body.challenge === 'string' ? body.challenge : '';
-  const code = typeof body.code === 'string' ? body.code : '';
+  let challenge;
+
+  if (typeof body.challenge === 'string') {
+    challenge = body.challenge;
+  } else {
+    challenge = '';
+  }
+
+  let code;
+
+  if (typeof body.code === 'string') {
+    code = body.code;
+  } else {
+    code = '';
+  }
+
   const isPasskey = body.action === 'options' || body.action === 'passkey';
 
   if (challenge === '' || (code === '' && !isPasskey)) {
-    return fail(res, ERR.BAD_REQUEST, GENERIC);
+    return fail(response, ERROR_CODES.BAD_REQUEST, GENERIC);
   }
 
-  const subjects = [subjectForIp(req), subjectForIdentifier(challenge)];
-  if (await limited(res, 'staff_2fa', subjects)) return;
+  const subjects = [subjectForIp(request), subjectForIdentifier(challenge)];
+  if (await limited(response, 'staff_2fa', subjects)) return;
 
   try {
     const { data: row, error } = await supabase
-      .from(T.staffTotpChallenges)
+      .from(TABLES.staffTotpChallenges)
       .select(
         `${HELLO.challenges.userId}, ${HELLO.challenges.expiresAt},
-         user:${T.staffUsers} ( id, username, is_approved, is_admin, is_editor, totp_secret )`
+         user:${TABLES.staffUsers} ( id, username, is_approved, is_admin, is_editor, totp_secret )`
       )
       .eq(HELLO.challenges.token, challenge)
       .maybeSingle();
 
-    if (error) return failInternal(res, error, 'verify 2fa lookup');
+    if (error) return failInternal(response, error, 'verify 2fa lookup');
 
     const user = row?.user ?? null;
-    const expired =
-      row && new Date(row[HELLO.challenges.expiresAt]).getTime() <= Date.now();
+    const expired = row && new Date(row[HELLO.challenges.expiresAt]).getTime() <= Date.now();
 
     if (!row || !user || expired) {
       if (expired) {
         await supabase
-          .from(T.staffTotpChallenges)
+          .from(TABLES.staffTotpChallenges)
           .delete()
           .eq(HELLO.challenges.token, challenge);
       }
@@ -87,7 +113,7 @@ export default async function handler(req, res) {
       // the page can send them back to the password step in their own
       // language instead of leaving them retyping codes at a challenge that no
       // longer exists.
-      return fail(res, ERR.UNAUTHORISED, 'That sign in has expired. Start again.', {
+      return fail(response, ERROR_CODES.UNAUTHORISED, 'That sign in has expired. Start again.', {
         details: { reason: 'challenge_expired' },
       });
     }
@@ -97,10 +123,10 @@ export default async function handler(req, res) {
     // applied on every request that grants anything.
     if (user.is_approved !== true || !(await hasPortalAccess(user))) {
       await supabase
-        .from(T.staffTotpChallenges)
+        .from(TABLES.staffTotpChallenges)
         .delete()
         .eq(HELLO.challenges.token, challenge);
-      return fail(res, ERR.UNAUTHORISED, GENERIC);
+      return fail(response, ERROR_CODES.UNAUTHORISED, GENERIC);
     }
 
     // Asking for the passkey options is not an attempt at anything, so it
@@ -113,10 +139,10 @@ export default async function handler(req, res) {
       });
 
       if (!options) {
-        return fail(res, ERR.BAD_REQUEST, 'There is no passkey on this account.');
+        return fail(response, ERROR_CODES.BAD_REQUEST, 'There is no passkey on this account.');
       }
 
-      return ok(res, { options });
+      return ok(response, { options });
     }
 
     const digits = code.replace(/\D/g, '');
@@ -141,15 +167,15 @@ export default async function handler(req, res) {
 
     if (!verified && !isPasskey) {
       const { data: codes, error: codesError } = await supabase
-        .from(T.staffBackupCodes)
+        .from(TABLES.staffBackupCodes)
         .select(`${HELLO.backupCodes.id}, ${HELLO.backupCodes.codeHash}`)
         .eq(HELLO.backupCodes.userId, user.id);
 
-      if (codesError) return failInternal(res, codesError, 'verify 2fa backup codes');
+      if (codesError) return failInternal(response, codesError, 'verify 2fa backup codes');
 
-      const rows = (codes ?? []).map((c) => ({
-        id: c[HELLO.backupCodes.id],
-        code_hash: c[HELLO.backupCodes.codeHash],
+      const rows = (codes ?? []).map((storedCode) => ({
+        id: storedCode[HELLO.backupCodes.id],
+        code_hash: storedCode[HELLO.backupCodes.codeHash],
       }));
 
       let matchedId = null;
@@ -165,11 +191,11 @@ export default async function handler(req, res) {
         // Deleted on use, per 5a step 6. Single use only, and the delete has to
         // succeed before the code counts as spent.
         const { error: deleteError } = await supabase
-          .from(T.staffBackupCodes)
+          .from(TABLES.staffBackupCodes)
           .delete()
           .eq(HELLO.backupCodes.id, matchedId);
 
-        if (deleteError) return failInternal(res, deleteError, 'verify 2fa consume');
+        if (deleteError) return failInternal(response, deleteError, 'verify 2fa consume');
 
         verified = true;
         usedBackupCode = true;
@@ -178,40 +204,43 @@ export default async function handler(req, res) {
 
     if (!verified) {
       await recordFailures('staff_2fa', subjects, LIMITS.twoFactor);
-      return fail(res, ERR.UNAUTHORISED, GENERIC);
+      return fail(response, ERROR_CODES.UNAUTHORISED, GENERIC);
     }
 
     // Step 7, in order: the challenge goes first, so a replay of this request
     // cannot ride a second code through.
-    await supabase
-      .from(T.staffTotpChallenges)
-      .delete()
-      .eq(HELLO.challenges.token, challenge);
+    await supabase.from(TABLES.staffTotpChallenges).delete().eq(HELLO.challenges.token, challenge);
 
     await clearAll('staff_2fa', subjects);
 
     if (body.trust_device === true) {
-      await trustStaffDevice(res, user.id, deviceLabel(req));
+      await trustStaffDevice(response, user.id, deviceLabel(request));
     }
 
-    await createStaffSession(res, user.id, body.stay_signed_in === true);
+    await createStaffSession(response, user.id, body.stay_signed_in === true);
+
+    let secondFactor;
+
+    if (body.action === 'passkey') {
+      secondFactor = 'passkey';
+    } else if (usedBackupCode) {
+      secondFactor = 'backup_code';
+    } else {
+      secondFactor = 'totp';
+    }
 
     await auditStaff(user, AUDIT.STAFF_SIGNED_IN, {
-      second_factor: body.action === 'passkey'
-        ? 'passkey'
-        : usedBackupCode
-          ? 'backup_code'
-          : 'totp',
+      second_factor: secondFactor,
       device_trusted: body.trust_device === true,
       stay_signed_in: body.stay_signed_in === true,
     });
 
-    return ok(res, {
+    return ok(response, {
       user: publicStaff(user),
       used_backup_code: usedBackupCode,
       device_trusted: body.trust_device === true,
     });
   } catch (cause) {
-    return failInternal(res, cause, 'verify 2fa');
+    return failInternal(response, cause, 'verify 2fa');
   }
 }

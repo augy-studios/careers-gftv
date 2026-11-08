@@ -23,48 +23,52 @@
 // routes that run on public pages. The save control is drawn on every card on
 // the board, and most readers are not signed in.
 
-import { ok, fail, ERR, methodNotAllowed, failInternal } from '../_lib/respond.js';
-import { supabase, T } from '../_lib/supabase.js';
+import { ok, fail, ERROR_CODES, methodNotAllowed, failInternal } from '../_lib/respond.js';
+import { supabase, TABLES } from '../_lib/supabase.js';
 import { getApplicantSession } from '../_lib/session.js';
 import { requestLocale } from '../_lib/locales.js';
 import { jobSummaries } from '../_lib/dashboard.js';
 
 // Generous. Somebody who has saved more than this has the oldest ones left off,
 // which costs a row on one page rather than anything they can act on.
-const MAX_ROWS = 300;
+const MAXIMUM_ROWS = 300;
 
 const FILTERS = ['all', 'open', 'closed'];
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'HEAD'])) return;
+/**
+ * List the postings the signed in applicant has saved, most recently saved
+ * first, optionally with each posting's details and a filter for open or closed.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'HEAD'])) return;
 
   // Per session and changes the moment somebody presses a star. A shared cache
   // holding one applicant's saved list would show it to the next reader through
   // the same edge node.
-  res.setHeader('Cache-Control', 'no-store');
+  response.setHeader('Cache-Control', 'no-store');
 
-  const url = new URL(req.url ?? '/', 'https://careers.invalid');
+  const url = new URL(request.url ?? '/', 'https://careers.invalid');
   const withJobs = url.searchParams.get('with_jobs') === 'true';
   const filter = url.searchParams.get('filter') ?? 'all';
 
   if (!FILTERS.includes(filter)) {
-    return fail(res, ERR.BAD_REQUEST, 'That is not one of the filters.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not one of the filters.', {
       details: { filter: 'invalid' },
     });
   }
 
-  const session = await getApplicantSession(req);
-  if (!session) return ok(res, { saved: [], job_ids: [] });
+  const session = await getApplicantSession(request);
+  if (!session) return ok(response, { saved: [], job_ids: [] });
 
   try {
     const { data, error } = await supabase
-      .from(T.savedJobs)
+      .from(TABLES.savedJobs)
       .select('job_id, created_at')
       .eq('applicant_id', session.user.id)
       .order('created_at', { ascending: false })
-      .limit(MAX_ROWS);
+      .limit(MAXIMUM_ROWS);
 
-    if (error) return failInternal(res, error, 'saved jobs');
+    if (error) return failInternal(response, error, 'saved jobs');
 
     const rows = data ?? [];
     const jobIds = rows.map((row) => row.job_id);
@@ -72,13 +76,13 @@ export default async function handler(req, res) {
     // The thin answer. Ids and the dates they were saved on, which is all a
     // save control on a card needs to know.
     if (!withJobs) {
-      return ok(res, {
+      return ok(response, {
         job_ids: jobIds,
         saved: rows.map((row) => ({ job_id: row.job_id, saved_at: row.created_at })),
       });
     }
 
-    const summaries = await jobSummaries(jobIds, await requestLocale(req));
+    const summaries = await jobSummaries(jobIds, await requestLocale(request));
 
     const saved = rows
       // A posting hard deleted in phase 7 takes its saved rows with it, per the
@@ -97,7 +101,7 @@ export default async function handler(req, res) {
       closed: saved.filter((row) => !row.job.is_open).length,
     };
 
-    return ok(res, {
+    return ok(response, {
       job_ids: jobIds,
       saved: saved.filter((row) => {
         if (filter === 'open') return row.job.is_open;
@@ -108,6 +112,6 @@ export default async function handler(req, res) {
       filter,
     });
   } catch (cause) {
-    return failInternal(res, cause, 'saved jobs');
+    return failInternal(response, cause, 'saved jobs');
   }
 }

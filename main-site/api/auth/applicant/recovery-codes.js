@@ -17,7 +17,14 @@
 // responsible for the copy, the download, and the "I have saved these"
 // checkbox that 5c asks for.
 
-import { ok, fail, ERR, methodNotAllowed, readJson, failInternal } from '../../_lib/respond.js';
+import {
+  ok,
+  fail,
+  ERROR_CODES,
+  methodNotAllowed,
+  readJson,
+  failInternal,
+} from '../../_lib/respond.js';
 import { requireApplicant } from '../../_lib/session.js';
 import { auditApplicant, AUDIT } from '../../_lib/audit.js';
 import { FIELD } from '../../_lib/validate.js';
@@ -38,16 +45,20 @@ import {
   subjectForUser,
 } from '../../_lib/rate-limit.js';
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'POST'])) return;
+/**
+ * Say how many recovery codes the applicant has left, or generate a new set,
+ * which is shown once and replaces the old one.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'POST'])) return;
 
-  const session = await requireApplicant(req, res);
+  const session = await requireApplicant(request, response);
   if (!session) return;
 
   try {
-    if (req.method === 'GET') {
+    if (request.method === 'GET') {
       const counts = await codeCounts('applicant', session.user.id);
-      return ok(res, {
+      return ok(response, {
         codes: counts,
         codes_low: codesLow(counts.recovery),
         low_code_threshold: LOW_CODE_WARNING,
@@ -55,23 +66,23 @@ export default async function handler(req, res) {
       });
     }
 
-    const body = await readJson(req, res);
+    const body = await readJson(request, response);
     if (!body) return;
 
     const which = String(body.set ?? 'recovery');
     if (!isCodeSet('applicant', which)) {
-      return fail(res, ERR.BAD_REQUEST, 'That is not a set of codes this site has.', {
+      return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not a set of codes this site has.', {
         details: { set: FIELD.INVALID },
       });
     }
 
-    const subjects = [subjectForIp(req), subjectForUser('applicant', session.user.id)];
-    if (await limited(res, 'code_generation', subjects)) return;
+    const subjects = [subjectForIp(request), subjectForUser('applicant', session.user.id)];
+    if (await limited(response, 'code_generation', subjects)) return;
 
     const correct = await verifyRealmPassword('applicant', session.user.id, body.current_password);
     if (!correct) {
       await recordFailures('code_generation', subjects, LIMITS.codeGeneration);
-      return fail(res, ERR.UNAUTHORISED, 'That password was not right.', {
+      return fail(response, ERROR_CODES.UNAUTHORISED, 'That password was not right.', {
         details: { current_password: FIELD.INVALID },
       });
     }
@@ -80,7 +91,7 @@ export default async function handler(req, res) {
 
     await auditApplicant(session.user, AUDIT.RECOVERY_CODES_GENERATED, { set: which });
 
-    return ok(res, {
+    return ok(response, {
       set: which,
       codes,
       counts: await codeCounts('applicant', session.user.id),
@@ -89,6 +100,6 @@ export default async function handler(req, res) {
       shown_once: true,
     });
   } catch (cause) {
-    return failInternal(res, cause, 'recovery codes');
+    return failInternal(response, cause, 'recovery codes');
   }
 }

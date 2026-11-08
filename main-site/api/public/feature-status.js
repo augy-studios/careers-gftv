@@ -31,10 +31,10 @@
 import { ok, methodNotAllowed, failInternal } from '../_lib/respond.js';
 import { publicFeatureStatus } from '../_lib/maintenance.js';
 
-export default async function handler(req, res) {
+export default async function handler(request, response) {
   // HEAD alongside GET on anything a stranger may fetch, per the rule phase 4
   // added after the phase 3 routes answered 405 to a monitor.
-  if (methodNotAllowed(req, res, ['GET', 'HEAD'])) return;
+  if (methodNotAllowed(request, response, ['GET', 'HEAD'])) return;
 
   try {
     const status = await publicFeatureStatus();
@@ -42,10 +42,10 @@ export default async function handler(req, res) {
     // no-store rather than a short max-age: a browser reusing this from its own
     // cache on the next page load would put the delay back where it was, one
     // reader at a time and invisibly.
-    res.setHeader('Cache-Control', 'no-store');
+    response.setHeader('Cache-Control', 'no-store');
 
-    return ok(res, status);
+    return ok(response, status);
   } catch (cause) {
-    return failInternal(res, cause, 'feature status');
+    return failInternal(response, cause, 'feature status');
   }
 }

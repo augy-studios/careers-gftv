@@ -47,7 +47,7 @@
 //   translation nobody has marked ready must not quietly publish the rest of it.
 //   An upsert that creates a translation row here creates it unready.
 
-import { supabase, T } from './supabase.js';
+import { supabase, TABLES } from './supabase.js';
 
 /** Migration 015's four statuses, in the order 8.11 walks them. */
 export const REPORT_STATUSES = Object.freeze(['open', 'accepted', 'fixed', 'rejected']);
@@ -132,7 +132,7 @@ const REPORT_COLUMNS =
  */
 export async function listReports(options) {
   let query = supabase
-    .from(T.translationReports)
+    .from(TABLES.translationReports)
     .select(REPORT_COLUMNS, { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(options.from, options.to);
@@ -172,7 +172,7 @@ export async function reportCounts() {
   const results = await Promise.all(
     REPORT_STATUSES.map((status) =>
       supabase
-        .from(T.translationReports)
+        .from(TABLES.translationReports)
         .select('id', { count: 'exact', head: true })
         .eq('status', status)
     )
@@ -181,10 +181,15 @@ export async function reportCounts() {
   const counts = {};
   REPORT_STATUSES.forEach((status, index) => {
     const result = results[index];
+
     // Null rather than zero on a failure, per the rule api/admin/me.js states:
     // a zero is a claim about the state of something, and a failed request does
     // not entitle us to make one.
-    counts[status] = result.error ? null : (result.count ?? 0);
+    if (result.error) {
+      counts[status] = null;
+    } else {
+      counts[status] = result.count ?? 0;
+    }
   });
 
   return counts;
@@ -196,15 +201,24 @@ export async function reportCounts() {
 // instead. One number is not worth a second error convention.
 
 function reportRow(row, reporters, targets) {
+  const targetLabel = targets.get(targetKey(row)) ?? null;
+  let reporter;
+
+  if (row.reporter_id) {
+    reporter = reporters.get(row.reporter_id) ?? null;
+  } else {
+    reporter = null;
+  }
+
   return {
     id: row.id,
     target_type: row.target_type,
     target_id: row.target_id,
     target_key: row.target_key,
-    target_label: targets.get(targetKey(row)) ?? null,
+    target_label: targetLabel,
     field: row.field,
     locale: row.locale,
-    reporter: row.reporter_id ? (reporters.get(row.reporter_id) ?? null) : null,
+    reporter: reporter,
     note: row.note,
     suggested_text: row.suggested_text,
     origin: row.origin ?? 'form',
@@ -237,7 +251,7 @@ async function reporterNames(ids) {
   if (wanted.length === 0) return new Map();
 
   const { data, error } = await supabase
-    .from(T.users)
+    .from(TABLES.users)
     .select('id, username, display_name')
     .in('id', wanted);
 
@@ -269,9 +283,9 @@ async function targetNames(rows) {
 
   await Promise.all(
     [
-      ['job', T.jobs, 'title'],
-      ['department', T.departments, 'name'],
-      ['tag', T.tags, 'name'],
+      ['job', TABLES.jobs, 'title'],
+      ['department', TABLES.departments, 'name'],
+      ['tag', TABLES.tags, 'name'],
     ].map(async ([type, table, column]) => {
       const ids = [...wanted[type]];
       if (ids.length === 0) return;
@@ -298,7 +312,7 @@ async function targetNames(rows) {
  */
 export async function fetchReport(reportId, sourceLocale) {
   const { data, error } = await supabase
-    .from(T.translationReports)
+    .from(TABLES.translationReports)
     .select(REPORT_COLUMNS)
     .eq('id', reportId)
     .maybeSingle();
@@ -334,9 +348,13 @@ async function currentWording(row, sourceLocale) {
 
   const isSourceLocale = row.locale === sourceLocale;
   const base = await baseRow(row.target_type, row.target_id);
-  const translation = isSourceLocale
-    ? null
-    : await translationRow(row.target_type, row.target_id, row.locale);
+  let translation;
+
+  if (isSourceLocale) {
+    translation = null;
+  } else {
+    translation = await translationRow(row.target_type, row.target_id, row.locale);
+  }
 
   const field = row.field;
 
@@ -349,10 +367,42 @@ async function currentWording(row, sourceLocale) {
   // select is cheaper than one per field, but a payload carrying a posting's
   // status and its whole description to render one paragraph is a payload that
   // grows a new field every time the editor does.
+  let source;
+
+  if (field) {
+    source = textOf(base?.[field]);
+  } else {
+    source = null;
+  }
+
+  let reported;
+
+  if (field) {
+    let reportedSource;
+
+    if (isSourceLocale) {
+      reportedSource = base?.[field];
+    } else {
+      reportedSource = translation?.[field];
+    }
+
+    reported = textOf(reportedSource);
+  } else {
+    reported = null;
+  }
+
+  let hasTranslationRow;
+
+  if (isSourceLocale) {
+    hasTranslationRow = true;
+  } else {
+    hasTranslationRow = translation !== null;
+  }
+
   return {
-    source: field ? textOf(base?.[field]) : null,
-    reported: field ? textOf(isSourceLocale ? base?.[field] : translation?.[field]) : null,
-    has_translation_row: isSourceLocale ? true : translation !== null,
+    source: source,
+    reported: reported,
+    has_translation_row: hasTranslationRow,
     is_source_locale: isSourceLocale,
   };
 }
@@ -367,7 +417,11 @@ async function currentWording(row, sourceLocale) {
  * as nothing to compare and answers with the link to the editor.
  */
 function textOf(value) {
-  return typeof value === 'string' ? value : null;
+  if (typeof value === 'string') {
+    return value;
+  } else {
+    return null;
+  }
 }
 
 /**
@@ -393,7 +447,14 @@ function anchorState(row, wording) {
 
   if (!row.quote) return 'detached';
 
-  const text = typeof wording === 'string' ? wording : '';
+  let text;
+
+  if (typeof wording === 'string') {
+    text = wording;
+  } else {
+    text = '';
+  }
+
   if (!text) return 'detached';
 
   const prefix = row.quote_prefix ?? '';
@@ -406,7 +467,11 @@ function anchorState(row, wording) {
   // The quote alone, which is what the selector falls back to when the text
   // around it has been edited. Still a real anchor: the words being complained
   // about are still on the page.
-  return text.includes(row.quote) ? 'found' : 'detached';
+  if (text.includes(row.quote)) {
+    return 'found';
+  } else {
+    return 'detached';
+  }
 }
 
 // The prose fields only, on both sides. Not sections, which is jsonb and is the
@@ -419,9 +484,9 @@ const BASE_SELECT = Object.freeze({
 });
 
 const TRANSLATION_TABLE = Object.freeze({
-  job: T.jobTranslations,
-  department: T.departmentTranslations,
-  tag: T.tagTranslations,
+  job: TABLES.jobTranslations,
+  department: TABLES.departmentTranslations,
+  tag: TABLES.tagTranslations,
 });
 
 const TRANSLATION_KEY = Object.freeze({
@@ -437,9 +502,9 @@ const TRANSLATION_SELECT = Object.freeze({
 });
 
 const BASE_TABLE = Object.freeze({
-  job: T.jobs,
-  department: T.departments,
-  tag: T.tags,
+  job: TABLES.jobs,
+  department: TABLES.departments,
+  tag: TABLES.tags,
 });
 
 async function baseRow(targetType, targetId) {
@@ -507,7 +572,13 @@ export async function applyWording(report, field, text, sourceLocale) {
     return { ok: false, reason: 'not_editable' };
   }
 
-  const value = typeof text === 'string' && text.trim() !== '' ? text.trim() : null;
+  let value;
+
+  if (typeof text === 'string' && text.trim() !== '') {
+    value = text.trim();
+  } else {
+    value = null;
+  }
 
   if (report.locale === sourceLocale) {
     const table = BASE_TABLE[report.target_type];
@@ -590,15 +661,39 @@ const REQUIRED_BASE_FIELDS = Object.freeze(['title', 'name']);
 export async function resolveReport(reportId, change) {
   const resolving = RESOLVED_STATUSES.includes(change.status);
 
+  let resolutionNote;
+
+  if (change.status === 'open') {
+    resolutionNote = null;
+  } else {
+    resolutionNote = change.note;
+  }
+
+  let resolvedBy;
+
+  if (resolving) {
+    resolvedBy = change.staffId;
+  } else {
+    resolvedBy = null;
+  }
+
+  let resolvedAt;
+
+  if (resolving) {
+    resolvedAt = new Date().toISOString();
+  } else {
+    resolvedAt = null;
+  }
+
   const patch = {
     status: change.status,
-    resolution_note: change.status === 'open' ? null : change.note,
-    resolved_by: resolving ? change.staffId : null,
-    resolved_at: resolving ? new Date().toISOString() : null,
+    resolution_note: resolutionNote,
+    resolved_by: resolvedBy,
+    resolved_at: resolvedAt,
   };
 
   const { data, error } = await supabase
-    .from(T.translationReports)
+    .from(TABLES.translationReports)
     .update(patch)
     .eq('id', reportId)
     .select('id, status, resolution_note, resolved_at')

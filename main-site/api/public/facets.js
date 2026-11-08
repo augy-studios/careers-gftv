@@ -31,7 +31,7 @@
 // current result set.
 
 import { ok, methodNotAllowed, failInternal } from '../_lib/respond.js';
-import { supabase, T } from '../_lib/supabase.js';
+import { supabase, TABLES } from '../_lib/supabase.js';
 import { requestLocale } from '../_lib/locales.js';
 import { COMMITMENT_TYPES } from '../_lib/jobs.js';
 
@@ -47,10 +47,15 @@ const CHIP_DAYS = Object.freeze({
   closing_soon: 14,
 });
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'HEAD'])) return;
+/**
+ * Everything the job board's filter panel and quick chips need in one answer:
+ * the teams, tags and commitment types that have open postings, with how many each
+ * has, and the counts behind the posted today, this week and closing soon chips.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'HEAD'])) return;
 
-  const locale = await requestLocale(req);
+  const locale = await requestLocale(request);
 
   try {
     // Three queries rather than one view. The board is small, none of these
@@ -58,30 +63,30 @@ export default async function handler(req, res) {
     // otherwise need.
     const [jobsResult, departmentsResult, tagsResult] = await Promise.all([
       supabase
-        .from(T.jobs)
+        .from(TABLES.jobs)
         .select('id, department_id, commitment_type, published_at, closes_at')
         .eq('status', 'published'),
 
       supabase
-        .from(T.departments)
+        .from(TABLES.departments)
         .select('id, name, slug, sort_order')
         .eq('is_active', true)
         .order('sort_order', { ascending: true })
         .order('name', { ascending: true }),
 
       supabase
-        .from(T.tags)
+        .from(TABLES.tags)
         .select('id, name, slug, colour, usage_count')
         .gt('usage_count', 0)
         .order('usage_count', { ascending: false })
         .order('name', { ascending: true }),
     ]);
 
-    if (jobsResult.error) return failInternal(res, jobsResult.error, 'public facets jobs');
+    if (jobsResult.error) return failInternal(response, jobsResult.error, 'public facets jobs');
     if (departmentsResult.error) {
-      return failInternal(res, departmentsResult.error, 'public facets departments');
+      return failInternal(response, departmentsResult.error, 'public facets departments');
     }
-    if (tagsResult.error) return failInternal(res, tagsResult.error, 'public facets tags');
+    if (tagsResult.error) return failInternal(response, tagsResult.error, 'public facets tags');
 
     const jobs = jobsResult.data ?? [];
     const departments = departmentsResult.data ?? [];
@@ -91,8 +96,8 @@ export default async function handler(req, res) {
     // language, where the base row already is the answer and the translation
     // tables are constrained to never hold a row for it.
     const [departmentNames, tagNames] = await Promise.all([
-      translatedNames(T.departmentTranslations, 'department_id', locale),
-      translatedNames(T.tagTranslations, 'tag_id', locale),
+      translatedNames(TABLES.departmentTranslations, 'department_id', locale),
+      translatedNames(TABLES.tagTranslations, 'tag_id', locale),
     ]);
 
     const now = Date.now();
@@ -107,20 +112,21 @@ export default async function handler(req, res) {
 
     for (const job of jobs) {
       if (job.department_id) {
-        perDepartment.set(
-          job.department_id,
-          (perDepartment.get(job.department_id) ?? 0) + 1
-        );
+        perDepartment.set(job.department_id, (perDepartment.get(job.department_id) ?? 0) + 1);
       }
 
       if (job.commitment_type) {
-        perCommitment.set(
-          job.commitment_type,
-          (perCommitment.get(job.commitment_type) ?? 0) + 1
-        );
+        perCommitment.set(job.commitment_type, (perCommitment.get(job.commitment_type) ?? 0) + 1);
       }
 
-      const published = job.published_at ? Date.parse(job.published_at) : NaN;
+      let published;
+
+      if (job.published_at) {
+        published = Date.parse(job.published_at);
+      } else {
+        published = NaN;
+      }
+
       if (Number.isFinite(published)) {
         if (published >= now - days(CHIP_DAYS.posted_today)) chips.posted_today += 1;
         if (published >= now - days(CHIP_DAYS.posted_week)) chips.posted_week += 1;
@@ -144,7 +150,7 @@ export default async function handler(req, res) {
     }
 
     return ok(
-      res,
+      response,
       {
         locale,
         total: jobs.length,
@@ -168,9 +174,10 @@ export default async function handler(req, res) {
 
         // Ordered as migration 021 lists them rather than by count, so the
         // filter does not reshuffle itself as postings come and go.
-        commitments: COMMITMENT_TYPES.filter((key) => perCommitment.has(key)).map(
-          (key) => ({ key, count: perCommitment.get(key) })
-        ),
+        commitments: COMMITMENT_TYPES.filter((key) => perCommitment.has(key)).map((key) => ({
+          key,
+          count: perCommitment.get(key),
+        })),
 
         chips,
         chip_days: CHIP_DAYS,
@@ -178,7 +185,7 @@ export default async function handler(req, res) {
       { headers: CACHE }
     );
   } catch (cause) {
-    return failInternal(res, cause, 'public facets');
+    return failInternal(response, cause, 'public facets');
   }
 }
 

@@ -21,25 +21,40 @@
 // rate every posting on the board, which is eight rows today and is a thing an
 // admin can see and undo, unlike a table filling up.
 
-import { ok, fail, ERR, methodNotAllowed, failInternal, readJson } from '../_lib/respond.js';
-import { supabase, T } from '../_lib/supabase.js';
+import {
+  ok,
+  fail,
+  ERROR_CODES,
+  methodNotAllowed,
+  failInternal,
+  readJson,
+} from '../_lib/respond.js';
+import { supabase, TABLES } from '../_lib/supabase.js';
 import { getApplicantSession } from '../_lib/session.js';
 import { hasHistoryWithJob, isUuid, isVisible } from '../_lib/job-detail.js';
 import { unavailable } from '../_lib/maintenance.js';
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['POST'])) return;
+/**
+ * Save the signed in applicant's star rating for a posting, or change it. Only
+ * somebody who may see the posting can rate it.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['POST'])) return;
 
   // 8.12's shared guard. Off means off, including the API: a disabled
   // control stops nobody with a stale tab or a phase 10 queued action.
-  if (await unavailable(res, 'ratings')) return;
+  if (await unavailable(response, 'ratings')) return;
 
-  const session = await getApplicantSession(req);
+  const session = await getApplicantSession(request);
   if (!session) {
-    return fail(res, ERR.UNAUTHORISED, 'Sign in to your applicant account to rate a posting.');
+    return fail(
+      response,
+      ERROR_CODES.UNAUTHORISED,
+      'Sign in to your applicant account to rate a posting.'
+    );
   }
 
-  const body = await readJson(req, res);
+  const body = await readJson(request, response);
   if (body === null) return;
 
   const details = {};
@@ -54,16 +69,16 @@ export default async function handler(req, res) {
   if (!Number.isInteger(rating) || rating < 1 || rating > 5) details.rating = 'invalid';
 
   if (Object.keys(details).length > 0) {
-    return fail(res, ERR.BAD_REQUEST, 'That rating could not be saved.', { details });
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That rating could not be saved.', { details });
   }
 
   try {
     if (!(await canRate(jobId, session.user.id))) {
-      return fail(res, ERR.NOT_FOUND, 'That posting could not be found.');
+      return fail(response, ERROR_CODES.NOT_FOUND, 'That posting could not be found.');
     }
 
     const { data, error } = await supabase
-      .from(T.ratings)
+      .from(TABLES.ratings)
       .upsert(
         { job_id: jobId, applicant_id: session.user.id, rating },
         { onConflict: 'job_id,applicant_id' }
@@ -71,11 +86,11 @@ export default async function handler(req, res) {
       .select('rating, updated_at')
       .single();
 
-    if (error) return failInternal(res, error, 'rating');
+    if (error) return failInternal(response, error, 'rating');
 
-    return ok(res, { rating: data.rating, updated_at: data.updated_at });
+    return ok(response, { rating: data.rating, updated_at: data.updated_at });
   } catch (cause) {
-    return failInternal(res, cause, 'rating');
+    return failInternal(response, cause, 'rating');
   }
 }
 
@@ -93,7 +108,7 @@ export default async function handler(req, res) {
  */
 async function canRate(jobId, applicantId) {
   const { data, error } = await supabase
-    .from(T.jobs)
+    .from(TABLES.jobs)
     .select('id, status')
     .eq('id', jobId)
     .maybeSingle();
@@ -101,8 +116,13 @@ async function canRate(jobId, applicantId) {
   if (error) throw error;
   if (!data) return false;
 
-  const hasHistory =
-    data.status === 'archived' ? await hasHistoryWithJob(data.id, applicantId) : false;
+  let hasHistory;
+
+  if (data.status === 'archived') {
+    hasHistory = await hasHistoryWithJob(data.id, applicantId);
+  } else {
+    hasHistory = false;
+  }
 
   return isVisible(data, hasHistory);
 }

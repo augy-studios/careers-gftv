@@ -29,8 +29,8 @@
 //   postings that are closed, expired, or archived", so an applicant can always
 //   reread what they applied for. The scope is the applicant's own rows.
 
-import { ok, fail, ERR, methodNotAllowed, failInternal } from '../_lib/respond.js';
-import { supabase, T } from '../_lib/supabase.js';
+import { ok, fail, ERROR_CODES, methodNotAllowed, failInternal } from '../_lib/respond.js';
+import { supabase, TABLES } from '../_lib/supabase.js';
 import { getApplicantSession } from '../_lib/session.js';
 import { isUuid } from '../_lib/job-detail.js';
 import { requestLocale } from '../_lib/locales.js';
@@ -45,54 +45,67 @@ import {
 // Enough for anybody. An applicant with more tracking rows than this has the
 // oldest ones left off the board's annotation pass, which costs a cooldown
 // badge on a card they can still be told about when they open the posting.
-const MAX_ROWS = 200;
+const MAXIMUM_ROWS = 200;
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'HEAD'])) return;
+/**
+ * List the signed in applicant's own applications. By default only the tracking
+ * details the board and posting page need; with with_jobs=true also the posting
+ * each one is about and the counts behind the tabs on My applications.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'HEAD'])) return;
 
-  res.setHeader('Cache-Control', 'no-store');
+  response.setHeader('Cache-Control', 'no-store');
 
-  const url = new URL(req.url ?? '/', 'https://careers.invalid');
+  const url = new URL(request.url ?? '/', 'https://careers.invalid');
   const jobId = url.searchParams.get('job_id');
   const withJobs = url.searchParams.get('with_jobs') === 'true';
   const bucket = url.searchParams.get('bucket') ?? 'all';
 
   if (jobId !== null && !isUuid(jobId)) {
-    return fail(res, ERR.BAD_REQUEST, 'That is not a posting id.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not a posting id.', {
       details: { job_id: 'invalid' },
     });
   }
 
   if (!isBucket(bucket)) {
-    return fail(res, ERR.BAD_REQUEST, 'That is not one of the buckets.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not one of the buckets.', {
       details: { bucket: 'invalid' },
     });
   }
 
-  const session = await getApplicantSession(req);
+  const session = await getApplicantSession(request);
   if (!session) {
     // applications_open is public information and the posting page needs it
     // whether or not anybody is signed in, so it is answered either way.
-    return ok(res, { applications: [], applications_open: await applicationsOpen() });
+    return ok(response, { applications: [], applications_open: await applicationsOpen() });
   }
 
   try {
     let query = supabase
-      .from(T.applications)
+      .from(TABLES.applications)
       .select('job_id, status, started_at, applied_at, cooldown_until')
       .eq('applicant_id', session.user.id)
       .order('updated_at', { ascending: false })
-      .limit(MAX_ROWS);
+      .limit(MAXIMUM_ROWS);
 
     if (jobId) query = query.eq('job_id', jobId);
 
+    let pendingFilter;
+
+    if (jobId) {
+      pendingFilter = { jobId };
+    } else {
+      pendingFilter = {};
+    }
+
     const [{ data, error }, pending, open] = await Promise.all([
       query,
-      fetchPending(session.user.id, jobId ? { jobId } : {}),
+      fetchPending(session.user.id, pendingFilter),
       applicationsOpen(),
     ]);
 
-    if (error) return failInternal(res, error, 'my applications');
+    if (error) return failInternal(response, error, 'my applications');
 
     // job id -> the newest unanswered prompt for it. 7c allows several to be
     // outstanding across different postings, but only ever one per posting,
@@ -118,11 +131,11 @@ export default async function handler(req, res) {
       }))
     );
 
-    if (!withJobs) return ok(res, { applications, applications_open: open });
+    if (!withJobs) return ok(response, { applications, applications_open: open });
 
     const summaries = await jobSummaries(
       applications.map((row) => row.job_id),
-      await requestLocale(req)
+      await requestLocale(request)
     );
 
     // A posting hard deleted in phase 7 takes its tracking row with it, per the
@@ -140,14 +153,14 @@ export default async function handler(req, res) {
     // count.
     const counts = countBuckets(drawable);
 
-    return ok(res, {
+    return ok(response, {
       applications: drawable.filter((row) => bucket === 'all' || row.bucket === bucket),
       applications_open: open,
       counts,
       bucket,
     });
   } catch (cause) {
-    return failInternal(res, cause, 'my applications');
+    return failInternal(response, cause, 'my applications');
   }
 }
 

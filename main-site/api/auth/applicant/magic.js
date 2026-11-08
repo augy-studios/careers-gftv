@@ -35,22 +35,21 @@
 
 import { methodNotAllowed } from '../../_lib/respond.js';
 import { consumeMagicLink } from '../../_lib/telegram.js';
-import { supabase, T } from '../../_lib/supabase.js';
+import { supabase, TABLES } from '../../_lib/supabase.js';
 import { createApplicantSession } from '../../_lib/session.js';
 import { readCookie, clearCookie, COOKIE } from '../../_lib/cookies.js';
 import { isFeatureOff } from '../../_lib/maintenance.js';
-import {
-  LIMITS,
-  limited,
-  recordFailures,
-  subjectForIp,
-} from '../../_lib/rate-limit.js';
+import { LIMITS, limited, recordFailures, subjectForIp } from '../../_lib/rate-limit.js';
 
 /** Where a refusal sends them, with a reason the sign in page can read. */
 const LOGIN = '/login';
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET'])) return;
+/**
+ * Sign an applicant in with a one time Telegram code. The code is checked and
+ * spent once, and a session is created.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET'])) return;
 
   // 8.12's guard, and the switch is telegram_2fa rather than telegram_link:
   // this is the sign in half, and an admin turning the second factor off has to
@@ -61,19 +60,19 @@ export default async function handler(req, res) {
   // 503 is the right answer there; this one is opened by a person pressing a
   // button in a chat, and showing them a page of JSON is not an answer at all.
   if (await isFeatureOff('telegram_2fa')) {
-    return redirect(res, `${LOGIN}?magic=off`);
+    return redirect(response, `${LOGIN}?magic=off`);
   }
 
-  const url = new URL(req.url ?? '', 'http://localhost');
+  const url = new URL(request.url ?? '', 'http://localhost');
   const token = url.searchParams.get('token') ?? '';
 
   // Per address only. There is no account to key on until the token resolves,
   // and the token itself is the secret being guessed.
-  const subjects = [subjectForIp(req)];
-  if (await limited(res, 'applicant_2fa', subjects)) return;
+  const subjects = [subjectForIp(request)];
+  if (await limited(response, 'applicant_2fa', subjects)) return;
 
   try {
-    const nonce = readCookie(req, COOKIE.magicLinkNonce);
+    const nonce = readCookie(request, COOKIE.magicLinkNonce);
     const outcome = await consumeMagicLink(token, nonce);
 
     if (!outcome.ok) {
@@ -83,7 +82,7 @@ export default async function handler(req, res) {
       if (outcome.reason !== 'no_nonce') {
         await recordFailures('applicant_2fa', subjects, LIMITS.twoFactor);
       }
-      return redirect(res, `${LOGIN}?magic=${outcome.reason}`);
+      return redirect(response, `${LOGIN}?magic=${outcome.reason}`);
     }
 
     // The link stands on its own, and the challenge row is still the record of
@@ -91,7 +90,7 @@ export default async function handler(req, res) {
     // "stay signed in for 30 days" across to this session; without it a one tap
     // sign in would quietly ignore a box they ticked one screen earlier.
     const { data: challenge } = await supabase
-      .from(T.loginChallenges)
+      .from(TABLES.loginChallenges)
       .select('id, stay_signed_in')
       .eq('user_id', outcome.applicantId)
       .gt('expires_at', new Date().toISOString())
@@ -100,34 +99,30 @@ export default async function handler(req, res) {
       .maybeSingle();
 
     if (challenge) {
-      await supabase.from(T.loginChallenges).delete().eq('id', challenge.id);
+      await supabase.from(TABLES.loginChallenges).delete().eq('id', challenge.id);
     }
 
-    await createApplicantSession(
-      res,
-      outcome.applicantId,
-      challenge?.stay_signed_in === true
-    );
+    await createApplicantSession(response, outcome.applicantId, challenge?.stay_signed_in === true);
 
     // Spent, and the cookie with it. Nothing about this sign in is repeatable.
-    clearCookie(res, COOKIE.magicLinkNonce);
+    clearCookie(response, COOKIE.magicLinkNonce);
 
     // No trusted device is recorded here, ever. 5d says trust is only offered
     // once the second factor has been satisfied and never on the password
     // screen, and a link tapped in a chat is not somebody deciding anything
     // about the browser it opens in.
-    return redirect(res, '/account');
+    return redirect(response, '/account');
   } catch (cause) {
     console.error('[careers-gftv] magic link:', cause);
-    return redirect(res, `${LOGIN}?magic=error`);
+    return redirect(response, `${LOGIN}?magic=error`);
   }
 }
 
-function redirect(res, location) {
+function redirect(response, location) {
   // no-store on the way out as well as the way in. A cached 302 from a URL that
   // has already been spent is a browser insisting it can sign somebody in.
-  res.setHeader('Cache-Control', 'no-store');
-  res.setHeader('Location', location);
-  res.statusCode = 303;
-  res.end();
+  response.setHeader('Cache-Control', 'no-store');
+  response.setHeader('Location', location);
+  response.statusCode = 303;
+  response.end();
 }

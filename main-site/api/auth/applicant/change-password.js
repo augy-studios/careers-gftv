@@ -10,7 +10,14 @@
 // in again in the tab they were already in. That is the one exception, and it
 // is deliberate.
 
-import { ok, fail, ERR, methodNotAllowed, readJson, failInternal } from '../../_lib/respond.js';
+import {
+  ok,
+  fail,
+  ERROR_CODES,
+  methodNotAllowed,
+  readJson,
+  failInternal,
+} from '../../_lib/respond.js';
 import {
   requireApplicant,
   invalidateAllSessions,
@@ -20,7 +27,7 @@ import { hashSecret, checkPasswordStrength } from '../../_lib/password.js';
 import { verifyRealmPassword } from '../../_lib/accounts.js';
 import { auditApplicant, AUDIT } from '../../_lib/audit.js';
 import { FIELD } from '../../_lib/validate.js';
-import { supabase, T } from '../../_lib/supabase.js';
+import { supabase, TABLES } from '../../_lib/supabase.js';
 import {
   LIMITS,
   limited,
@@ -30,17 +37,21 @@ import {
   subjectForUser,
 } from '../../_lib/rate-limit.js';
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['POST'])) return;
+/**
+ * Change the signed in applicant's password. Checks the current password and the
+ * new one, saves it, and signs out every other session and trusted device.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['POST'])) return;
 
-  const session = await requireApplicant(req, res);
+  const session = await requireApplicant(request, response);
   if (!session) return;
 
-  const body = await readJson(req, res);
+  const body = await readJson(request, response);
   if (!body) return;
 
-  const subjects = [subjectForIp(req), subjectForUser('applicant', session.user.id)];
-  if (await limited(res, 'password_change', subjects)) return;
+  const subjects = [subjectForIp(request), subjectForUser('applicant', session.user.id)];
+  if (await limited(response, 'password_change', subjects)) return;
 
   try {
     const strength = checkPasswordStrength(body.new_password);
@@ -55,19 +66,21 @@ export default async function handler(req, res) {
     }
 
     if (Object.keys(details).length > 0) {
-      return fail(res, ERR.BAD_REQUEST, 'That new password could not be used.', { details });
+      return fail(response, ERROR_CODES.BAD_REQUEST, 'That new password could not be used.', {
+        details,
+      });
     }
 
     const correct = await verifyRealmPassword('applicant', session.user.id, body.current_password);
     if (!correct) {
       await recordFailures('password_change', subjects, LIMITS.passwordChange);
-      return fail(res, ERR.UNAUTHORISED, 'That password was not right.', {
+      return fail(response, ERROR_CODES.UNAUTHORISED, 'That password was not right.', {
         details: { current_password: FIELD.INVALID },
       });
     }
 
     const { error } = await supabase
-      .from(T.users)
+      .from(TABLES.users)
       .update({
         password_hash: await hashSecret(body.new_password),
         // 8.9's forced reset, cleared by the thing it was asking for. An admin
@@ -80,7 +93,7 @@ export default async function handler(req, res) {
       })
       .eq('id', session.user.id);
 
-    if (error) return failInternal(res, error, 'change password');
+    if (error) return failInternal(response, error, 'change password');
 
     await clearAll('password_change', subjects);
 
@@ -97,7 +110,7 @@ export default async function handler(req, res) {
       trusted_devices_revoked: true,
     });
 
-    return ok(res, {
+    return ok(response, {
       changed: true,
       // Said out loud so the interface can say it too, rather than the person
       // discovering it on their other laptop.
@@ -105,6 +118,6 @@ export default async function handler(req, res) {
       trusted_devices_revoked: true,
     });
   } catch (cause) {
-    return failInternal(res, cause, 'change password');
+    return failInternal(response, cause, 'change password');
   }
 }

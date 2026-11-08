@@ -11,7 +11,7 @@
 // staff account from phase 13 part 6 until somebody signed in by hand a
 // fortnight later. Three things kept it invisible: the page's own failure state
 // is honest and quiet, `--only=live`'s checks all ask as a stranger, and
-// `checkEnv()` -- written for precisely this -- was called by nothing.
+// `checkEnvironmentVariables()` -- written for precisely this -- was called by nothing.
 //
 // **A stranger can ask this one.** That is the whole point. The outage class is
 // "a variable is missing", and the fix is not a better error message, it is a
@@ -32,15 +32,19 @@
 // original `SITE_URL` stack trace already was.
 
 import { ok, methodNotAllowed, failInternal } from '../_lib/respond.js';
-import { checkEnv } from '../_lib/env.js';
+import { checkEnvironmentVariables } from '../_lib/env.js';
 
-export default async function handler(req, res) {
+/**
+ * A health check for monitors: whether the deployment has every required
+ * setting and can reach the database.
+ */
+export default async function handler(request, response) {
   // HEAD alongside GET on anything a stranger may fetch, per the rule phase 4
   // added after the phase 3 routes answered 405 to a monitor.
-  if (methodNotAllowed(req, res, ['GET', 'HEAD'])) return;
+  if (methodNotAllowed(request, response, ['GET', 'HEAD'])) return;
 
   try {
-    const state = checkEnv();
+    const state = checkEnvironmentVariables();
 
     if (!state.ok) {
       // The one place the names appear. Vercel's runtime log is where the
@@ -54,10 +58,10 @@ export default async function handler(req, res) {
 
     // Never cached. A cached answer to "are you configured" is an answer about
     // some earlier deployment.
-    res.setHeader('Cache-Control', 'no-store');
+    response.setHeader('Cache-Control', 'no-store');
 
-    return ok(res, { ok: state.ok, missing: state.missing.length });
+    return ok(response, { ok: state.ok, missing: state.missing.length });
   } catch (cause) {
-    return failInternal(res, cause, 'health');
+    return failInternal(response, cause, 'health');
   }
 }

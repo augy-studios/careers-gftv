@@ -23,7 +23,7 @@
 import {
   ok,
   fail,
-  ERR,
+  ERROR_CODES,
   methodNotAllowed,
   readJson,
   failInternal,
@@ -46,15 +46,19 @@ import {
   TRUSTED_DEVICE_DAYS,
 } from '../../_lib/session.js';
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'POST'])) return;
+/**
+ * List the devices this staff member chose to trust, or revoke one, or revoke
+ * them all.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'POST'])) return;
 
-  const session = await requireStaff(req, res);
+  const session = await requireStaff(request, response);
   if (!session) return;
 
   try {
-    if (req.method === 'GET') {
-      return ok(res, {
+    if (request.method === 'GET') {
+      return ok(response, {
         devices: await listTrustedDevices('staff', session.user.id),
         trust_days: TRUSTED_DEVICE_DAYS,
       });
@@ -62,50 +66,65 @@ export default async function handler(req, res) {
 
     // Revoking is a security downgrade: it is what somebody would do to make
     // the second factor stop being asked for. A session alone is not enough.
-    const body = await readJson(req, res);
+    const body = await readJson(request, response);
     if (!body) return;
 
-    const subjects = [subjectForIp(req), subjectForUser('staff', session.user.id)];
-    if (await limited(res, 'password_change', subjects)) return;
+    const subjects = [subjectForIp(request), subjectForUser('staff', session.user.id)];
+    if (await limited(response, 'password_change', subjects)) return;
 
-    const correct = await verifyRealmPassword(
-      'staff',
-      session.user.id,
-      body.current_password
-    );
+    const correct = await verifyRealmPassword('staff', session.user.id, body.current_password);
     if (!correct) {
       await recordFailures('password_change', subjects, LIMITS.passwordChange);
-      return fail(res, ERR.UNAUTHORISED, 'That password was not right.', {
+      return fail(response, ERROR_CODES.UNAUTHORISED, 'That password was not right.', {
         details: { current_password: FIELD.INVALID },
       });
     }
 
-
-
     if (body.action === 'revoke_all') {
       await revokeAllTrustedDevices('staff', session.user.id);
-      await auditStaff(session.user, AUDIT.TRUSTED_DEVICES_REVOKED_ALL, {}, {
-        targetTable: 'gftvhello_trusted_devices',
-      });
+      await auditStaff(
+        session.user,
+        AUDIT.TRUSTED_DEVICES_REVOKED_ALL,
+        {},
+        {
+          targetTable: 'gftvhello_trusted_devices',
+        }
+      );
 
-      return ok(res, { revoked_all: true });
+      return ok(response, { revoked_all: true });
     }
 
-    const id = typeof body.id === 'string' ? body.id : '';
+    let id;
+
+    if (typeof body.id === 'string') {
+      id = body.id;
+    } else {
+      id = '';
+    }
+
     if (!id) {
-      return fail(res, ERR.BAD_REQUEST, 'Say which device to revoke, or ask for all of them.');
+      return fail(
+        response,
+        ERROR_CODES.BAD_REQUEST,
+        'Say which device to revoke, or ask for all of them.'
+      );
     }
 
     const removed = await revokeTrustedDevice('staff', session.user.id, id);
-    if (!removed) return fail(res, ERR.NOT_FOUND, 'That device is not on the list.');
+    if (!removed) return fail(response, ERROR_CODES.NOT_FOUND, 'That device is not on the list.');
 
-    await auditStaff(session.user, AUDIT.TRUSTED_DEVICE_REVOKED, {}, {
-      targetTable: 'gftvhello_trusted_devices',
-      targetId: id,
-    });
+    await auditStaff(
+      session.user,
+      AUDIT.TRUSTED_DEVICE_REVOKED,
+      {},
+      {
+        targetTable: 'gftvhello_trusted_devices',
+        targetId: id,
+      }
+    );
 
-    return ok(res, { revoked: id });
+    return ok(response, { revoked: id });
   } catch (cause) {
-    return failInternal(res, cause, 'staff trusted devices');
+    return failInternal(response, cause, 'staff trusted devices');
   }
 }

@@ -20,7 +20,7 @@
 // messaging thread and should not grow into one without a decision to build that
 // properly.
 
-import { supabase, T } from './supabase.js';
+import { supabase, TABLES } from './supabase.js';
 import { APPLY_CLICK } from './apply.js';
 import { readQuestions } from './questions.js';
 
@@ -83,7 +83,7 @@ const TASK_COLUMNS = [
  */
 export async function fetchTasks(applicantId, options = {}) {
   let query = supabase
-    .from(T.tasks)
+    .from(TABLES.tasks)
     .select(TASK_COLUMNS)
     .eq('applicant_id', applicantId)
     .order('created_at', { ascending: false })
@@ -109,6 +109,15 @@ export async function fetchTasks(applicantId, options = {}) {
  *        stores a value, never a label.
  */
 export function publicTask(row, jobs, raisers, locale = 'en') {
+  const questions = readQuestions(row.questions, locale);
+  let job;
+
+  if (row.job_id) {
+    job = jobs.get(row.job_id) ?? null;
+  } else {
+    job = null;
+  }
+
   return {
     source: 'task',
     id: row.id,
@@ -119,7 +128,7 @@ export function publicTask(row, jobs, raisers, locale = 'en') {
     is_open: OPEN_STATUSES.includes(row.status),
     // Phase 7. An empty array on every task raised before migration 031 and on
     // every ordinary reply box task, which is what the renderer branches on.
-    questions: readQuestions(row.questions, locale),
+    questions,
     answers: row.answers ?? null,
     // Whether this task is waiting on the applicant, which is a different
     // question from whether it is open. A row at awaiting_admin is open and is
@@ -127,15 +136,14 @@ export function publicTask(row, jobs, raisers, locale = 'en') {
     // already written is the fastest way to make a task list ignorable.
     // responded_at rather than response_text, since phase 7: a reply that
     // answered questions and wrote nothing in the box leaves the text null.
-    needs_reply:
-      row.status === 'open' && row.task_type === 'info_request' && !row.responded_at,
+    needs_reply: row.status === 'open' && row.task_type === 'info_request' && !row.responded_at,
     response_text: row.response_text ?? null,
     responded_at: row.responded_at ?? null,
     raised_by: raisers.get(row.raised_by) ?? null,
     resolved_at: row.resolved_at ?? null,
     created_at: row.created_at,
     updated_at: row.updated_at,
-    job: row.job_id ? (jobs.get(row.job_id) ?? null) : null,
+    job: job,
   };
 }
 
@@ -186,9 +194,14 @@ export function promptTask(row, jobs) {
  * not a page of a feed.
  */
 export function sortTasks(items) {
-  return items.sort((a, b) => {
-    if (a.is_open !== b.is_open) return a.is_open ? -1 : 1;
-    return Date.parse(b.created_at ?? 0) - Date.parse(a.created_at ?? 0);
+  return items.sort((first, second) => {
+    if (first.is_open !== second.is_open)
+      if (first.is_open) {
+        return -1;
+      } else {
+        return 1;
+      }
+    return Date.parse(second.created_at ?? 0) - Date.parse(first.created_at ?? 0);
   });
 }
 
@@ -210,7 +223,7 @@ export async function staffLabels(ids) {
   if (unique.length === 0) return map;
 
   const { data, error } = await supabase
-    .from(T.staffUsers)
+    .from(TABLES.staffUsers)
     .select('id, username')
     .in('id', unique);
 
@@ -239,13 +252,13 @@ export async function staffLabels(ids) {
 export async function openItemCount(applicantId) {
   const [tasks, prompts] = await Promise.all([
     supabase
-      .from(T.tasks)
+      .from(TABLES.tasks)
       .select('id', { count: 'exact', head: true })
       .eq('applicant_id', applicantId)
       .in('status', OPEN_STATUSES),
 
     supabase
-      .from(T.analytics)
+      .from(TABLES.analytics)
       .select('id', { count: 'exact', head: true })
       .eq('applicant_id', applicantId)
       // Filtered on event_type, from the first version, for the reason written
@@ -259,8 +272,21 @@ export async function openItemCount(applicantId) {
   if (tasks.error) console.warn('[careers-gftv] open task count:', tasks.error);
   if (prompts.error) console.warn('[careers-gftv] open prompt count:', prompts.error);
 
-  const taskCount = tasks.error ? 0 : (tasks.count ?? 0);
-  const promptCount = prompts.error ? 0 : (prompts.count ?? 0);
+  let taskCount;
+
+  if (tasks.error) {
+    taskCount = 0;
+  } else {
+    taskCount = tasks.count ?? 0;
+  }
+
+  let promptCount;
+
+  if (prompts.error) {
+    promptCount = 0;
+  } else {
+    promptCount = prompts.count ?? 0;
+  }
 
   return { tasks: taskCount, prompts: promptCount, total: taskCount + promptCount };
 }

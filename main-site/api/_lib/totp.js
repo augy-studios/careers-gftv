@@ -80,7 +80,11 @@ export function decodeBase32(secret) {
     }
   }
 
-  return out.length > 0 ? Buffer.from(out) : null;
+  if (out.length > 0) {
+    return Buffer.from(out);
+  } else {
+    return null;
+  }
 }
 
 /**
@@ -128,7 +132,14 @@ export function verifyTotp(code, secret, options = {}) {
   const key = decodeBase32(secret);
   if (!key) return false;
 
-  const now = options.at instanceof Date ? options.at.getTime() : Date.now();
+  let now;
+
+  if (options.at instanceof Date) {
+    now = options.at.getTime();
+  } else {
+    now = Date.now();
+  }
+
   const counter = Math.floor(now / 1000 / STEP_SECONDS);
 
   let matched = false;
@@ -221,9 +232,9 @@ export function otpauthUri({ username, issuer, secret }) {
   return `otpauth://totp/${label}?${parameters.toString()}`;
 }
 
-function constantTimeEqual(a, b) {
-  const bufA = Buffer.from(a, 'utf8');
-  const bufB = Buffer.from(b, 'utf8');
-  if (bufA.length !== bufB.length) return false;
-  return timingSafeEqual(bufA, bufB);
+function constantTimeEqual(first, second) {
+  const firstBuffer = Buffer.from(first, 'utf8');
+  const secondBuffer = Buffer.from(second, 'utf8');
+  if (firstBuffer.length !== secondBuffer.length) return false;
+  return timingSafeEqual(firstBuffer, secondBuffer);
 }

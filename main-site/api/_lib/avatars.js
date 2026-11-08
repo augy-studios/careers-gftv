@@ -15,13 +15,13 @@
 // browser already did the work, and an image decoder in a request path is a
 // large attack surface for a small convenience.
 
-import { supabase, T } from './supabase.js';
+import { supabase, TABLES } from './supabase.js';
 
 /** The bucket from AVATARS.md. Public, 256 KB, image/webp only, no policies. */
 export const AVATAR_BUCKET = 'gftvjobs-avatars';
 
 /** The bucket's own ceiling, repeated here so the refusal is ours and readable. */
-export const AVATAR_MAX_BYTES = 256 * 1024;
+export const AVATAR_MAXIMUM_BYTES = 256 * 1024;
 
 /**
  * Whether a buffer is actually a WebP file.
@@ -57,11 +57,16 @@ export function objectPathFromUrl(url) {
   if (typeof url !== 'string' || url === '') return null;
 
   const marker = `/object/public/${AVATAR_BUCKET}/`;
-  const at = url.indexOf(marker);
-  if (at === -1) return null;
+  const markerIndex = url.indexOf(marker);
+  if (markerIndex === -1) return null;
 
-  const path = url.slice(at + marker.length).split('?')[0];
-  return path === '' ? null : decodeURIComponent(path);
+  const path = url.slice(markerIndex + marker.length).split('?')[0];
+
+  if (path === '') {
+    return null;
+  } else {
+    return decodeURIComponent(path);
+  }
 }
 
 /**
@@ -144,7 +149,7 @@ export async function storeAvatar(userId, previousUrl, buffer, filename) {
   if (!url) throw new Error('storage returned no public URL for the avatar');
 
   const { error: writeError } = await supabase
-    .from(T.users)
+    .from(TABLES.users)
     .update({ avatar_url: url })
     .eq('id', userId);
 

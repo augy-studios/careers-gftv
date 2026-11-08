@@ -11,15 +11,15 @@
 import { ok, methodNotAllowed, failInternal } from '../../_lib/respond.js';
 import { endSession } from '../../_lib/session.js';
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['POST'])) return;
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['POST'])) return;
 
   try {
     // No session is not an error. The outcome the caller asked for, that they
     // are signed out, is true either way.
-    await endSession(req, res, 'applicant');
-    return ok(res, { signed_out: true });
+    await endSession(request, response, 'applicant');
+    return ok(response, { signed_out: true });
   } catch (cause) {
-    return failInternal(res, cause, 'applicant logout');
+    return failInternal(response, cause, 'applicant logout');
   }
 }

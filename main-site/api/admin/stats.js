@@ -16,7 +16,7 @@
 
 import { ok, methodNotAllowed, failInternal } from '../_lib/respond.js';
 import { requireStaff } from '../_lib/session.js';
-import { supabase, T } from '../_lib/supabase.js';
+import { supabase, TABLES } from '../_lib/supabase.js';
 import { requestLocale } from '../_lib/locales.js';
 import { bucketCounts } from '../_lib/admin-applications.js';
 import { lastRun } from '../_lib/cron.js';
@@ -25,13 +25,18 @@ import { outboxSummary } from '../_lib/telegram.js';
 /** How many rows the two recent lists carry. Enough to scan, short enough to read. */
 const RECENT = 8;
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'HEAD'])) return;
+/**
+ * Everything the dashboard overview shows: posting counts, applications by
+ * status, the latest applications and registrations, and the last cron run and
+ * Telegram outbox state.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'HEAD'])) return;
 
-  const session = await requireStaff(req, res);
+  const session = await requireStaff(request, response);
   if (!session) return;
 
-  const locale = await requestLocale(req);
+  const locale = await requestLocale(request);
 
   try {
     const [postings, buckets, applications, registrations, run, outbox] = await Promise.all([
@@ -43,9 +48,9 @@ export default async function handler(req, res) {
       outboxSummary(),
     ]);
 
-    res.setHeader('Cache-Control', 'no-store');
+    response.setHeader('Cache-Control', 'no-store');
 
-    return ok(res, {
+    return ok(response, {
       postings,
       applications_by_status: buckets,
       recent_applications: applications,
@@ -72,7 +77,7 @@ export default async function handler(req, res) {
       outbox: { readable: outbox !== undefined, summary: outbox ?? null },
     });
   } catch (cause) {
-    return failInternal(res, cause, 'admin stats');
+    return failInternal(response, cause, 'admin stats');
   }
 }
 
@@ -86,7 +91,7 @@ export default async function handler(req, res) {
  */
 async function postingCounts() {
   const countFor = async (build) => {
-    const query = build(supabase.from(T.jobs).select('id', { count: 'exact', head: true }));
+    const query = build(supabase.from(TABLES.jobs).select('id', { count: 'exact', head: true }));
     const { count, error } = await query;
     if (error) throw error;
     return count ?? 0;
@@ -94,18 +99,17 @@ async function postingCounts() {
 
   const fortnight = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
 
-  const [draft, published, closed, archived, closingSoon, noDeadline, noForm] =
-    await Promise.all([
-      countFor((q) => q.eq('status', 'draft')),
-      countFor((q) => q.eq('status', 'published')),
-      countFor((q) => q.eq('status', 'closed')),
-      countFor((q) => q.eq('status', 'archived')),
-      countFor((q) =>
-        q.eq('status', 'published').not('closes_at', 'is', null).lte('closes_at', fortnight)
-      ),
-      countFor((q) => q.eq('status', 'published').is('closes_at', null)),
-      countFor((q) => q.eq('status', 'draft').is('application_form_url', null)),
-    ]);
+  const [draft, published, closed, archived, closingSoon, noDeadline, noForm] = await Promise.all([
+    countFor((searchTerm) => searchTerm.eq('status', 'draft')),
+    countFor((searchTerm) => searchTerm.eq('status', 'published')),
+    countFor((searchTerm) => searchTerm.eq('status', 'closed')),
+    countFor((searchTerm) => searchTerm.eq('status', 'archived')),
+    countFor((searchTerm) =>
+      searchTerm.eq('status', 'published').not('closes_at', 'is', null).lte('closes_at', fortnight)
+    ),
+    countFor((searchTerm) => searchTerm.eq('status', 'published').is('closes_at', null)),
+    countFor((searchTerm) => searchTerm.eq('status', 'draft').is('application_form_url', null)),
+  ]);
 
   return {
     draft,
@@ -133,33 +137,49 @@ async function recentApplications(locale) {
   void locale;
 
   const { data, error } = await supabase
-    .from(T.applications)
+    .from(TABLES.applications)
     .select(
       `id, status, started_at, applied_at, updated_at,
-       applicant:${T.users} ( id, username, display_name, avatar_url ),
-       job:${T.jobs} ( id, title )`
+       applicant:${TABLES.users} ( id, username, display_name, avatar_url ),
+       job:${TABLES.jobs} ( id, title )`
     )
     .order('updated_at', { ascending: false })
     .limit(RECENT);
 
   if (error) throw error;
 
-  return (data ?? []).map((row) => ({
-    id: row.id,
-    status: row.status,
-    started_at: row.started_at,
-    applied_at: row.applied_at,
-    updated_at: row.updated_at,
-    applicant: row.applicant
-      ? {
-          id: row.applicant.id,
-          username: row.applicant.username,
-          display_name: row.applicant.display_name,
-          avatar_url: row.applicant.avatar_url ?? null,
-        }
-      : null,
-    job: row.job ? { id: row.job.id, title: row.job.title } : null,
-  }));
+  return (data ?? []).map((row) => {
+    let applicant;
+
+    if (row.applicant) {
+      applicant = {
+        id: row.applicant.id,
+        username: row.applicant.username,
+        display_name: row.applicant.display_name,
+        avatar_url: row.applicant.avatar_url ?? null,
+      };
+    } else {
+      applicant = null;
+    }
+
+    let job;
+
+    if (row.job) {
+      job = { id: row.job.id, title: row.job.title };
+    } else {
+      job = null;
+    }
+
+    return {
+      id: row.id,
+      status: row.status,
+      started_at: row.started_at,
+      applied_at: row.applied_at,
+      updated_at: row.updated_at,
+      applicant: applicant,
+      job: job,
+    };
+  });
 }
 
 /**
@@ -172,7 +192,7 @@ async function recentApplications(locale) {
  */
 async function recentRegistrations() {
   const { data, error } = await supabase
-    .from(T.users)
+    .from(TABLES.users)
     .select('id, username, display_name, avatar_url, created_at, is_active')
     .order('created_at', { ascending: false })
     .limit(RECENT);

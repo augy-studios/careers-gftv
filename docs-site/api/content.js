@@ -46,7 +46,7 @@
 // The markdown is returned as it was written: the browser renders it with the
 // same module the build script uses, per 16e's one renderer.
 
-import { ok, fail, ERR, methodNotAllowed, failInternal } from './_lib/respond.js';
+import { ok, fail, ERROR_CODES, methodNotAllowed, failInternal } from './_lib/respond.js';
 import { reader } from './_lib/reader.js';
 import {
   readablePage,
@@ -56,12 +56,12 @@ import {
   frontMatter,
 } from './_lib/pages.js';
 import { updatedFor } from './_lib/generated.js';
-import { localeParam, translationsFor, BASE_LOCALE } from './_lib/docs-translations.js';
+import { localeParameter, translationsFor, BASE_LOCALE } from './_lib/docs-translations.js';
 import { readFile } from 'node:fs/promises';
 
 /** One sentence, for every reason this route says no. */
-function notFound(res) {
-  return fail(res, ERR.NOT_FOUND, 'There is no page here.', {
+function notFound(response) {
+  return fail(response, ERROR_CODES.NOT_FOUND, 'There is no page here.', {
     headers: { 'Cache-Control': 'private, no-store' },
   });
 }
@@ -80,27 +80,40 @@ function notFound(res) {
  * picking either is a guess.
  */
 function segmentsOf(query) {
-  const raw = Array.isArray(query?.path) ? query.path[0] : query?.path;
+  let raw;
+
+  if (Array.isArray(query?.path)) {
+    raw = query.path[0];
+  } else {
+    raw = query?.path;
+  }
+
   return String(raw ?? '')
     .split('/')
     .filter((segment) => segment !== '');
 }
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'HEAD'])) return;
+/**
+ * Send one documentation page, or one image beside a gated page, to a reader
+ * who may see it. Public pages are open to everybody; staff pages are checked
+ * against the reader's tier and answer exactly as a missing page would when the
+ * reader may not see them. A translation is used when one is ready.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'HEAD'])) return;
 
   try {
-    const segments = segmentsOf(req.query);
+    const segments = segmentsOf(request.query);
 
     const assetPath = assetPathFromSegments(segments);
     if (assetPath !== null) {
-      const { tier } = await reader(req);
+      const { tier } = await reader(request);
       const asset = readableAsset(assetPath, tier);
-      if (!asset) return notFound(res);
+      if (!asset) return notFound(response);
 
       const bytes = await readFile(asset.file);
-      res.setHeader('Content-Type', asset.type);
-      res.setHeader('Content-Length', String(bytes.length));
+      response.setHeader('Content-Type', asset.type);
+      response.setHeader('Content-Length', String(bytes.length));
       // **`private`, so this never enters a shared cache**, which is the half
       // that matters: a screenshot of the admin interface is a list of
       // applicants, and a cache holding one for the next reader is the leak the
@@ -113,18 +126,25 @@ export default async function handler(req, res) {
       // access is revoked can still see an image their own browser already
       // fetched, for up to five minutes, on a page that no longer loads for
       // them. The page itself stays `no-store`, so nothing new is ever shown.
-      res.setHeader('Cache-Control', 'private, max-age=300');
-      res.statusCode = 200;
-      return res.end(bytes);
+      response.setHeader('Cache-Control', 'private, max-age=300');
+      response.statusCode = 200;
+      return response.end(bytes);
     }
 
     // No segments is the home page, and any other path is itself.
-    const path = segments.length === 0 ? '/' : pagePathFromSegments(segments);
-    if (path === null) return notFound(res);
+    let path;
 
-    const { tier } = await reader(req);
+    if (segments.length === 0) {
+      path = '/';
+    } else {
+      path = pagePathFromSegments(segments);
+    }
+
+    if (path === null) return notFound(response);
+
+    const { tier } = await reader(request);
     const found = readablePage(path, tier);
-    if (!found) return notFound(res);
+    if (!found) return notFound(response);
 
     // The body, and never the file. The front matter is configuration the
     // loader has already read, and everything in it that a reader should see is
@@ -162,7 +182,7 @@ export default async function handler(req, res) {
     // The neighbours are asked for in the same query as the page, because the
     // pager sits on the same screen and three round trips for three titles is
     // three times the latency for one view.
-    const locale = localeParam(req.query?.locale);
+    const locale = localeParameter(request.query?.locale);
     const rows = await translationsFor(
       [found.page.path, found.prev?.path, found.next?.path],
       locale
@@ -176,15 +196,54 @@ export default async function handler(req, res) {
     const translated = Boolean(mine?.body);
     const withTitle = (page) => {
       const row = page && rows.get(page.path);
-      return row?.title ? { ...page, title: row.title } : page;
+
+      if (row?.title) {
+        return { ...page, title: row.title };
+      } else {
+        return page;
+      }
     };
 
+    let pageValue;
+
+    if (translated) {
+      pageValue = {
+        ...found.page,
+        title: mine.title ?? found.page.title,
+        summary: mine.summary ?? found.page.summary,
+      };
+    } else {
+      pageValue = found.page;
+    }
+
+    let updatedLocale;
+
+    if (translated) {
+      updatedLocale = locale;
+    } else {
+      updatedLocale = BASE_LOCALE;
+    }
+
+    let updatedLocaleValue;
+
+    if (translated) {
+      updatedLocaleValue = locale;
+    } else {
+      updatedLocaleValue = null;
+    }
+
+    let markdownValue;
+
+    if (translated) {
+      markdownValue = mine.body;
+    } else {
+      markdownValue = markdown;
+    }
+
     return ok(
-      res,
+      response,
       {
-        page: translated
-          ? { ...found.page, title: mine.title ?? found.page.title, summary: mine.summary ?? found.page.summary }
-          : found.page,
+        page: pageValue,
         prev: withTitle(found.prev),
         next: withTitle(found.next),
         data,
@@ -192,7 +251,7 @@ export default async function handler(req, res) {
         // that was asked for. The page draws the notice off this and not off the
         // reader's own setting, so the one thing that decides whether a reader is
         // told "this page is in English" is whether it is.
-        locale: translated ? locale : BASE_LOCALE,
+        locale: updatedLocale,
         asked_locale: locale ?? BASE_LOCALE,
         // Where a bare image file name on this page points, which is this
         // route's own address for the directory the page was read from. The
@@ -208,8 +267,8 @@ export default async function handler(req, res) {
         // changed in September for the reader looking at the Chinese.
         // `gftvjobs_docs_public` applies the same rule with `greatest()`, which
         // is what stops this site and the Telegram bot dating one page twice.
-        updated: updatedFor(found.page.path, translated ? locale : null),
-        markdown: translated ? mine.body : markdown,
+        updated: updatedFor(found.page.path, updatedLocaleValue),
+        markdown: markdownValue,
       },
       // Never a shared cache. The answer depends on a session cookie, and this
       // is the route where getting that wrong hands one reader another reader's
@@ -217,6 +276,6 @@ export default async function handler(req, res) {
       { headers: { 'Cache-Control': 'private, no-store' } }
     );
   } catch (cause) {
-    return failInternal(res, cause, 'content page');
+    return failInternal(response, cause, 'content page');
   }
 }

@@ -38,28 +38,23 @@
 import { FIELD } from './validate.js';
 
 /** The cap from section 10 item 1, enforced here and in migration 031. */
-export const MAX_QUESTIONS = 20;
+export const MAXIMUM_QUESTIONS = 20;
 
 /** Options per list question. Generous; it is a ceiling, not a target. */
-export const MAX_OPTIONS = 40;
+export const MAXIMUM_OPTIONS = 40;
 
 /** The four types. Fixed: a new one is a renderer and a validator, not a row. */
-export const QUESTION_TYPES = Object.freeze([
-  'short_answer',
-  'long_answer',
-  'choice',
-  'checkbox',
-]);
+export const QUESTION_TYPES = Object.freeze(['short_answer', 'long_answer', 'choice', 'checkbox']);
 
 /** Types that carry options, and are answered with one of them. */
 export const LIST_TYPES = Object.freeze(['choice', 'checkbox']);
 
-const LABEL_MAX = 300;
-const HELP_MAX = 500;
-const OPTION_VALUE_MAX = 80;
-const SHORT_ANSWER_MAX = 500;
-const LONG_ANSWER_MAX = 5000;
-const ID_MAX = 40;
+const LABEL_MAXIMUM = 300;
+const HELP_MAXIMUM = 500;
+const OPTION_VALUE_MAXIMUM = 80;
+const SHORT_ANSWER_MAXIMUM = 500;
+const LONG_ANSWER_MAXIMUM = 5000;
+const ID_MAXIMUM = 40;
 
 /** A question id, as the composer generates them. Narrow so it can key an object. */
 const ID_SHAPE = /^[A-Za-z0-9_-]{1,40}$/;
@@ -83,7 +78,7 @@ const VALUE_SHAPE = /^[A-Za-z0-9._-]{1,80}$/;
  * @param {number} maxLength
  * @returns {{ ok: true, value: object } | { ok: false, code: string }}
  */
-function cleanLocaleText(value, locales, maxLength) {
+function cleanLocaleText(value, locales, maximumLength) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return { ok: false, code: FIELD.REQUIRED };
   }
@@ -98,7 +93,7 @@ function cleanLocaleText(value, locales, maxLength) {
     // pasted out of a document should not arrive with a newline in it.
     const text = raw.replace(/\s+/g, ' ').trim();
     if (text === '') continue;
-    if (text.length > maxLength) return { ok: false, code: FIELD.TOO_LONG };
+    if (text.length > maximumLength) return { ok: false, code: FIELD.TOO_LONG };
 
     cleaned[locale] = text;
   }
@@ -129,7 +124,7 @@ export function checkQuestionSet(value, context) {
 
   if (value === null || value === undefined) return { ok: true, value: [] };
   if (!Array.isArray(value)) return { ok: false, code: FIELD.INVALID };
-  if (value.length > MAX_QUESTIONS) return { ok: false, code: FIELD.TOO_LONG };
+  if (value.length > MAXIMUM_QUESTIONS) return { ok: false, code: FIELD.TOO_LONG };
 
   const cleaned = [];
   const seenIds = new Set();
@@ -141,7 +136,7 @@ export function checkQuestionSet(value, context) {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return bad(FIELD.INVALID);
 
     const id = String(raw.id ?? '').trim();
-    if (id === '' || id.length > ID_MAX || !ID_SHAPE.test(id)) return bad(FIELD.INVALID, 'id');
+    if (id === '' || id.length > ID_MAXIMUM || !ID_SHAPE.test(id)) return bad(FIELD.INVALID, 'id');
     // A duplicate id makes one answer unreachable and the other ambiguous.
     if (seenIds.has(id)) return bad(FIELD.INVALID, 'id');
     seenIds.add(id);
@@ -149,7 +144,7 @@ export function checkQuestionSet(value, context) {
     const type = String(raw.type ?? '');
     if (!QUESTION_TYPES.includes(type)) return bad(FIELD.INVALID, 'type');
 
-    const label = cleanLocaleText(raw.label, locales, LABEL_MAX);
+    const label = cleanLocaleText(raw.label, locales, LABEL_MAXIMUM);
     if (!label.ok) return bad(label.code, 'label');
 
     const question = {
@@ -162,7 +157,7 @@ export function checkQuestionSet(value, context) {
     // help is optional in the composer and stays absent rather than being
     // stored as an empty object, so the renderer's check is a truthiness test.
     if (raw.help !== null && raw.help !== undefined && Object.keys(raw.help ?? {}).length > 0) {
-      const help = cleanLocaleText(raw.help, locales, HELP_MAX);
+      const help = cleanLocaleText(raw.help, locales, HELP_MAXIMUM);
       if (!help.ok) return bad(help.code, 'help');
       question.help = help.value;
     }
@@ -172,7 +167,7 @@ export function checkQuestionSet(value, context) {
       if (!Array.isArray(options) || options.length === 0) {
         return bad(FIELD.REQUIRED, 'options');
       }
-      if (options.length > MAX_OPTIONS) return bad(FIELD.TOO_LONG, 'options');
+      if (options.length > MAXIMUM_OPTIONS) return bad(FIELD.TOO_LONG, 'options');
 
       const seenValues = new Set();
       question.options = [];
@@ -183,14 +178,14 @@ export function checkQuestionSet(value, context) {
         }
 
         const optionValue = String(option.value ?? '').trim();
-        if (optionValue === '' || optionValue.length > OPTION_VALUE_MAX) {
+        if (optionValue === '' || optionValue.length > OPTION_VALUE_MAXIMUM) {
           return bad(FIELD.REQUIRED, 'options');
         }
         if (!VALUE_SHAPE.test(optionValue)) return bad(FIELD.INVALID, 'options');
         if (seenValues.has(optionValue)) return bad(FIELD.INVALID, 'options');
         seenValues.add(optionValue);
 
-        const optionLabel = cleanLocaleText(option.label, locales, LABEL_MAX);
+        const optionLabel = cleanLocaleText(option.label, locales, LABEL_MAXIMUM);
         if (!optionLabel.ok) return bad(optionLabel.code, 'options');
 
         question.options.push({ value: optionValue, label: optionLabel.value });
@@ -281,24 +276,62 @@ export function readQuestions(questions, locale) {
  * @param {string} locale the admin's own language, per 8.3
  */
 export function readAnswers(questions, answers, locale) {
-  const set = Array.isArray(questions) ? questions : [];
-  const given = answers && typeof answers === 'object' && !Array.isArray(answers) ? answers : {};
+  let set;
+
+  if (Array.isArray(questions)) {
+    set = questions;
+  } else {
+    set = [];
+  }
+
+  let given;
+
+  if (answers && typeof answers === 'object' && !Array.isArray(answers)) {
+    given = answers;
+  } else {
+    given = {};
+  }
 
   const paired = set.map((question) => {
     const value = given[question.id];
-    const options = Array.isArray(question.options) ? question.options : [];
+    let options;
+
+    if (Array.isArray(question.options)) {
+      options = question.options;
+    } else {
+      options = [];
+    }
 
     // The label in the admin's own language, resolved from the option value,
     // per 8.3. The value is what is stored; this is only how it is shown.
     const labelFor = (optionValue) => {
       const option = options.find((candidate) => candidate.value === optionValue);
-      return option ? readText(option.label, locale) : String(optionValue);
+
+      if (option) {
+        return readText(option.label, locale);
+      } else {
+        return String(optionValue);
+      }
     };
 
     let display = null;
     if (Array.isArray(value)) display = value.map(labelFor);
     else if (typeof value === 'string' && value !== '') {
-      display = LIST_TYPES.includes(question.type) ? [labelFor(value)] : [value];
+      if (LIST_TYPES.includes(question.type)) {
+        display = [labelFor(value)];
+      } else {
+        display = [value];
+      }
+    }
+
+    let values;
+
+    if (Array.isArray(value)) {
+      values = value;
+    } else if (value === undefined) {
+      values = [];
+    } else {
+      values = [value];
     }
 
     return {
@@ -307,7 +340,7 @@ export function readAnswers(questions, answers, locale) {
       required: question.required === true,
       question: readText(question.label, locale),
       answered: display !== null && display.length > 0,
-      values: Array.isArray(value) ? value : value === undefined ? [] : [value],
+      values: values,
       display: display ?? [],
     };
   });
@@ -315,14 +348,26 @@ export function readAnswers(questions, answers, locale) {
   const known = new Set(set.map((question) => question.id));
   for (const [id, value] of Object.entries(given)) {
     if (known.has(id)) continue;
+    // A question that has been deleted since: its answer is shown as written,
+    // one value or several.
+    let answerValues;
+    let displayText;
+    if (Array.isArray(value)) {
+      answerValues = value;
+      displayText = value.map(String);
+    } else {
+      answerValues = [value];
+      displayText = [String(value)];
+    }
+
     paired.push({
       id,
       type: null,
       required: false,
       question: id,
       answered: true,
-      values: Array.isArray(value) ? value : [value],
-      display: Array.isArray(value) ? value.map(String) : [String(value)],
+      values: answerValues,
+      display: displayText,
       orphaned: true,
     });
   }
@@ -351,7 +396,13 @@ export function readAnswers(questions, answers, locale) {
  * @returns {{ ok: true, value: object|null } | { ok: false, details: Record<string,string> }}
  */
 export function checkAnswers(answers, questions) {
-  const set = Array.isArray(questions) ? questions : [];
+  let set;
+
+  if (Array.isArray(questions)) {
+    set = questions;
+  } else {
+    set = [];
+  }
 
   if (set.length === 0) {
     // No questions on this task. An answers object here is a client sending
@@ -388,7 +439,14 @@ export function checkAnswers(answers, questions) {
     const field = question.id;
 
     if (question.type === 'checkbox') {
-      const values = raw === undefined || raw === null ? [] : raw;
+      let values;
+
+      if (raw === undefined || raw === null) {
+        values = [];
+      } else {
+        values = raw;
+      }
+
       if (!Array.isArray(values)) {
         details[field] = FIELD.INVALID;
         continue;
@@ -436,7 +494,14 @@ export function checkAnswers(answers, questions) {
       continue;
     }
 
-    const max = question.type === 'long_answer' ? LONG_ANSWER_MAX : SHORT_ANSWER_MAX;
+    let maximum;
+
+    if (question.type === 'long_answer') {
+      maximum = LONG_ANSWER_MAXIMUM;
+    } else {
+      maximum = SHORT_ANSWER_MAXIMUM;
+    }
+
     // Only the ends are trimmed. A long answer's own line breaks are the
     // applicant's formatting and are theirs to keep.
     const text = raw.trim();
@@ -444,7 +509,7 @@ export function checkAnswers(answers, questions) {
       if (question.required) details[field] = FIELD.REQUIRED;
       continue;
     }
-    if (text.length > max) {
+    if (text.length > maximum) {
       details[field] = FIELD.TOO_LONG;
       continue;
     }
@@ -457,7 +522,15 @@ export function checkAnswers(answers, questions) {
   // An empty object would satisfy migration 031's constraint but says nothing.
   // Null is the honest value for a reply that answered no questions, and it is
   // what an ordinary reply box task stores.
-  return { ok: true, value: Object.keys(cleaned).length > 0 ? cleaned : null };
+  let storedAnswers;
+
+  if (Object.keys(cleaned).length > 0) {
+    storedAnswers = cleaned;
+  } else {
+    storedAnswers = null;
+  }
+
+  return { ok: true, value: storedAnswers };
 }
 
 /**

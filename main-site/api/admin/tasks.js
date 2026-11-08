@@ -31,37 +31,44 @@
 //   per 7g and migration 008. A posting's question set raises its own task
 //   alongside the prompt; it does not extend it.
 
-import { ok, fail, ERR, methodNotAllowed, failInternal, readJson } from '../_lib/respond.js';
-import { supabase, T } from '../_lib/supabase.js';
+import {
+  ok,
+  fail,
+  ERROR_CODES,
+  methodNotAllowed,
+  failInternal,
+  readJson,
+} from '../_lib/respond.js';
+import { supabase, TABLES } from '../_lib/supabase.js';
 import { requireStaff } from '../_lib/session.js';
 import { AUDIT, auditStaff } from '../_lib/audit.js';
 import { FIELD, validateText } from '../_lib/validate.js';
 import { requestLocale } from '../_lib/locales.js';
-import { isUuid, params, activeLocales } from '../_lib/admin.js';
+import { isUuid, parameters, activeLocales } from '../_lib/admin.js';
 import { TASK_TYPES, OPEN_STATUSES } from '../_lib/tasks.js';
 import { checkQuestionSet, readAnswers, readQuestions } from '../_lib/questions.js';
 import { raiseTasks, resolveTask, fetchTask, tasksForApplicant } from '../_lib/admin-tasks.js';
 import { LIMITS, limited, recordFailures, subjectForUser } from '../_lib/rate-limit.js';
 
-const TITLE_MAX = 200;
-const BODY_MAX = 5000;
+const TITLE_MAXIMUM = 200;
+const BODY_MAXIMUM = 5000;
 
 /** The most people one send may reach. The same ceiling as a bulk status change. */
-const MAX_RECIPIENTS = 50;
+const MAXIMUM_RECIPIENTS = 50;
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'HEAD', 'POST'])) return;
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'HEAD', 'POST'])) return;
 
-  const session = await requireStaff(req, res);
+  const session = await requireStaff(request, response);
   if (!session) return;
 
-  res.setHeader('Cache-Control', 'no-store');
+  response.setHeader('Cache-Control', 'no-store');
 
   try {
-    if (req.method === 'POST') return await write(req, res, session);
-    return await read(req, res);
+    if (request.method === 'POST') return await write(request, response, session);
+    return await read(request, response);
   } catch (cause) {
-    return failInternal(res, cause, 'admin tasks');
+    return failInternal(response, cause, 'admin tasks');
   }
 }
 
@@ -99,38 +106,50 @@ function adminTask(row, locale) {
   };
 }
 
-async function read(req, res) {
-  const search = params(req);
-  const locale = await requestLocale(req);
+/**
+ * Read the staff task queue: every open task, replies waiting on staff first.
+ */
+async function read(request, response) {
+  const search = parameters(request);
+  const locale = await requestLocale(request);
 
   const id = search.get('id');
   if (id) {
-    if (!isUuid(id)) return fail(res, ERR.BAD_REQUEST, 'That is not a task id.');
+    if (!isUuid(id)) return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not a task id.');
     const task = await fetchTask(id);
-    if (!task) return fail(res, ERR.NOT_FOUND, 'That task could not be found.');
-    return ok(res, { task: adminTask(task, locale) });
+    if (!task) return fail(response, ERROR_CODES.NOT_FOUND, 'That task could not be found.');
+    return ok(response, { task: adminTask(task, locale) });
   }
 
   const applicantId = search.get('applicant');
   if (applicantId) {
-    if (!isUuid(applicantId)) return fail(res, ERR.BAD_REQUEST, 'That is not an applicant id.');
+    if (!isUuid(applicantId))
+      return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not an applicant id.');
     const jobId = search.get('job');
+    let jobIdValue;
+
+    if (isUuid(jobId ?? '')) {
+      jobIdValue = jobId;
+    } else {
+      jobIdValue = null;
+    }
+
     const rows = await tasksForApplicant(applicantId, {
-      jobId: isUuid(jobId ?? '') ? jobId : null,
+      jobId: jobIdValue,
     });
-    return ok(res, { tasks: rows.map((row) => adminTask(row, locale)) });
+    return ok(response, { tasks: rows.map((row) => adminTask(row, locale)) });
   }
 
   // The queue: everything waiting on somebody here, replies first, because a
   // task at awaiting_admin is one an applicant has already answered and is
   // waiting on us.
   const { data, error } = await supabase
-    .from(T.tasks)
+    .from(TABLES.tasks)
     .select(
       `id, applicant_id, job_id, application_id, task_type, title, body, status,
        questions, answers, response_text, responded_at, resolved_at, created_at, updated_at,
-       applicant:${T.users} ( id, username, display_name, avatar_url ),
-       job:${T.jobs} ( id, title )`
+       applicant:${TABLES.users} ( id, username, display_name, avatar_url ),
+       job:${TABLES.jobs} ( id, title )`
     )
     .in('status', OPEN_STATUSES)
     .order('status', { ascending: true })
@@ -139,20 +158,34 @@ async function read(req, res) {
 
   if (error) throw error;
 
-  return ok(res, {
-    tasks: (data ?? []).map((row) => ({
-      ...adminTask(row, locale),
-      applicant: row.applicant
-        ? {
-            id: row.applicant.id,
-            username: row.applicant.username,
-            display_name: row.applicant.display_name,
-            avatar_url: row.applicant.avatar_url ?? null,
-          }
-        : null,
-      job: row.job ? { id: row.job.id, title: row.job.title } : null,
-    })),
+  return ok(response, {
+    tasks: (data ?? []).map((row) => taskWithPeople(row, locale)),
   });
+}
+
+/**
+ * One task as the staff list shows it, with the applicant it was raised for
+ * and the posting it is about, or null for either when there is none.
+ */
+function taskWithPeople(row, locale) {
+  const task = adminTask(row, locale);
+
+  let applicant = null;
+  if (row.applicant) {
+    applicant = {
+      id: row.applicant.id,
+      username: row.applicant.username,
+      display_name: row.applicant.display_name,
+      avatar_url: row.applicant.avatar_url ?? null,
+    };
+  }
+
+  let job = null;
+  if (row.job) {
+    job = { id: row.job.id, title: row.job.title };
+  }
+
+  return { ...task, applicant, job };
 }
 
 /* -------------------------------------------------------------------------
@@ -161,43 +194,54 @@ async function read(req, res) {
 
 const ACTIONS = ['raise', 'resolve'];
 
-async function write(req, res, session) {
-  const body = await readJson(req, res, 256 * 1024);
+async function write(request, response, session) {
+  const body = await readJson(request, response, 256 * 1024);
   if (body === null) return;
 
   const action = String(body.action ?? '').trim();
   if (!ACTIONS.includes(action)) {
-    return fail(res, ERR.BAD_REQUEST, 'That is not something this endpoint does.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not something this endpoint does.', {
       details: { action: FIELD.INVALID },
     });
   }
 
   const subjects = [subjectForUser('staff', session.user.id)];
-  if (await limited(res, 'admin', subjects)) return;
+  if (await limited(response, 'admin', subjects)) return;
   const done = () => recordFailures('admin', subjects, LIMITS.admin);
 
-  return action === 'raise'
-    ? raise(res, session, body, done)
-    : resolve(res, session, body, done);
+  if (action === 'raise') {
+    return raise(response, session, body, done);
+  } else {
+    return resolve(response, session, body, done);
+  }
 }
 
-async function raise(res, session, body, done) {
+/**
+ * Raise a task for one or more applicants: a question to answer, a request for
+ * information, or a set of questions. Checks the recipients and the content, writes
+ * one task per person, and notifies each of them.
+ */
+async function raise(response, session, body, done) {
   const details = {};
 
-  const applicantIds = Array.isArray(body.applicant_ids)
-    ? [...new Set(body.applicant_ids.filter((id) => isUuid(id)))]
-    : [];
+  let applicantIds;
+
+  if (Array.isArray(body.applicant_ids)) {
+    applicantIds = [...new Set(body.applicant_ids.filter((id) => isUuid(id)))];
+  } else {
+    applicantIds = [];
+  }
 
   if (applicantIds.length === 0) details.applicant_ids = FIELD.REQUIRED;
-  if (applicantIds.length > MAX_RECIPIENTS) details.applicant_ids = FIELD.TOO_LONG;
+  if (applicantIds.length > MAXIMUM_RECIPIENTS) details.applicant_ids = FIELD.TOO_LONG;
 
   const type = String(body.task_type ?? 'info_request');
   if (!TASK_TYPES.includes(type)) details.task_type = FIELD.INVALID;
 
-  const title = validateText(body.title, TITLE_MAX, { required: true });
+  const title = validateText(body.title, TITLE_MAXIMUM, { required: true });
   if (!title.ok) details.title = title.code;
 
-  const text = validateText(body.body, BODY_MAX);
+  const text = validateText(body.body, BODY_MAXIMUM);
   if (!text.ok) details.body = text.code;
 
   const jobId = body.job_id ?? null;
@@ -219,14 +263,14 @@ async function raise(res, session, body, done) {
   }
 
   if (Object.keys(details).length > 0) {
-    return fail(res, ERR.BAD_REQUEST, 'That task could not be sent.', { details });
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That task could not be sent.', { details });
   }
 
   // 8.5's rule, applied here because this reaches real people and each task is
   // frozen the moment it is written. The client shows exactly who will receive
   // it; a mismatch means the list moved underneath them.
   if (applicantIds.length > 1 && Number(body.confirm_count) !== applicantIds.length) {
-    return fail(res, ERR.CONFLICT, 'Confirm who this will reach before sending it.', {
+    return fail(response, ERROR_CODES.CONFLICT, 'Confirm who this will reach before sending it.', {
       details: { confirm_count: FIELD.MISMATCH, expected: applicantIds.length },
     });
   }
@@ -234,7 +278,13 @@ async function raise(res, session, body, done) {
   // The application row each task hangs off, where there is one for this
   // posting. Not required: 8.3 raises a task from the tracking page, but a
   // notice about a posting somebody never applied to is still a thing to send.
-  const applications = jobId ? await applicationsFor(jobId, applicantIds) : new Map();
+  let applications;
+
+  if (jobId) {
+    applications = await applicationsFor(jobId, applicantIds);
+  } else {
+    applications = new Map();
+  }
 
   const tasks = await raiseTasks(
     applicantIds.map((applicantId) => ({
@@ -249,6 +299,14 @@ async function raise(res, session, body, done) {
     }))
   );
 
+  let targetId;
+
+  if (tasks.length === 1) {
+    targetId = tasks[0].id;
+  } else {
+    targetId = null;
+  }
+
   await auditStaff(
     session.user,
     AUDIT.TASK_RAISED,
@@ -258,16 +316,20 @@ async function raise(res, session, body, done) {
       questions: questions.value.length,
       job_id: jobId ?? null,
     },
-    { targetTable: T.tasks, targetId: tasks.length === 1 ? tasks[0].id : null }
+    { targetTable: TABLES.tasks, targetId: targetId }
   );
 
   await done();
-  return ok(res, { raised: tasks.length, task_ids: tasks.map((task) => task.id) }, { status: 201 });
+  return ok(
+    response,
+    { raised: tasks.length, task_ids: tasks.map((task) => task.id) },
+    { status: 201 }
+  );
 }
 
 async function applicationsFor(jobId, applicantIds) {
   const { data, error } = await supabase
-    .from(T.applications)
+    .from(TABLES.applications)
     .select('id, applicant_id')
     .eq('job_id', jobId)
     .in('applicant_id', applicantIds);
@@ -276,25 +338,25 @@ async function applicationsFor(jobId, applicantIds) {
   return new Map((data ?? []).map((row) => [row.applicant_id, row.id]));
 }
 
-async function resolve(res, session, body, done) {
+async function resolve(response, session, body, done) {
   const id = String(body.id ?? '');
-  if (!isUuid(id)) return fail(res, ERR.BAD_REQUEST, 'That is not a task id.');
+  if (!isUuid(id)) return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not a task id.');
 
   const task = await resolveTask(id, session.user.id);
   if (!task) {
     // Either there is no such task or it is already closed. One answer for
     // both, because a task id is not a secret to an admin and the distinction
     // is not worth a second query.
-    return fail(res, ERR.NOT_FOUND, 'There is no open task with that id.');
+    return fail(response, ERROR_CODES.NOT_FOUND, 'There is no open task with that id.');
   }
 
   await auditStaff(
     session.user,
     AUDIT.TASK_RESOLVED,
     { task_type: task.task_type, replied: Boolean(task.responded_at) },
-    { targetTable: T.tasks, targetId: id }
+    { targetTable: TABLES.tasks, targetId: id }
   );
 
   await done();
-  return ok(res, { id, status: task.status, resolved_at: task.resolved_at });
+  return ok(response, { id, status: task.status, resolved_at: task.resolved_at });
 }

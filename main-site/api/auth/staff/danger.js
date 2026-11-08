@@ -44,12 +44,15 @@
 // them reach gftv.asia: remove_totp writes gftvhello_users.totp_secret and
 // invalidate_backup_codes clears gftvhello_backup_codes. The page says which.
 
-import { ok, fail, ERR, methodNotAllowed, readJson, failInternal } from '../../_lib/respond.js';
 import {
-  requireStaff,
-  revokeAllTrustedDevices,
-  listTrustedDevices,
-} from '../../_lib/session.js';
+  ok,
+  fail,
+  ERROR_CODES,
+  methodNotAllowed,
+  readJson,
+  failInternal,
+} from '../../_lib/respond.js';
+import { requireStaff, revokeAllTrustedDevices, listTrustedDevices } from '../../_lib/session.js';
 import { deleteAllPasskeys, listPasskeys } from '../../_lib/webauthn.js';
 import { verifyTotp, hasTotp } from '../../_lib/totp.js';
 import { verifyRealmPassword, CODE_SET, codeCounts } from '../../_lib/accounts.js';
@@ -81,10 +84,15 @@ const ACTIONS = Object.freeze([
   'sign_out_everywhere',
 ]);
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['POST'])) return;
+/**
+ * Handle the staff danger zone. Checks the typed confirmation phrase, then the
+ * password and, where the account has one, a second factor, and only then carries
+ * out the one destructive action that was asked for and records it in the audit log.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['POST'])) return;
 
-  const session = await requireStaff(req, res);
+  const session = await requireStaff(request, response);
   if (!session) return;
 
   const user = session.user;
@@ -96,15 +104,15 @@ export default async function handler(req, res) {
   // danger zone uses, per account and per address, so an account under attack
   // is slowed on both sites at once -- which is the direction part 1 chose for
   // the login buckets and for the same reason.
-  const subjects = [subjectForUser('staff', userId), subjectForIp(req)];
-  if (await limited(res, 'danger', subjects)) return;
+  const subjects = [subjectForUser('staff', userId), subjectForIp(request)];
+  if (await limited(response, 'danger', subjects)) return;
 
-  const body = await readJson(req, res);
+  const body = await readJson(request, response);
   if (body === null) return;
 
   const action = String(body.action ?? '');
   if (!ACTIONS.includes(action)) {
-    return fail(res, ERR.BAD_REQUEST, 'That is not something this endpoint does.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not something this endpoint does.', {
       details: { action: FIELD.INVALID },
     });
   }
@@ -113,7 +121,7 @@ export default async function handler(req, res) {
   // 7g words it and exactly as the client compares it.
   const typed = String(body.confirm_username ?? '').trim();
   if (typed !== user.username) {
-    return fail(res, ERR.BAD_REQUEST, 'That username did not match.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That username did not match.', {
       details: { confirm_username: FIELD.INVALID },
     });
   }
@@ -123,7 +131,7 @@ export default async function handler(req, res) {
     const correct = await verifyRealmPassword('staff', userId, body.password);
     if (!correct) {
       await recordFailures('danger', subjects, LIMITS.danger);
-      return fail(res, ERR.UNAUTHORISED, 'That password was not right.', {
+      return fail(response, ERROR_CODES.UNAUTHORISED, 'That password was not right.', {
         details: { password: FIELD.INVALID },
       });
     }
@@ -138,8 +146,16 @@ export default async function handler(req, res) {
 
       if (!code.ok || !verifyTotp(code.value, user.totp_secret)) {
         await recordFailures('danger', subjects, LIMITS.danger);
-        return fail(res, ERR.UNAUTHORISED, 'That code was not right.', {
-          details: { code: code.ok ? FIELD.INVALID : code.code },
+        let codeValue;
+
+        if (code.ok) {
+          codeValue = FIELD.INVALID;
+        } else {
+          codeValue = code.code;
+        }
+
+        return fail(response, ERROR_CODES.UNAUTHORISED, 'That code was not right.', {
+          details: { code: codeValue },
         });
       }
     }
@@ -164,9 +180,10 @@ export default async function handler(req, res) {
       });
 
       const result = await deleteAllPasskeys('staff', userId);
-      if (!result.ok) return fail(res, ERR.SERVER_ERROR, 'That could not be done. Try again.');
+      if (!result.ok)
+        return fail(response, ERROR_CODES.SERVER_ERROR, 'That could not be done. Try again.');
 
-      return ok(res, {
+      return ok(response, {
         action,
         removed: result.removed,
         // Both sites, because 5e gives them one relying party id: a passkey
@@ -183,27 +200,48 @@ export default async function handler(req, res) {
       // them, unlike the routes: somebody who has typed their username, their
       // password and a fresh code deserves to be told which action is held and
       // not to be turned away before the dialog has finished.
-      if (held(res)) return;
+      if (held(response)) return;
 
       if (!hasTotp(user.totp_secret)) {
-        return fail(res, ERR.NOT_FOUND, 'This account has no authenticator app.');
+        return fail(response, ERROR_CODES.NOT_FOUND, 'This account has no authenticator app.');
       }
 
       await audit(AUDIT.TOTP_REMOVED, { reaches: 'gftvhello_users.totp_secret' });
 
       const written = await setStaffTotpSecret(userId, null);
-      if (!written) return fail(res, ERR.SERVER_ERROR, 'That could not be done. Try again.');
+      if (!written)
+        return fail(response, ERROR_CODES.SERVER_ERROR, 'That could not be done. Try again.');
 
       // 5d: disabling a second factor revokes every trusted device, because
       // each was trusted on the strength of the thing that has just gone.
       await revokeAllTrustedDevices('staff', userId);
 
-      return ok(res, { action, enrolled: false, reaches_gftv_asia: true, devices_revoked: true });
+      return ok(response, {
+        action,
+        enrolled: false,
+        reaches_gftv_asia: true,
+        devices_revoked: true,
+      });
     }
 
     if (action === 'invalidate_recovery_codes' || action === 'invalidate_backup_codes') {
-      const which = action === 'invalidate_backup_codes' ? 'backup' : 'recovery';
+      let which;
+
+      if (action === 'invalidate_backup_codes') {
+        which = 'backup';
+      } else {
+        which = 'recovery';
+      }
+
       const before = await codeCounts('staff', userId);
+
+      let reachesField;
+
+      if (which === 'backup') {
+        reachesField = { reaches: 'gftvhello_backup_codes' };
+      } else {
+        reachesField = {};
+      }
 
       await audit(AUDIT.CODES_INVALIDATED, {
         set: which,
@@ -211,13 +249,14 @@ export default async function handler(req, res) {
         // does not stop the action: the row says a set was cleared and admits
         // it does not know how many were in it.
         count: before[which],
-        ...(which === 'backup' ? { reaches: 'gftvhello_backup_codes' } : {}),
+        ...reachesField,
       });
 
       const result = await invalidateCodeSet(CODE_SET.staff[which], userId);
-      if (!result.ok) return fail(res, ERR.SERVER_ERROR, 'That could not be done. Try again.');
+      if (!result.ok)
+        return fail(response, ERROR_CODES.SERVER_ERROR, 'That could not be done. Try again.');
 
-      return ok(res, {
+      return ok(response, {
         action,
         set: which,
         removed: result.removed,
@@ -240,7 +279,7 @@ export default async function handler(req, res) {
 
       await revokeAllTrustedDevices('staff', userId);
 
-      return ok(res, { action, revoked: before.length, both_sites: true });
+      return ok(response, { action, revoked: before.length, both_sites: true });
     }
 
     // sign_out_everywhere
@@ -262,13 +301,14 @@ export default async function handler(req, res) {
     await audit(AUDIT.SESSIONS_REVOKED_ALL, { kept: 'none', from_site: SITE });
 
     const result = await revokeStaffSessions(userId);
-    if (!result.ok) return fail(res, ERR.SERVER_ERROR, 'That could not be done. Try again.');
+    if (!result.ok)
+      return fail(response, ERROR_CODES.SERVER_ERROR, 'That could not be done. Try again.');
 
     // The client sends the reader to the sign in page on this flag. Their
     // cookie now points at a row that is gone, so the alternative is a settings
     // page whose next request 401s.
-    return ok(res, { action, both_sites: true, kept_current: false, signed_out: true });
+    return ok(response, { action, both_sites: true, kept_current: false, signed_out: true });
   } catch (cause) {
-    return failInternal(res, cause, 'staff danger zone');
+    return failInternal(response, cause, 'staff danger zone');
   }
 }

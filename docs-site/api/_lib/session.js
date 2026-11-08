@@ -44,9 +44,9 @@
 // search across the staff routes, and the sign in path no longer names a
 // primary key at all: see the note on HELLO.
 
-import { supabase, T } from './supabase.js';
+import { supabase, TABLES } from './supabase.js';
 import { COOKIE, readCookie, setCookie, clearCookie } from './cookies.js';
-import { ERR, fail } from './respond.js';
+import { ERROR_CODES, fail } from './respond.js';
 import { randomToken, sha256 } from './tokens.js';
 
 /** The portal's own staff session columns, since migration 038.
@@ -125,10 +125,15 @@ export const CHALLENGE_MINUTES = 10;
  * @returns {Date}
  */
 export function sessionExpiry(staySignedIn) {
-  const ms = staySignedIn
-    ? SESSION_DAYS_LONG * 24 * 60 * 60 * 1000
-    : SESSION_HOURS_SHORT * 60 * 60 * 1000;
-  return new Date(Date.now() + ms);
+  let milliseconds;
+
+  if (staySignedIn) {
+    milliseconds = SESSION_DAYS_LONG * 24 * 60 * 60 * 1000;
+  } else {
+    milliseconds = SESSION_HOURS_SHORT * 60 * 60 * 1000;
+  }
+
+  return new Date(Date.now() + milliseconds);
 }
 
 /** Expiry for a trusted device, always 30 days from now. */
@@ -149,15 +154,15 @@ export function deviceExpiry() {
  * @param {import('http').IncomingMessage} req
  * @returns {Promise<null | { sessionId: string, user: object }>}
  */
-export async function getApplicantSession(req) {
-  const token = readCookie(req, COOKIE.applicantSession);
+export async function getApplicantSession(request) {
+  const token = readCookie(request, COOKIE.applicantSession);
   if (!token) return null;
 
   const { data, error } = await supabase
-    .from(T.sessions)
+    .from(TABLES.sessions)
     .select(
       `id, expires_at,
-       user:${T.users} ( id, username, display_name, email, avatar_url, phone, locale, totp_secret, is_active, must_change_password, created_at )`
+       user:${TABLES.users} ( id, username, display_name, email, avatar_url, phone, locale, totp_secret, is_active, must_change_password, created_at )`
     )
     .eq('token', token)
     .maybeSingle();
@@ -169,7 +174,7 @@ export async function getApplicantSession(req) {
   if (!data || !data.user) return null;
 
   if (new Date(data.expires_at).getTime() <= Date.now()) {
-    await supabase.from(T.sessions).delete().eq('id', data.id);
+    await supabase.from(TABLES.sessions).delete().eq('id', data.id);
     return null;
   }
 
@@ -188,15 +193,15 @@ export async function getApplicantSession(req) {
  * @param {import('http').IncomingMessage} req
  * @returns {Promise<null | { sessionId: string, user: object }>}
  */
-export async function getStaffSession(req) {
-  const token = readCookie(req, COOKIE.staffSession);
+export async function getStaffSession(request) {
+  const token = readCookie(request, COOKIE.staffSession);
   if (!token) return null;
 
   const { data, error } = await supabase
-    .from(T.staffSessions)
+    .from(TABLES.staffSessions)
     .select(
       `${STAFF_SESSION.id}, ${STAFF_SESSION.expiresAt},
-       user:${T.staffUsers} ( id, username, is_approved, is_admin, is_editor, totp_secret )`
+       user:${TABLES.staffUsers} ( id, username, is_approved, is_admin, is_editor, totp_secret )`
     )
     .eq(STAFF_SESSION.token, token)
     .maybeSingle();
@@ -213,7 +218,7 @@ export async function getStaffSession(req) {
   if (new Date(expiresAt).getTime() <= Date.now()) {
     // Deleting an expired session row is within the narrow set of gftvhello
     // writes section 2 allows.
-    await supabase.from(T.staffSessions).delete().eq(STAFF_SESSION.id, sessionId);
+    await supabase.from(TABLES.staffSessions).delete().eq(STAFF_SESSION.id, sessionId);
     return null;
   }
 
@@ -236,11 +241,11 @@ export async function getStaffSession(req) {
  * @param {boolean} staySignedIn
  * @returns {Promise<{ token: string, expiresAt: Date }>}
  */
-export async function createApplicantSession(res, userId, staySignedIn) {
+export async function createApplicantSession(response, userId, staySignedIn) {
   const token = randomToken(32);
   const expiresAt = sessionExpiry(Boolean(staySignedIn));
 
-  const { error } = await supabase.from(T.sessions).insert({
+  const { error } = await supabase.from(TABLES.sessions).insert({
     user_id: userId,
     token,
     expires_at: expiresAt.toISOString(),
@@ -248,7 +253,7 @@ export async function createApplicantSession(res, userId, staySignedIn) {
 
   if (error) throw new Error(`could not create the applicant session: ${error.message}`);
 
-  setCookie(res, COOKIE.applicantSession, token, { expires: expiresAt });
+  setCookie(response, COOKIE.applicantSession, token, { expires: expiresAt });
   return { token, expiresAt };
 }
 
@@ -261,11 +266,11 @@ export async function createApplicantSession(res, userId, staySignedIn) {
  * @param {boolean} staySignedIn
  * @returns {Promise<{ token: string, expiresAt: Date }>}
  */
-export async function createStaffSession(res, userId, staySignedIn) {
+export async function createStaffSession(response, userId, staySignedIn) {
   const token = randomToken(32);
   const expiresAt = sessionExpiry(Boolean(staySignedIn));
 
-  const { error } = await supabase.from(T.staffSessions).insert({
+  const { error } = await supabase.from(TABLES.staffSessions).insert({
     [STAFF_SESSION.userId]: userId,
     [STAFF_SESSION.token]: token,
     [STAFF_SESSION.expiresAt]: expiresAt.toISOString(),
@@ -273,7 +278,7 @@ export async function createStaffSession(res, userId, staySignedIn) {
 
   if (error) throw new Error(`could not create the staff session: ${error.message}`);
 
-  setCookie(res, COOKIE.staffSession, token, { expires: expiresAt });
+  setCookie(response, COOKIE.staffSession, token, { expires: expiresAt });
   return { token, expiresAt };
 }
 
@@ -286,8 +291,22 @@ export async function createStaffSession(res, userId, staySignedIn) {
  * @param {string} sessionId
  */
 export async function destroySession(realm, sessionId) {
-  const table = realm === 'staff' ? T.staffSessions : T.sessions;
-  const idColumn = realm === 'staff' ? STAFF_SESSION.id : 'id';
+  let table;
+
+  if (realm === 'staff') {
+    table = TABLES.staffSessions;
+  } else {
+    table = TABLES.sessions;
+  }
+
+  let idColumn;
+
+  if (realm === 'staff') {
+    idColumn = STAFF_SESSION.id;
+  } else {
+    idColumn = 'id';
+  }
+
   const { error } = await supabase.from(table).delete().eq(idColumn, sessionId);
   if (error) console.error('[careers-gftv-docs] destroySession:', error);
 }
@@ -298,18 +317,39 @@ export async function destroySession(realm, sessionId) {
  * @param {import('http').ServerResponse} res
  * @param {'staff'|'applicant'} realm
  */
-export async function endSession(req, res, realm) {
-  const cookieName = realm === 'staff' ? COOKIE.staffSession : COOKIE.applicantSession;
-  const token = readCookie(req, cookieName);
+export async function endSession(request, response, realm) {
+  let cookieName;
+
+  if (realm === 'staff') {
+    cookieName = COOKIE.staffSession;
+  } else {
+    cookieName = COOKIE.applicantSession;
+  }
+
+  const token = readCookie(request, cookieName);
 
   if (token) {
-    const table = realm === 'staff' ? T.staffSessions : T.sessions;
-    const column = realm === 'staff' ? STAFF_SESSION.token : 'token';
+    let table;
+
+    if (realm === 'staff') {
+      table = TABLES.staffSessions;
+    } else {
+      table = TABLES.sessions;
+    }
+
+    let column;
+
+    if (realm === 'staff') {
+      column = STAFF_SESSION.token;
+    } else {
+      column = 'token';
+    }
+
     const { error } = await supabase.from(table).delete().eq(column, token);
     if (error) console.error('[careers-gftv-docs] endSession:', error);
   }
 
-  clearCookie(res, cookieName);
+  clearCookie(response, cookieName);
 }
 
 /**
@@ -322,10 +362,29 @@ export async function endSession(req, res, realm) {
  *        not sign you out of the tab you changed it in.
  */
 export async function invalidateAllSessions(realm, userId, options = {}) {
-  const table = realm === 'staff' ? T.staffSessions : T.sessions;
-  const userColumn = realm === 'staff' ? STAFF_SESSION.userId : 'user_id';
+  let table;
 
-  const idColumn = realm === 'staff' ? STAFF_SESSION.id : 'id';
+  if (realm === 'staff') {
+    table = TABLES.staffSessions;
+  } else {
+    table = TABLES.sessions;
+  }
+
+  let userColumn;
+
+  if (realm === 'staff') {
+    userColumn = STAFF_SESSION.userId;
+  } else {
+    userColumn = 'user_id';
+  }
+
+  let idColumn;
+
+  if (realm === 'staff') {
+    idColumn = STAFF_SESSION.id;
+  } else {
+    idColumn = 'id';
+  }
 
   let query = supabase.from(table).delete().eq(userColumn, userId);
   if (options.keepSessionId) query = query.neq(idColumn, options.keepSessionId);
@@ -368,12 +427,12 @@ function applicantDeviceHash(userId, token) {
  * @param {string} userId
  * @returns {Promise<boolean>}
  */
-export async function useApplicantTrustedDevice(req, res, userId) {
-  const token = readCookie(req, COOKIE.applicantDevice);
+export async function useApplicantTrustedDevice(request, response, userId) {
+  const token = readCookie(request, COOKIE.applicantDevice);
   if (!token) return false;
 
   const { data, error } = await supabase
-    .from(T.trustedDevices)
+    .from(TABLES.trustedDevices)
     .select('id, expires_at')
     .eq('user_id', userId)
     .eq('device_token_hash', applicantDeviceHash(userId, token))
@@ -386,20 +445,20 @@ export async function useApplicantTrustedDevice(req, res, userId) {
   if (!data) return false;
 
   if (new Date(data.expires_at).getTime() <= Date.now()) {
-    await supabase.from(T.trustedDevices).delete().eq('id', data.id);
+    await supabase.from(TABLES.trustedDevices).delete().eq('id', data.id);
     return false;
   }
 
-  await rotateApplicantDevice(res, userId, data.id);
+  await rotateApplicantDevice(response, userId, data.id);
   return true;
 }
 
-async function rotateApplicantDevice(res, userId, rowId) {
+async function rotateApplicantDevice(response, userId, rowId) {
   const next = randomToken(32);
   const expiresAt = deviceExpiry();
 
   const { error } = await supabase
-    .from(T.trustedDevices)
+    .from(TABLES.trustedDevices)
     .update({
       device_token_hash: applicantDeviceHash(userId, next),
       last_used_at: new Date().toISOString(),
@@ -414,7 +473,7 @@ async function rotateApplicantDevice(res, userId, rowId) {
     return;
   }
 
-  setCookie(res, COOKIE.applicantDevice, next, { expires: expiresAt });
+  setCookie(response, COOKIE.applicantDevice, next, { expires: expiresAt });
 }
 
 /**
@@ -425,11 +484,11 @@ async function rotateApplicantDevice(res, userId, rowId) {
  * @param {string} userId
  * @param {string|null} label
  */
-export async function trustApplicantDevice(res, userId, label = null) {
+export async function trustApplicantDevice(response, userId, label = null) {
   const token = randomToken(32);
   const expiresAt = deviceExpiry();
 
-  const { error } = await supabase.from(T.trustedDevices).insert({
+  const { error } = await supabase.from(TABLES.trustedDevices).insert({
     user_id: userId,
     device_token_hash: applicantDeviceHash(userId, token),
     label,
@@ -442,7 +501,7 @@ export async function trustApplicantDevice(res, userId, label = null) {
     return false;
   }
 
-  setCookie(res, COOKIE.applicantDevice, token, { expires: expiresAt });
+  setCookie(response, COOKIE.applicantDevice, token, { expires: expiresAt });
   return true;
 }
 
@@ -466,12 +525,12 @@ export async function trustApplicantDevice(res, userId, label = null) {
  * @param {string} label
  * @returns {Promise<boolean>} false when this browser is not a trusted device
  */
-export async function renameCurrentApplicantDevice(req, userId, label) {
-  const token = readCookie(req, COOKIE.applicantDevice);
+export async function renameCurrentApplicantDevice(request, userId, label) {
+  const token = readCookie(request, COOKIE.applicantDevice);
   if (!token) return false;
 
   const { data, error } = await supabase
-    .from(T.trustedDevices)
+    .from(TABLES.trustedDevices)
     .update({ label })
     .eq('user_id', userId)
     .eq('device_token_hash', applicantDeviceHash(userId, token))
@@ -500,12 +559,12 @@ export async function renameCurrentApplicantDevice(req, userId, label) {
  * @param {string} userId
  * @returns {Promise<boolean>}
  */
-export async function useStaffTrustedDevice(req, res, userId) {
-  const token = readCookie(req, COOKIE.staffDevice);
+export async function useStaffTrustedDevice(request, response, userId) {
+  const token = readCookie(request, COOKIE.staffDevice);
   if (!token) return false;
 
   const { data, error } = await supabase
-    .from(T.staffTrustedDevices)
+    .from(TABLES.staffTrustedDevices)
     .select(`${HELLO.devices.expiresAt}`)
     .eq(HELLO.devices.userId, userId)
     .eq(HELLO.devices.token, token)
@@ -527,7 +586,7 @@ export async function useStaffTrustedDevice(req, res, userId) {
   // section 2 forbids adding one. Pushing expires_at out is the only trace a
   // use leaves, which is also what makes it recoverable in listTrustedDevices.
   const { error: updateError } = await supabase
-    .from(T.staffTrustedDevices)
+    .from(TABLES.staffTrustedDevices)
     .update({
       [HELLO.devices.token]: next,
       [HELLO.devices.expiresAt]: nextExpiry.toISOString(),
@@ -542,7 +601,7 @@ export async function useStaffTrustedDevice(req, res, userId) {
     return true;
   }
 
-  setCookie(res, COOKIE.staffDevice, next, { expires: nextExpiry });
+  setCookie(response, COOKIE.staffDevice, next, { expires: nextExpiry });
   return true;
 }
 
@@ -552,7 +611,7 @@ export async function useStaffTrustedDevice(req, res, userId) {
  * @param {string} userId
  * @param {string|null} label
  */
-export async function trustStaffDevice(res, userId, label = null) {
+export async function trustStaffDevice(response, userId, label = null) {
   const token = randomToken(32);
   const expiresAt = deviceExpiry();
 
@@ -561,7 +620,7 @@ export async function trustStaffDevice(res, userId, label = null) {
   // realms have the same shape and the applicant side can still use it.
   void label;
 
-  const { error } = await supabase.from(T.staffTrustedDevices).insert({
+  const { error } = await supabase.from(TABLES.staffTrustedDevices).insert({
     [HELLO.devices.userId]: userId,
     [HELLO.devices.token]: token,
     [HELLO.devices.expiresAt]: expiresAt.toISOString(),
@@ -572,7 +631,7 @@ export async function trustStaffDevice(res, userId, label = null) {
     return;
   }
 
-  setCookie(res, COOKIE.staffDevice, token, { expires: expiresAt });
+  setCookie(response, COOKIE.staffDevice, token, { expires: expiresAt });
 }
 
 /**
@@ -582,8 +641,21 @@ export async function trustStaffDevice(res, userId, label = null) {
  * @param {string} userId
  */
 export async function revokeAllTrustedDevices(realm, userId) {
-  const table = realm === 'staff' ? T.staffTrustedDevices : T.trustedDevices;
-  const column = realm === 'staff' ? HELLO.devices.userId : 'user_id';
+  let table;
+
+  if (realm === 'staff') {
+    table = TABLES.staffTrustedDevices;
+  } else {
+    table = TABLES.trustedDevices;
+  }
+
+  let column;
+
+  if (realm === 'staff') {
+    column = HELLO.devices.userId;
+  } else {
+    column = 'user_id';
+  }
 
   const { error } = await supabase.from(table).delete().eq(column, userId);
   if (error) console.error('[careers-gftv-docs] revokeAllTrustedDevices:', error);
@@ -598,9 +670,29 @@ export async function revokeAllTrustedDevices(realm, userId) {
  * @returns {Promise<boolean>} whether a row was removed
  */
 export async function revokeTrustedDevice(realm, userId, deviceId) {
-  const table = realm === 'staff' ? T.staffTrustedDevices : T.trustedDevices;
-  const userColumn = realm === 'staff' ? HELLO.devices.userId : 'user_id';
-  const idColumn = realm === 'staff' ? HELLO.devices.id : 'id';
+  let table;
+
+  if (realm === 'staff') {
+    table = TABLES.staffTrustedDevices;
+  } else {
+    table = TABLES.trustedDevices;
+  }
+
+  let userColumn;
+
+  if (realm === 'staff') {
+    userColumn = HELLO.devices.userId;
+  } else {
+    userColumn = 'user_id';
+  }
+
+  let idColumn;
+
+  if (realm === 'staff') {
+    idColumn = HELLO.devices.id;
+  } else {
+    idColumn = 'id';
+  }
 
   const { data, error } = await supabase
     .from(table)
@@ -624,8 +716,21 @@ export async function revokeTrustedDevice(realm, userId, deviceId) {
  */
 export async function listTrustedDevices(realm, userId) {
   const isStaff = realm === 'staff';
-  const table = isStaff ? T.staffTrustedDevices : T.trustedDevices;
-  const userColumn = isStaff ? HELLO.devices.userId : 'user_id';
+  let table;
+
+  if (isStaff) {
+    table = TABLES.staffTrustedDevices;
+  } else {
+    table = TABLES.trustedDevices;
+  }
+
+  let userColumn;
+
+  if (isStaff) {
+    userColumn = HELLO.devices.userId;
+  } else {
+    userColumn = 'user_id';
+  }
 
   // The token itself is never selected, in either realm. The gftvhello table
   // holds it in the clear and it must not leave the server.
@@ -640,15 +745,27 @@ export async function listTrustedDevices(realm, userId) {
   // this portal is the only thing that writes the column that way; if
   // gftv.asia ever writes it differently the value becomes an approximation,
   // which is why it is derived here and not presented as a stored fact.
-  const columns = isStaff
-    ? `${HELLO.devices.id}, ${HELLO.devices.expiresAt}`
-    : 'id, label, last_used_at, created_at, expires_at';
+  let columns;
+
+  if (isStaff) {
+    columns = `${HELLO.devices.id}, ${HELLO.devices.expiresAt}`;
+  } else {
+    columns = 'id, label, last_used_at, created_at, expires_at';
+  }
+
+  let orderColumn;
+
+  if (isStaff) {
+    orderColumn = HELLO.devices.expiresAt;
+  } else {
+    orderColumn = 'created_at';
+  }
 
   const { data, error } = await supabase
     .from(table)
     .select(columns)
     .eq(userColumn, userId)
-    .order(isStaff ? HELLO.devices.expiresAt : 'created_at', { ascending: false });
+    .order(orderColumn, { ascending: false });
 
   if (error) {
     console.error('[careers-gftv-docs] listTrustedDevices:', error);
@@ -666,11 +783,15 @@ export async function listTrustedDevices(realm, userId) {
     }
 
     const expiresAt = row[HELLO.devices.expiresAt] ?? null;
-    const lastUsed = expiresAt
-      ? new Date(
-          new Date(expiresAt).getTime() - TRUSTED_DEVICE_DAYS * 24 * 60 * 60 * 1000
-        ).toISOString()
-      : null;
+    let lastUsed;
+
+    if (expiresAt) {
+      lastUsed = new Date(
+        new Date(expiresAt).getTime() - TRUSTED_DEVICE_DAYS * 24 * 60 * 60 * 1000
+      ).toISOString();
+    } else {
+      lastUsed = null;
+    }
 
     return {
       id: row[HELLO.devices.id],
@@ -688,32 +809,40 @@ export async function listTrustedDevices(realm, userId) {
  * @param {import('http').IncomingMessage} req
  * @returns {string}
  */
-export function deviceLabel(req) {
-  const ua = String(req.headers?.['user-agent'] ?? '');
+export function deviceLabel(request) {
+  const userAgent = String(request.headers?.['user-agent'] ?? '');
 
-  const platform = /Windows/i.test(ua)
-    ? 'Windows'
-    : /Android/i.test(ua)
-      ? 'Android'
-      : /iPhone|iPad|iPod/i.test(ua)
-        ? 'iOS'
-        : /Mac OS X/i.test(ua)
-          ? 'Mac'
-          : /Linux/i.test(ua)
-            ? 'Linux'
-            : 'Unknown device';
+  let platform;
 
-  const browser = /Edg\//i.test(ua)
-    ? 'Edge'
-    : /OPR\/|Opera/i.test(ua)
-      ? 'Opera'
-      : /Firefox\//i.test(ua)
-        ? 'Firefox'
-        : /Chrome\//i.test(ua)
-          ? 'Chrome'
-          : /Safari\//i.test(ua)
-            ? 'Safari'
-            : 'browser';
+  if (/Windows/i.test(userAgent)) {
+    platform = 'Windows';
+  } else if (/Android/i.test(userAgent)) {
+    platform = 'Android';
+  } else if (/iPhone|iPad|iPod/i.test(userAgent)) {
+    platform = 'iOS';
+  } else if (/Mac OS X/i.test(userAgent)) {
+    platform = 'Mac';
+  } else if (/Linux/i.test(userAgent)) {
+    platform = 'Linux';
+  } else {
+    platform = 'Unknown device';
+  }
+
+  let browser;
+
+  if (/Edg\//i.test(userAgent)) {
+    browser = 'Edge';
+  } else if (/OPR\/|Opera/i.test(userAgent)) {
+    browser = 'Opera';
+  } else if (/Firefox\//i.test(userAgent)) {
+    browser = 'Firefox';
+  } else if (/Chrome\//i.test(userAgent)) {
+    browser = 'Chrome';
+  } else if (/Safari\//i.test(userAgent)) {
+    browser = 'Safari';
+  } else {
+    browser = 'browser';
+  }
 
   return `${platform}, ${browser}`;
 }
@@ -738,7 +867,7 @@ export async function hasPortalAccess(staffUser) {
   if (!staffUser || staffUser.is_approved !== true) return false;
 
   const { data, error } = await supabase
-    .from(T.adminAccess)
+    .from(TABLES.adminAccess)
     .select('granted')
     .eq('staff_user_id', staffUser.id)
     .maybeSingle();
@@ -762,11 +891,11 @@ export async function hasPortalAccess(staffUser) {
  * @param {import('http').ServerResponse} res
  * @returns {Promise<null | { sessionId: string, user: object }>}
  */
-export async function requireApplicant(req, res) {
-  const session = await getApplicantSession(req);
+export async function requireApplicant(request, response) {
+  const session = await getApplicantSession(request);
   if (session) return session;
 
-  fail(res, ERR.UNAUTHORISED, 'Sign in to your applicant account to do that.');
+  fail(response, ERROR_CODES.UNAUTHORISED, 'Sign in to your applicant account to do that.');
   return null;
 }
 
@@ -781,17 +910,17 @@ export async function requireApplicant(req, res) {
  *        anyone poking around.
  * @returns {Promise<null | { sessionId: string, user: object }>}
  */
-export async function requireStaff(req, res, options = {}) {
+export async function requireStaff(request, response, options = {}) {
   const deny = () => {
     if (options.notFoundOnFailure) {
-      fail(res, ERR.NOT_FOUND, 'Not found.');
+      fail(response, ERROR_CODES.NOT_FOUND, 'Not found.');
     } else {
-      fail(res, ERR.UNAUTHORISED, 'Sign in with a staff account to do that.');
+      fail(response, ERROR_CODES.UNAUTHORISED, 'Sign in with a staff account to do that.');
     }
     return null;
   };
 
-  const session = await getStaffSession(req);
+  const session = await getStaffSession(request);
   if (!session) return deny();
 
   if (!(await hasPortalAccess(session.user))) return deny();

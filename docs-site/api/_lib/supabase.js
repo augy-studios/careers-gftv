@@ -50,10 +50,10 @@
 //   revoke from anon and authenticated, and security_invoker = on.
 
 import { createClient } from '@supabase/supabase-js';
-import { requireEnv } from './env.js';
+import { requireEnvironmentVariable } from './env.js';
 
-const url = requireEnv('SUPABASE_URL');
-const serviceKey = requireEnv('SUPABASE_SERVICE_KEY');
+const url = requireEnvironmentVariable('SUPABASE_URL');
+const serviceKey = requireEnvironmentVariable('SUPABASE_SERVICE_KEY');
 
 export const supabase = createClient(url, serviceKey, {
   auth: {
@@ -72,7 +72,7 @@ export const supabase = createClient(url, serviceKey, {
  * Table names, in one place, so a typo is a missing import rather than a
  * silent empty result set.
  */
-export const T = Object.freeze({
+export const TABLES = Object.freeze({
   // Applicant realm
   users: 'gftvjobs_users',
   sessions: 'gftvjobs_sessions',

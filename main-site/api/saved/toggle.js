@@ -22,15 +22,17 @@
 //   makes it one at the database level, so this upserts and answers with the
 //   state either way. Two tabs and an impatient second click both produce it.
 
-import { ok, fail, ERR, methodNotAllowed, failInternal, readJson } from '../_lib/respond.js';
-import { supabase, T } from '../_lib/supabase.js';
-import { requireApplicant } from '../_lib/session.js';
 import {
-  fetchJobRecord,
-  hasHistoryWithJob,
-  isVisible,
-  isUuid,
-} from '../_lib/job-detail.js';
+  ok,
+  fail,
+  ERROR_CODES,
+  methodNotAllowed,
+  failInternal,
+  readJson,
+} from '../_lib/respond.js';
+import { supabase, TABLES } from '../_lib/supabase.js';
+import { requireApplicant } from '../_lib/session.js';
+import { fetchJobRecord, hasHistoryWithJob, isVisible, isUuid } from '../_lib/job-detail.js';
 import {
   LIMITS,
   limited,
@@ -42,20 +44,24 @@ import { unavailable } from '../_lib/maintenance.js';
 
 const ACTIONS = ['save', 'unsave'];
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['POST'])) return;
+/**
+ * Save a posting to the applicant's list, or remove it. Saving checks that the
+ * posting is one they may see; removing always works.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['POST'])) return;
 
   // 8.12's shared guard. Off means off, including the API: a disabled
   // control stops nobody with a stale tab or a phase 10 queued action.
-  if (await unavailable(res, 'saved_jobs')) return;
+  if (await unavailable(response, 'saved_jobs')) return;
 
-  const session = await requireApplicant(req, res);
+  const session = await requireApplicant(request, response);
   if (!session) return;
 
-  const subjects = [subjectForUser('applicant', session.user.id), subjectForIp(req)];
-  if (await limited(res, 'save', subjects)) return;
+  const subjects = [subjectForUser('applicant', session.user.id), subjectForIp(request)];
+  if (await limited(response, 'save', subjects)) return;
 
-  const body = await readJson(req, res);
+  const body = await readJson(request, response);
   if (body === null) return;
 
   const details = {};
@@ -63,11 +69,13 @@ export default async function handler(req, res) {
   const jobId = String(body.job_id ?? '').trim();
   if (!isUuid(jobId)) details.job_id = 'invalid';
 
-  const action = String(body.action ?? '').trim().toLowerCase();
+  const action = String(body.action ?? '')
+    .trim()
+    .toLowerCase();
   if (!ACTIONS.includes(action)) details.action = 'invalid';
 
   if (Object.keys(details).length > 0) {
-    return fail(res, ERR.BAD_REQUEST, 'That could not be saved.', { details });
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That could not be saved.', { details });
   }
 
   try {
@@ -76,33 +84,36 @@ export default async function handler(req, res) {
       // own row is always allowed, and refusing it for a posting that has since
       // been archived would leave somebody unable to tidy their own list.
       const { error } = await supabase
-        .from(T.savedJobs)
+        .from(TABLES.savedJobs)
         .delete()
         .eq('applicant_id', session.user.id)
         .eq('job_id', jobId);
 
-      if (error) return failInternal(res, error, 'unsave');
+      if (error) return failInternal(response, error, 'unsave');
 
-      return ok(res, { job_id: jobId, saved: false });
+      return ok(response, { job_id: jobId, saved: false });
     }
 
     const record = await fetchJobRecord({ id: jobId });
-    if (!record) return fail(res, ERR.NOT_FOUND, 'That posting could not be found.');
+    if (!record) return fail(response, ERROR_CODES.NOT_FOUND, 'That posting could not be found.');
 
     // The same rule /jobs/{uuid} applies, asked the same way. An archived
     // posting is visible to somebody who already has history with it, which
     // includes an existing saved row, so re-saving one stays possible.
-    const hasHistory =
-      record.job.status === 'archived'
-        ? await hasHistoryWithJob(record.job.id, session.user.id)
-        : false;
+    let hasHistory;
+
+    if (record.job.status === 'archived') {
+      hasHistory = await hasHistoryWithJob(record.job.id, session.user.id);
+    } else {
+      hasHistory = false;
+    }
 
     if (!isVisible(record.job, hasHistory)) {
-      return fail(res, ERR.NOT_FOUND, 'That posting could not be found.');
+      return fail(response, ERROR_CODES.NOT_FOUND, 'That posting could not be found.');
     }
 
     const { data, error } = await supabase
-      .from(T.savedJobs)
+      .from(TABLES.savedJobs)
       .upsert(
         { applicant_id: session.user.id, job_id: jobId },
         { onConflict: 'applicant_id,job_id', ignoreDuplicates: true }
@@ -110,15 +121,15 @@ export default async function handler(req, res) {
       .select('created_at')
       .maybeSingle();
 
-    if (error) return failInternal(res, error, 'save');
+    if (error) return failInternal(response, error, 'save');
 
     await recordFailures('save', subjects, LIMITS.save);
 
     // ignoreDuplicates returns no row when there was already one, which is the
     // ordinary second click rather than a failure. The row exists either way,
     // which is the only thing the caller asked about.
-    return ok(res, { job_id: jobId, saved: true, saved_at: data?.created_at ?? null });
+    return ok(response, { job_id: jobId, saved: true, saved_at: data?.created_at ?? null });
   } catch (cause) {
-    return failInternal(res, cause, 'saved toggle');
+    return failInternal(response, cause, 'saved toggle');
   }
 }

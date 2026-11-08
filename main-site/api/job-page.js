@@ -37,7 +37,7 @@
 import { siteUrl } from './_lib/env.js';
 import { renderDocument, sendHtml, escapeHtml } from './_lib/page-shell.js';
 import { getApplicantSession, getStaffSession, hasPortalAccess } from './_lib/session.js';
-import { searchParams } from './_lib/jobs.js';
+import { searchParameters } from './_lib/jobs.js';
 import {
   fetchJobRecord,
   hasHistoryWithJob,
@@ -82,9 +82,9 @@ const CACHE_PRIVATE = 'private, no-store';
  * Not gated on is_admin. A job poster writes postings, so previewing one before
  * publishing it is the ordinary case rather than an admin's privilege.
  */
-async function isStaffPreviewer(req) {
+async function isStaffPreviewer(request) {
   try {
-    const session = await getStaffSession(req);
+    const session = await getStaffSession(request);
     if (!session) return false;
     return await hasPortalAccess(session.user);
   } catch (cause) {
@@ -94,16 +94,22 @@ async function isStaffPreviewer(req) {
   }
 }
 
-export default async function handler(req, res) {
-  if (req.method !== 'GET' && req.method !== 'HEAD') {
-    res.setHeader('Allow', 'GET, HEAD');
-    res.statusCode = 405;
-    res.end();
+/**
+ * Render one posting's page on the server. Looks the posting up by id (a slug
+ * is redirected to the id address), refuses anything the reader may not see,
+ * works out every language it is ready in, and sends the full HTML document with
+ * the posting inlined so the page can draw without a second request.
+ */
+export default async function handler(request, response) {
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    response.setHeader('Allow', 'GET, HEAD');
+    response.statusCode = 405;
+    response.end();
     return;
   }
 
-  const segment = segmentFrom(req);
-  const params = searchParams(req);
+  const segment = segmentFrom(request);
+  const parameters = searchParameters(request);
 
   try {
     // A uuid is the canonical address. Anything else that looks like a slug is
@@ -111,25 +117,25 @@ export default async function handler(req, res) {
     // posting, so it is a 301 rather than a second page that renders the same
     // thing. Anything that is neither shape never touches the database.
     if (!isUuid(segment)) {
-      if (!isSlug(segment)) return notFound(res);
+      if (!isSlug(segment)) return notFound(response);
 
       const record = await fetchJobRecord({ slug: segment });
-      if (!record) return notFound(res);
+      if (!record) return notFound(response);
 
       // The redirect is issued before the visibility check on purpose. It
       // reveals only that a slug maps to a uuid, which the /jobs/{uuid} answer
       // then decides on properly, and doing it the other way round would mean
       // a draft's slug 404ing while its uuid also 404s, which is the same
       // information by a longer route.
-      res.setHeader('Location', `/jobs/${record.job.id}`);
-      res.setHeader('Cache-Control', CACHE_PUBLIC);
-      res.statusCode = 301;
-      res.end();
+      response.setHeader('Location', `/jobs/${record.job.id}`);
+      response.setHeader('Cache-Control', CACHE_PUBLIC);
+      response.statusCode = 301;
+      response.end();
       return;
     }
 
     const record = await fetchJobRecord({ id: segment });
-    if (!record) return notFound(res);
+    if (!record) return notFound(response);
 
     const { job } = record;
 
@@ -139,7 +145,7 @@ export default async function handler(req, res) {
     // make the response uncacheable into the bargain.
     let hasHistory = false;
     if (job.status === 'archived') {
-      const session = await getApplicantSession(req);
+      const session = await getApplicantSession(request);
       hasHistory = await hasHistoryWithJob(job.id, session?.user?.id ?? null);
     }
 
@@ -159,12 +165,15 @@ export default async function handler(req, res) {
     //   **The response is never cached**, which is the part that would be a
     //   real leak if it were missed: without it a CDN could hold a draft and
     //   hand it to the next person who asked for that uuid.
-    const previewing =
-      params.get('preview') === '1' && !isVisible(job, hasHistory)
-        ? await isStaffPreviewer(req)
-        : false;
+    let previewing;
 
-    if (!previewing && !isVisible(job, hasHistory)) return notFound(res);
+    if (parameters.get('preview') === '1' && !isVisible(job, hasHistory)) {
+      previewing = await isStaffPreviewer(request);
+    } else {
+      previewing = false;
+    }
+
+    if (!previewing && !isVisible(job, hasHistory)) return notFound(response);
 
     const facts = jobFacts(record);
 
@@ -182,10 +191,28 @@ export default async function handler(req, res) {
     const title = String(english.title ?? 'Role').trim();
     const description = embedDescription(english, DEFAULT_LOCALE);
 
+    let robots;
+
+    if (facts.is_open) {
+      robots = null;
+    } else {
+      robots = 'noindex, follow';
+    }
+
+    const titleValue = `${title} | Careers@GFTV`;
+    const canonicalPath = `/jobs/${job.id}`;
+    let jsonLd;
+
+    if (facts.is_open) {
+      jsonLd = jobPostingStructuredData(facts, english, job.id);
+    } else {
+      jsonLd = null;
+    }
+
     const html = renderDocument({
-      title: `${title} | Careers@GFTV`,
+      title: titleValue,
       description,
-      canonicalPath: `/jobs/${job.id}`,
+      canonicalPath,
       ogType: 'article',
       ogTitle: title,
       ogDescription: description,
@@ -193,8 +220,8 @@ export default async function handler(req, res) {
       // engine even once the global block in vercel.json comes off in phase 12.
       // This rule is permanent and only looks redundant while that one is
       // there. An open posting carries nothing, so phase 12 decides for it.
-      robots: facts.is_open ? null : 'noindex, follow',
-      jsonLd: facts.is_open ? jobPostingLd(facts, english, job.id) : null,
+      robots: robots,
+      jsonLd: jsonLd,
       // applications_open rides along so the Apply button is right at first
       // paint rather than after a request, per 7a's "the Apply button is
       // disabled with an explanatory label ... once the global toggle is off".
@@ -221,27 +248,50 @@ export default async function handler(req, res) {
       bodyHtml: bodyFor(english, facts),
     });
 
-    return sendHtml(res, html, {
+    let cacheControl;
+
+    if (previewing || facts.is_archived) {
+      cacheControl = CACHE_PRIVATE;
+    } else {
+      cacheControl = CACHE_PUBLIC;
+    }
+
+    let varyField;
+
+    if (previewing || facts.is_archived) {
+      varyField = { Vary: 'Cookie' };
+    } else {
+      varyField = {};
+    }
+
+    let xRobotsTagField;
+
+    if (previewing) {
+      xRobotsTagField = { 'X-Robots-Tag': 'noindex, nofollow' };
+    } else {
+      xRobotsTagField = {};
+    }
+
+    return sendHtml(response, html, {
       headers: {
         // A preview is never cached, by anything. This is the line that would
         // turn the preview into a leak if it were dropped: a shared cache
         // holding a draft would hand it to the next caller who asked for that
         // uuid, with no session and no 404.
-        'Cache-Control':
-          previewing || facts.is_archived ? CACHE_PRIVATE : CACHE_PUBLIC,
+        'Cache-Control': cacheControl,
         // An archived posting's visibility depends on the session cookie, and
         // so does a preview, so any shared cache in front of this has to be
         // told that too.
-        ...(previewing || facts.is_archived ? { Vary: 'Cookie' } : {}),
+        ...varyField,
         // Belt and braces against an unfurler or a crawler that somehow has a
         // staff cookie. The whole site is noindex until phase 12 anyway, and
         // this one must stay noindex after that.
-        ...(previewing ? { 'X-Robots-Tag': 'noindex, nofollow' } : {}),
+        ...xRobotsTagField,
       },
     });
   } catch (cause) {
     console.error('[careers-gftv] job page:', cause);
-    return serverError(res);
+    return serverError(response);
   }
 }
 
@@ -258,8 +308,14 @@ export default async function handler(req, res) {
  * turns away is somebody trying to make the route read one segment while the
  * address bar shows another.
  */
-function segmentFrom(req) {
-  const values = [...new Set(searchParams(req).getAll('id').map((v) => String(v).trim()))];
+function segmentFrom(request) {
+  const values = [
+    ...new Set(
+      searchParameters(request)
+        .getAll('id')
+        .map((value) => String(value).trim())
+    ),
+  ];
   if (values.length !== 1) return '';
   return values[0];
 }
@@ -276,6 +332,16 @@ function segmentFrom(req) {
  */
 function bodyFor(content, facts) {
   const summary = stripMarkdown(content.summary ?? '');
+
+  let summaryMarkup = '';
+  if (summary) {
+    summaryMarkup = `<p class="lede">${escapeHtml(summary)}</p>`;
+  }
+
+  let closedNotice = '';
+  if (!facts.is_open) {
+    closedNotice = `<p>This role is no longer accepting applications.</p>`;
+  }
 
   return `    <main class="page job-page" id="main">
         <p class="back-link">
@@ -298,7 +364,7 @@ function bodyFor(content, facts) {
                  the rest of the page says plainly what they are missing. -->
             <article class="job-detail">
                 <h1>${escapeHtml(content.title ?? '')}</h1>
-                ${summary ? `<p class="lede">${escapeHtml(summary)}</p>` : ''}
+                ${summaryMarkup}
                 <div class="callout warn">
                     <p>
                         The full posting, the tag links, and the language switch
@@ -308,11 +374,7 @@ function bodyFor(content, facts) {
                         JavaScript on to read this one.
                     </p>
                 </div>
-                ${
-                  facts.is_open
-                    ? ''
-                    : `<p>This role is no longer accepting applications.</p>`
-                }
+                ${closedNotice}
             </article>
         </noscript>
     </main>`;
@@ -346,10 +408,10 @@ const EMPLOYMENT_TYPE = Object.freeze({
  * says otherwise. A posting that is paid still carries no figure, since the
  * schema has nowhere honest to put "the amount is agreed with the contractor".
  */
-function jobPostingLd(facts, content, id) {
+function jobPostingStructuredData(facts, content, id) {
   const site = siteUrl();
 
-  const ld = {
+  const structuredData = {
     '@context': 'https://schema.org/',
     '@type': 'JobPosting',
     title: content.title ?? '',
@@ -382,20 +444,20 @@ function jobPostingLd(facts, content, id) {
   // Null means open until filled, per migration 005, and validThrough is
   // omitted rather than given a far future date. A date invented to fill a
   // field is a date that expires the posting for no reason.
-  if (facts.closes_at) ld.validThrough = facts.closes_at;
+  if (facts.closes_at) structuredData.validThrough = facts.closes_at;
 
   const employmentType = EMPLOYMENT_TYPE[facts.commitment_type ?? ''];
-  if (employmentType) ld.employmentType = employmentType;
+  if (employmentType) structuredData.employmentType = employmentType;
 
   if (facts.is_remote) {
-    ld.jobLocationType = 'TELECOMMUTE';
+    structuredData.jobLocationType = 'TELECOMMUTE';
     // Google requires this alongside TELECOMMUTE, and without it a remote
     // posting is rejected rather than treated as open to everybody.
-    ld.applicantLocationRequirements = { '@type': 'Country', name: 'SG' };
+    structuredData.applicantLocationRequirements = { '@type': 'Country', name: 'SG' };
   }
 
   if (content.location) {
-    ld.jobLocation = {
+    structuredData.jobLocation = {
       '@type': 'Place',
       address: {
         '@type': 'PostalAddress',
@@ -405,10 +467,10 @@ function jobPostingLd(facts, content, id) {
     };
   }
 
-  if (content.department?.name) ld.occupationalCategory = content.department.name;
-  if (facts.openings > 1) ld.totalJobOpenings = facts.openings;
+  if (content.department?.name) structuredData.occupationalCategory = content.department.name;
+  if (facts.openings > 1) structuredData.totalJobOpenings = facts.openings;
 
-  return ld;
+  return structuredData;
 }
 
 /* -------------------------------------------------------------------------
@@ -455,7 +517,7 @@ function notFoundBody() {
     </main>`;
 }
 
-function notFound(res) {
+function notFound(response) {
   const html = renderDocument({
     title: 'Page not found | Careers@GFTV',
     description: 'That posting does not exist on Careers@GFTV.',
@@ -467,13 +529,17 @@ function notFound(res) {
 
   // Never cached. A draft published a minute from now would otherwise 404 at
   // the edge for as long as the entry survived.
-  return sendHtml(res, html, {
+  return sendHtml(response, html, {
     status: 404,
     headers: { 'Cache-Control': 'no-store' },
   });
 }
 
-function serverError(res) {
+/**
+ * A plain error page for when the posting could not be read, so the reader sees
+ * an explanation rather than a blank screen.
+ */
+function serverError(response) {
   const html = renderDocument({
     title: 'Something went wrong | Careers@GFTV',
     description: 'This posting could not be loaded.',
@@ -501,7 +567,7 @@ function serverError(res) {
     </main>`,
   });
 
-  return sendHtml(res, html, {
+  return sendHtml(response, html, {
     status: 500,
     headers: { 'Cache-Control': 'no-store' },
   });

@@ -31,37 +31,56 @@
 // route's maxDuration to 60 seconds, because it waits on Google for up to
 // twenty forms and the default would kill it mid-pass.
 
-import { fail, ok, ERR, methodNotAllowed } from '../_lib/respond.js';
-import { requireEnv } from '../_lib/env.js';
-import { timingSafeEqualStr } from '../_lib/tokens.js';
+import { fail, ok, ERROR_CODES, methodNotAllowed } from '../_lib/respond.js';
+import { requireEnvironmentVariable } from '../_lib/env.js';
+import { timingSafeEqualStrings } from '../_lib/tokens.js';
 import { isFeatureOff } from '../_lib/maintenance.js';
 import { DAILY, startRun, finishRun, runDailyMaintenance } from '../_lib/cron.js';
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'POST'])) return;
+/**
+ * The daily maintenance run started by Vercel's scheduler. Checks the cron
+ * secret, then runs each task in turn (closing expired postings, timing out
+ * unanswered questions, checking forms, tidying old rows) and records how each one
+ * went, so one failing task does not stop the others.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'POST'])) return;
 
-  res.setHeader('Cache-Control', 'no-store');
+  response.setHeader('Cache-Control', 'no-store');
 
   /* The secret. ------------------------------------------------------------ */
 
   let expected;
   try {
-    expected = requireEnv('CRON_SECRET');
+    expected = requireEnvironmentVariable('CRON_SECRET');
   } catch (cause) {
     // Not configured. Refused rather than run: a deployment with no CRON_SECRET
     // is one where this endpoint is open to the internet, and running the pass
     // anyway would mean the first person to find the URL can close postings.
     console.error('[careers-gftv] cron is not configured:', cause);
-    return fail(res, ERR.NOT_YET_AVAILABLE, 'The maintenance run is not configured.');
+    return fail(response, ERROR_CODES.NOT_YET_AVAILABLE, 'The maintenance run is not configured.');
   }
 
-  const header = req.headers.authorization;
-  const presented = Array.isArray(header) ? header[0] : header;
-  const token = typeof presented === 'string' ? presented.replace(/^Bearer\s+/i, '') : '';
+  const header = request.headers.authorization;
+  let presented;
 
-  if (token === '' || !timingSafeEqualStr(token, expected)) {
+  if (Array.isArray(header)) {
+    presented = header[0];
+  } else {
+    presented = header;
+  }
+
+  let token;
+
+  if (typeof presented === 'string') {
+    token = presented.replace(/^Bearer\s+/i, '');
+  } else {
+    token = '';
+  }
+
+  if (token === '' || !timingSafeEqualStrings(token, expected)) {
     console.warn('[careers-gftv] cron: secret mismatch');
-    return fail(res, ERR.UNAUTHORISED, 'That secret is not recognised.');
+    return fail(response, ERROR_CODES.UNAUTHORISED, 'That secret is not recognised.');
   }
 
   /* 8.12's guard, in the shape a cron needs. ------------------------------- */
@@ -80,7 +99,7 @@ export default async function handler(req, res) {
       error: null,
     });
 
-    return ok(res, { ran: false, reason: 'feature_off' });
+    return ok(response, { ran: false, reason: 'feature_off' });
   }
 
   /* The run. --------------------------------------------------------------- */
@@ -94,10 +113,18 @@ export default async function handler(req, res) {
   try {
     const { ok: allWell, results, failed } = await runDailyMaintenance();
 
+    let error;
+
+    if (failed.length > 0) {
+      error = `tasks failed: ${failed.join(', ')}`;
+    } else {
+      error = null;
+    }
+
     await finishRun(runId, {
       ok: allWell,
       results,
-      error: failed.length > 0 ? `tasks failed: ${failed.join(', ')}` : null,
+      error: error,
     });
 
     // 200 even when a task failed, and the body says which. The caller is a
@@ -105,18 +132,26 @@ export default async function handler(req, res) {
     // reads; the run record is where a failure is meant to surface, and it now
     // holds one. What a non-200 would buy is a red mark in Vercel's dashboard,
     // which is the one place section 11 already says not to rely on.
-    return ok(res, { ran: true, ok: allWell, failed, results });
+    return ok(response, { ran: true, ok: allWell, failed, results });
   } catch (cause) {
     // runDailyMaintenance guards each task itself, so reaching here means
     // something outside all four threw. The record still gets closed.
     console.error('[careers-gftv] cron daily:', cause);
 
+    let error;
+
+    if (cause instanceof Error) {
+      error = cause.message;
+    } else {
+      error = String(cause);
+    }
+
     await finishRun(runId, {
       ok: false,
       results: {},
-      error: cause instanceof Error ? cause.message : String(cause),
+      error: error,
     });
 
-    return ok(res, { ran: true, ok: false, failed: ['run'] });
+    return ok(response, { ran: true, ok: false, failed: ['run'] });
   }
 }

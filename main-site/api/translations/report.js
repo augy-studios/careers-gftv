@@ -28,8 +28,15 @@
 // Migration 015 uses a foreign key rather than a check constraint for exactly
 // that reason: the English can be the wrong one.
 
-import { ok, fail, ERR, methodNotAllowed, failInternal, readJson } from '../_lib/respond.js';
-import { supabase, T } from '../_lib/supabase.js';
+import {
+  ok,
+  fail,
+  ERROR_CODES,
+  methodNotAllowed,
+  failInternal,
+  readJson,
+} from '../_lib/respond.js';
+import { supabase, TABLES } from '../_lib/supabase.js';
 import { getApplicantSession } from '../_lib/session.js';
 import { validateText, FIELD } from '../_lib/validate.js';
 import { validatePublishedLocale } from '../_lib/locales.js';
@@ -40,12 +47,7 @@ import {
   subjectForIp,
   subjectForUser,
 } from '../_lib/rate-limit.js';
-import {
-  fetchJobRecord,
-  hasHistoryWithJob,
-  isVisible,
-  isUuid,
-} from '../_lib/job-detail.js';
+import { fetchJobRecord, hasHistoryWithJob, isVisible, isUuid } from '../_lib/job-detail.js';
 import { unavailable } from '../_lib/maintenance.js';
 
 // Migration 015's check constraint, repeated here so a bad value is a field
@@ -72,30 +74,35 @@ const FIELDS = [
   'name',
 ];
 
-const NOTE_MAX = 2000;
-const SUGGESTION_MAX = 2000;
-const KEY_MAX = 120;
+const NOTE_MAXIMUM = 2000;
+const SUGGESTION_MAXIMUM = 2000;
+const KEY_MAXIMUM = 120;
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['POST'])) return;
+/**
+ * Let a signed in reader report a translation that reads wrong, with a note and
+ * optionally a suggested wording. The report goes into the queue staff work
+ * through, and is rate limited so the queue cannot be flooded.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['POST'])) return;
 
   // 8.12's shared guard. Off means off, including the API: a disabled
   // control stops nobody with a stale tab or a phase 10 queued action.
-  if (await unavailable(res, 'translation_report')) return;
+  if (await unavailable(response, 'translation_report')) return;
 
-  const session = await getApplicantSession(req);
+  const session = await getApplicantSession(request);
   if (!session) {
     return fail(
-      res,
-      ERR.UNAUTHORISED,
+      response,
+      ERROR_CODES.UNAUTHORISED,
       'Reporting a translation problem needs an account, so we can come back to you about it.'
     );
   }
 
-  const subjects = [subjectForUser('applicant', session.user.id), subjectForIp(req)];
-  if (await limited(res, 'report', subjects)) return;
+  const subjects = [subjectForUser('applicant', session.user.id), subjectForIp(request)];
+  if (await limited(response, 'report', subjects)) return;
 
-  const body = await readJson(req, res);
+  const body = await readJson(request, response);
   if (body === null) return;
 
   const details = {};
@@ -106,10 +113,10 @@ export default async function handler(req, res) {
   const locale = await validatePublishedLocale(body.locale);
   if (!locale.ok) details.locale = locale.code;
 
-  const note = validateText(body.note, NOTE_MAX, { required: true });
+  const note = validateText(body.note, NOTE_MAXIMUM, { required: true });
   if (!note.ok) details.note = note.code;
 
-  const suggestion = validateText(body.suggested_text, SUGGESTION_MAX);
+  const suggestion = validateText(body.suggested_text, SUGGESTION_MAXIMUM);
   if (!suggestion.ok) details.suggested_text = suggestion.code;
 
   // Absent, empty, and "the whole posting" are the same thing and all become
@@ -128,7 +135,7 @@ export default async function handler(req, res) {
     // A dictionary key, for example nav.findRole. Migration 015 requires the
     // key and forbids an id on this branch.
     const key = String(body.target_key ?? '').trim();
-    if (key === '' || key.length > KEY_MAX || !/^[A-Za-z][\w]*(?:\.[\w]+)+$/.test(key)) {
+    if (key === '' || key.length > KEY_MAXIMUM || !/^[A-Za-z][\w]*(?:\.[\w]+)+$/.test(key)) {
       details.target_key = FIELD.INVALID;
     } else {
       targetKey = key;
@@ -140,7 +147,7 @@ export default async function handler(req, res) {
   }
 
   if (Object.keys(details).length > 0) {
-    return fail(res, ERR.BAD_REQUEST, 'That report could not be sent.', { details });
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That report could not be sent.', { details });
   }
 
   try {
@@ -150,11 +157,15 @@ export default async function handler(req, res) {
     // thing /jobs/{uuid} is careful not to do.
     const targetOk = await targetExists(targetType, targetId, session.user.id);
     if (!targetOk) {
-      return fail(res, ERR.NOT_FOUND, 'That is not something we can take a report about.');
+      return fail(
+        response,
+        ERROR_CODES.NOT_FOUND,
+        'That is not something we can take a report about.'
+      );
     }
 
     const { data, error } = await supabase
-      .from(T.translationReports)
+      .from(TABLES.translationReports)
       .insert({
         target_type: targetType,
         target_id: targetId,
@@ -169,16 +180,16 @@ export default async function handler(req, res) {
       .select('id, created_at')
       .single();
 
-    if (error) return failInternal(res, error, 'translation report');
+    if (error) return failInternal(response, error, 'translation report');
 
     // Counted on the way out rather than on a failure, per the note on the
     // report bucket in rate-limit.js. A successful report is exactly the thing
     // being bounded here.
     await recordFailures('report', subjects, LIMITS.report);
 
-    return ok(res, { id: data.id, created_at: data.created_at }, { status: 201 });
+    return ok(response, { id: data.id, created_at: data.created_at }, { status: 201 });
   } catch (cause) {
-    return failInternal(res, cause, 'translation report');
+    return failInternal(response, cause, 'translation report');
   }
 }
 
@@ -197,15 +208,25 @@ async function targetExists(targetType, targetId, applicantId) {
     const record = await fetchJobRecord({ id: targetId });
     if (!record) return false;
 
-    const hasHistory =
-      record.job.status === 'archived'
-        ? await hasHistoryWithJob(record.job.id, applicantId)
-        : false;
+    let hasHistory;
+
+    if (record.job.status === 'archived') {
+      hasHistory = await hasHistoryWithJob(record.job.id, applicantId);
+    } else {
+      hasHistory = false;
+    }
 
     return isVisible(record.job, hasHistory);
   }
 
-  const table = targetType === 'department' ? T.departments : T.tags;
+  let table;
+
+  if (targetType === 'department') {
+    table = TABLES.departments;
+  } else {
+    table = TABLES.tags;
+  }
+
   const { data, error } = await supabase.from(table).select('id').eq('id', targetId).limit(1);
 
   if (error) throw error;

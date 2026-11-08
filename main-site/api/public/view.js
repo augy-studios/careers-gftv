@@ -39,35 +39,46 @@
 // because a server side dedupe would need to identify the reader, and not
 // identifying readers is the whole shape of analytics in this build.
 
-import { ok, fail, ERR, methodNotAllowed, failInternal, readJson } from '../_lib/respond.js';
-import { supabase, T } from '../_lib/supabase.js';
+import {
+  ok,
+  fail,
+  ERROR_CODES,
+  methodNotAllowed,
+  failInternal,
+  readJson,
+} from '../_lib/respond.js';
+import { supabase, TABLES } from '../_lib/supabase.js';
 import { getApplicantSession } from '../_lib/session.js';
 import { isUuid } from '../_lib/admin.js';
 import { recordView } from '../_lib/analytics.js';
 import { LIMITS, limited, recordFailures, subjectForIp } from '../_lib/rate-limit.js';
 
 /** Long enough for a real referrer, short enough that nobody stores an essay. */
-const REFERRER_MAX = 300;
+const REFERRER_MAXIMUM = 300;
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['POST'])) return;
+/**
+ * Count one view of a posting for the analytics page. Rate limited per address,
+ * and counted at most once per posting per session.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['POST'])) return;
 
-  res.setHeader('Cache-Control', 'no-store');
+  response.setHeader('Cache-Control', 'no-store');
 
   try {
-    const body = await readJson(req, res);
+    const body = await readJson(request, response);
     if (body === null) return;
 
     const jobId = String(body.job_id ?? '');
-    if (!isUuid(jobId)) return fail(res, ERR.BAD_REQUEST, 'That is not a posting id.');
+    if (!isUuid(jobId)) return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not a posting id.');
 
     // Per address, since most callers have no account. Counted on success, like
     // every other bucket in this build.
-    const subjects = [subjectForIp(req)];
-    if (await limited(res, 'view', subjects)) return;
+    const subjects = [subjectForIp(request)];
+    if (await limited(response, 'view', subjects)) return;
 
     const { data: job, error } = await supabase
-      .from(T.jobs)
+      .from(TABLES.jobs)
       .select('id, status')
       .eq('id', jobId)
       .maybeSingle();
@@ -79,12 +90,12 @@ export default async function handler(req, res) {
     // the posting page itself, so this endpoint discloses nothing about which
     // uuids are real drafts.
     if (!job || job.status === 'draft') {
-      return fail(res, ERR.NOT_FOUND, 'That posting could not be found.');
+      return fail(response, ERROR_CODES.NOT_FOUND, 'That posting could not be found.');
     }
 
     // Optional, and never required. A signed out reader is the ordinary case on
     // a public board, and their view counts exactly as much as anybody's.
-    const session = await getApplicantSession(req);
+    const session = await getApplicantSession(request);
 
     await recordView({
       jobId: job.id,
@@ -94,9 +105,9 @@ export default async function handler(req, res) {
 
     await recordFailures('view', subjects, LIMITS.view);
 
-    return ok(res, { recorded: true });
+    return ok(response, { recorded: true });
   } catch (cause) {
-    return failInternal(res, cause, 'record view');
+    return failInternal(response, cause, 'record view');
   }
 }
 
@@ -116,5 +127,5 @@ export default async function handler(req, res) {
 function referrerFrom(body) {
   const value = String(body.referrer ?? '').trim();
   if (!value) return null;
-  return value.slice(0, REFERRER_MAX);
+  return value.slice(0, REFERRER_MAXIMUM);
 }

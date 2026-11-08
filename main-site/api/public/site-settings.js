@@ -33,7 +33,7 @@
 // Nothing here reads a session and nothing about a caller changes the answer.
 
 import { ok, methodNotAllowed, failInternal } from '../_lib/respond.js';
-import { supabase, T } from '../_lib/supabase.js';
+import { supabase, TABLES } from '../_lib/supabase.js';
 import { requestLocale } from '../_lib/locales.js';
 import { allSettings, localisedSetting } from '../_lib/settings.js';
 import { publicJob } from '../_lib/jobs.js';
@@ -47,7 +47,7 @@ import { publicJob } from '../_lib/jobs.js';
  * says "about a minute" out loud, and this is the number that has to make that
  * sentence true.
  */
-const FRESH_MS = 15 * 1000;
+const FRESH_MILLISECONDS = 15 * 1000;
 
 const CACHE = {
   'Cache-Control': 'public, max-age=0, s-maxage=30, stale-while-revalidate=30',
@@ -57,16 +57,20 @@ const CACHE = {
   Vary: 'Accept-Language',
 };
 
-/** The most this will return, matching MAX_FEATURED in api/admin/settings.js. */
-const MAX_FEATURED = 6;
+/** The most this will return, matching MAXIMUM_FEATURED in api/admin/settings.js. */
+const MAXIMUM_FEATURED = 6;
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'HEAD'])) return;
+/**
+ * The wording an admin has set for the portal title and home page, in the
+ * reader's language, and the featured postings when the home page asks for them.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'HEAD'])) return;
 
-  const locale = await requestLocale(req);
+  const locale = await requestLocale(request);
 
   try {
-    const settings = (await allSettings({ maxAgeMs: FRESH_MS })) ?? {};
+    const settings = (await allSettings({ maxAgeMs: FRESH_MILLISECONDS })) ?? {};
 
     const [title, heading, body] = await Promise.all([
       localisedSetting('portal_title', locale, ''),
@@ -77,17 +81,22 @@ export default async function handler(req, res) {
     // Only the home page renders featured roles, and every other page would be
     // paying for a query it has no use for. The parameter is opt in rather than
     // opt out so a caller that forgets it gets the cheap answer.
-    const wantsFeatured = new URL(req.url ?? '/', 'https://careers.invalid').searchParams.has(
+    const wantsFeatured = new URL(request.url ?? '/', 'https://careers.invalid').searchParams.has(
       'featured'
     );
 
-    const ids =
-      wantsFeatured && Array.isArray(settings.featured_job_ids)
-        ? settings.featured_job_ids.filter((id) => typeof id === 'string').slice(0, MAX_FEATURED)
-        : [];
+    let ids;
+
+    if (wantsFeatured && Array.isArray(settings.featured_job_ids)) {
+      ids = settings.featured_job_ids
+        .filter((id) => typeof id === 'string')
+        .slice(0, MAXIMUM_FEATURED);
+    } else {
+      ids = [];
+    }
 
     return ok(
-      res,
+      response,
       {
         locale,
         // Empty string rather than null when nothing is set, so the client can
@@ -101,7 +110,7 @@ export default async function handler(req, res) {
       { headers: CACHE }
     );
   } catch (cause) {
-    return failInternal(res, cause, 'public site settings');
+    return failInternal(response, cause, 'public site settings');
   }
 }
 
@@ -123,12 +132,12 @@ async function featuredJobs(ids, locale) {
   if (ids.length === 0) return [];
 
   const { data, error } = await supabase
-    .from(T.jobs)
+    .from(TABLES.jobs)
     .select(
       `id, slug, title, summary, location, is_remote, commitment_type, is_paid,
        status, published_at, closes_at,
-       department:${T.departments} ( id, name, slug ),
-       job_tags:${T.jobTags} ( tag:${T.tags} ( id, name, slug, colour ) )`
+       department:${TABLES.departments} ( id, name, slug ),
+       job_tags:${TABLES.jobTags} ( tag:${TABLES.tags} ( id, name, slug, colour ) )`
     )
     .in('id', ids)
     .eq('status', 'published');
@@ -194,7 +203,7 @@ async function readyTranslations(ids, locale) {
   if (ids.length === 0) return new Map();
 
   const { data, error } = await supabase
-    .from(T.jobTranslations)
+    .from(TABLES.jobTranslations)
     .select('job_id, title, summary, location')
     .in('job_id', ids)
     .eq('locale', locale)

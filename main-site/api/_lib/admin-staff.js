@@ -30,7 +30,7 @@
 // page offers all three, because an admin who revokes somebody and later wants
 // to hand the decision back to their role has no other way to say so.
 
-import { supabase, T } from './supabase.js';
+import { supabase, TABLES } from './supabase.js';
 import { AUDIT } from './audit.js';
 
 /** What the list reads off a staff account. Nothing else is guaranteed to exist. */
@@ -70,7 +70,7 @@ export async function listStaffAccess() {
     readOverlay(),
     // The default-eligible set: approved accounts carrying a gftv.asia role.
     supabase
-      .from(T.staffUsers)
+      .from(TABLES.staffUsers)
       .select(STAFF_COLUMNS)
       .eq('is_approved', true)
       .or('is_admin.eq.true,is_editor.eq.true')
@@ -89,7 +89,7 @@ export async function listStaffAccess() {
 
   if (missing.length > 0) {
     const { data, error } = await supabase
-      .from(T.staffUsers)
+      .from(TABLES.staffUsers)
       .select(STAFF_COLUMNS)
       .in('id', missing);
 
@@ -99,8 +99,8 @@ export async function listStaffAccess() {
 
   const ids = [...accounts.keys()];
   const [passkeys, backupCodes, lastLogins] = await Promise.all([
-    countBy(T.staffPasskeys, 'staff_user_id', ids),
-    countBy(T.staffBackupCodes, 'user_id', ids),
+    countBy(TABLES.staffPasskeys, 'staff_user_id', ids),
+    countBy(TABLES.staffBackupCodes, 'user_id', ids),
     lastSignIns(ids),
   ]);
 
@@ -108,6 +108,26 @@ export async function listStaffAccess() {
     .map((id) => {
       const account = accounts.get(id);
       const row = overlay.get(id) ?? null;
+
+      let role;
+
+      if (account.is_admin === true) {
+        role = 'admin';
+      } else {
+        role = 'poster';
+      }
+
+      let accessState;
+
+      if (row) {
+        if (row.granted) {
+          accessState = 'granted';
+        } else {
+          accessState = 'denied';
+        }
+      } else {
+        accessState = 'default';
+      }
 
       return {
         id: account.id,
@@ -117,9 +137,9 @@ export async function listStaffAccess() {
         is_admin: account.is_admin === true,
         is_editor: account.is_editor === true,
         // What this portal's own two roles make of that, per 10 item 2.
-        role: account.is_admin === true ? 'admin' : 'poster',
+        role: role,
 
-        access_state: row ? (row.granted ? 'granted' : 'denied') : 'default',
+        access_state: accessState,
         // The answer hasPortalAccess would give for this account right now,
         // computed the same way rather than described. A page that showed the
         // overlay without resolving it would make an admin do the rule in their
@@ -140,13 +160,13 @@ export async function listStaffAccess() {
         last_sign_in: lastLogins.get(id) ?? null,
       };
     })
-    .sort((a, b) => a.username.localeCompare(b.username));
+    .sort((first, second) => first.username.localeCompare(second.username));
 }
 
 /** Every overlay row, keyed by staff id. */
 async function readOverlay() {
   const { data, error } = await supabase
-    .from(T.adminAccess)
+    .from(TABLES.adminAccess)
     .select('staff_user_id, granted, reason, granted_by, updated_at');
 
   if (error) throw error;
@@ -197,7 +217,7 @@ async function lastSignIns(ids) {
   if (ids.length === 0) return new Map();
 
   const { data, error } = await supabase
-    .from(T.auditLog)
+    .from(TABLES.auditLog)
     .select('actor_id, created_at, metadata')
     .eq('action', AUDIT.STAFF_SIGNED_IN)
     .in('actor_id', ids)
@@ -239,7 +259,7 @@ export async function searchStaffAccounts(term) {
   if (!safe) return [];
 
   const { data, error } = await supabase
-    .from(T.staffUsers)
+    .from(TABLES.staffUsers)
     .select(STAFF_COLUMNS)
     .ilike('username', `%${safe}%`)
     .order('username', { ascending: true })
@@ -269,14 +289,14 @@ export async function searchStaffAccounts(term) {
 export async function setStaffAccess(input) {
   if (input.state === 'default') {
     const { error } = await supabase
-      .from(T.adminAccess)
+      .from(TABLES.adminAccess)
       .delete()
       .eq('staff_user_id', input.staffId);
     if (error) throw error;
     return { state: 'default' };
   }
 
-  const { error } = await supabase.from(T.adminAccess).upsert(
+  const { error } = await supabase.from(TABLES.adminAccess).upsert(
     {
       staff_user_id: input.staffId,
       granted: input.state === 'granted',
@@ -294,7 +314,7 @@ export async function setStaffAccess(input) {
 /** One staff account, for checking a target exists before writing about it. */
 export async function fetchStaffAccount(staffId) {
   const { data, error } = await supabase
-    .from(T.staffUsers)
+    .from(TABLES.staffUsers)
     .select(STAFF_COLUMNS)
     .eq('id', staffId)
     .maybeSingle();

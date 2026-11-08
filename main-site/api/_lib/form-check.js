@@ -35,7 +35,7 @@
 // with nobody watching.
 
 /** How long one form is given before it is treated as no answer. */
-const TIMEOUT_MS = 8000;
+const TIMEOUT_MILLISECONDS = 8000;
 
 /**
  * How much of the page is read.
@@ -45,7 +45,7 @@ const TIMEOUT_MS = 8000;
  * no interest here. Reading a bounded prefix means a form check cannot become a
  * memory problem, and the cron checks every published posting in one invocation.
  */
-const MAX_BYTES = 96 * 1024;
+const MAXIMUM_BYTES = 96 * 1024;
 
 /**
  * Wording that means "this form is closed", in the languages this portal runs
@@ -98,7 +98,7 @@ const SIGN_IN_HOSTS = Object.freeze(['accounts.google.com', 'accounts.youtube.co
  */
 export async function checkFormUrl(url, options = {}) {
   const doFetch = options.fetchImpl ?? fetch;
-  const timeoutMs = options.timeoutMs ?? TIMEOUT_MS;
+  const timeoutMilliseconds = options.timeoutMs ?? TIMEOUT_MILLISECONDS;
 
   let parsed;
   try {
@@ -115,7 +115,7 @@ export async function checkFormUrl(url, options = {}) {
   }
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const timer = setTimeout(() => controller.abort(), timeoutMilliseconds);
 
   try {
     const response = await doFetch(parsed.toString(), {
@@ -166,7 +166,7 @@ export async function checkFormUrl(url, options = {}) {
       return { state: null, note: `The form answered ${response.status}.` };
     }
 
-    const body = await readCapped(response, MAX_BYTES);
+    const body = await readCapped(response, MAXIMUM_BYTES);
 
     if (body === null) {
       return { state: null, note: 'The form loaded but could not be read.' };
@@ -198,11 +198,17 @@ export async function checkFormUrl(url, options = {}) {
     return { state: null, note: 'The form loaded but was not recognisable as a Google Form.' };
   } catch (cause) {
     const timedOut = cause?.name === 'AbortError';
+    let note;
+
+    if (timedOut) {
+      note = `The form did not answer within ${Math.round(timeoutMilliseconds / 1000)} seconds.`;
+    } else {
+      note = 'The form could not be reached.';
+    }
+
     return {
       state: null,
-      note: timedOut
-        ? `The form did not answer within ${Math.round(timeoutMs / 1000)} seconds.`
-        : 'The form could not be reached.',
+      note: note,
     };
   } finally {
     clearTimeout(timer);
@@ -231,18 +237,18 @@ function isGoogleForms(host, url) {
  * being buffered and sliced, so a very large page costs the cap and not its own
  * size. Returns null when the body cannot be read at all.
  */
-async function readCapped(response, maxBytes) {
+async function readCapped(response, maximumBytes) {
   try {
     if (!response.body) {
       const text = await response.text();
-      return text.slice(0, maxBytes);
+      return text.slice(0, maximumBytes);
     }
 
     const reader = response.body.getReader();
     const chunks = [];
     let size = 0;
 
-    while (size < maxBytes) {
+    while (size < maximumBytes) {
       const { done, value } = await reader.read();
       if (done) break;
       chunks.push(value);
@@ -253,7 +259,7 @@ async function readCapped(response, maxBytes) {
     // connection open for the rest of the cron's run.
     await reader.cancel().catch(() => {});
 
-    return Buffer.concat(chunks.map(Buffer.from), Math.min(size, maxBytes)).toString('utf8');
+    return Buffer.concat(chunks.map(Buffer.from), Math.min(size, maximumBytes)).toString('utf8');
   } catch {
     return null;
   }

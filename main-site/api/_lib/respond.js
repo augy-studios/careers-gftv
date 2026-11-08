@@ -12,7 +12,7 @@
 // on the server and never travels to the browser.
 
 /** Error codes the client is allowed to branch on. */
-export const ERR = Object.freeze({
+export const ERROR_CODES = Object.freeze({
   BAD_REQUEST: 'bad_request',
   UNAUTHORISED: 'unauthorised',
   FORBIDDEN: 'forbidden',
@@ -26,16 +26,16 @@ export const ERR = Object.freeze({
 });
 
 const STATUS_FOR = {
-  [ERR.BAD_REQUEST]: 400,
-  [ERR.UNAUTHORISED]: 401,
-  [ERR.FORBIDDEN]: 403,
-  [ERR.NOT_FOUND]: 404,
-  [ERR.METHOD_NOT_ALLOWED]: 405,
-  [ERR.CONFLICT]: 409,
-  [ERR.PAYLOAD_TOO_LARGE]: 413,
-  [ERR.RATE_LIMITED]: 429,
-  [ERR.NOT_YET_AVAILABLE]: 503,
-  [ERR.SERVER_ERROR]: 500,
+  [ERROR_CODES.BAD_REQUEST]: 400,
+  [ERROR_CODES.UNAUTHORISED]: 401,
+  [ERROR_CODES.FORBIDDEN]: 403,
+  [ERROR_CODES.NOT_FOUND]: 404,
+  [ERROR_CODES.METHOD_NOT_ALLOWED]: 405,
+  [ERROR_CODES.CONFLICT]: 409,
+  [ERROR_CODES.PAYLOAD_TOO_LARGE]: 413,
+  [ERROR_CODES.RATE_LIMITED]: 429,
+  [ERROR_CODES.NOT_YET_AVAILABLE]: 503,
+  [ERROR_CODES.SERVER_ERROR]: 500,
 };
 
 /**
@@ -44,12 +44,12 @@ const STATUS_FOR = {
  * @param {unknown} data
  * @param {{ status?: number, headers?: Record<string,string> }} [options]
  */
-export function ok(res, data, options = {}) {
+export function ok(response, data, options = {}) {
   const status = options.status ?? 200;
-  applyHeaders(res, options.headers);
-  res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  res.statusCode = status;
-  res.end(JSON.stringify({ ok: true, data: data ?? null }));
+  applyHeaders(response, options.headers);
+  response.setHeader('Content-Type', 'application/json; charset=utf-8');
+  response.statusCode = status;
+  response.end(JSON.stringify({ ok: true, data: data ?? null }));
 }
 
 /**
@@ -59,18 +59,18 @@ export function ok(res, data, options = {}) {
  * @param {string} message written for a person to read
  * @param {{ status?: number, headers?: Record<string,string>, details?: unknown }} [options]
  */
-export function fail(res, code, message, options = {}) {
+export function fail(response, code, message, options = {}) {
   const status = options.status ?? STATUS_FOR[code] ?? 400;
-  applyHeaders(res, options.headers);
-  res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  res.statusCode = status;
+  applyHeaders(response, options.headers);
+  response.setHeader('Content-Type', 'application/json; charset=utf-8');
+  response.statusCode = status;
 
   const error = { code, message };
   // details is only ever field level validation feedback that we generated
   // ourselves. Nothing from the database goes in here.
   if (options.details !== undefined) error.details = options.details;
 
-  res.end(JSON.stringify({ ok: false, error }));
+  response.end(JSON.stringify({ ok: false, error }));
 }
 
 /**
@@ -79,11 +79,11 @@ export function fail(res, code, message, options = {}) {
  * @param {unknown} cause
  * @param {string} where a short label naming the route, for the log line
  */
-export function failInternal(res, cause, where) {
+export function failInternal(response, cause, where) {
   console.error(`[careers-gftv] ${where}:`, cause);
   return fail(
-    res,
-    ERR.SERVER_ERROR,
+    response,
+    ERROR_CODES.SERVER_ERROR,
     'Something went wrong at our end. Try again in a moment.'
   );
 }
@@ -104,15 +104,11 @@ export function failInternal(res, cause, where) {
  * @param {import('http').ServerResponse} res
  * @param {string[]} allowed
  */
-export function methodNotAllowed(req, res, allowed) {
-  if (allowed.includes(req.method ?? '')) return false;
+export function methodNotAllowed(request, response, allowed) {
+  if (allowed.includes(request.method ?? '')) return false;
 
-  res.setHeader('Allow', allowed.join(', '));
-  fail(
-    res,
-    ERR.METHOD_NOT_ALLOWED,
-    `This endpoint accepts ${allowed.join(' and ')}.`
-  );
+  response.setHeader('Allow', allowed.join(', '));
+  fail(response, ERROR_CODES.METHOD_NOT_ALLOWED, `This endpoint accepts ${allowed.join(' and ')}.`);
   return true;
 }
 
@@ -122,10 +118,10 @@ export function methodNotAllowed(req, res, allowed) {
  * @param {import('http').ServerResponse} res
  * @param {number} phase
  */
-export function notYetAvailable(res, phase) {
+export function notYetAvailable(response, phase) {
   return fail(
-    res,
-    ERR.NOT_YET_AVAILABLE,
+    response,
+    ERROR_CODES.NOT_YET_AVAILABLE,
     `Will be available in Phase ${phase}. Sorry for the inconvenience caused.`
   );
 }
@@ -137,15 +133,15 @@ export function notYetAvailable(res, phase) {
  * @param {import('http').ServerResponse} res
  * @param {number} [maxBytes]
  */
-export async function readJson(req, res, maxBytes = 64 * 1024) {
+export async function readJson(request, response, maximumBytes = 64 * 1024) {
   // Vercel parses JSON bodies for us when the content type says so.
-  if (req.body !== undefined && req.body !== null) {
-    if (typeof req.body === 'object') return req.body;
-    if (typeof req.body === 'string') {
+  if (request.body !== undefined && request.body !== null) {
+    if (typeof request.body === 'object') return request.body;
+    if (typeof request.body === 'string') {
       try {
-        return JSON.parse(req.body);
+        return JSON.parse(request.body);
       } catch {
-        fail(res, ERR.BAD_REQUEST, 'The request body was not valid JSON.');
+        fail(response, ERROR_CODES.BAD_REQUEST, 'The request body was not valid JSON.');
         return null;
       }
     }
@@ -155,16 +151,16 @@ export async function readJson(req, res, maxBytes = 64 * 1024) {
   let size = 0;
 
   try {
-    for await (const chunk of req) {
+    for await (const chunk of request) {
       size += chunk.length;
-      if (size > maxBytes) {
-        fail(res, ERR.PAYLOAD_TOO_LARGE, 'That request was too large.');
+      if (size > maximumBytes) {
+        fail(response, ERROR_CODES.PAYLOAD_TOO_LARGE, 'That request was too large.');
         return null;
       }
       chunks.push(chunk);
     }
   } catch (cause) {
-    failInternal(res, cause, 'readJson');
+    failInternal(response, cause, 'readJson');
     return null;
   }
 
@@ -173,14 +169,14 @@ export async function readJson(req, res, maxBytes = 64 * 1024) {
   try {
     return JSON.parse(Buffer.concat(chunks).toString('utf8'));
   } catch {
-    fail(res, ERR.BAD_REQUEST, 'The request body was not valid JSON.');
+    fail(response, ERROR_CODES.BAD_REQUEST, 'The request body was not valid JSON.');
     return null;
   }
 }
 
-function applyHeaders(res, headers) {
+function applyHeaders(response, headers) {
   if (!headers) return;
   for (const [name, value] of Object.entries(headers)) {
-    res.setHeader(name, value);
+    response.setHeader(name, value);
   }
 }

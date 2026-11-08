@@ -24,14 +24,14 @@ export const FIELD = Object.freeze({
   MISMATCH: 'mismatch',
 });
 
-const USERNAME_MIN = 3;
-const USERNAME_MAX = 32;
-const DISPLAY_NAME_MAX = 60;
-const EMAIL_MAX = 254;
+const USERNAME_MINIMUM = 3;
+const USERNAME_MAXIMUM = 32;
+const DISPLAY_NAME_MAXIMUM = 60;
+const EMAIL_MAXIMUM = 254;
 // Shorter than a display name on purpose. It is read in a list beside a date
 // and a revoke button, and "the laptop I use at my sister's place" wrapping onto
 // three lines helps nobody pick their own device out.
-const DEVICE_NAME_MAX = 40;
+const DEVICE_NAME_MAXIMUM = 40;
 
 /**
  * A username: letters, digits, underscore, hyphen, full stop.
@@ -49,8 +49,8 @@ export function validateUsername(value) {
   const trimmed = value.trim();
 
   if (trimmed === '') return { ok: false, code: FIELD.REQUIRED };
-  if (trimmed.length < USERNAME_MIN) return { ok: false, code: FIELD.TOO_SHORT };
-  if (trimmed.length > USERNAME_MAX) return { ok: false, code: FIELD.TOO_LONG };
+  if (trimmed.length < USERNAME_MINIMUM) return { ok: false, code: FIELD.TOO_SHORT };
+  if (trimmed.length > USERNAME_MAXIMUM) return { ok: false, code: FIELD.TOO_LONG };
   if (!/^[A-Za-z0-9._-]+$/.test(trimmed)) return { ok: false, code: FIELD.INVALID };
   // Leading or trailing punctuation reads as a typo and makes two accounts
   // look identical in a list.
@@ -71,8 +71,8 @@ export function validateDisplayName(value) {
   // Strip control characters and collapse runs of whitespace, so a name pasted
   // out of a document does not arrive with a newline in the middle.
   const cleaned = [...value]
-    .filter((ch) => {
-      const code = ch.codePointAt(0);
+    .filter((character) => {
+      const code = character.codePointAt(0);
       return !(code <= 0x1f || code === 0x7f);
     })
     .join('')
@@ -80,7 +80,7 @@ export function validateDisplayName(value) {
     .trim();
 
   if (cleaned === '') return { ok: false, code: FIELD.REQUIRED };
-  if (cleaned.length > DISPLAY_NAME_MAX) return { ok: false, code: FIELD.TOO_LONG };
+  if (cleaned.length > DISPLAY_NAME_MAXIMUM) return { ok: false, code: FIELD.TOO_LONG };
 
   return { ok: true, value: cleaned };
 }
@@ -99,7 +99,7 @@ export function validateDeviceName(value) {
   const cleaned = validateDisplayName(value);
   if (!cleaned.ok) return cleaned;
 
-  if (cleaned.value.length > DEVICE_NAME_MAX) return { ok: false, code: FIELD.TOO_LONG };
+  if (cleaned.value.length > DEVICE_NAME_MAXIMUM) return { ok: false, code: FIELD.TOO_LONG };
 
   return cleaned;
 }
@@ -122,7 +122,7 @@ export function validateEmail(value) {
   const trimmed = value.trim();
 
   if (trimmed === '') return { ok: false, code: FIELD.REQUIRED };
-  if (trimmed.length > EMAIL_MAX) return { ok: false, code: FIELD.TOO_LONG };
+  if (trimmed.length > EMAIL_MAXIMUM) return { ok: false, code: FIELD.TOO_LONG };
   if (/\s/.test(trimmed)) return { ok: false, code: FIELD.INVALID };
 
   // One @, something before it, and a dotted host after it.
@@ -181,9 +181,9 @@ export function validateLocale(value) {
  * @param {import('http').IncomingMessage} req
  * @returns {string}
  */
-export function localeFromRequest(req) {
+export function localeFromRequest(request) {
   try {
-    const url = new URL(req.url ?? '/', 'https://careers.invalid');
+    const url = new URL(request.url ?? '/', 'https://careers.invalid');
     const fromQuery = url.searchParams.get('locale');
     const checked = validateLocale(fromQuery);
     if (checked.ok) return checked.value;
@@ -199,15 +199,23 @@ export function localeFromRequest(req) {
  * @param {number} maxLength
  * @param {{ required?: boolean }} [options]
  */
-export function validateText(value, maxLength, options = {}) {
+export function validateText(value, maximumLength, options = {}) {
   if (typeof value !== 'string') {
-    return options.required ? { ok: false, code: FIELD.REQUIRED } : { ok: true, value: null };
+    if (options.required) {
+      return { ok: false, code: FIELD.REQUIRED };
+    } else {
+      return { ok: true, value: null };
+    }
   }
   const trimmed = value.trim();
   if (trimmed === '') {
-    return options.required ? { ok: false, code: FIELD.REQUIRED } : { ok: true, value: null };
+    if (options.required) {
+      return { ok: false, code: FIELD.REQUIRED };
+    } else {
+      return { ok: true, value: null };
+    }
   }
-  if (trimmed.length > maxLength) return { ok: false, code: FIELD.TOO_LONG };
+  if (trimmed.length > maximumLength) return { ok: false, code: FIELD.TOO_LONG };
   return { ok: true, value: trimmed };
 }
 
@@ -219,7 +227,7 @@ export function validateText(value, maxLength, options = {}) {
  *     username: validateUsername(body.username),
  *     email: validateEmail(body.email),
  *   });
- *   if (details) return fail(res, ERR.BAD_REQUEST, '...', { details });
+ *   if (details) return fail(response, ERROR_CODES.BAD_REQUEST, '...', { details });
  *
  * @param {Record<string, { ok: boolean, value?: unknown, code?: string }>} results
  * @returns {{ values: Record<string, unknown>, details: Record<string,string>|null }}
@@ -238,7 +246,15 @@ export function collect(results) {
     }
   }
 
-  return { values, details: failed ? details : null };
+  let detailsValue;
+
+  if (failed) {
+    detailsValue = details;
+  } else {
+    detailsValue = null;
+  }
+
+  return { values, details: detailsValue };
 }
 
 /**
@@ -249,8 +265,6 @@ export function collect(results) {
  */
 export function has(body, field) {
   return (
-    body !== null &&
-    typeof body === 'object' &&
-    Object.prototype.hasOwnProperty.call(body, field)
+    body !== null && typeof body === 'object' && Object.prototype.hasOwnProperty.call(body, field)
   );
 }

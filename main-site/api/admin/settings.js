@@ -45,11 +45,18 @@
 // Both directions of the applications toggle are still audited with the actor,
 // so a change nobody expected has a name on it.
 
-import { ok, fail, ERR, methodNotAllowed, failInternal, readJson } from '../_lib/respond.js';
-import { supabase, T } from '../_lib/supabase.js';
+import {
+  ok,
+  fail,
+  ERROR_CODES,
+  methodNotAllowed,
+  failInternal,
+  readJson,
+} from '../_lib/respond.js';
+import { supabase, TABLES } from '../_lib/supabase.js';
 import { AUDIT, auditStaff } from '../_lib/audit.js';
 import { FIELD, validateText } from '../_lib/validate.js';
-import { requireAdmin, isUuid, params, activeLocales, defaultLocale } from '../_lib/admin.js';
+import { requireAdmin, isUuid, parameters, activeLocales, defaultLocale } from '../_lib/admin.js';
 import { allSettings, putSetting, DEFAULT_REAPPLY_COOLDOWN_DAYS } from '../_lib/settings.js';
 import { unavailable } from '../_lib/maintenance.js';
 import { LIMITS, limited, recordFailures, subjectForUser } from '../_lib/rate-limit.js';
@@ -69,7 +76,7 @@ const TEXT_SETTINGS = Object.freeze({
 });
 
 /** Matches the ceiling in migration 029's check constraint. */
-const MAX_COOLDOWN_DAYS = 3650;
+const MAXIMUM_COOLDOWN_DAYS = 3650;
 
 /**
  * How many postings may be featured at once.
@@ -79,32 +86,32 @@ const MAX_COOLDOWN_DAYS = 3650;
  * constraint: the column is a jsonb array and this is an editorial limit, which
  * is the kind that changes without a migration.
  */
-const MAX_FEATURED = 6;
+const MAXIMUM_FEATURED = 6;
 
 /** How many postings the picker offers. Published only, newest first. */
 const PICKER_LIMIT = 100;
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'HEAD', 'POST'])) return;
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'HEAD', 'POST'])) return;
 
   // Not requireStaff. 10 item 2 names the portal settings as admins only, and
   // the whole endpoint is that page: reading it is how a poster would learn the
   // board is closed and writing it is how they would close it. Phase 14 part 5,
   // deviation 130.
-  const session = await requireAdmin(req, res);
+  const session = await requireAdmin(request, response);
   if (!session) return;
 
   // Off means off, including the API, per 0c. The dashboard greys the section
   // out as well, and a stale tab is exactly the case a disabled button misses.
-  if (await unavailable(res, 'admin_settings')) return;
+  if (await unavailable(response, 'admin_settings')) return;
 
-  res.setHeader('Cache-Control', 'no-store');
+  response.setHeader('Cache-Control', 'no-store');
 
   try {
-    if (req.method === 'POST') return await write(req, res, session);
-    return await read(req, res);
+    if (request.method === 'POST') return await write(request, response, session);
+    return await read(request, response);
   } catch (cause) {
-    return failInternal(res, cause, 'admin settings');
+    return failInternal(response, cause, 'admin settings');
   }
 }
 
@@ -112,8 +119,8 @@ export default async function handler(req, res) {
  * Reading
  * ---------------------------------------------------------------------- */
 
-async function read(req, res) {
-  const search = params(req);
+async function read(request, response) {
+  const search = parameters(request);
 
   const [settings, locales, base] = await Promise.all([
     // Fresh, not the minute old cache. This is the page somebody is editing,
@@ -126,23 +133,31 @@ async function read(req, res) {
 
   const values = settings ?? {};
 
-  const featuredIds = Array.isArray(values.featured_job_ids)
-    ? values.featured_job_ids.filter((id) => isUuid(id))
-    : [];
+  let featuredIds;
 
-  const [featured, picker] = await Promise.all([
-    postingsByIds(featuredIds),
-    search.get('picker') === 'false' ? [] : publishedPostings(),
-  ]);
+  if (Array.isArray(values.featured_job_ids)) {
+    featuredIds = values.featured_job_ids.filter((id) => isUuid(id));
+  } else {
+    featuredIds = [];
+  }
+
+  const featuredRequest = postingsByIds(featuredIds);
+
+  let pickerRequest;
+  if (search.get('picker') === 'false') {
+    pickerRequest = [];
+  } else {
+    pickerRequest = publishedPostings();
+  }
+
+  const [featured, picker] = await Promise.all([featuredRequest, pickerRequest]);
 
   // In the admin's chosen order rather than the database's, and dropping
   // anything that has since been unpublished or deleted. The page says how many
   // were dropped rather than quietly showing a shorter list.
-  const chosen = featuredIds
-    .map((id) => featured.get(id))
-    .filter((row) => row !== undefined);
+  const chosen = featuredIds.map((id) => featured.get(id)).filter((row) => row !== undefined);
 
-  return ok(res, {
+  return ok(response, {
     locales,
     default_locale: base,
     settings: {
@@ -159,8 +174,8 @@ async function read(req, res) {
     featured_unavailable: featuredIds.length - chosen.length,
     postings: picker,
     limits: {
-      max_featured: MAX_FEATURED,
-      max_cooldown_days: MAX_COOLDOWN_DAYS,
+      max_featured: MAXIMUM_FEATURED,
+      max_cooldown_days: MAXIMUM_COOLDOWN_DAYS,
       default_cooldown_days: DEFAULT_REAPPLY_COOLDOWN_DAYS,
     },
   });
@@ -178,16 +193,14 @@ async function read(req, res) {
 function localeObject(value) {
   if (typeof value === 'string') return { en: value };
   if (value && typeof value === 'object' && !Array.isArray(value)) {
-    return Object.fromEntries(
-      Object.entries(value).filter(([, text]) => typeof text === 'string')
-    );
+    return Object.fromEntries(Object.entries(value).filter(([, text]) => typeof text === 'string'));
   }
   return {};
 }
 
 function cooldownValue(raw) {
   const days = Number(raw);
-  if (!Number.isInteger(days) || days < 0 || days > MAX_COOLDOWN_DAYS) {
+  if (!Number.isInteger(days) || days < 0 || days > MAXIMUM_COOLDOWN_DAYS) {
     return DEFAULT_REAPPLY_COOLDOWN_DAYS;
   }
   return days;
@@ -196,7 +209,7 @@ function cooldownValue(raw) {
 /** The postings the featured picker offers: published, newest first. */
 async function publishedPostings() {
   const { data, error } = await supabase
-    .from(T.jobs)
+    .from(TABLES.jobs)
     .select('id, title, slug, status, published_at, closes_at')
     .eq('status', 'published')
     .order('published_at', { ascending: false, nullsFirst: false })
@@ -216,7 +229,7 @@ async function postingsByIds(ids) {
   if (ids.length === 0) return new Map();
 
   const { data, error } = await supabase
-    .from(T.jobs)
+    .from(TABLES.jobs)
     .select('id, title, slug, status, published_at, closes_at')
     .in('id', ids)
     .eq('status', 'published');
@@ -231,24 +244,26 @@ async function postingsByIds(ids) {
 
 const ACTIONS = ['save', 'applications'];
 
-async function write(req, res, session) {
-  const body = await readJson(req, res);
+async function write(request, response, session) {
+  const body = await readJson(request, response);
   if (body === null) return;
 
   const action = String(body.action ?? '').trim();
   if (!ACTIONS.includes(action)) {
-    return fail(res, ERR.BAD_REQUEST, 'That is not something this endpoint does.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not something this endpoint does.', {
       details: { action: FIELD.INVALID },
     });
   }
 
   const subjects = [subjectForUser('staff', session.user.id)];
-  if (await limited(res, 'admin', subjects)) return;
+  if (await limited(response, 'admin', subjects)) return;
   const done = () => recordFailures('admin', subjects, LIMITS.admin);
 
-  return action === 'save'
-    ? save(res, session, body, done)
-    : toggleApplications(res, session, body, done);
+  if (action === 'save') {
+    return save(response, session, body, done);
+  } else {
+    return toggleApplications(response, session, body, done);
+  }
 }
 
 /**
@@ -259,7 +274,7 @@ async function write(req, res, session) {
  * would leave the site with a new title and an old hero line, which is the one
  * outcome worth avoiding here.
  */
-async function save(res, session, body, done) {
+async function save(response, session, body, done) {
   const locales = await activeLocales();
   const base = await defaultLocale();
   const codes = locales.map((locale) => locale.code);
@@ -309,11 +324,17 @@ async function save(res, session, body, done) {
 
   let featured;
   if (body.featured_job_ids !== undefined) {
-    const ids = Array.isArray(body.featured_job_ids) ? body.featured_job_ids : null;
+    let ids;
+
+    if (Array.isArray(body.featured_job_ids)) {
+      ids = body.featured_job_ids;
+    } else {
+      ids = null;
+    }
 
     if (ids === null || ids.some((id) => !isUuid(id))) {
       details.featured_job_ids = FIELD.INVALID;
-    } else if (ids.length > MAX_FEATURED) {
+    } else if (ids.length > MAXIMUM_FEATURED) {
       details.featured_job_ids = FIELD.TOO_LONG;
     } else {
       // Deduplicated in the order given: the same posting twice is a slip, and
@@ -333,7 +354,7 @@ async function save(res, session, body, done) {
   let cooldown;
   if (body.reapply_cooldown_days !== undefined) {
     const days = Number(body.reapply_cooldown_days);
-    if (!Number.isInteger(days) || days < 0 || days > MAX_COOLDOWN_DAYS) {
+    if (!Number.isInteger(days) || days < 0 || days > MAXIMUM_COOLDOWN_DAYS) {
       details.reapply_cooldown_days = FIELD.INVALID;
     } else {
       cooldown = days;
@@ -341,7 +362,9 @@ async function save(res, session, body, done) {
   }
 
   if (Object.keys(details).length > 0) {
-    return fail(res, ERR.BAD_REQUEST, 'Those settings could not be saved.', { details });
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'Those settings could not be saved.', {
+      details,
+    });
   }
 
   const changed = [];
@@ -362,6 +385,22 @@ async function save(res, session, body, done) {
   }
 
   if (changed.length > 0) {
+    let reapplyCooldownDaysField;
+
+    if (cooldown !== undefined) {
+      reapplyCooldownDaysField = { reapply_cooldown_days: cooldown };
+    } else {
+      reapplyCooldownDaysField = {};
+    }
+
+    let featuredCountField;
+
+    if (featured !== undefined) {
+      featuredCountField = { featured_count: featured.length };
+    } else {
+      featuredCountField = {};
+    }
+
     await auditStaff(
       session.user,
       AUDIT.SETTING_CHANGED,
@@ -372,15 +411,15 @@ async function save(res, session, body, done) {
         // reapplying, and "it was 90 last month" is a question somebody will
         // ask. The wording settings are not copied here, because a hero line
         // in two languages in every audit row is noise.
-        ...(cooldown !== undefined ? { reapply_cooldown_days: cooldown } : {}),
-        ...(featured !== undefined ? { featured_count: featured.length } : {}),
+        ...reapplyCooldownDaysField,
+        ...featuredCountField,
       },
-      { targetTable: T.settings }
+      { targetTable: TABLES.settings }
     );
   }
 
   await done();
-  return ok(res, { saved: changed });
+  return ok(response, { saved: changed });
 }
 
 /**
@@ -393,9 +432,9 @@ async function save(res, session, body, done) {
  * turned away — one is policy, the other is something broken — so the log has
  * to be able to tell them apart at a glance too.
  */
-async function toggleApplications(res, session, body, done) {
+async function toggleApplications(response, session, body, done) {
   if (typeof body.open !== 'boolean') {
-    return fail(res, ERR.BAD_REQUEST, 'Say whether applications are open.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'Say whether applications are open.', {
       details: { open: FIELD.REQUIRED },
     });
   }
@@ -403,23 +442,31 @@ async function toggleApplications(res, session, body, done) {
   const open = body.open;
   const note = validateText(body.note, 300);
   if (!note.ok) {
-    return fail(res, ERR.BAD_REQUEST, 'That note could not be saved.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That note could not be saved.', {
       details: { note: note.code },
     });
   }
 
   await putSetting('applications_open', open, { staffId: session.user.id });
 
+  let auditAction;
+
+  if (open) {
+    auditAction = AUDIT.APPLICATIONS_OPENED;
+  } else {
+    auditAction = AUDIT.APPLICATIONS_CLOSED;
+  }
+
   await auditStaff(
     session.user,
-    open ? AUDIT.APPLICATIONS_OPENED : AUDIT.APPLICATIONS_CLOSED,
+    auditAction,
     // The note is optional, per 8.10, and is kept when it is given. Closing the
     // board is the kind of thing somebody asks about a fortnight later, and the
     // sentence written at the time is a better answer than the timestamp.
     { note: note.value ?? null },
-    { targetTable: T.settings }
+    { targetTable: TABLES.settings }
   );
 
   await done();
-  return ok(res, { applications_open: open });
+  return ok(response, { applications_open: open });
 }

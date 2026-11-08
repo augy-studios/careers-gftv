@@ -32,7 +32,7 @@
 
 import { createRequire } from 'node:module';
 
-import { escapeHtml, escapeAttr, renderDocument } from './page-shell.js';
+import { escapeHtml, escapeAttribute, renderDocument } from './page-shell.js';
 
 // Both files are read at module scope with a literal path, which is what makes
 // the bundler trace them into the function. The same trick maintenance.js uses
@@ -87,7 +87,12 @@ export const VIEW = Object.freeze({ build: 'build', service: 'service' });
 export function viewFor({ preview = false, back = false } = {}) {
   if (preview) return VIEW.service;
   if (back) return VIEW.build;
-  return everyPhaseShipped() ? VIEW.service : VIEW.build;
+
+  if (everyPhaseShipped()) {
+    return VIEW.service;
+  } else {
+    return VIEW.build;
+  }
 }
 
 /* -------------------------------------------------------------------------
@@ -133,7 +138,7 @@ export const EXPECTED_PER_DAY = 24 * 60;
  * twenty minutes is not a day it watched, and the first day after the probe is
  * started is exactly that day.
  */
-export const MIN_COVERAGE = 0.25;
+export const MINIMUM_COVERAGE = 0.25;
 
 /**
  * How old the newest probe row may be before the headline stops claiming
@@ -144,7 +149,7 @@ export const MIN_COVERAGE = 0.25;
  * an empty recent window as "no failures" would report all clear precisely when
  * the machine watching it had stopped.
  */
-export const STALE_MS = 15 * 60 * 1000;
+export const STALE_MILLISECONDS = 15 * 60 * 1000;
 
 /**
  * How many failed checks make an incident worth listing. Three, so about three
@@ -157,7 +162,7 @@ export const STALE_MS = 15 * 60 * 1000;
  * is still an outage, and a threshold high enough to look tidy is how a status
  * page starts under-reporting.
  */
-export const MIN_FAILS = 3;
+export const MINIMUM_FAILS = 3;
 
 /**
  * How long a declared outage has to have lasted to be worth listing. Five
@@ -170,12 +175,12 @@ export const MIN_FAILS = 3;
  * every phase file that touches a maintenance switch adds more. A page nobody
  * can read is a page that reports nothing.
  *
- * It is the same judgement `MIN_FAILS` makes about the observed half, and it is
+ * It is the same judgement `MINIMUM_FAILS` makes about the observed half, and it is
  * held to the same standard: **the rule is printed on the page**, so what is
  * left out is stated rather than quietly dropped. An outage still open is never
  * hidden by it, whatever its length so far.
  */
-export const MIN_DECLARED_MS = 5 * 60 * 1000;
+export const MINIMUM_DECLARED_MILLISECONDS = 5 * 60 * 1000;
 
 /** How many incidents of each kind are listed. The rest are counted, not drawn. */
 export const INCIDENT_LIMIT = 10;
@@ -188,7 +193,7 @@ export const INCIDENT_LIMIT = 10;
  * to somebody who was turned away by it, and it is not "down" either. This is
  * the window in which the page keeps saying so.
  */
-export const RECENT_MS = 60 * 60 * 1000;
+export const RECENT_MILLISECONDS = 60 * 60 * 1000;
 
 /* -------------------------------------------------------------------------
  * The English copy
@@ -204,27 +209,53 @@ export const RECENT_MS = 60 * 60 * 1000;
  * dictionary. **The literal and the dictionary cannot drift**, because there is
  * only the dictionary.
  */
-export function en(key, vars) {
+export function englishText(key, variables) {
   // The dictionaries are flat: the dots are part of the key, not a path. Same
   // lookup `t()` does in assets/js/i18n.js, and a key with no entry renders as
   // itself there too, which is loud rather than blank.
   const value = EN[key];
   if (typeof value !== 'string') return key;
-  if (!vars) return value;
-  return value.replace(/\{(\w+)\}/g, (whole, name) =>
-    Object.prototype.hasOwnProperty.call(vars, name) ? String(vars[name]) : whole
-  );
+  if (!variables) return value;
+  return value.replace(/\{(\w+)\}/g, (whole, name) => {
+    if (Object.prototype.hasOwnProperty.call(variables, name)) {
+      return String(variables[name]);
+    } else {
+      return whole;
+    }
+  });
 }
 
 /** An element carrying its own key, so the browser can translate it in place. */
-function line(tag, key, { className = null, vars = null, attrs = '' } = {}) {
-  const classAttr = className ? ` class="${escapeAttr(className)}"` : '';
+function line(tag, key, { className = null, vars: variables = null, attrs: attributes = '' } = {}) {
+  let classAttribute;
+
+  if (className) {
+    classAttribute = ` class="${escapeAttribute(className)}"`;
+  } else {
+    classAttribute = '';
+  }
+
   // A string with interpolation in it cannot be swapped by `data-i18n`, which
   // sets textContent from the key alone. Those are rendered in English and left
   // that way rather than marked with a key that would erase the numbers in
   // them; where that would matter the number is put in its own element instead.
-  const key18n = vars ? '' : ` data-i18n="${escapeAttr(key)}"`;
-  return `<${tag}${classAttr}${key18n}${attrs ? ` ${attrs}` : ''}>${escapeHtml(en(key, vars))}</${tag}>`;
+  let translationAttribute;
+
+  if (variables) {
+    translationAttribute = '';
+  } else {
+    translationAttribute = ` data-i18n="${escapeAttribute(key)}"`;
+  }
+
+  let extraAttributes;
+
+  if (attributes) {
+    extraAttributes = ` ${attributes}`;
+  } else {
+    extraAttributes = '';
+  }
+
+  return `<${tag}${classAttribute}${translationAttribute}${extraAttributes}>${escapeHtml(englishText(key, variables))}</${tag}>`;
 }
 
 /* -------------------------------------------------------------------------
@@ -233,14 +264,29 @@ function line(tag, key, { className = null, vars = null, attrs = '' } = {}) {
 
 /** The UTC date a timestamp falls on, as `YYYY-MM-DD`. */
 export function utcDay(value) {
-  const date = value instanceof Date ? value : new Date(value);
+  let date;
+
+  if (value instanceof Date) {
+    date = value;
+  } else {
+    date = new Date(value);
+  }
+
   if (Number.isNaN(date.getTime())) return null;
   return date.toISOString().slice(0, 10);
 }
 
 /** The last `days` UTC dates, oldest first, ending on the day `now` falls in. */
 export function dayWindow(now, days = DAYS) {
-  const end = new Date(now instanceof Date ? now.getTime() : new Date(now).getTime());
+  let nowMilliseconds;
+
+  if (now instanceof Date) {
+    nowMilliseconds = now.getTime();
+  } else {
+    nowMilliseconds = new Date(now).getTime();
+  }
+
+  const end = new Date(nowMilliseconds);
   const out = [];
   for (let back = days - 1; back >= 0; back -= 1) {
     const day = new Date(end.getTime() - back * 24 * 60 * 60 * 1000);
@@ -262,7 +308,7 @@ export function dayState({ total, failed, expected = EXPECTED_PER_DAY }) {
   if (failed > 0) return 'degraded';
   // A failure seen is a failure whatever the coverage, which is why this comes
   // last: partial only ever softens a clean day, never a bad one.
-  if (total < expected * MIN_COVERAGE) return 'partial';
+  if (total < expected * MINIMUM_COVERAGE) return 'partial';
   return 'up';
 }
 
@@ -285,7 +331,10 @@ export function dayState({ total, failed, expected = EXPECTED_PER_DAY }) {
  *   an `unknown` cell rather than a zeroed one.
  * @param {{ now?: Date|string, days?: number, expected?: number }} [options]
  */
-export function uptimeFor(rows, { now = new Date(), days = DAYS, expected = EXPECTED_PER_DAY } = {}) {
+export function uptimeFor(
+  rows,
+  { now = new Date(), days = DAYS, expected = EXPECTED_PER_DAY } = {}
+) {
   const window = dayWindow(now, days);
   const inWindow = new Set(window);
 
@@ -296,7 +345,14 @@ export function uptimeFor(rows, { now = new Date(), days = DAYS, expected = EXPE
   for (const row of rows ?? []) {
     // The table answers a date; a caller passing a timestamp is reduced to the
     // same UTC day rather than dropped, so a fixture and the deployment agree.
-    const day = String(row?.day ?? '').length === 10 ? String(row.day) : utcDay(row?.day);
+    let day;
+
+    if (String(row?.day ?? '').length === 10) {
+      day = String(row.day);
+    } else {
+      day = utcDay(row?.day);
+    }
+
     if (!day || !inWindow.has(day)) continue;
     const cell = totals.get(day);
     cell.total += Number(row.checks) || 0;
@@ -316,6 +372,22 @@ export function uptimeFor(rows, { now = new Date(), days = DAYS, expected = EXPE
   const failures = cells.reduce((sum, cell) => sum + cell.failed, 0);
   const noData = cells.filter((cell) => cell.state === 'unknown').length;
 
+  let percent;
+
+  if (checks === 0) {
+    percent = null;
+  } else {
+    percent = Math.round(((checks - failures) / checks) * 10000) / 100;
+  }
+
+  let averageMs;
+
+  if (checks === 0 || durationTotal === 0) {
+    averageMs = null;
+  } else {
+    averageMs = Math.round(durationTotal / checks);
+  }
+
   return {
     cells,
     checks,
@@ -324,12 +396,12 @@ export function uptimeFor(rows, { now = new Date(), days = DAYS, expected = EXPE
     // Null rather than 100 when nothing was measured. A percentage over no
     // checks is the same fabrication as one over a period with gaps, and this
     // build's rule for a number it could not establish is that it is absent.
-    percent: checks === 0 ? null : Math.round(((checks - failures) / checks) * 10000) / 100,
+    percent: percent,
     // Section 15 asks for the duration to be recorded, and decision 23 records
     // it as a sum rather than a row per request. This is what gives that sum a
     // reader: an average over the window, and the worst single answer in it.
     // Both are null when nothing was measured, for the same reason as above.
-    averageMs: checks === 0 || durationTotal === 0 ? null : Math.round(durationTotal / checks),
+    averageMs: averageMs,
     slowestMs: slowest,
   };
 }
@@ -344,7 +416,7 @@ export function uptimeFor(rows, { now = new Date(), days = DAYS, expected = EXPE
  * Order matters and is the whole of the argument:
  *
  *   **`unknown` comes first.** If nothing has been heard from the probe inside
- *   STALE_MS then this page does not know the state of anything, and no amount
+ *   STALE_MILLISECONDS then this page does not know the state of anything, and no amount
  *   of old green rows changes that.
  *
  *   **Then what the probe saw**, because a portal answering 500 is worse news
@@ -361,19 +433,35 @@ export function uptimeFor(rows, { now = new Date(), days = DAYS, expected = EXPE
  *   the whole of what this page knows about its own freshness.
  */
 export function headline({ lastSeen = null, incidents = [], off = [], now = new Date() } = {}) {
-  const at = now instanceof Date ? now.getTime() : new Date(now).getTime();
-  const seen = lastSeen ? new Date(lastSeen).getTime() : NaN;
+  let nowMilliseconds;
 
-  if (!Number.isFinite(seen) || at - seen > STALE_MS) return { state: 'unknown', off: off.length };
+  if (now instanceof Date) {
+    nowMilliseconds = now.getTime();
+  } else {
+    nowMilliseconds = new Date(now).getTime();
+  }
+
+  let seen;
+
+  if (lastSeen) {
+    seen = new Date(lastSeen).getTime();
+  } else {
+    seen = NaN;
+  }
+
+  if (!Number.isFinite(seen) || nowMilliseconds - seen > STALE_MILLISECONDS)
+    return { state: 'unknown', off: off.length };
 
   const failingNow = incidents.some(
-    (incident) => !incident.ended_at && at - new Date(incident.last_failed_at).getTime() <= STALE_MS
+    (incident) =>
+      !incident.ended_at &&
+      nowMilliseconds - new Date(incident.last_failed_at).getTime() <= STALE_MILLISECONDS
   );
   if (failingNow) return { state: 'down', off: off.length };
 
   const troubledRecently = incidents.some((incident) => {
     const when = new Date(incident.ended_at ?? incident.last_failed_at).getTime();
-    return Number.isFinite(when) && at - when <= RECENT_MS;
+    return Number.isFinite(when) && nowMilliseconds - when <= RECENT_MILLISECONDS;
   });
   if (troubledRecently) return { state: 'degraded', off: off.length };
 
@@ -418,7 +506,7 @@ export const HEADLINE_TONE = Object.freeze({
 export function declaredIncidents(rows = []) {
   const ordered = [...rows]
     .filter((row) => row?.action === 'feature_disabled' || row?.action === 'feature_enabled')
-    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    .sort((first, second) => new Date(first.created_at) - new Date(second.created_at));
 
   const open = new Map();
   const out = [];
@@ -433,7 +521,12 @@ export function declaredIncidents(rows = []) {
       // duration the length of the outage rather than the length of the last
       // edit to its note.
       if (!open.has(feature)) {
-        open.set(feature, { feature, note: row.metadata?.note ?? null, start: row.created_at, end: null });
+        open.set(feature, {
+          feature,
+          note: row.metadata?.note ?? null,
+          start: row.created_at,
+          end: null,
+        });
       } else if (row.metadata?.note) {
         open.get(feature).note = row.metadata.note;
       }
@@ -450,11 +543,21 @@ export function declaredIncidents(rows = []) {
   for (const incident of open.values()) out.push(incident);
 
   return out
-    .map((incident) => ({
-      ...incident,
-      durationMs: incident.end ? new Date(incident.end) - new Date(incident.start) : null,
-    }))
-    .sort((a, b) => new Date(b.start) - new Date(a.start));
+    .map((incident) => {
+      let durationMs;
+
+      if (incident.end) {
+        durationMs = new Date(incident.end) - new Date(incident.start);
+      } else {
+        durationMs = null;
+      }
+
+      return {
+        ...incident,
+        durationMs: durationMs,
+      };
+    })
+    .sort((first, second) => new Date(second.start) - new Date(first.start));
 }
 
 /**
@@ -472,7 +575,7 @@ export function declaredIncidents(rows = []) {
  *
  * **Three endings, not two.** An incident with an `ended_at` ended. One still
  * open whose last failure is recent is happening now. One still open whose last
- * failure is older than STALE_MS is neither: the probe stopped writing during
+ * failure is older than STALE_MILLISECONDS is neither: the probe stopped writing during
  * it, and what this page can honestly say is that it stopped hearing. Reporting
  * that third case as ongoing would claim knowledge of the present from a row
  * that stopped being updated hours ago, which is the failure 0c is written
@@ -482,35 +585,69 @@ export function declaredIncidents(rows = []) {
  *                 ended_at: string|null, failures: number, status_code: number|null }>} rows
  * @param {{ now?: Date, minFails?: number }} [options]
  */
-export function observedIncidents(rows = [], { now = new Date(), minFails = MIN_FAILS } = {}) {
-  const at = now instanceof Date ? now.getTime() : new Date(now).getTime();
+export function observedIncidents(
+  rows = [],
+  { now = new Date(), minFails: minimumFails = MINIMUM_FAILS } = {}
+) {
+  let nowMilliseconds;
 
-  return rows
-    // A single failed check is a blip, and a list of blips is a list nobody
-    // reads. The row is still written — a blip that turns out to be the start
-    // of something is the row somebody wants afterwards — and this is where it
-    // is decided that it lasted long enough to be worth a line.
-    .filter((row) => Number(row?.failures ?? 0) >= minFails)
-    .map((row) => {
-      const lastFailed = new Date(row.last_failed_at).getTime();
-      const state = row.ended_at ? 'ended' : at - lastFailed <= STALE_MS ? 'ongoing' : 'stalled';
+  if (now instanceof Date) {
+    nowMilliseconds = now.getTime();
+  } else {
+    nowMilliseconds = new Date(now).getTime();
+  }
 
-      return {
-        target: row.target,
-        start: row.started_at,
-        end: row.ended_at ?? null,
-        lastFailure: row.last_failed_at,
-        state,
-        ongoing: state === 'ongoing',
-        checks: Number(row.failures ?? 0),
-        codes: Number.isInteger(row.status_code) ? [row.status_code] : [],
-        // Measured to the observed end where there is one, and to the last
-        // failure otherwise, which is a floor and is labelled as one.
-        durationMs:
-          state === 'ongoing' ? null : new Date(row.ended_at ?? row.last_failed_at) - new Date(row.started_at),
-      };
-    })
-    .sort((a, b) => new Date(b.start) - new Date(a.start));
+  return (
+    rows
+      // A single failed check is a blip, and a list of blips is a list nobody
+      // reads. The row is still written — a blip that turns out to be the start
+      // of something is the row somebody wants afterwards — and this is where it
+      // is decided that it lasted long enough to be worth a line.
+      .filter((row) => Number(row?.failures ?? 0) >= minimumFails)
+      .map((row) => {
+        const lastFailed = new Date(row.last_failed_at).getTime();
+        let state;
+
+        if (row.ended_at) {
+          state = 'ended';
+        } else if (nowMilliseconds - lastFailed <= STALE_MILLISECONDS) {
+          state = 'ongoing';
+        } else {
+          state = 'stalled';
+        }
+
+        let codes;
+
+        if (Number.isInteger(row.status_code)) {
+          codes = [row.status_code];
+        } else {
+          codes = [];
+        }
+
+        let durationMs;
+
+        if (state === 'ongoing') {
+          durationMs = null;
+        } else {
+          durationMs = new Date(row.ended_at ?? row.last_failed_at) - new Date(row.started_at);
+        }
+
+        return {
+          target: row.target,
+          start: row.started_at,
+          end: row.ended_at ?? null,
+          lastFailure: row.last_failed_at,
+          state,
+          ongoing: state === 'ongoing',
+          checks: Number(row.failures ?? 0),
+          codes: codes,
+          // Measured to the observed end where there is one, and to the last
+          // failure otherwise, which is a floor and is labelled as one.
+          durationMs: durationMs,
+        };
+      })
+      .sort((first, second) => new Date(second.start) - new Date(first.start))
+  );
 }
 
 /**
@@ -523,13 +660,18 @@ export function observedIncidents(rows = [], { now = new Date(), minFails = MIN_
  *
  * @param {Array<{ durationMs: number|null }>} incidents newest first
  * @param {{ minMs?: number, limit?: number }} [options] `minMs` 0 leaves every
- *   length in, which is what the observed list passes: `MIN_FAILS` has already
+ *   length in, which is what the observed list passes: `MINIMUM_FAILS` has already
  *   made that judgement in checks rather than in minutes.
  */
-export function listable(incidents = [], { minMs = 0, limit = INCIDENT_LIMIT } = {}) {
+export function listable(
+  incidents = [],
+  { minMs: minimumMilliseconds = 0, limit = INCIDENT_LIMIT } = {}
+) {
   // An outage with no end has no length yet, and "still off" is never too short
   // to mention.
-  const long = incidents.filter((one) => one.durationMs === null || one.durationMs >= minMs);
+  const long = incidents.filter(
+    (one) => one.durationMs === null || one.durationMs >= minimumMilliseconds
+  );
 
   return {
     shown: long.slice(0, limit),
@@ -582,7 +724,14 @@ export function incidentId(incident, kind = 'observed') {
  * @returns {Map<string, Array<object>>} keyed `${target}|${day}`
  */
 export function incidentsByDay(shown = [], { now = new Date() } = {}) {
-  const at = now instanceof Date ? now.getTime() : new Date(now).getTime();
+  let nowMilliseconds;
+
+  if (now instanceof Date) {
+    nowMilliseconds = now.getTime();
+  } else {
+    nowMilliseconds = new Date(now).getTime();
+  }
+
   const byDay = new Map();
 
   for (const incident of shown) {
@@ -591,9 +740,22 @@ export function incidentsByDay(shown = [], { now = new Date() } = {}) {
 
     // An ongoing outage runs to now; one the probe stopped writing to runs to
     // its last failure, which is the same floor the panel prints beside it.
-    const endValue = incident.end ?? (incident.state === 'ongoing' ? at : incident.lastFailure);
+    let endValue = incident.end;
+    if (endValue === null || endValue === undefined) {
+      if (incident.state === 'ongoing') {
+        endValue = nowMilliseconds;
+      } else {
+        endValue = incident.lastFailure;
+      }
+    }
     const end = new Date(endValue ?? start).getTime();
-    const last = Number.isFinite(end) && end >= start ? end : start;
+    let last;
+
+    if (Number.isFinite(end) && end >= start) {
+      last = end;
+    } else {
+      last = start;
+    }
 
     for (let cursor = start; ; cursor += 24 * 60 * 60 * 1000) {
       const day = utcDay(new Date(cursor));
@@ -621,7 +783,14 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
  * machine readable half goes in the `datetime` attribute beside it.
  */
 export function stamp(value) {
-  const date = value instanceof Date ? value : new Date(value);
+  let date;
+
+  if (value instanceof Date) {
+    date = value;
+  } else {
+    date = new Date(value);
+  }
+
   if (Number.isNaN(date.getTime())) return null;
   const day = String(date.getUTCDate()).padStart(2, '0');
   const hours = String(date.getUTCHours()).padStart(2, '0');
@@ -637,27 +806,34 @@ export function stamp(value) {
  * is hovering to read off the end of the tooltip. Still UTC and still says so.
  */
 export function clock(value) {
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return en('serviceStatus.unknownTime');
+  let date;
+
+  if (value instanceof Date) {
+    date = value;
+  } else {
+    date = new Date(value);
+  }
+
+  if (Number.isNaN(date.getTime())) return englishText('serviceStatus.unknownTime');
   const hours = String(date.getUTCHours()).padStart(2, '0');
   const minutes = String(date.getUTCMinutes()).padStart(2, '0');
   return `${hours}:${minutes} UTC`;
 }
 
 /** A duration in whole minutes and hours. Nothing here needs seconds. */
-export function duration(ms) {
-  if (!Number.isFinite(ms) || ms < 0) return null;
-  const minutes = Math.max(1, Math.round(ms / 60000));
-  if (minutes < 60) return en('serviceStatus.minutes', { count: minutes });
+export function duration(milliseconds) {
+  if (!Number.isFinite(milliseconds) || milliseconds < 0) return null;
+  const minutes = Math.max(1, Math.round(milliseconds / 60000));
+  if (minutes < 60) return englishText('serviceStatus.minutes', { count: minutes });
   const hours = Math.round((minutes / 60) * 10) / 10;
-  if (hours < 48) return en('serviceStatus.hours', { count: hours });
-  return en('serviceStatus.days', { count: Math.round(hours / 24) });
+  if (hours < 48) return englishText('serviceStatus.hours', { count: hours });
+  return englishText('serviceStatus.days', { count: Math.round(hours / 24) });
 }
 
 function time(value) {
   const readable = stamp(value);
-  if (!readable) return escapeHtml(en('serviceStatus.unknownTime'));
-  return `<time datetime="${escapeAttr(new Date(value).toISOString())}">${escapeHtml(readable)}</time>`;
+  if (!readable) return escapeHtml(englishText('serviceStatus.unknownTime'));
+  return `<time datetime="${escapeAttribute(new Date(value).toISOString())}">${escapeHtml(readable)}</time>`;
 }
 
 /* -------------------------------------------------------------------------
@@ -687,9 +863,17 @@ export function renderServiceBody(model) {
   // about which outages exist. A day square links only to something the panel
   // is actually drawing, and the only way to guarantee that is for both to read
   // the same list.
-  const declaredList = listable(model.declared ?? [], { minMs: MIN_DECLARED_MS });
+  const declaredList = listable(model.declared ?? [], { minMs: MINIMUM_DECLARED_MILLISECONDS });
   const observedList = listable(model.observed ?? []);
   const byDay = incidentsByDay(observedList.shown, { now: model.now });
+
+  // When the uptime probe last wrote a row, or a sentence saying it never has.
+  let lastSeenText;
+  if (model.probeLastSeen) {
+    lastSeenText = time(model.probeLastSeen);
+  } else {
+    lastSeenText = escapeHtml(englishText('serviceStatus.noProbeYet'));
+  }
 
   return `<main class="page page-narrow" id="main">
         <div class="page-header">
@@ -701,16 +885,16 @@ export function renderServiceBody(model) {
              beneath it. The unknown state is the one that matters: it is what
              this page says when the probe has gone quiet, rather than reading
              an empty recent window as good news. -->
-        <div class="callout ${escapeAttr(tone)} status-headline" role="status">
+        <div class="callout ${escapeAttribute(tone)} status-headline" role="status">
             ${line('h2', `serviceStatus.headline.${model.headline.state}`)}
-            <p class="muted">${escapeHtml(en('serviceStatus.measuredAt'))} ${
-              model.probeLastSeen ? time(model.probeLastSeen) : escapeHtml(en('serviceStatus.noProbeYet'))
+            <p class="muted">${escapeHtml(englishText('serviceStatus.measuredAt'))} ${
+              lastSeenText
             }</p>
         </div>
 
         <section class="glass-card card status-panel" aria-labelledby="statusComponents">
             <h2 id="statusComponents" data-i18n="serviceStatus.componentsHeading">${escapeHtml(
-              en('serviceStatus.componentsHeading')
+              englishText('serviceStatus.componentsHeading')
             )}</h2>
             ${line('p', 'serviceStatus.componentsLede', { className: 'muted' })}
             <ul class="status-components">
@@ -720,7 +904,7 @@ export function renderServiceBody(model) {
 
         <section class="glass-card card status-panel" aria-labelledby="statusUptime">
             <h2 id="statusUptime" data-i18n="serviceStatus.uptimeHeading">${escapeHtml(
-              en('serviceStatus.uptimeHeading')
+              englishText('serviceStatus.uptimeHeading')
             )}</h2>
             ${line('p', 'serviceStatus.uptimeLede', { className: 'muted' })}
             ${model.uptime.map((row) => renderUptime(row, byDay)).join('\n            ')}
@@ -730,7 +914,7 @@ export function renderServiceBody(model) {
                     (state) =>
                       `<li><span class="status-day" data-state="${state}" aria-hidden="true"></span>` +
                       `<span data-i18n="serviceStatus.day.${state}">${escapeHtml(
-                        en(`serviceStatus.day.${state}`)
+                        englishText(`serviceStatus.day.${state}`)
                       )}</span></li>`
                   )
                   .join('\n                ')}
@@ -739,7 +923,7 @@ export function renderServiceBody(model) {
 
         <section class="glass-card card status-panel" aria-labelledby="statusIncidents">
             <h2 id="statusIncidents" data-i18n="serviceStatus.incidentsHeading">${escapeHtml(
-              en('serviceStatus.incidentsHeading')
+              englishText('serviceStatus.incidentsHeading')
             )}</h2>
             ${line('p', 'serviceStatus.incidentsLede', { className: 'muted' })}
             ${renderIncidents({ declaredList, observedList })}
@@ -752,27 +936,49 @@ export function renderServiceBody(model) {
     </main>`;
 }
 
+/**
+ * One feature's line on the service status page: working, switched off with the
+ * note saying why, or always on because it cannot be switched off.
+ */
 function renderComponent(component) {
   // Three states rather than two, and the third is not "off". A denylisted
   // feature is one nobody can switch off, and 8.12's rule is that it is shown
   // with the reason rather than hidden: a reader looking for it finds out why
   // there is no switch instead of concluding the list is short.
-  const state = component.denied ? 'always' : component.off ? 'off' : 'on';
+  let state;
 
-  const note = component.off && component.note ? `<p class="status-note">${escapeHtml(component.note)}</p>` : '';
-  const since =
-    component.off && component.since
-      ? `<p class="muted small">${escapeHtml(en('serviceStatus.offSince'))} ${time(component.since)}</p>`
-      : '';
+  if (component.denied) {
+    state = 'always';
+  } else if (component.off) {
+    state = 'off';
+  } else {
+    state = 'on';
+  }
 
-  return `<li class="status-component" data-state="${escapeAttr(state)}">
-                    <span class="status-component-name" data-i18n="featureName.${escapeAttr(
+  let note;
+
+  if (component.off && component.note) {
+    note = `<p class="status-note">${escapeHtml(component.note)}</p>`;
+  } else {
+    note = '';
+  }
+
+  let since;
+
+  if (component.off && component.since) {
+    since = `<p class="muted small">${escapeHtml(englishText('serviceStatus.offSince'))} ${time(component.since)}</p>`;
+  } else {
+    since = '';
+  }
+
+  return `<li class="status-component" data-state="${escapeAttribute(state)}">
+                    <span class="status-component-name" data-i18n="featureName.${escapeAttribute(
                       component.key
-                    )}">${escapeHtml(en(`featureName.${component.key}`))}</span>
-                    <span class="status-pill" data-state="${escapeAttr(
+                    )}">${escapeHtml(englishText(`featureName.${component.key}`))}</span>
+                    <span class="status-pill" data-state="${escapeAttribute(
                       state
                     )}" data-i18n="serviceStatus.state.${state}">${escapeHtml(
-                      en(`serviceStatus.state.${state}`)
+                      englishText(`serviceStatus.state.${state}`)
                     )}</span>
                     ${note}${since}
                 </li>`;
@@ -798,10 +1004,13 @@ function renderComponent(component) {
  * either way, which is part 2's rule that nothing is only available as colour.
  */
 function renderDay(target, cell, byDay) {
-  const counts =
-    cell.total === 0
-      ? en('serviceStatus.day.unknown')
-      : en('serviceStatus.dayCounts', { checks: cell.total, failures: cell.failed });
+  let counts;
+
+  if (cell.total === 0) {
+    counts = englishText('serviceStatus.day.unknown');
+  } else {
+    counts = englishText('serviceStatus.dayCounts', { checks: cell.total, failures: cell.failed });
+  }
 
   const hits = byDay.get(`${target}|${cell.day}`) ?? [];
 
@@ -817,36 +1026,53 @@ function renderDay(target, cell, byDay) {
   // The times themselves, because "2 outages" tells a reader less than the
   // window they happened in, and this is the whole of what hovering buys.
   const when = hits
-    .map((incident) =>
-      incident.end
-        ? `${clock(incident.start)}–${clock(incident.end)}`
-        : `${clock(incident.start)} ${en('serviceStatus.stillFailing')}`
-    )
+    .map((incident) => {
+      if (incident.end) {
+        return `${clock(incident.start)}–${clock(incident.end)}`;
+      } else {
+        return `${clock(incident.start)} ${englishText('serviceStatus.stillFailing')}`;
+      }
+    })
     .join(', ');
 
-  const outages =
-    hits.length === 0
-      ? ''
-      : ` ${en(hits.length === 1 ? 'serviceStatus.dayOutageOne' : 'serviceStatus.dayOutages', {
-          count: hits.length,
-          when,
-        })}`;
+  let outages;
+
+  if (hits.length === 0) {
+    outages = '';
+  } else {
+    let outageKey;
+
+    if (hits.length === 1) {
+      outageKey = 'serviceStatus.dayOutageOne';
+    } else {
+      outageKey = 'serviceStatus.dayOutages';
+    }
+
+    outages = ` ${englishText(outageKey, {
+      count: hits.length,
+      when,
+    })}`;
+  }
 
   const sentence = `${cell.day}: ${counts}${outages}`;
 
   if (!openable) {
-    return `<span class="status-day" data-state="${escapeAttr(cell.state)}" title="${escapeAttr(
+    return `<span class="status-day" data-state="${escapeAttribute(cell.state)}" title="${escapeAttribute(
       sentence
     )}"></span>`;
   }
 
-  return `<a class="status-day" data-state="${escapeAttr(cell.state)}" href="#${escapeAttr(
+  return `<a class="status-day" data-state="${escapeAttribute(cell.state)}" href="#${escapeAttribute(
     incidentId(first)
-  )}" title="${escapeAttr(sentence)}" aria-label="${escapeAttr(
-    `${sentence} ${en('serviceStatus.openIncident')}`
+  )}" title="${escapeAttribute(sentence)}" aria-label="${escapeAttribute(
+    `${sentence} ${englishText('serviceStatus.openIncident')}`
   )}"></a>`;
 }
 
+/**
+ * One uptime bar on the service status page: ninety days as small coloured
+ * squares, with a sentence underneath saying the same thing in words.
+ */
 function renderUptime(row, byDay = new Map()) {
   // One label a screen reader can act on, and not ninety focusable squares that
   // say nothing individually. The sentence under the bar carries the same
@@ -863,37 +1089,62 @@ function renderUptime(row, byDay = new Map()) {
   // seen on the deployment on 31 August 2026. The dictionaries have no plural
   // machinery and do not need any for one case: Chinese has no plural at all,
   // so the second key is an English nicety that reads the same either way.
-  const summary =
-    row.percent === null
-      ? en('serviceStatus.uptimeNone')
-      : en(row.checks === 1 ? 'serviceStatus.uptimeSummaryOne' : 'serviceStatus.uptimeSummary', {
-          percent: row.percent.toFixed(2),
-          checks: row.checks.toLocaleString('en'),
-          days: DAYS,
-        });
+  let summary;
 
-  const gaps = row.noData > 0 ? ` ${en('serviceStatus.uptimeGaps', { days: row.noData })}` : '';
+  if (row.percent === null) {
+    summary = englishText('serviceStatus.uptimeNone');
+  } else {
+    let summaryKey;
+
+    if (row.checks === 1) {
+      summaryKey = 'serviceStatus.uptimeSummaryOne';
+    } else {
+      summaryKey = 'serviceStatus.uptimeSummary';
+    }
+
+    summary = englishText(summaryKey, {
+      percent: row.percent.toFixed(2),
+      checks: row.checks.toLocaleString('en'),
+      days: DAYS,
+    });
+  }
+
+  let gaps;
+
+  if (row.noData > 0) {
+    gaps = ` ${englishText('serviceStatus.uptimeGaps', { days: row.noData })}`;
+  } else {
+    gaps = '';
+  }
 
   // Section 15 asks for the response time to be recorded, and decision 23
   // records it as a running sum rather than a row per check. This is the reader
   // that keeps those two columns from being a field nobody looks at. Absent
   // entirely when nothing was measured, rather than printed as zero.
-  const response =
-    row.averageMs === null
-      ? ''
-      : ` ${en('serviceStatus.response', { average: row.averageMs, slowest: row.slowestMs ?? row.averageMs })}`;
+  let response;
+
+  if (row.averageMs === null) {
+    response = '';
+  } else {
+    response = ` ${englishText('serviceStatus.response', { average: row.averageMs, slowest: row.slowestMs ?? row.averageMs })}`;
+  }
 
   return `<div class="status-uptime">
-                <h3 class="status-target" data-i18n="serviceStatus.target.${escapeAttr(
+                <h3 class="status-target" data-i18n="serviceStatus.target.${escapeAttribute(
                   row.target
-                )}">${escapeHtml(en(`serviceStatus.target.${row.target}`))}</h3>
-                <div class="status-bar" role="group" tabindex="0" aria-label="${escapeAttr(`${summary}${gaps}`)}">
+                )}">${escapeHtml(englishText(`serviceStatus.target.${row.target}`))}</h3>
+                <div class="status-bar" role="group" tabindex="0" aria-label="${escapeAttribute(`${summary}${gaps}`)}">
                     ${row.cells.map((cell) => renderDay(row.target, cell, byDay)).join('')}
                 </div>
                 <p class="muted small">${escapeHtml(`${summary}${gaps}${response}`)}</p>
             </div>`;
 }
 
+/**
+ * The incidents section of the service status page: the outages that were
+ * switched off on purpose, then the ones the uptime probe observed, each with when
+ * it started, how long it lasted, and what was said about it.
+ */
 function renderIncidents({ declaredList, observedList }) {
   // **The floor and the cap, and both are printed.** Read on the deployment the
   // declared list is mostly verification runs two minutes long, and a page
@@ -910,41 +1161,56 @@ function renderIncidents({ declaredList, observedList }) {
     const said = [];
     if (floor && list.short > 0) {
       said.push(
-        en('serviceStatus.shortNotListed', {
-          minutes: Math.round(MIN_DECLARED_MS / 60000),
+        englishText('serviceStatus.shortNotListed', {
+          minutes: Math.round(MINIMUM_DECLARED_MILLISECONDS / 60000),
           count: list.short,
         })
       );
     }
     if (list.over > 0) {
-      said.push(en('serviceStatus.showingRecent', { shown: list.shown.length, total: list.total }));
+      said.push(
+        englishText('serviceStatus.showingRecent', { shown: list.shown.length, total: list.total })
+      );
     }
-    return said.length === 0 ? '' : `<p class="muted small">${escapeHtml(said.join(' '))}</p>`;
+
+    if (said.length === 0) {
+      return '';
+    } else {
+      return `<p class="muted small">${escapeHtml(said.join(' '))}</p>`;
+    }
   };
 
   const parts = [];
 
   if (declared.length > 0) {
     parts.push(`<h3 data-i18n="serviceStatus.declaredHeading">${escapeHtml(
-      en('serviceStatus.declaredHeading')
+      englishText('serviceStatus.declaredHeading')
     )}</h3>
             ${rules(declaredList, { floor: true })}
             <ul class="status-incidents">
                 ${declared
                   .map((incident) => {
-                    const ended = incident.end
-                      ? `${escapeHtml(en('serviceStatus.until'))} ${time(incident.end)}` +
-                        (incident.durationMs !== null
-                          ? ` <span class="muted">(${escapeHtml(duration(incident.durationMs))})</span>`
-                          : '')
-                      : `<strong>${escapeHtml(en('serviceStatus.stillOff'))}</strong>`;
+                    let ended;
+                    if (incident.end) {
+                      ended = `${escapeHtml(englishText('serviceStatus.until'))} ${time(incident.end)}`;
+                      if (incident.durationMs !== null) {
+                        ended += ` <span class="muted">(${escapeHtml(duration(incident.durationMs))})</span>`;
+                      }
+                    } else {
+                      ended = `<strong>${escapeHtml(englishText('serviceStatus.stillOff'))}</strong>`;
+                    }
 
-                    return `<li id="${escapeAttr(incidentId(incident, 'declared'))}">
-                    <span class="status-incident-name" data-i18n="featureName.${escapeAttr(
+                    let noteMarkup = '';
+                    if (incident.note) {
+                      noteMarkup = `<p class="status-note">${escapeHtml(incident.note)}</p>`;
+                    }
+
+                    return `<li id="${escapeAttribute(incidentId(incident, 'declared'))}">
+                    <span class="status-incident-name" data-i18n="featureName.${escapeAttribute(
                       incident.feature
-                    )}">${escapeHtml(en(`featureName.${incident.feature}`))}</span>
+                    )}">${escapeHtml(englishText(`featureName.${incident.feature}`))}</span>
                     <p class="muted small">${time(incident.start)} ${ended}</p>
-                    ${incident.note ? `<p class="status-note">${escapeHtml(incident.note)}</p>` : ''}
+                    ${noteMarkup}
                 </li>`;
                   })
                   .join('\n                ')}
@@ -953,7 +1219,7 @@ function renderIncidents({ declaredList, observedList }) {
 
   if (observed.length > 0) {
     parts.push(`<h3 data-i18n="serviceStatus.observedHeading">${escapeHtml(
-      en('serviceStatus.observedHeading')
+      englishText('serviceStatus.observedHeading')
     )}</h3>
             ${line('p', 'serviceStatus.observedLede', { className: 'muted small' })}
             ${rules(observedList, { floor: false })}
@@ -967,33 +1233,49 @@ function renderIncidents({ declaredList, observedList }) {
                     // for a quarter of an hour is one the probe stopped
                     // hearing during, and calling that one ongoing would be
                     // the page claiming to know the present from a stale row.
-                    const length =
-                      incident.durationMs === null
-                        ? ''
-                        : ` <span class="muted">(${escapeHtml(
-                            incident.state === 'stalled'
-                              ? en('serviceStatus.atLeast', { duration: duration(incident.durationMs) })
-                              : duration(incident.durationMs)
-                          )})</span>`;
+                    let length = '';
+                    if (incident.durationMs !== null) {
+                      // A stalled incident only has a floor on its length.
+                      let durationText;
+                      if (incident.state === 'stalled') {
+                        durationText = englishText('serviceStatus.atLeast', {
+                          duration: duration(incident.durationMs),
+                        });
+                      } else {
+                        durationText = duration(incident.durationMs);
+                      }
+                      length = ` <span class="muted">(${escapeHtml(durationText)})</span>`;
+                    }
 
-                    const ended =
-                      incident.state === 'ongoing'
-                        ? `<strong>${escapeHtml(en('serviceStatus.stillFailing'))}</strong>`
-                        : incident.state === 'stalled'
-                          ? `${escapeHtml(en('serviceStatus.lastFailure'))} ${time(incident.lastFailure)}` +
-                            length +
-                            ` <strong>${escapeHtml(en('serviceStatus.stalled'))}</strong>`
-                          : `${escapeHtml(en('serviceStatus.until'))} ${time(incident.end)}` + length;
+                    let ended;
 
-                    const codes =
-                      incident.codes.length > 0
-                        ? en('serviceStatus.withCodes', { codes: incident.codes.join(', ') })
-                        : en('serviceStatus.noAnswer');
+                    if (incident.state === 'ongoing') {
+                      ended = `<strong>${escapeHtml(englishText('serviceStatus.stillFailing'))}</strong>`;
+                    } else if (incident.state === 'stalled') {
+                      ended =
+                        `${escapeHtml(englishText('serviceStatus.lastFailure'))} ${time(incident.lastFailure)}` +
+                        length +
+                        ` <strong>${escapeHtml(englishText('serviceStatus.stalled'))}</strong>`;
+                    } else {
+                      ended =
+                        `${escapeHtml(englishText('serviceStatus.until'))} ${time(incident.end)}` +
+                        length;
+                    }
 
-                    return `<li id="${escapeAttr(incidentId(incident))}">
-                    <span class="status-incident-name" data-i18n="serviceStatus.target.${escapeAttr(
+                    let codes;
+
+                    if (incident.codes.length > 0) {
+                      codes = englishText('serviceStatus.withCodes', {
+                        codes: incident.codes.join(', '),
+                      });
+                    } else {
+                      codes = englishText('serviceStatus.noAnswer');
+                    }
+
+                    return `<li id="${escapeAttribute(incidentId(incident))}">
+                    <span class="status-incident-name" data-i18n="serviceStatus.target.${escapeAttribute(
                       incident.target
-                    )}">${escapeHtml(en(`serviceStatus.target.${incident.target}`))}</span>
+                    )}">${escapeHtml(englishText(`serviceStatus.target.${incident.target}`))}</span>
                     <p class="muted small">${time(incident.start)} ${ended}</p>
                     <p class="muted small">${escapeHtml(codes)}</p>
                 </li>`;
@@ -1133,12 +1415,36 @@ export function renderBuildBody() {
 export function statusDocument({ view, body }) {
   const service = view === VIEW.service;
 
+  let titleKey;
+
+  if (service) {
+    titleKey = 'serviceStatus.pageTitle';
+  } else {
+    titleKey = 'status.pageTitle';
+  }
+
+  let descriptionKey;
+
+  if (service) {
+    descriptionKey = 'serviceStatus.metaDescription';
+  } else {
+    descriptionKey = 'status.metaDescription';
+  }
+
+  let modules;
+
+  if (service) {
+    modules = ['/assets/js/shell.js'];
+  } else {
+    modules = ['/assets/js/shell.js', '/assets/js/status-page.js'];
+  }
+
   return renderDocument({
-    title: en(service ? 'serviceStatus.pageTitle' : 'status.pageTitle'),
-    description: en(service ? 'serviceStatus.metaDescription' : 'status.metaDescription'),
+    title: englishText(titleKey),
+    description: englishText(descriptionKey),
     canonicalPath: '/status',
     ogType: 'website',
-    modules: service ? ['/assets/js/shell.js'] : ['/assets/js/shell.js', '/assets/js/status-page.js'],
+    modules: modules,
     bodyHtml: body,
   });
 }

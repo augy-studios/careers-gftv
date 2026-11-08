@@ -27,7 +27,14 @@
 // mode is silent: the password never arrives, the request is refused, and
 // nothing anywhere says why. POST costs nothing and removes the question.
 
-import { ok, fail, ERR, methodNotAllowed, readJson, failInternal } from '../../_lib/respond.js';
+import {
+  ok,
+  fail,
+  ERROR_CODES,
+  methodNotAllowed,
+  readJson,
+  failInternal,
+} from '../../_lib/respond.js';
 import { requireApplicant } from '../../_lib/session.js';
 import { validateText, FIELD } from '../../_lib/validate.js';
 import {
@@ -48,18 +55,23 @@ import {
   subjectForUser,
 } from '../../_lib/rate-limit.js';
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'POST'])) return;
+/**
+ * List, add or remove the passkeys on an applicant's account. A GET lists them;
+ * a POST starts or finishes registering one, or removes one after the password has
+ * been checked again.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'POST'])) return;
 
-  const session = await requireApplicant(req, res);
+  const session = await requireApplicant(request, response);
   if (!session) return;
 
   const userId = session.user.id;
 
   try {
-    if (req.method === 'GET') {
+    if (request.method === 'GET') {
       const passkeys = await listPasskeys('applicant', userId);
-      return ok(res, {
+      return ok(response, {
         passkeys,
         // The domain the credentials are bound to, so the settings page can be
         // specific about where a passkey does and does not work.
@@ -70,34 +82,47 @@ export default async function handler(req, res) {
       });
     }
 
-    const body = await readJson(req, res);
+    const body = await readJson(request, response);
     if (!body) return;
 
-    const subjects = [subjectForIp(req), subjectForUser('applicant', userId)];
-    if (await limited(res, 'passkey', subjects)) return;
+    const subjects = [subjectForIp(request), subjectForUser('applicant', userId)];
+    if (await limited(response, 'passkey', subjects)) return;
 
     if (body.action === 'remove') {
-      const id = typeof body.id === 'string' ? body.id : '';
-      if (!id) return fail(res, ERR.BAD_REQUEST, 'Say which passkey to remove.');
+      let id;
+
+      if (typeof body.id === 'string') {
+        id = body.id;
+      } else {
+        id = '';
+      }
+
+      if (!id) return fail(response, ERROR_CODES.BAD_REQUEST, 'Say which passkey to remove.');
 
       const correct = await verifyRealmPassword('applicant', userId, body.current_password);
       if (!correct) {
         await recordFailures('passkey', subjects, LIMITS.passkey);
-        return fail(res, ERR.UNAUTHORISED, 'That password was not right.', {
+        return fail(response, ERROR_CODES.UNAUTHORISED, 'That password was not right.', {
           details: { current_password: FIELD.INVALID },
         });
       }
 
       const removed = await deletePasskey('applicant', userId, id);
-      if (!removed) return fail(res, ERR.NOT_FOUND, 'That passkey is not on the list.');
+      if (!removed)
+        return fail(response, ERROR_CODES.NOT_FOUND, 'That passkey is not on the list.');
 
       const remaining = await listPasskeys('applicant', userId);
 
-      await auditApplicant(session.user, AUDIT.PASSKEY_REMOVED, {
-        remaining: remaining.length,
-      }, { targetTable: 'gftvjobs_passkeys', targetId: id });
+      await auditApplicant(
+        session.user,
+        AUDIT.PASSKEY_REMOVED,
+        {
+          remaining: remaining.length,
+        },
+        { targetTable: 'gftvjobs_passkeys', targetId: id }
+      );
 
-      return ok(res, {
+      return ok(response, {
         removed: id,
         // Said out loud, because removing the last one changes how signing in
         // works and nobody should discover that at the next sign in.
@@ -111,7 +136,7 @@ export default async function handler(req, res) {
       const correct = await verifyRealmPassword('applicant', userId, body.current_password);
       if (!correct) {
         await recordFailures('passkey', subjects, LIMITS.passkey);
-        return fail(res, ERR.UNAUTHORISED, 'That password was not right.', {
+        return fail(response, ERROR_CODES.UNAUTHORISED, 'That password was not right.', {
           details: { current_password: FIELD.INVALID },
         });
       }
@@ -122,13 +147,13 @@ export default async function handler(req, res) {
         username: session.user.username,
         displayName: session.user.display_name,
       });
-      return ok(res, { options });
+      return ok(response, { options });
     }
 
     if (body.action === 'finish') {
       const label = validateText(body.label, 60);
       if (!label.ok) {
-        return fail(res, ERR.BAD_REQUEST, 'That name is too long.', {
+        return fail(response, ERROR_CODES.BAD_REQUEST, 'That name is too long.', {
           details: { label: label.code },
         });
       }
@@ -137,32 +162,37 @@ export default async function handler(req, res) {
         realm: 'applicant',
         userId,
         response: body.response,
-        label: label.value ?? passkeyLabel(req),
+        label: label.value ?? passkeyLabel(request),
       });
 
       if (!result.ok) {
         await recordFailures('passkey', subjects, LIMITS.passkey);
-        return fail(res, ERR.BAD_REQUEST, registrationMessage(result.reason), {
+        return fail(response, ERROR_CODES.BAD_REQUEST, registrationMessage(result.reason), {
           details: { reason: result.reason },
         });
       }
 
-      await auditApplicant(session.user, AUDIT.PASSKEY_ADDED, {
-        label: result.passkey.label,
-        backed_up: result.passkey.backed_up,
-      }, { targetTable: 'gftvjobs_passkeys', targetId: result.passkey.id });
+      await auditApplicant(
+        session.user,
+        AUDIT.PASSKEY_ADDED,
+        {
+          label: result.passkey.label,
+          backed_up: result.passkey.backed_up,
+        },
+        { targetTable: 'gftvjobs_passkeys', targetId: result.passkey.id }
+      );
 
-      return ok(res, {
+      return ok(response, {
         passkey: result.passkey,
         codes: await codeCounts('applicant', userId),
       });
     }
 
-    return fail(res, ERR.BAD_REQUEST, 'That is not something this endpoint does.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not something this endpoint does.', {
       details: { action: FIELD.INVALID },
     });
   } catch (cause) {
-    return failInternal(res, cause, 'applicant passkeys');
+    return failInternal(response, cause, 'applicant passkeys');
   }
 }
 

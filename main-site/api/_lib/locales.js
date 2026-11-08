@@ -71,9 +71,7 @@ export function knownLocales() {
  * cannot wait on a settings read.
  */
 export function shippedLocales() {
-  return knownLocales().filter(
-    (code) => code === DEFAULT_LOCALE || hasShipped(localeKey(code))
-  );
+  return knownLocales().filter((code) => code === DEFAULT_LOCALE || hasShipped(localeKey(code)));
 }
 
 /**
@@ -141,15 +139,20 @@ export async function validatePublishedLocale(value) {
  * @param {import('http').IncomingMessage} req
  * @returns {Promise<string>}
  */
-export async function requestLocale(req) {
+export async function requestLocale(request) {
   let wanted = null;
   try {
-    const url = new URL(req.url ?? '/', 'https://careers.invalid');
+    const url = new URL(request.url ?? '/', 'https://careers.invalid');
     const checked = validateLocale(url.searchParams.get('locale'));
     if (checked.ok) wanted = checked.value;
   } catch {
     // Unparseable URL. English it is.
   }
   if (wanted === null || wanted === DEFAULT_LOCALE) return DEFAULT_LOCALE;
-  return (await isPublished(wanted)) ? wanted : DEFAULT_LOCALE;
+
+  if (await isPublished(wanted)) {
+    return wanted;
+  } else {
+    return DEFAULT_LOCALE;
+  }
 }

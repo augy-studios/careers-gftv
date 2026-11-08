@@ -24,7 +24,7 @@
 // for everybody, including a signed in applicant. Archived is a 404 for anyone
 // with no history with it.
 
-import { supabase, T } from './supabase.js';
+import { supabase, TABLES } from './supabase.js';
 
 /**
  * A uuid, by shape rather than by version.
@@ -103,11 +103,15 @@ const PUBLIC_STATUSES = ['published', 'closed'];
  *     posting" are different answers and a reader deserves the right one.
  */
 export async function fetchJobRecord(lookup) {
-  const query = supabase.from(T.jobs).select(PUBLIC_COLUMNS).limit(1);
+  const query = supabase.from(TABLES.jobs).select(PUBLIC_COLUMNS).limit(1);
 
-  const filtered = lookup.id
-    ? query.eq('id', lookup.id)
-    : query.eq('slug', lookup.slug);
+  let filtered;
+
+  if (lookup.id) {
+    filtered = query.eq('id', lookup.id);
+  } else {
+    filtered = query.eq('slug', lookup.slug);
+  }
 
   const { data, error } = await filtered;
   if (error) throw error;
@@ -115,29 +119,36 @@ export async function fetchJobRecord(lookup) {
   const job = data?.[0];
   if (!job) return null;
 
+  let departmentRequest;
+  if (job.department_id) {
+    departmentRequest = supabase
+      .from(TABLES.departments)
+      .select('id, name, slug, description')
+      .eq('id', job.department_id)
+      .limit(1);
+  } else {
+    departmentRequest = Promise.resolve({ data: [], error: null });
+  }
+
+  const jobTagsRequest = supabase.from(TABLES.jobTags).select('tag_id').eq('job_id', job.id);
+
+  // Every language this posting is ready in, not just the one asked for. The
+  // page inlines them all so switching language redraws from memory rather
+  // than costing a request, which is what makes the globe feel instant on a
+  // posting the way it does on the board.
+  const translationsRequest = supabase
+    .from(TABLES.jobTranslations)
+    .select(
+      'locale, title, summary, description, responsibilities, requirements, ' +
+        'nice_to_have, location, compensation_note, sections, og_description, updated_at'
+    )
+    .eq('job_id', job.id)
+    .eq('is_ready', true);
+
   const [departmentResult, jobTagsResult, translationsResult] = await Promise.all([
-    job.department_id
-      ? supabase
-          .from(T.departments)
-          .select('id, name, slug, description')
-          .eq('id', job.department_id)
-          .limit(1)
-      : Promise.resolve({ data: [], error: null }),
-
-    supabase.from(T.jobTags).select('tag_id').eq('job_id', job.id),
-
-    // Every language this posting is ready in, not just the one asked for. The
-    // page inlines them all so switching language redraws from memory rather
-    // than costing a request, which is what makes the globe feel instant on a
-    // posting the way it does on the board.
-    supabase
-      .from(T.jobTranslations)
-      .select(
-        'locale, title, summary, description, responsibilities, requirements, ' +
-          'nice_to_have, location, compensation_note, sections, og_description, updated_at'
-      )
-      .eq('job_id', job.id)
-      .eq('is_ready', true),
+    departmentRequest,
+    jobTagsRequest,
+    translationsRequest,
   ]);
 
   if (departmentResult.error) throw departmentResult.error;
@@ -147,28 +158,41 @@ export async function fetchJobRecord(lookup) {
   const department = departmentResult.data?.[0] ?? null;
   const tagIds = (jobTagsResult.data ?? []).map((row) => row.tag_id);
 
+  let tagsRequest;
+  if (tagIds.length > 0) {
+    tagsRequest = supabase
+      .from(TABLES.tags)
+      .select('id, name, slug, colour')
+      .in('id', tagIds)
+      .order('name', { ascending: true });
+  } else {
+    tagsRequest = Promise.resolve({ data: [], error: null });
+  }
+
+  let departmentTranslationsRequest;
+  if (department) {
+    departmentTranslationsRequest = supabase
+      .from(TABLES.departmentTranslations)
+      .select('locale, name')
+      .eq('department_id', department.id);
+  } else {
+    departmentTranslationsRequest = Promise.resolve({ data: [], error: null });
+  }
+
+  let tagTranslationsRequest;
+  if (tagIds.length > 0) {
+    tagTranslationsRequest = supabase
+      .from(TABLES.tagTranslations)
+      .select('tag_id, locale, name')
+      .in('tag_id', tagIds);
+  } else {
+    tagTranslationsRequest = Promise.resolve({ data: [], error: null });
+  }
+
   const [tagsResult, departmentTranslations, tagTranslations] = await Promise.all([
-    tagIds.length > 0
-      ? supabase
-          .from(T.tags)
-          .select('id, name, slug, colour')
-          .in('id', tagIds)
-          .order('name', { ascending: true })
-      : Promise.resolve({ data: [], error: null }),
-
-    department
-      ? supabase
-          .from(T.departmentTranslations)
-          .select('locale, name')
-          .eq('department_id', department.id)
-      : Promise.resolve({ data: [], error: null }),
-
-    tagIds.length > 0
-      ? supabase
-          .from(T.tagTranslations)
-          .select('tag_id, locale, name')
-          .in('tag_id', tagIds)
-      : Promise.resolve({ data: [], error: null }),
+    tagsRequest,
+    departmentTranslationsRequest,
+    tagTranslationsRequest,
   ]);
 
   // A failed reference lookup is not a failed request, the same judgement
@@ -226,13 +250,13 @@ export async function hasHistoryWithJob(jobId, applicantId) {
 
   const [applications, saved] = await Promise.all([
     supabase
-      .from(T.applications)
+      .from(TABLES.applications)
       .select('id')
       .eq('job_id', jobId)
       .eq('applicant_id', applicantId)
       .limit(1),
     supabase
-      .from(T.savedJobs)
+      .from(TABLES.savedJobs)
       .select('id')
       .eq('job_id', jobId)
       .eq('applicant_id', applicantId)
@@ -307,14 +331,23 @@ function blank(value) {
 export function resolveContent(record, locale) {
   const { job, department, tags, translations, departmentNames, tagNames } = record;
 
-  const translation =
-    locale === 'en' ? null : translations.find((row) => row.locale === locale) ?? null;
+  let translation;
+
+  if (locale === 'en') {
+    translation = null;
+  } else {
+    translation = translations.find((row) => row.locale === locale) ?? null;
+  }
 
   if (locale !== 'en' && !translation) return null;
 
   const content = {};
   for (const field of TRANSLATABLE) {
-    content[field] = translation && !blank(translation[field]) ? translation[field] : job[field];
+    if (translation && !blank(translation[field])) {
+      content[field] = translation[field];
+    } else {
+      content[field] = job[field];
+    }
   }
 
   // Sections are all or nothing rather than merged entry by entry. A translator
@@ -322,21 +355,31 @@ export function resolveContent(record, locale) {
   // 019, so an empty array on the translation means "this language has no extra
   // sections" only when the translation is otherwise present, and a translation
   // that left them alone falls back to the posting's.
-  const translatedSections = Array.isArray(translation?.sections) ? translation.sections : [];
-  content.sections =
-    translatedSections.length > 0
-      ? translatedSections
-      : Array.isArray(job.sections)
-        ? job.sections
-        : [];
+  let translatedSections;
 
-  content.department = department
-    ? {
-        id: department.id,
-        slug: department.slug,
-        name: departmentNames.get(locale) ?? department.name,
-      }
-    : null;
+  if (Array.isArray(translation?.sections)) {
+    translatedSections = translation.sections;
+  } else {
+    translatedSections = [];
+  }
+
+  if (translatedSections.length > 0) {
+    content.sections = translatedSections;
+  } else if (Array.isArray(job.sections)) {
+    content.sections = job.sections;
+  } else {
+    content.sections = [];
+  }
+
+  if (department) {
+    content.department = {
+      id: department.id,
+      slug: department.slug,
+      name: departmentNames.get(locale) ?? department.name,
+    };
+  } else {
+    content.department = null;
+  }
 
   const namesForLocale = tagNames.get(locale) ?? new Map();
   content.tags = tags.map((tag) => ({
@@ -418,7 +461,7 @@ export function publicJobDetail(record, locale) {
 // Roughly where unfurlers cut. Discord shows around 350 and most others cut
 // nearer 200, so anything past this is guaranteed to be truncated mid sentence
 // in at least one client.
-const EMBED_MAX = 200;
+const EMBED_MAXIMUM = 200;
 
 /**
  * The line that appears when a posting link is unfurled.
@@ -462,7 +505,13 @@ export function firstSentence(value, locale) {
   const text = value.replace(/\s+/g, ' ').trim();
   if (text === '') return '';
 
-  const order = locale === 'en' ? [latinEnd, hanEnd] : [hanEnd, latinEnd];
+  let order;
+
+  if (locale === 'en') {
+    order = [latinEnd, hanEnd];
+  } else {
+    order = [hanEnd, latinEnd];
+  }
 
   for (const find of order) {
     const end = find(text);
@@ -484,7 +533,12 @@ export function firstSentence(value, locale) {
  */
 function hanEnd(text) {
   const index = text.search(/[。！？]/);
-  return index === -1 ? null : index + 1;
+
+  if (index === -1) {
+    return null;
+  } else {
+    return index + 1;
+  }
 }
 
 // Words that legitimately carry a full stop without ending a sentence. A
@@ -529,11 +583,19 @@ function latinEnd(text) {
  */
 function cap(value) {
   const text = String(value).trim();
-  if (text.length <= EMBED_MAX) return text;
+  if (text.length <= EMBED_MAXIMUM) return text;
 
-  const cut = text.slice(0, EMBED_MAX - 1);
+  const cut = text.slice(0, EMBED_MAXIMUM - 1);
   const lastSpace = cut.lastIndexOf(' ');
-  return `${lastSpace > EMBED_MAX * 0.6 ? cut.slice(0, lastSpace) : cut}…`;
+  let shortened;
+
+  if (lastSpace > EMBED_MAXIMUM * 0.6) {
+    shortened = cut.slice(0, lastSpace);
+  } else {
+    shortened = cut;
+  }
+
+  return `${shortened}…`;
 }
 
 /**
@@ -549,15 +611,17 @@ function cap(value) {
 export function stripMarkdown(value) {
   if (typeof value !== 'string') return '';
 
-  return value
-    // Links: keep the text, drop the address. An unfurl carrying a bare URL
-    // out of the middle of a sentence reads as a broken embed.
-    .replace(/\[([^\]]*)\]\(([^)]*)\)/g, '$1')
-    // Emphasis markers, heading hashes, and list bullets.
-    .replace(/(\*\*|__|\*|_|`)/g, '')
-    .replace(/^\s{0,3}#{1,6}\s+/gm, '')
-    .replace(/^\s*[-*+]\s+/gm, '')
-    .replace(/^\s*\d+[.)]\s+/gm, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+  return (
+    value
+      // Links: keep the text, drop the address. An unfurl carrying a bare URL
+      // out of the middle of a sentence reads as a broken embed.
+      .replace(/\[([^\]]*)\]\(([^)]*)\)/g, '$1')
+      // Emphasis markers, heading hashes, and list bullets.
+      .replace(/(\*\*|__|\*|_|`)/g, '')
+      .replace(/^\s{0,3}#{1,6}\s+/gm, '')
+      .replace(/^\s*[-*+]\s+/gm, '')
+      .replace(/^\s*\d+[.)]\s+/gm, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+  );
 }

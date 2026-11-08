@@ -25,40 +25,51 @@
 // page a job poster can see, and that reasoning does not stop applying because
 // the email arrived from Google.
 
-import { ok, fail, ERR, methodNotAllowed, failInternal, readJson } from '../_lib/respond.js';
-import { requireAdmin, isUuid, params } from '../_lib/admin.js';
+import {
+  ok,
+  fail,
+  ERROR_CODES,
+  methodNotAllowed,
+  failInternal,
+  readJson,
+} from '../_lib/respond.js';
+import { requireAdmin, isUuid, parameters } from '../_lib/admin.js';
 import { unavailable } from '../_lib/maintenance.js';
 import { auditStaff, AUDIT } from '../_lib/audit.js';
 import { LIMITS, limited, recordFailures, subjectForUser } from '../_lib/rate-limit.js';
 import { unmatchedSubmissions, linkSubmission } from '../_lib/form-submissions.js';
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'HEAD', 'POST'])) return;
+/**
+ * List form submissions that could not be matched to an applicant, or link one
+ * to an account by hand.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'HEAD', 'POST'])) return;
 
-  const session = await requireAdmin(req, res);
+  const session = await requireAdmin(request, response);
   if (!session) return;
 
   // The same feature key the webhook is guarded by. Switching form_webhook off
   // stops deliveries arriving; it should also stop this page offering to act on
   // what is already here, because the reason an admin switched it off is that
   // something about the form path is wrong.
-  if (await unavailable(res, 'form_webhook')) return;
+  if (await unavailable(response, 'form_webhook')) return;
 
-  res.setHeader('Cache-Control', 'no-store');
+  response.setHeader('Cache-Control', 'no-store');
 
   try {
-    if (req.method === 'POST') return await link(req, res, session);
+    if (request.method === 'POST') return await link(request, response, session);
 
-    const search = params(req);
+    const search = parameters(request);
     const jobId = search.get('job');
 
     if (jobId && !isUuid(jobId)) {
-      return fail(res, ERR.BAD_REQUEST, 'That is not a posting id.');
+      return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not a posting id.');
     }
 
-    return ok(res, { unmatched: await unmatchedSubmissions({ jobId }) });
+    return ok(response, { unmatched: await unmatchedSubmissions({ jobId }) });
   } catch (cause) {
-    return failInternal(res, cause, 'admin submissions');
+    return failInternal(response, cause, 'admin submissions');
   }
 }
 
@@ -78,12 +89,12 @@ export default async function handler(req, res) {
  * cooldown starts. If that judgement is ever wrong, the log is the only thing
  * that says who made it.
  */
-async function link(req, res, session) {
-  const body = await readJson(req, res);
+async function link(request, response, session) {
+  const body = await readJson(request, response);
   if (body === null) return;
 
   if (String(body.action ?? '') !== 'link') {
-    return fail(res, ERR.BAD_REQUEST, 'That is not an action this endpoint takes.');
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not an action this endpoint takes.');
   }
 
   const submissionId = String(body.submission_id ?? '');
@@ -94,23 +105,34 @@ async function link(req, res, session) {
   if (!isUuid(applicantId)) details.applicant_id = 'invalid';
 
   if (Object.keys(details).length > 0) {
-    return fail(res, ERR.BAD_REQUEST, 'That link could not be made.', { details });
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That link could not be made.', { details });
   }
 
   const subjects = [subjectForUser('staff', session.user.id)];
-  if (await limited(res, 'admin', subjects)) return;
+  if (await limited(response, 'admin', subjects)) return;
 
   const result = await linkSubmission(submissionId, applicantId);
 
   if (!result.ok) {
-    const message =
-      result.reason === 'already_matched'
-        ? 'That submission is already linked to an account.'
-        : result.reason === 'no_such_applicant'
-          ? 'That applicant account could not be found.'
-          : 'That submission could not be found.';
+    let message;
 
-    return fail(res, result.reason === 'already_matched' ? ERR.CONFLICT : ERR.NOT_FOUND, message);
+    if (result.reason === 'already_matched') {
+      message = 'That submission is already linked to an account.';
+    } else if (result.reason === 'no_such_applicant') {
+      message = 'That applicant account could not be found.';
+    } else {
+      message = 'That submission could not be found.';
+    }
+
+    let errorCode;
+
+    if (result.reason === 'already_matched') {
+      errorCode = ERROR_CODES.CONFLICT;
+    } else {
+      errorCode = ERROR_CODES.NOT_FOUND;
+    }
+
+    return fail(response, errorCode, message);
   }
 
   await auditStaff(
@@ -133,7 +155,7 @@ async function link(req, res, session) {
 
   await recordFailures('admin', subjects, LIMITS.admin);
 
-  return ok(res, {
+  return ok(response, {
     linked: true,
     overrode: result.confirmation.overrode,
     application_status: result.confirmation.application_status,

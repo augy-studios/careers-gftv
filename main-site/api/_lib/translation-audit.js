@@ -34,7 +34,7 @@
 //   meaningless. The state is a filter with a count beside it instead, which is
 //   the same call listReports made about the queue's statuses.
 
-import { supabase, T } from './supabase.js';
+import { supabase, TABLES } from './supabase.js';
 
 /** The three states migration 032's view can put a row in, in order of work left. */
 export const AUDIT_STATES = Object.freeze(['missing', 'drafted', 'thin']);
@@ -63,7 +63,7 @@ const AUDIT_COLUMNS =
  */
 export async function listNeedsTranslation(options) {
   let query = supabase
-    .from(T.needsTranslation)
+    .from(TABLES.needsTranslation)
     .select(AUDIT_COLUMNS, { count: 'exact' })
     .eq('locale', options.locale)
     .order('updated_at', { ascending: false })
@@ -101,7 +101,7 @@ export async function auditCounts(options) {
   const results = await Promise.all(
     AUDIT_STATES.map((state) => {
       let query = supabase
-        .from(T.needsTranslation)
+        .from(TABLES.needsTranslation)
         .select('target_id', { count: 'exact', head: true })
         .eq('locale', options.locale)
         .eq('state', state);
@@ -114,11 +114,16 @@ export async function auditCounts(options) {
   const counts = {};
   AUDIT_STATES.forEach((state, index) => {
     const result = results[index];
+
     // Null rather than zero on a failure, per the rule api/admin/me.js states: a
     // zero is a claim, and a failed request does not entitle us to make one.
     // Here it would be the worst kind of claim, because zero on this page means
     // the translation is finished.
-    counts[state] = result.error ? null : (result.count ?? 0);
+    if (result.error) {
+      counts[state] = null;
+    } else {
+      counts[state] = result.count ?? 0;
+    }
   });
 
   return counts;
@@ -134,6 +139,14 @@ export async function auditCounts(options) {
  * translation with nothing thin about it" and is a different fact.
  */
 function auditRow(row) {
+  let missingFields;
+
+  if (Array.isArray(row.missing_fields)) {
+    missingFields = row.missing_fields;
+  } else {
+    missingFields = null;
+  }
+
   return {
     target_type: row.target_type,
     target_id: row.target_id,
@@ -141,7 +154,7 @@ function auditRow(row) {
     label: row.source_label,
     source_status: row.source_status,
     state: row.state,
-    missing_fields: Array.isArray(row.missing_fields) ? row.missing_fields : null,
+    missing_fields: missingFields,
     updated_at: row.updated_at,
   };
 }

@@ -57,7 +57,7 @@
 //   about every key the page happened to render, and the answer would change
 //   with the page rather than with the wording.
 
-import { supabase, T } from './supabase.js';
+import { supabase, TABLES } from './supabase.js';
 import { getApplicantSession, getStaffSession, hasPortalAccess } from './session.js';
 
 /** Migration 023's two origins. This file only ever writes the second. */
@@ -91,10 +91,10 @@ export const ANNOTATABLE_FIELDS = Object.freeze({
 });
 
 /** The longest span somebody may select. A sentence or two, not a page. */
-export const QUOTE_MAX = 600;
+export const QUOTE_MAXIMUM = 600;
 
 /** How much text either side is stored. The W3C selector's "short run". */
-export const CONTEXT_MAX = 120;
+export const CONTEXT_MAXIMUM = 120;
 
 /** How many annotations one target's underlines are drawn from. */
 const LIST_CAP = 200;
@@ -114,12 +114,12 @@ const LIST_CAP = 200;
  * }>} `locales` is the set this caller may suggest against, and it is empty for
  *   staff, who read the layer rather than write to it.
  */
-export async function annotator(req) {
-  const applicant = await getApplicantSession(req);
+export async function annotator(request) {
+  const applicant = await getApplicantSession(request);
 
   if (applicant?.user) {
     const { data, error } = await supabase
-      .from(T.translationHelpers)
+      .from(TABLES.translationHelpers)
       .select('locale')
       .eq('user_id', applicant.user.id);
 
@@ -136,7 +136,7 @@ export async function annotator(req) {
     }
   }
 
-  const staff = await getStaffSession(req);
+  const staff = await getStaffSession(request);
   if (staff?.user && (await hasPortalAccess(staff.user))) {
     return {
       realm: 'staff',
@@ -188,7 +188,7 @@ const ANNOTATION_COLUMNS =
  */
 export async function listAnnotations({ targetType, targetId, locale }) {
   const { data, error } = await supabase
-    .from(T.translationReports)
+    .from(TABLES.translationReports)
     .select(ANNOTATION_COLUMNS)
     .eq('origin', ANNOTATION_ORIGIN)
     .eq('target_type', targetType)
@@ -253,7 +253,7 @@ export async function listAnnotations({ targetType, targetId, locale }) {
  */
 export async function createAnnotation(input) {
   const { data, error } = await supabase
-    .from(T.translationReports)
+    .from(TABLES.translationReports)
     .insert({
       target_type: input.targetType,
       target_id: input.targetId,

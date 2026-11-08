@@ -33,7 +33,14 @@
 // sentence and the same status, and an unknown account still pays for a bcrypt
 // comparison so it does not answer faster than a wrong password does.
 
-import { ok, fail, ERR, methodNotAllowed, readJson, failInternal } from '../../_lib/respond.js';
+import {
+  ok,
+  fail,
+  ERROR_CODES,
+  methodNotAllowed,
+  readJson,
+  failInternal,
+} from '../../_lib/respond.js';
 import { verifySecret, verifyAgainstNothing } from '../../_lib/password.js';
 import { findApplicantByIdentifier, codeCounts } from '../../_lib/accounts.js';
 import {
@@ -43,10 +50,14 @@ import {
   CHALLENGE_MINUTES,
 } from '../../_lib/session.js';
 import { hasPasskeys } from '../../_lib/webauthn.js';
-import { linkState, requestLoginCode, CODE_TTL_MS } from '../../_lib/telegram.js';
+import {
+  linkState,
+  requestLoginCode,
+  CODE_TIME_TO_LIVE_MILLISECONDS,
+} from '../../_lib/telegram.js';
 import { randomToken } from '../../_lib/tokens.js';
 import { setCookie, COOKIE } from '../../_lib/cookies.js';
-import { supabase, T } from '../../_lib/supabase.js';
+import { supabase, TABLES } from '../../_lib/supabase.js';
 import { validatePublishedLocale } from '../../_lib/locales.js';
 import {
   LIMITS,
@@ -60,23 +71,42 @@ import {
 
 const GENERIC = 'That username or password was not right.';
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['POST'])) return;
+/**
+ * Sign an applicant in with a username or email and a password. Refuses a
+ * deactivated account, and either creates the session straight away or, when the
+ * account has a second factor or the device is not trusted, issues a challenge
+ * for the second step and says which methods may answer it.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['POST'])) return;
 
-  const body = await readJson(req, res);
+  const body = await readJson(request, response);
   if (!body) return;
 
-  const identifier = typeof body.identifier === 'string' ? body.identifier.trim() : '';
-  const password = typeof body.password === 'string' ? body.password : '';
+  let identifier;
+
+  if (typeof body.identifier === 'string') {
+    identifier = body.identifier.trim();
+  } else {
+    identifier = '';
+  }
+
+  let password;
+
+  if (typeof body.password === 'string') {
+    password = body.password;
+  } else {
+    password = '';
+  }
 
   if (identifier === '' || password === '') {
-    return fail(res, ERR.BAD_REQUEST, GENERIC);
+    return fail(response, ERROR_CODES.BAD_REQUEST, GENERIC);
   }
 
   // Per IP and per identifier, so neither a spray across accounts from one
   // machine nor a run at one account from many machines is unlimited.
-  const subjects = [subjectForIp(req), subjectForIdentifier(identifier)];
-  if (await limited(res, 'login', subjects)) return;
+  const subjects = [subjectForIp(request), subjectForIdentifier(identifier)];
+  if (await limited(response, 'login', subjects)) return;
 
   try {
     const user = await findApplicantByIdentifier(identifier);
@@ -84,7 +114,7 @@ export default async function handler(req, res) {
     if (!user) {
       await verifyAgainstNothing(password);
       await recordFailures('login', subjects, LIMITS.login);
-      return fail(res, ERR.UNAUTHORISED, GENERIC);
+      return fail(response, ERROR_CODES.UNAUTHORISED, GENERIC);
     }
 
     const correct = await verifySecret(password, user.password_hash);
@@ -94,15 +124,15 @@ export default async function handler(req, res) {
         [...subjects, subjectForUser('applicant', user.id)],
         LIMITS.login
       );
-      return fail(res, ERR.UNAUTHORISED, GENERIC);
+      return fail(response, ERROR_CODES.UNAUTHORISED, GENERIC);
     }
 
     // Only said once the password is right, so it is not an account oracle.
     // Section 8.9 lets an admin deactivate an account.
     if (user.is_active === false) {
       return fail(
-        res,
-        ERR.FORBIDDEN,
+        response,
+        ERROR_CODES.FORBIDDEN,
         'That account has been deactivated. Contact the team if you think that is wrong.'
       );
     }
@@ -117,7 +147,7 @@ export default async function handler(req, res) {
     const locale = await validatePublishedLocale(body.locale);
     if (locale.ok && locale.value !== user.locale) {
       const { error } = await supabase
-        .from(T.users)
+        .from(TABLES.users)
         .update({ locale: locale.value })
         .eq('id', user.id);
       if (error) console.error('[careers-gftv] login locale sync:', error);
@@ -141,14 +171,18 @@ export default async function handler(req, res) {
 
     // 5d. A trusted device skips the second factor and never the password,
     // which was already checked above. The token rotates inside this call.
-    const trusted = secondFactor
-      ? await useApplicantTrustedDevice(req, res, user.id)
-      : false;
+    let trusted;
+
+    if (secondFactor) {
+      trusted = await useApplicantTrustedDevice(request, response, user.id);
+    } else {
+      trusted = false;
+    }
 
     if (!secondFactor || trusted) {
-      await createApplicantSession(res, user.id, body.stay_signed_in === true);
+      await createApplicantSession(response, user.id, body.stay_signed_in === true);
 
-      return ok(res, {
+      return ok(response, {
         two_factor_required: false,
         used_trusted_device: trusted,
         user: publicApplicant(user),
@@ -163,14 +197,14 @@ export default async function handler(req, res) {
     const challenge = randomToken(32);
     const expiresAt = new Date(Date.now() + CHALLENGE_MINUTES * 60 * 1000);
 
-    const { error: challengeError } = await supabase.from(T.loginChallenges).insert({
+    const { error: challengeError } = await supabase.from(TABLES.loginChallenges).insert({
       user_id: user.id,
       token: challenge,
       stay_signed_in: body.stay_signed_in === true,
       expires_at: expiresAt.toISOString(),
     });
 
-    if (challengeError) return failInternal(res, challengeError, 'applicant login challenge');
+    if (challengeError) return failInternal(response, challengeError, 'applicant login challenge');
 
     // The push, and the one tap link that rides with it. The nonce is set as a
     // cookie here and stored only as a hash, so the magic link works in this
@@ -186,8 +220,8 @@ export default async function handler(req, res) {
       try {
         const nonce = randomToken(32);
         await requestLoginCode(user.id, { nonce });
-        setCookie(res, COOKIE.magicLinkNonce, nonce, {
-          expires: new Date(Date.now() + CODE_TTL_MS),
+        setCookie(response, COOKIE.magicLinkNonce, nonce, {
+          expires: new Date(Date.now() + CODE_TIME_TO_LIVE_MILLISECONDS),
         });
         codeSent = true;
       } catch (cause) {
@@ -195,13 +229,25 @@ export default async function handler(req, res) {
       }
     }
 
-    const methods = [
-      ...(passkey ? ['passkey'] : []),
-      ...(telegramFactor ? ['telegram_code'] : []),
-      'backup_code',
-    ];
+    let passkeyOption;
 
-    return ok(res, {
+    if (passkey) {
+      passkeyOption = ['passkey'];
+    } else {
+      passkeyOption = [];
+    }
+
+    let telegramCodeOption;
+
+    if (telegramFactor) {
+      telegramCodeOption = ['telegram_code'];
+    } else {
+      telegramCodeOption = [];
+    }
+
+    const methods = [...passkeyOption, ...telegramCodeOption, 'backup_code'];
+
+    return ok(response, {
       two_factor_required: true,
       methods,
       // Whether a code was asked for, not whether one arrived. Nothing on this
@@ -212,6 +258,6 @@ export default async function handler(req, res) {
       expires_at: expiresAt.toISOString(),
     });
   } catch (cause) {
-    return failInternal(res, cause, 'applicant login');
+    return failInternal(response, cause, 'applicant login');
   }
 }

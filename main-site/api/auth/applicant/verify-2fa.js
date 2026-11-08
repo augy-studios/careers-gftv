@@ -28,8 +28,15 @@
 // gets past the password, and letting it also get past the second factor would
 // collapse the two into one, which 5c separates them precisely to avoid.
 
-import { ok, fail, ERR, methodNotAllowed, readJson, failInternal } from '../../_lib/respond.js';
-import { supabase, T } from '../../_lib/supabase.js';
+import {
+  ok,
+  fail,
+  ERROR_CODES,
+  methodNotAllowed,
+  readJson,
+  failInternal,
+} from '../../_lib/respond.js';
+import { supabase, TABLES } from '../../_lib/supabase.js';
 import { consumeCode, codeCounts, codesLow } from '../../_lib/accounts.js';
 import { verifyAgainstNothing } from '../../_lib/password.js';
 import { verifyLoginCode, spendOutstandingCodes } from '../../_lib/telegram.js';
@@ -53,39 +60,50 @@ import {
 const GENERIC = 'That was not right. Try again.';
 const EXPIRED = 'That sign in has expired. Start again.';
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['POST'])) return;
+/**
+ * Finish an applicant sign in with the second factor: a passkey, a Telegram code
+ * or a backup code. The challenge from the password step is spent first, then the
+ * factor is checked, then the session is created.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['POST'])) return;
 
-  const body = await readJson(req, res);
+  const body = await readJson(request, response);
   if (!body) return;
 
-  const token = typeof body.challenge === 'string' ? body.challenge : '';
-  if (token === '') return fail(res, ERR.UNAUTHORISED, EXPIRED);
+  let token;
 
-  const subjects = [subjectForIp(req), subjectForIdentifier(token)];
-  if (await limited(res, 'applicant_2fa', subjects)) return;
+  if (typeof body.challenge === 'string') {
+    token = body.challenge;
+  } else {
+    token = '';
+  }
+
+  if (token === '') return fail(response, ERROR_CODES.UNAUTHORISED, EXPIRED);
+
+  const subjects = [subjectForIp(request), subjectForIdentifier(token)];
+  if (await limited(response, 'applicant_2fa', subjects)) return;
 
   try {
     const { data: challenge, error } = await supabase
-      .from(T.loginChallenges)
+      .from(TABLES.loginChallenges)
       .select(
         `id, user_id, stay_signed_in, expires_at,
-         user:${T.users} ( id, username, display_name, email, avatar_url, phone, locale, totp_secret, is_active, must_change_password, created_at )`
+         user:${TABLES.users} ( id, username, display_name, email, avatar_url, phone, locale, totp_secret, is_active, must_change_password, created_at )`
       )
       .eq('token', token)
       .maybeSingle();
 
-    if (error) return failInternal(res, error, 'applicant verify-2fa lookup');
+    if (error) return failInternal(response, error, 'applicant verify-2fa lookup');
 
-    const expired =
-      challenge && new Date(challenge.expires_at).getTime() <= Date.now();
+    const expired = challenge && new Date(challenge.expires_at).getTime() <= Date.now();
 
     if (!challenge || !challenge.user || expired) {
       if (expired) {
-        await supabase.from(T.loginChallenges).delete().eq('id', challenge.id);
+        await supabase.from(TABLES.loginChallenges).delete().eq('id', challenge.id);
       }
       await recordFailures('applicant_2fa', subjects, LIMITS.twoFactor);
-      return fail(res, ERR.UNAUTHORISED, EXPIRED, {
+      return fail(response, ERROR_CODES.UNAUTHORISED, EXPIRED, {
         details: { reason: 'challenge_expired' },
       });
     }
@@ -93,8 +111,8 @@ export default async function handler(req, res) {
     const user = challenge.user;
 
     if (user.is_active === false) {
-      await supabase.from(T.loginChallenges).delete().eq('id', challenge.id);
-      return fail(res, ERR.FORBIDDEN, 'That account has been deactivated.');
+      await supabase.from(TABLES.loginChallenges).delete().eq('id', challenge.id);
+      return fail(response, ERROR_CODES.FORBIDDEN, 'That account has been deactivated.');
     }
 
     // Asking for the options is not an attempt at anything, so it neither
@@ -107,10 +125,10 @@ export default async function handler(req, res) {
       });
 
       if (!options) {
-        return fail(res, ERR.BAD_REQUEST, 'There is no passkey on this account.');
+        return fail(response, ERROR_CODES.BAD_REQUEST, 'There is no passkey on this account.');
       }
 
-      return ok(res, { options });
+      return ok(response, { options });
     }
 
     let verified = false;
@@ -142,12 +160,12 @@ export default async function handler(req, res) {
 
     if (!verified) {
       await recordFailures('applicant_2fa', subjects, LIMITS.twoFactor);
-      return fail(res, ERR.UNAUTHORISED, GENERIC);
+      return fail(response, ERROR_CODES.UNAUTHORISED, GENERIC);
     }
 
     // The challenge goes first, so a replay of this request cannot ride a
     // second assertion through.
-    await supabase.from(T.loginChallenges).delete().eq('id', challenge.id);
+    await supabase.from(TABLES.loginChallenges).delete().eq('id', challenge.id);
     await clearAll('applicant_2fa', subjects);
 
     // Whatever satisfied the step, the pushed code and the one tap link that
@@ -161,7 +179,7 @@ export default async function handler(req, res) {
     } catch (cause) {
       console.error('[careers-gftv] verify-2fa spend codes:', cause);
     }
-    clearCookie(res, COOKIE.magicLinkNonce);
+    clearCookie(response, COOKIE.magicLinkNonce);
 
     // 5d: offered only now, never on the password screen. The label is the
     // coarse one from the user agent, and it rides back in the response so the
@@ -172,16 +190,16 @@ export default async function handler(req, res) {
     let trustedLabel = null;
 
     if (body.trust_device === true) {
-      trustedLabel = deviceLabel(req);
-      deviceTrusted = await trustApplicantDevice(res, user.id, trustedLabel);
+      trustedLabel = deviceLabel(request);
+      deviceTrusted = await trustApplicantDevice(response, user.id, trustedLabel);
       if (!deviceTrusted) trustedLabel = null;
     }
 
-    await createApplicantSession(res, user.id, challenge.stay_signed_in === true);
+    await createApplicantSession(response, user.id, challenge.stay_signed_in === true);
 
     const counts = await codeCounts('applicant', user.id);
 
-    return ok(res, {
+    return ok(response, {
       user: publicApplicant(user),
       used_backup_code: usedBackupCode,
       device_trusted: deviceTrusted,
@@ -190,6 +208,6 @@ export default async function handler(req, res) {
       codes_low: codesLow(counts.backup),
     });
   } catch (cause) {
-    return failInternal(res, cause, 'applicant verify-2fa');
+    return failInternal(response, cause, 'applicant verify-2fa');
   }
 }

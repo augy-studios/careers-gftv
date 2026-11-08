@@ -22,29 +22,53 @@
 import { ok, methodNotAllowed, failInternal } from '../_lib/respond.js';
 import { supabase, RPC } from '../_lib/supabase.js';
 import { requestLocale } from '../_lib/locales.js';
-import { parseSearchParams, publicJob, PAGE_SIZE } from '../_lib/jobs.js';
+import { parseSearchParameters, publicJob, PAGE_SIZE } from '../_lib/jobs.js';
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'HEAD'])) return;
+/**
+ * The job board's search. With nothing asked for it lists every published
+ * posting, newest first; with a search term or filters it returns the matching
+ * ones, a page at a time, in the reader's language where a translation is ready.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'HEAD'])) return;
 
-  const locale = await requestLocale(req);
-  const { q, filters, sort, page, limit, offset } = parseSearchParams(req, locale);
+  const locale = await requestLocale(request);
+  const {
+    q: searchTerm,
+    filters,
+    sort,
+    page,
+    limit,
+    offset,
+  } = parseSearchParameters(request, locale);
 
   try {
     const { data, error } = await supabase.rpc(RPC.searchJobs, {
-      q,
+      q: searchTerm,
       filters,
       p_limit: limit,
       p_offset: offset,
     });
 
-    if (error) return failInternal(res, error, 'public search');
+    if (error) return failInternal(response, error, 'public search');
 
-    const rows = Array.isArray(data) ? data : [];
+    let rows;
+
+    if (Array.isArray(data)) {
+      rows = data;
+    } else {
+      rows = [];
+    }
 
     // total_count rides on every row, so pagination costs no second query. With
     // no rows there is nothing to read it from, and the total is zero.
-    const total = rows.length > 0 ? Number(rows[0].total_count ?? 0) : 0;
+    let total;
+
+    if (rows.length > 0) {
+      total = Number(rows[0].total_count ?? 0);
+    } else {
+      total = 0;
+    }
 
     // Which strategy actually found these. The client needs it to tell three
     // states apart that otherwise look identical:
@@ -58,10 +82,29 @@ export default async function handler(req, res) {
     //
     // With no rows at all the RPC has nothing to report it on, so fall back to
     // what the request itself implies.
-    const matchMode = rows.length > 0 ? rows[0].match_mode : q ? 'trigram' : 'browse';
+    let matchMode;
+
+    if (rows.length > 0) {
+      matchMode = rows[0].match_mode;
+    } else if (searchTerm) {
+      matchMode = 'trigram';
+    } else {
+      matchMode = 'browse';
+    }
+
+    // The sort that was asked for, or the default: relevance for a search and
+    // newest first for browsing.
+    let appliedSort = sort;
+    if (appliedSort === null || appliedSort === undefined) {
+      if (searchTerm) {
+        appliedSort = 'relevance';
+      } else {
+        appliedSort = 'newest';
+      }
+    }
 
     return ok(
-      res,
+      response,
       {
         jobs: rows.map(publicJob),
         total,
@@ -71,14 +114,14 @@ export default async function handler(req, res) {
         match_mode: matchMode,
         // Echoed back so the client can confirm what was actually applied
         // rather than assuming its own URL parsing agreed with ours.
-        query: q,
-        sort: sort ?? (q ? 'relevance' : 'newest'),
+        query: searchTerm,
+        sort: appliedSort,
         locale,
       },
       { headers: CACHE }
     );
   } catch (cause) {
-    return failInternal(res, cause, 'public search');
+    return failInternal(response, cause, 'public search');
   }
 }
 

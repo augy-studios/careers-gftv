@@ -15,7 +15,7 @@
 import {
   ok,
   fail,
-  ERR,
+  ERROR_CODES,
   methodNotAllowed,
   readJson,
   failInternal,
@@ -39,21 +39,25 @@ import {
   TRUSTED_DEVICE_DAYS,
 } from '../../_lib/session.js';
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'POST'])) return;
+/**
+ * List the devices this applicant chose to trust, or rename or revoke one, or
+ * revoke them all.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'POST'])) return;
 
-  const session = await requireApplicant(req, res);
+  const session = await requireApplicant(request, response);
   if (!session) return;
 
   try {
-    if (req.method === 'GET') {
-      return ok(res, {
+    if (request.method === 'GET') {
+      return ok(response, {
         devices: await listTrustedDevices('applicant', session.user.id),
         trust_days: TRUSTED_DEVICE_DAYS,
       });
     }
 
-    const body = await readJson(req, res);
+    const body = await readJson(request, response);
     if (!body) return;
 
     // Naming the device you are sitting at is answered before the password gate
@@ -65,46 +69,46 @@ export default async function handler(req, res) {
     if (body.action === 'rename') {
       const name = validateDeviceName(body.label);
       if (!name.ok) {
-        return fail(res, ERR.BAD_REQUEST, 'Give this device a name.', {
+        return fail(response, ERROR_CODES.BAD_REQUEST, 'Give this device a name.', {
           details: { label: name.code },
         });
       }
 
       // Identified by the device cookie inside renameCurrentApplicantDevice, so
       // this can only ever be the browser making the request.
-      const renamed = await renameCurrentApplicantDevice(req, session.user.id, name.value);
+      const renamed = await renameCurrentApplicantDevice(request, session.user.id, name.value);
       if (!renamed) {
-        return fail(res, ERR.NOT_FOUND, 'This browser is not a trusted device.');
+        return fail(response, ERROR_CODES.NOT_FOUND, 'This browser is not a trusted device.');
       }
 
-      return ok(res, { label: name.value });
+      return ok(response, { label: name.value });
     }
 
     // Revoking is a security downgrade: it is what somebody would do to make
     // the second factor stop being asked for. A session alone is not enough.
-    const subjects = [subjectForIp(req), subjectForUser('applicant', session.user.id)];
-    if (await limited(res, 'password_change', subjects)) return;
+    const subjects = [subjectForIp(request), subjectForUser('applicant', session.user.id)];
+    if (await limited(response, 'password_change', subjects)) return;
 
-    const correct = await verifyRealmPassword(
-      'applicant',
-      session.user.id,
-      body.current_password
-    );
+    const correct = await verifyRealmPassword('applicant', session.user.id, body.current_password);
     if (!correct) {
       await recordFailures('password_change', subjects, LIMITS.passwordChange);
-      return fail(res, ERR.UNAUTHORISED, 'That password was not right.', {
+      return fail(response, ERROR_CODES.UNAUTHORISED, 'That password was not right.', {
         details: { current_password: FIELD.INVALID },
       });
     }
 
-
     if (body.action === 'revoke_all') {
       await revokeAllTrustedDevices('applicant', session.user.id);
-      await auditApplicant(session.user, AUDIT.TRUSTED_DEVICES_REVOKED_ALL, {}, {
-        targetTable: 'gftvjobs_trusted_devices',
-      });
+      await auditApplicant(
+        session.user,
+        AUDIT.TRUSTED_DEVICES_REVOKED_ALL,
+        {},
+        {
+          targetTable: 'gftvjobs_trusted_devices',
+        }
+      );
 
-      return ok(res, { revoked_all: true });
+      return ok(response, { revoked_all: true });
     }
 
     // Read before it is tested. The duplicated guard that used to sit above this
@@ -112,23 +116,39 @@ export default async function handler(req, res) {
     // the temporal dead zone and answer 500, while revoke all worked, which is
     // why nothing on the page looked broken until somebody used the per row
     // button. Found on 30 August 2026.
-    const id = typeof body.id === 'string' ? body.id : '';
+    let id;
+
+    if (typeof body.id === 'string') {
+      id = body.id;
+    } else {
+      id = '';
+    }
+
     if (!id) {
-      return fail(res, ERR.BAD_REQUEST, 'Say which device to revoke, or ask for all of them.');
+      return fail(
+        response,
+        ERROR_CODES.BAD_REQUEST,
+        'Say which device to revoke, or ask for all of them.'
+      );
     }
 
     // Scoped to the signed in account inside revokeTrustedDevice, so an id
     // belonging to somebody else answers the same way an unknown one does.
     const removed = await revokeTrustedDevice('applicant', session.user.id, id);
-    if (!removed) return fail(res, ERR.NOT_FOUND, 'That device is not on the list.');
+    if (!removed) return fail(response, ERROR_CODES.NOT_FOUND, 'That device is not on the list.');
 
-    await auditApplicant(session.user, AUDIT.TRUSTED_DEVICE_REVOKED, {}, {
-      targetTable: 'gftvjobs_trusted_devices',
-      targetId: id,
-    });
+    await auditApplicant(
+      session.user,
+      AUDIT.TRUSTED_DEVICE_REVOKED,
+      {},
+      {
+        targetTable: 'gftvjobs_trusted_devices',
+        targetId: id,
+      }
+    );
 
-    return ok(res, { revoked: id });
+    return ok(response, { revoked: id });
   } catch (cause) {
-    return failInternal(res, cause, 'applicant trusted devices');
+    return failInternal(response, cause, 'applicant trusted devices');
   }
 }

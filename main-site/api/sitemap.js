@@ -40,7 +40,7 @@ import { createRequire } from 'node:module';
 
 import { methodNotAllowed, failInternal } from './_lib/respond.js';
 import { siteUrl } from './_lib/env.js';
-import { supabase, T } from './_lib/supabase.js';
+import { supabase, TABLES } from './_lib/supabase.js';
 import { isFeatureOff, maintenanceMessage, featureOverrides } from './_lib/maintenance.js';
 import { INDEXING, sitemapXml, STATIC_PAGES } from './_lib/discovery.js';
 
@@ -61,10 +61,15 @@ const buildStatus = require('../assets/build-status.json');
  * it is logged, because a sitemap silently missing its tail is the failure
  * nothing on screen would ever show.
  */
-const MAX_POSTINGS = 5000;
+const MAXIMUM_POSTINGS = 5000;
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'HEAD'])) return;
+/**
+ * Build sitemap.xml from the published postings and the public pages, so search
+ * engines always see the current list. Sends an empty sitemap while the site is not
+ * yet meant to be indexed.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'HEAD'])) return;
 
   try {
     // **404 rather than 503, and the difference is the claim being made.**
@@ -73,10 +78,10 @@ export default async function handler(req, res) {
     // switch below is temporary and this is a phase that has not finished.
     // Same shape as the three reasons a control can be disabled.
     if (!INDEXING) {
-      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-      res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=300');
-      res.statusCode = 404;
-      return res.end(
+      response.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      response.setHeader('Cache-Control', 'public, max-age=0, s-maxage=300');
+      response.statusCode = 404;
+      return response.end(
         'There is no sitemap for this site yet. Careers@GFTV is being released ' +
           'in phases and is not open to search engines. See /status.\n'
       );
@@ -88,33 +93,40 @@ export default async function handler(req, res) {
     // "come back later", and every major crawler keeps the copy it has.
     if (await isFeatureOff('sitemap')) {
       const overrides = await featureOverrides();
-      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-      res.setHeader('Cache-Control', 'no-store');
-      res.setHeader('Retry-After', '3600');
-      res.statusCode = 503;
+      response.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      response.setHeader('Cache-Control', 'no-store');
+      response.setHeader('Retry-After', '3600');
+      response.statusCode = 503;
       // Plain text rather than this API's JSON envelope. The caller is a
       // crawler that asked for XML, and the status code is the part it reads.
-      return res.end(`${maintenanceMessage(overrides.sitemap?.note ?? null)}\n`);
+      return response.end(`${maintenanceMessage(overrides.sitemap?.note ?? null)}\n`);
     }
 
     const site = siteUrl();
 
     const { data, error } = await supabase
-      .from(T.jobs)
+      .from(TABLES.jobs)
       .select('id, updated_at')
       // Published, and nothing else. Section 4 excludes closed, draft and
       // archived, and an archived posting renders only for an applicant with
       // history — a URL that 404s for everybody else has no business here.
       .eq('status', 'published')
       .order('updated_at', { ascending: false })
-      .limit(MAX_POSTINGS);
+      .limit(MAXIMUM_POSTINGS);
 
-    if (error) return failInternal(res, error, 'sitemap');
+    if (error) return failInternal(response, error, 'sitemap');
 
-    const jobs = Array.isArray(data) ? data : [];
-    if (jobs.length >= MAX_POSTINGS) {
+    let jobs;
+
+    if (Array.isArray(data)) {
+      jobs = data;
+    } else {
+      jobs = [];
+    }
+
+    if (jobs.length >= MAXIMUM_POSTINGS) {
       console.warn(
-        `[careers-gftv] sitemap: ${jobs.length} postings, at the ${MAX_POSTINGS} ceiling. ` +
+        `[careers-gftv] sitemap: ${jobs.length} postings, at the ${MAXIMUM_POSTINGS} ceiling. ` +
           `Anything past it is not listed. A board this size needs a sitemap index.`
       );
     }
@@ -126,22 +138,22 @@ export default async function handler(req, res) {
       jobs,
     });
 
-    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    response.setHeader('Content-Type', 'application/xml; charset=utf-8');
     // Section 4: "Cache it with s-maxage so it is not rebuilt per request." An
     // hour at the edge, and a day of serving the previous copy while a new one
     // is fetched. A posting reaching a crawler an hour late costs nothing; the
     // board itself is a minute fresh and is what a person reads.
-    res.setHeader(
+    response.setHeader(
       'Cache-Control',
       'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400'
     );
-    res.statusCode = 200;
-    res.end(xml);
+    response.statusCode = 200;
+    response.end(xml);
   } catch (cause) {
-    if (res.headersSent) {
+    if (response.headersSent) {
       console.error('[careers-gftv] sitemap, after headers:', cause);
-      return res.end();
+      return response.end();
     }
-    return failInternal(res, cause, 'sitemap');
+    return failInternal(response, cause, 'sitemap');
   }
 }

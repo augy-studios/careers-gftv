@@ -34,14 +34,16 @@
 // nobody enrols a second factor their app never actually stored, which is the
 // failure that locks the account holder out rather than an attacker in.
 
-import { ok, fail, ERR, methodNotAllowed, readJson, failInternal } from '../../_lib/respond.js';
-import { requireStaff, revokeAllTrustedDevices } from '../../_lib/session.js';
 import {
-  generateTotpSecret,
-  otpauthUri,
-  verifyTotp,
-  hasTotp,
-} from '../../_lib/totp.js';
+  ok,
+  fail,
+  ERROR_CODES,
+  methodNotAllowed,
+  readJson,
+  failInternal,
+} from '../../_lib/respond.js';
+import { requireStaff, revokeAllTrustedDevices } from '../../_lib/session.js';
+import { generateTotpSecret, otpauthUri, verifyTotp, hasTotp } from '../../_lib/totp.js';
 import { verifyRealmPassword } from '../../_lib/accounts.js';
 import { validateSixDigits, FIELD } from '../../_lib/validate.js';
 import { auditStaff, AUDIT } from '../../_lib/audit.js';
@@ -67,10 +69,15 @@ import {
  */
 const ISSUER = 'Careers@GFTV';
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['POST'])) return;
+/**
+ * Handle the authenticator app setup for a staff account: start shows a new
+ * secret and its QR code, confirm checks a first code and saves the secret, and
+ * remove takes the authenticator off after the password is checked again.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['POST'])) return;
 
-  const session = await requireStaff(req, res);
+  const session = await requireStaff(request, response);
   if (!session) return;
 
   const userId = session.user.id;
@@ -80,14 +87,14 @@ export default async function handler(req, res) {
   // gftvhello_users, and refusing at the last step would mean somebody scans a
   // QR, types a code, and is turned away holding an authenticator entry for an
   // account that never stored it.
-  if (held(res)) return;
+  if (held(response)) return;
 
   try {
-    const body = await readJson(req, res);
+    const body = await readJson(request, response);
     if (!body) return;
 
-    const subjects = [subjectForIp(req), subjectForUser('staff', userId)];
-    if (await limited(res, 'two_factor', subjects)) return;
+    const subjects = [subjectForIp(request), subjectForUser('staff', userId)];
+    if (await limited(response, 'two_factor', subjects)) return;
 
     const password = async () => {
       const correct = await verifyRealmPassword('staff', userId, body.current_password);
@@ -101,30 +108,35 @@ export default async function handler(req, res) {
         // through the screens that say what each costs. Silently overwriting
         // the secret would leave somebody holding an app that still shows codes
         // and no longer opens anything.
-        return fail(res, ERR.CONFLICT, 'This account already has an authenticator app.', {
-          details: { reason: 'already_enrolled' },
-        });
+        return fail(
+          response,
+          ERROR_CODES.CONFLICT,
+          'This account already has an authenticator app.',
+          {
+            details: { reason: 'already_enrolled' },
+          }
+        );
       }
 
       if (!(await password())) {
-        return fail(res, ERR.UNAUTHORISED, 'That password was not right.', {
+        return fail(response, ERROR_CODES.UNAUTHORISED, 'That password was not right.', {
           details: { current_password: FIELD.INVALID },
         });
       }
 
       const secret = generateTotpSecret();
-      const uri = otpauthUri({ username: session.user.username, issuer: ISSUER, secret });
+      const address = otpauthUri({ username: session.user.username, issuer: ISSUER, secret });
 
-      return ok(res, {
+      return ok(response, {
         secret,
-        otpauth: uri,
+        otpauth: address,
         // **The QR is drawn here and never fetched from anywhere.** Phase 11
         // settled this for the linking code and a TOTP secret is the same
         // question with a sharper answer: the URI below carries the shared
         // secret in the clear, so handing it to an image service would put a
         // second factor in somebody else's access log. api/_lib/qr.js answers a
         // matrix and the browser draws it.
-        qr: encodeQr(uri),
+        qr: encodeQr(address),
         issuer: ISSUER,
         // Nothing has been written. Said in the response so a client cannot
         // report a half finished enrolment as a finished one.
@@ -134,36 +146,53 @@ export default async function handler(req, res) {
 
     if (body.action === 'confirm') {
       if (enrolled) {
-        return fail(res, ERR.CONFLICT, 'This account already has an authenticator app.', {
-          details: { reason: 'already_enrolled' },
-        });
+        return fail(
+          response,
+          ERROR_CODES.CONFLICT,
+          'This account already has an authenticator app.',
+          {
+            details: { reason: 'already_enrolled' },
+          }
+        );
       }
 
       if (!(await password())) {
-        return fail(res, ERR.UNAUTHORISED, 'That password was not right.', {
+        return fail(response, ERROR_CODES.UNAUTHORISED, 'That password was not right.', {
           details: { current_password: FIELD.INVALID },
         });
       }
 
-      const secret = typeof body.secret === 'string' ? body.secret.trim() : '';
+      let secret;
+
+      if (typeof body.secret === 'string') {
+        secret = body.secret.trim();
+      } else {
+        secret = '';
+      }
+
       if (secret === '') {
-        return fail(res, ERR.BAD_REQUEST, 'Start again from the beginning.', {
+        return fail(response, ERROR_CODES.BAD_REQUEST, 'Start again from the beginning.', {
           details: { secret: FIELD.REQUIRED },
         });
       }
 
       const code = validateSixDigits(body.code);
       if (!code.ok) {
-        return fail(res, ERR.BAD_REQUEST, 'Type the six digit code from your app.', {
+        return fail(response, ERROR_CODES.BAD_REQUEST, 'Type the six digit code from your app.', {
           details: { code: code.code },
         });
       }
 
       if (!verifyTotp(code.value, secret)) {
         await recordFailures('two_factor', subjects, LIMITS.twoFactor);
-        return fail(res, ERR.UNAUTHORISED, 'That code was not right. Check the time on your phone and try again.', {
-          details: { code: FIELD.INVALID },
-        });
+        return fail(
+          response,
+          ERROR_CODES.UNAUTHORISED,
+          'That code was not right. Check the time on your phone and try again.',
+          {
+            details: { code: FIELD.INVALID },
+          }
+        );
       }
 
       await auditStaff(session.user, AUDIT.TOTP_ENROLLED, {
@@ -172,12 +201,12 @@ export default async function handler(req, res) {
 
       const written = await setStaffTotpSecret(userId, secret);
       if (!written) {
-        return fail(res, ERR.SERVER_ERROR, 'That could not be saved. Try again.');
+        return fail(response, ERROR_CODES.SERVER_ERROR, 'That could not be saved. Try again.');
       }
 
       await clearAll('two_factor', subjects);
 
-      return ok(res, {
+      return ok(response, {
         enrolled: true,
         // 5f's page has already said this. Repeated for the same reason the
         // password change repeats it.
@@ -187,11 +216,11 @@ export default async function handler(req, res) {
 
     if (body.action === 'remove') {
       if (!enrolled) {
-        return fail(res, ERR.NOT_FOUND, 'This account has no authenticator app.');
+        return fail(response, ERROR_CODES.NOT_FOUND, 'This account has no authenticator app.');
       }
 
       if (!(await password())) {
-        return fail(res, ERR.UNAUTHORISED, 'That password was not right.', {
+        return fail(response, ERROR_CODES.UNAUTHORISED, 'That password was not right.', {
           details: { current_password: FIELD.INVALID },
         });
       }
@@ -204,14 +233,14 @@ export default async function handler(req, res) {
       // 5g built and the backup codes beside it.
       const code = validateSixDigits(body.code);
       if (!code.ok) {
-        return fail(res, ERR.BAD_REQUEST, 'Type the six digit code from your app.', {
+        return fail(response, ERROR_CODES.BAD_REQUEST, 'Type the six digit code from your app.', {
           details: { code: code.code },
         });
       }
 
       if (!verifyTotp(code.value, session.user.totp_secret)) {
         await recordFailures('two_factor', subjects, LIMITS.twoFactor);
-        return fail(res, ERR.UNAUTHORISED, 'That code was not right.', {
+        return fail(response, ERROR_CODES.UNAUTHORISED, 'That code was not right.', {
           details: { code: FIELD.INVALID },
         });
       }
@@ -222,7 +251,7 @@ export default async function handler(req, res) {
 
       const written = await setStaffTotpSecret(userId, null);
       if (!written) {
-        return fail(res, ERR.SERVER_ERROR, 'That could not be saved. Try again.');
+        return fail(response, ERROR_CODES.SERVER_ERROR, 'That could not be saved. Try again.');
       }
 
       // 5d: disabling 2FA revokes every trusted device. A device was trusted on
@@ -231,17 +260,17 @@ export default async function handler(req, res) {
       await revokeAllTrustedDevices('staff', userId);
       await clearAll('two_factor', subjects);
 
-      return ok(res, {
+      return ok(response, {
         enrolled: false,
         reaches_gftv_asia: true,
         devices_revoked: true,
       });
     }
 
-    return fail(res, ERR.BAD_REQUEST, 'That is not something this endpoint does.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not something this endpoint does.', {
       details: { action: FIELD.INVALID },
     });
   } catch (cause) {
-    return failInternal(res, cause, 'staff totp');
+    return failInternal(response, cause, 'staff totp');
   }
 }

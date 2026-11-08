@@ -24,9 +24,16 @@
 // asked about later, by them, and "there is a row saying somebody did it in
 // March" is not an answer. Granting is its own explanation most of the time.
 
-import { ok, fail, ERR, methodNotAllowed, failInternal, readJson } from '../_lib/respond.js';
-import { T } from '../_lib/supabase.js';
-import { requireAdmin, isUuid, params } from '../_lib/admin.js';
+import {
+  ok,
+  fail,
+  ERROR_CODES,
+  methodNotAllowed,
+  failInternal,
+  readJson,
+} from '../_lib/respond.js';
+import { TABLES } from '../_lib/supabase.js';
+import { requireAdmin, isUuid, parameters } from '../_lib/admin.js';
 import { auditStaff } from '../_lib/audit.js';
 import { FIELD, validateText } from '../_lib/validate.js';
 import { unavailable } from '../_lib/maintenance.js';
@@ -41,30 +48,33 @@ import {
 } from '../_lib/admin-staff.js';
 
 /** Long enough to say why. Matches the shape of the maintenance note. */
-const REASON_MAX = 300;
+const REASON_MAXIMUM = 300;
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'HEAD', 'POST'])) return;
+/**
+ * Read or change who may use the staff dashboard. Admins only.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'HEAD', 'POST'])) return;
 
   // Not requireStaff. The whole endpoint is admins only, per 8.8, and the 403
   // is the honest answer to a job poster who has typed the URL: they are signed
   // in, and this one is not theirs.
-  const session = await requireAdmin(req, res);
+  const session = await requireAdmin(request, response);
   if (!session) return;
 
-  if (await unavailable(res, 'admin_admins')) return;
+  if (await unavailable(response, 'admin_admins')) return;
 
-  res.setHeader('Cache-Control', 'no-store');
+  response.setHeader('Cache-Control', 'no-store');
 
   try {
-    if (req.method === 'POST') return await write(req, res, session);
+    if (request.method === 'POST') return await write(request, response, session);
 
-    const search = params(req);
+    const search = parameters(request);
     if (search.has('search')) {
-      return ok(res, { accounts: await searchStaffAccounts(search.get('search')) });
+      return ok(response, { accounts: await searchStaffAccounts(search.get('search')) });
     }
 
-    return ok(res, {
+    return ok(response, {
       accounts: await listStaffAccess(),
       // Who is asking, so the page can refuse to let somebody revoke their own
       // access. The server refuses it too; this is so the control is absent
@@ -73,29 +83,34 @@ export default async function handler(req, res) {
       states: ACCESS_STATES,
     });
   } catch (cause) {
-    return failInternal(res, cause, 'admin staff access');
+    return failInternal(response, cause, 'admin staff access');
   }
 }
 
-async function write(req, res, session) {
-  const body = await readJson(req, res);
+/**
+ * Grant or refuse a staff account access to this dashboard, or return it to the
+ * default its role gives. Nobody can take away their own access.
+ */
+async function write(request, response, session) {
+  const body = await readJson(request, response);
   if (body === null) return;
 
   if (String(body.action ?? '').trim() !== 'set') {
-    return fail(res, ERR.BAD_REQUEST, 'That is not something this endpoint does.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not something this endpoint does.', {
       details: { action: FIELD.INVALID },
     });
   }
 
   const subjects = [subjectForUser('staff', session.user.id)];
-  if (await limited(res, 'admin', subjects)) return;
+  if (await limited(response, 'admin', subjects)) return;
 
   const staffId = String(body.staff_id ?? '');
-  if (!isUuid(staffId)) return fail(res, ERR.BAD_REQUEST, 'That is not a staff account.');
+  if (!isUuid(staffId))
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not a staff account.');
 
   const state = String(body.state ?? '');
   if (!ACCESS_STATES.includes(state)) {
-    return fail(res, ERR.BAD_REQUEST, 'That is not an access state.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not an access state.', {
       details: { state: FIELD.INVALID },
     });
   }
@@ -106,20 +121,21 @@ async function write(req, res, session) {
   // is the one they just locked themselves out of. Another admin can do it,
   // which keeps the action possible without making it self inflicted.
   if (staffId === session.user.id && state !== 'granted') {
-    return fail(res, ERR.CONFLICT, 'You cannot take away your own access.', {
+    return fail(response, ERROR_CODES.CONFLICT, 'You cannot take away your own access.', {
       details: { reason: 'self' },
     });
   }
 
-  const reason = validateText(body.reason, REASON_MAX, { required: state === 'denied' });
+  const reason = validateText(body.reason, REASON_MAXIMUM, { required: state === 'denied' });
   if (!reason.ok) {
-    return fail(res, ERR.BAD_REQUEST, 'Say why before changing this.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'Say why before changing this.', {
       details: { reason: reason.code },
     });
   }
 
   const account = await fetchStaffAccount(staffId);
-  if (!account) return fail(res, ERR.NOT_FOUND, 'That staff account could not be found.');
+  if (!account)
+    return fail(response, ERROR_CODES.NOT_FOUND, 'That staff account could not be found.');
 
   await setStaffAccess({
     staffId,
@@ -140,10 +156,10 @@ async function write(req, res, session) {
       was_admin: account.is_admin === true,
       was_editor: account.is_editor === true,
     },
-    { targetTable: T.adminAccess, targetId: staffId }
+    { targetTable: TABLES.adminAccess, targetId: staffId }
   );
 
   await recordFailures('admin', subjects, LIMITS.admin);
 
-  return ok(res, { staff_id: staffId, state });
+  return ok(response, { staff_id: staffId, state });
 }

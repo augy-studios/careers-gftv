@@ -44,7 +44,7 @@
 //   language's. Somebody granted zh and ms is two rows with two sets of numbers,
 //   which is the only reading that matches a role granted per language.
 
-import { supabase, T } from './supabase.js';
+import { supabase, TABLES } from './supabase.js';
 
 /** Same page size as the queue and the audit, so all three tabs page alike. */
 export const PAGE_SIZE = 25;
@@ -67,9 +67,9 @@ const ACCOUNT_COLUMNS = 'id, username, display_name, avatar_url, is_active';
 
 /** The three tables a helper's drafting lands in, per 7i's "edit any translation row". */
 const TRANSLATION_TABLES = Object.freeze([
-  T.jobTranslations,
-  T.departmentTranslations,
-  T.tagTranslations,
+  TABLES.jobTranslations,
+  TABLES.departmentTranslations,
+  TABLES.tagTranslations,
 ]);
 
 /**
@@ -79,7 +79,7 @@ const TRANSLATION_TABLES = Object.freeze([
  */
 export async function listHelpers(options = {}) {
   let query = supabase
-    .from(T.translationHelpers)
+    .from(TABLES.translationHelpers)
     .select('user_id, locale, note, granted_by, granted_at', { count: 'exact' })
     .order('granted_at', { ascending: false })
     // The tie breaker is the same call the audit made: a batch of grants made in
@@ -107,6 +107,38 @@ export async function listHelpers(options = {}) {
     rows: rows.map((row) => {
       const key = `${row.user_id}|${row.locale}`;
 
+      let grantedBy;
+
+      if (row.granted_by) {
+        grantedBy = granters.get(row.granted_by) ?? null;
+      } else {
+        grantedBy = null;
+      }
+
+      let draftedValue;
+
+      if (drafted === null) {
+        draftedValue = null;
+      } else {
+        draftedValue = drafted.get(key) ?? 0;
+      }
+
+      let raisedValue;
+
+      if (raised === null) {
+        raisedValue = null;
+      } else {
+        raisedValue = raised.get(key)?.total ?? 0;
+      }
+
+      let raisedOpen;
+
+      if (raised === null) {
+        raisedOpen = null;
+      } else {
+        raisedOpen = raised.get(key)?.open ?? 0;
+      }
+
       return {
         user_id: row.user_id,
         locale: row.locale,
@@ -115,19 +147,19 @@ export async function listHelpers(options = {}) {
         // knows why each person is on it."
         note: row.note,
         granted_at: row.granted_at,
-        granted_by: row.granted_by ? (granters.get(row.granted_by) ?? null) : null,
+        granted_by: grantedBy,
         applicant: accounts.get(row.user_id) ?? null,
         // 8.11's "what each has drafted", which needed migration 034: the three
         // translation tables carried no author until then, because until 7i the
         // only thing writing them was the admin editor and the audit log knew
         // who that was.
-        drafted: drafted === null ? null : (drafted.get(key) ?? 0),
+        drafted: draftedValue,
         // What has arrived in the queue from them, which is the other half of
         // the same question and the half that works from day one. A helper who
         // reports rather than edits is doing the job 7h describes and is not
         // idle, and a list that counted only drafts would say they were.
-        raised: raised === null ? null : (raised.get(key)?.total ?? 0),
-        raised_open: raised === null ? null : (raised.get(key)?.open ?? 0),
+        raised: raisedValue,
+        raised_open: raisedOpen,
       };
     }),
     total: count ?? 0,
@@ -149,7 +181,7 @@ export async function helperLocalesFor(ids) {
   if (ids.length === 0) return new Map();
 
   const { data, error } = await supabase
-    .from(T.translationHelpers)
+    .from(TABLES.translationHelpers)
     .select('user_id, locale')
     .in('user_id', ids);
 
@@ -165,7 +197,7 @@ export async function helperLocalesFor(ids) {
 /** Whether one account already holds the role in one language. */
 export async function fetchHelper(userId, locale) {
   const { data, error } = await supabase
-    .from(T.translationHelpers)
+    .from(TABLES.translationHelpers)
     .select('user_id, locale, note, granted_at')
     .eq('user_id', userId)
     .eq('locale', locale)
@@ -185,13 +217,18 @@ export async function fetchHelper(userId, locale) {
  */
 export async function fetchHelperAccount(userId) {
   const { data, error } = await supabase
-    .from(T.users)
+    .from(TABLES.users)
     .select(ACCOUNT_COLUMNS)
     .eq('id', userId)
     .maybeSingle();
 
   if (error) throw error;
-  return data ? accountRow(data) : null;
+
+  if (data) {
+    return accountRow(data);
+  } else {
+    return null;
+  }
 }
 
 /**
@@ -205,7 +242,7 @@ export async function fetchHelperAccount(userId) {
  * @param {{ userId: string, locale: string, note: string, staffId: string }} input
  */
 export async function grantHelper(input) {
-  const { error } = await supabase.from(T.translationHelpers).upsert(
+  const { error } = await supabase.from(TABLES.translationHelpers).upsert(
     {
       user_id: input.userId,
       locale: input.locale,
@@ -233,7 +270,7 @@ export async function grantHelper(input) {
  */
 export async function revokeHelper(userId, locale) {
   const { data, error } = await supabase
-    .from(T.translationHelpers)
+    .from(TABLES.translationHelpers)
     .delete()
     .eq('user_id', userId)
     .eq('locale', locale)
@@ -265,7 +302,7 @@ function accountRow(row) {
 async function accountsFor(ids) {
   if (ids.length === 0) return new Map();
 
-  const { data, error } = await supabase.from(T.users).select(ACCOUNT_COLUMNS).in('id', ids);
+  const { data, error } = await supabase.from(TABLES.users).select(ACCOUNT_COLUMNS).in('id', ids);
   if (error) throw error;
 
   return new Map((data ?? []).map((row) => [row.id, accountRow(row)]));
@@ -283,7 +320,7 @@ async function granterNames(ids) {
   if (wanted.length === 0) return new Map();
 
   const { data, error } = await supabase
-    .from(T.staffUsers)
+    .from(TABLES.staffUsers)
     .select('id, username')
     .in('id', wanted);
 
@@ -351,7 +388,7 @@ async function raisedCounts(ids) {
 
   try {
     const { data, error } = await supabase
-      .from(T.translationReports)
+      .from(TABLES.translationReports)
       .select('reporter_id, locale, status')
       .in('reporter_id', ids)
       .limit(COUNT_CEILING);

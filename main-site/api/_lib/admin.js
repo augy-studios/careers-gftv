@@ -30,8 +30,8 @@
 // gftvhello_users stays read only, per section 2 and the decision table. This
 // file reads is_admin and is_editor and writes nothing to that table ever.
 
-import { supabase, T } from './supabase.js';
-import { ERR, fail } from './respond.js';
+import { supabase, TABLES } from './supabase.js';
+import { ERROR_CODES, fail } from './respond.js';
 import { requireStaff } from './session.js';
 
 /**
@@ -53,7 +53,11 @@ export const ROLE = Object.freeze({
  * @returns {'admin'|'poster'}
  */
 export function roleFor(staffUser) {
-  return staffUser?.is_admin === true ? ROLE.ADMIN : ROLE.POSTER;
+  if (staffUser?.is_admin === true) {
+    return ROLE.ADMIN;
+  } else {
+    return ROLE.POSTER;
+  }
 }
 
 /**
@@ -77,12 +81,12 @@ export function isAdmin(staffUser) {
  * @param {import('http').ServerResponse} res
  * @returns {Promise<null | { sessionId: string, user: object }>}
  */
-export async function requireAdmin(req, res) {
-  const session = await requireStaff(req, res);
+export async function requireAdmin(request, response) {
+  const session = await requireStaff(request, response);
   if (!session) return null;
 
   if (!isAdmin(session.user)) {
-    fail(res, ERR.FORBIDDEN, 'Only an admin can do that.');
+    fail(response, ERROR_CODES.FORBIDDEN, 'Only an admin can do that.');
     return null;
   }
 
@@ -117,9 +121,9 @@ export function staffContext(session) {
  * @param {import('http').IncomingMessage} req
  * @returns {URLSearchParams}
  */
-export function params(req) {
+export function parameters(request) {
   try {
-    return new URL(req.url ?? '/', 'https://careers.invalid').searchParams;
+    return new URL(request.url ?? '/', 'https://careers.invalid').searchParams;
   } catch {
     return new URLSearchParams();
   }
@@ -139,16 +143,16 @@ export function isUuid(value) {
  * @param {number} fallback
  * @param {{ min?: number, max?: number }} [bounds]
  */
-export function intParam(search, name, fallback, bounds = {}) {
+export function integerParameter(search, name, fallback, bounds = {}) {
   const raw = search.get(name);
   if (raw === null || raw.trim() === '') return fallback;
 
   const value = Number(raw);
   if (!Number.isInteger(value)) return fallback;
 
-  const min = bounds.min ?? Number.MIN_SAFE_INTEGER;
-  const max = bounds.max ?? Number.MAX_SAFE_INTEGER;
-  return Math.min(max, Math.max(min, value));
+  const minimum = bounds.min ?? Number.MIN_SAFE_INTEGER;
+  const maximum = bounds.max ?? Number.MAX_SAFE_INTEGER;
+  return Math.min(maximum, Math.max(minimum, value));
 }
 
 /**
@@ -157,9 +161,14 @@ export function intParam(search, name, fallback, bounds = {}) {
  * @param {string} name
  * @param {readonly string[]} allowed
  */
-export function enumParam(search, name, allowed) {
+export function enumParameter(search, name, allowed) {
   const raw = (search.get(name) ?? '').trim();
-  return allowed.includes(raw) ? raw : null;
+
+  if (allowed.includes(raw)) {
+    return raw;
+  } else {
+    return null;
+  }
 }
 
 /**
@@ -174,11 +183,11 @@ export function enumParam(search, name, allowed) {
  * @param {{ size?: number, max?: number }} [options]
  */
 export function pageRange(search, options = {}) {
-  const size = intParam(search, 'limit', options.size ?? 25, {
+  const size = integerParameter(search, 'limit', options.size ?? 25, {
     min: 1,
     max: options.max ?? 100,
   });
-  const page = intParam(search, 'page', 1, { min: 1, max: 10000 });
+  const page = integerParameter(search, 'page', 1, { min: 1, max: 10000 });
   const from = (page - 1) * size;
   return { page, size, from, to: from + size - 1 };
 }
@@ -202,15 +211,17 @@ export function pageRange(search, options = {}) {
  * @returns {string}
  */
 export function slugify(value) {
-  return String(value ?? '')
-    .normalize('NFKD')
-    // Strip combining marks, so "Café" becomes "cafe" rather than "caf".
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 80)
-    .replace(/-+$/g, '');
+  return (
+    String(value ?? '')
+      .normalize('NFKD')
+      // Strip combining marks, so "Café" becomes "cafe" rather than "caf".
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 80)
+      .replace(/-+$/g, '')
+  );
 }
 
 /**
@@ -268,7 +279,7 @@ export async function freeSlug(table, preferred, exceptId = null) {
 // Cached for a minute, like settings.js and for the same reason: adding a
 // language is a database insert somebody makes while looking at the dashboard,
 // and it should appear while they are still looking at it.
-const LOCALE_CACHE_MS = 60 * 1000;
+const LOCALE_CACHE_MILLISECONDS = 60 * 1000;
 
 let localeCache = null;
 let localeCachedAt = 0;
@@ -280,12 +291,12 @@ let localeCachedAt = 0;
  * @returns {Promise<Array<{ code: string, english_name: string, native_name: string, is_default: boolean }>>}
  */
 export async function activeLocales({ refresh = false } = {}) {
-  if (!refresh && localeCache && Date.now() - localeCachedAt < LOCALE_CACHE_MS) {
+  if (!refresh && localeCache && Date.now() - localeCachedAt < LOCALE_CACHE_MILLISECONDS) {
     return localeCache;
   }
 
   const { data, error } = await supabase
-    .from(T.locales)
+    .from(TABLES.locales)
     .select('code, english_name, native_name, is_default, sort_order')
     .eq('is_active', true)
     .order('is_default', { ascending: false })

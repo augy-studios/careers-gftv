@@ -50,7 +50,12 @@ export const ACCESS_VALUES = Object.freeze(Object.keys(TIER));
  */
 export function tierRank(access) {
   if (typeof access !== 'string') return null;
-  return Object.hasOwn(TIER, access) ? TIER[access] : null;
+
+  if (Object.hasOwn(TIER, access)) {
+    return TIER[access];
+  } else {
+    return null;
+  }
 }
 
 /**
@@ -75,7 +80,12 @@ export function tierRank(access) {
  */
 export function readerTier(staffUser) {
   if (!staffUser) return 'public';
-  return staffUser.is_admin === true ? 'developer' : 'poster';
+
+  if (staffUser.is_admin === true) {
+    return 'developer';
+  } else {
+    return 'poster';
+  }
 }
 
 /**
@@ -91,7 +101,12 @@ export function readerTier(staffUser) {
  */
 export function roleLabel(staffUser) {
   if (!staffUser) return null;
-  return staffUser.is_admin === true ? 'admin' : 'job poster';
+
+  if (staffUser.is_admin === true) {
+    return 'admin';
+  } else {
+    return 'job poster';
+  }
 }
 
 /**

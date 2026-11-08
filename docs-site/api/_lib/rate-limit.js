@@ -38,9 +38,9 @@
 // gftvjobs_rate_limits.subject and the section 6 rule that no IP is stored
 // anywhere in this build.
 
-import { supabase, T } from './supabase.js';
+import { supabase, TABLES } from './supabase.js';
 import { sha256 } from './tokens.js';
-import { ERR, fail } from './respond.js';
+import { ERROR_CODES, fail } from './respond.js';
 
 /**
  * The limits, in one place, so what is guarded and how hard is readable
@@ -223,13 +223,17 @@ export const LIMITS = Object.freeze({
  * @param {import('http').IncomingMessage} req
  * @returns {string}
  */
-export function subjectForIp(req) {
-  const forwarded = req.headers?.['x-forwarded-for'];
-  const first = Array.isArray(forwarded)
-    ? forwarded[0]
-    : String(forwarded ?? '').split(',')[0];
+export function subjectForIp(request) {
+  const forwarded = request.headers?.['x-forwarded-for'];
+  let first;
 
-  const ip = first.trim() || req.socket?.remoteAddress || 'unknown';
+  if (Array.isArray(forwarded)) {
+    first = forwarded[0];
+  } else {
+    first = String(forwarded ?? '').split(',')[0];
+  }
+
+  const ip = first.trim() || request.socket?.remoteAddress || 'unknown';
   return `ip:${sha256(ip).slice(0, 32)}`;
 }
 
@@ -259,8 +263,8 @@ export function subjectForIdentifier(identifier) {
   return `id:${sha256(String(identifier ?? '').toLowerCase()).slice(0, 32)}`;
 }
 
-function windowStart(windowMs) {
-  return new Date(Math.floor(Date.now() / windowMs) * windowMs).toISOString();
+function windowStart(windowMilliseconds) {
+  return new Date(Math.floor(Date.now() / windowMilliseconds) * windowMilliseconds).toISOString();
 }
 
 /**
@@ -276,7 +280,7 @@ function windowStart(windowMs) {
  */
 export async function checkLock(bucket, subject) {
   const { data, error } = await supabase
-    .from(T.rateLimits)
+    .from(TABLES.rateLimits)
     .select('locked_until')
     .eq('bucket', bucket)
     .eq('subject', subject)
@@ -306,11 +310,11 @@ export async function checkLock(bucket, subject) {
  * @param {{ limit: number, windowMs: number, lockMs: number }} config
  * @returns {Promise<{ attempts: number, locked: boolean }>}
  */
-export async function recordFailure(bucket, subject, config) {
-  const start = windowStart(config.windowMs);
+export async function recordFailure(bucket, subject, configuration) {
+  const start = windowStart(configuration.windowMs);
 
   const { data: existing, error: readError } = await supabase
-    .from(T.rateLimits)
+    .from(TABLES.rateLimits)
     .select('attempts')
     .eq('bucket', bucket)
     .eq('subject', subject)
@@ -323,15 +327,23 @@ export async function recordFailure(bucket, subject, config) {
   }
 
   const attempts = (existing?.attempts ?? 0) + 1;
-  const locked = attempts >= config.limit;
+  const locked = attempts >= configuration.limit;
 
-  const { error: writeError } = await supabase.from(T.rateLimits).upsert(
+  let lockedUntil;
+
+  if (locked) {
+    lockedUntil = new Date(Date.now() + configuration.lockMs).toISOString();
+  } else {
+    lockedUntil = null;
+  }
+
+  const { error: writeError } = await supabase.from(TABLES.rateLimits).upsert(
     {
       bucket,
       subject,
       window_start: start,
       attempts,
-      locked_until: locked ? new Date(Date.now() + config.lockMs).toISOString() : null,
+      locked_until: lockedUntil,
       updated_at: new Date().toISOString(),
     },
     { onConflict: 'bucket,subject,window_start' }
@@ -351,7 +363,7 @@ export async function recordFailure(bucket, subject, config) {
  */
 export async function clearFailures(bucket, subject) {
   const { error } = await supabase
-    .from(T.rateLimits)
+    .from(TABLES.rateLimits)
     .delete()
     .eq('bucket', bucket)
     .eq('subject', subject);
@@ -371,18 +383,15 @@ export async function clearFailures(bucket, subject) {
  * @param {string[]} subjects
  * @returns {Promise<boolean>} true when the request should stop here
  */
-export async function limited(res, bucket, subjects) {
+export async function limited(response, bucket, subjects) {
   for (const subject of subjects) {
     const { locked, retryAfter } = await checkLock(bucket, subject);
     if (!locked) continue;
 
-    res.setHeader('Retry-After', String(retryAfter));
-    fail(
-      res,
-      ERR.RATE_LIMITED,
-      'Too many attempts. Try again later.',
-      { details: { retry_after: retryAfter } }
-    );
+    response.setHeader('Retry-After', String(retryAfter));
+    fail(response, ERROR_CODES.RATE_LIMITED, 'Too many attempts. Try again later.', {
+      details: { retry_after: retryAfter },
+    });
     return true;
   }
   return false;
@@ -395,8 +404,8 @@ export async function limited(res, bucket, subjects) {
  * @param {string[]} subjects
  * @param {{ limit: number, windowMs: number, lockMs: number }} config
  */
-export async function recordFailures(bucket, subjects, config) {
-  await Promise.all(subjects.map((subject) => recordFailure(bucket, subject, config)));
+export async function recordFailures(bucket, subjects, configuration) {
+  await Promise.all(subjects.map((subject) => recordFailure(bucket, subject, configuration)));
 }
 
 /**

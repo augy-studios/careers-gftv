@@ -22,7 +22,7 @@
 //   dashboard hands anybody over to a form; that is api/applications/start.js's
 //   job and it is the only route that may.
 
-import { supabase, T } from './supabase.js';
+import { supabase, TABLES } from './supabase.js';
 
 // Everything a row on a dashboard list draws, and nothing else. The full
 // posting is one click away at /jobs/{uuid}, which is where somebody who wants
@@ -100,7 +100,7 @@ export async function jobSummaries(jobIds, locale) {
   if (ids.length === 0) return map;
 
   const { data: jobs, error } = await supabase
-    .from(T.jobs)
+    .from(TABLES.jobs)
     .select(SUMMARY_COLUMNS)
     .in('id', ids);
 
@@ -109,29 +109,45 @@ export async function jobSummaries(jobIds, locale) {
 
   const departmentIds = [...new Set(jobs.map((job) => job.department_id).filter(Boolean))];
 
+  // Migration 014 forbids a translation row for the default language, so the
+  // common path costs nothing.
+  let translationsRequest;
+  if (locale === 'en') {
+    translationsRequest = Promise.resolve({ data: [], error: null });
+  } else {
+    translationsRequest = supabase
+      .from(TABLES.jobTranslations)
+      .select('job_id, title, location')
+      .in('job_id', ids)
+      .eq('locale', locale)
+      .eq('is_ready', true);
+  }
+
+  let departmentsRequest;
+  if (departmentIds.length > 0) {
+    departmentsRequest = supabase
+      .from(TABLES.departments)
+      .select('id, name, slug')
+      .in('id', departmentIds);
+  } else {
+    departmentsRequest = Promise.resolve({ data: [], error: null });
+  }
+
+  let departmentTranslationsRequest;
+  if (departmentIds.length > 0 && locale !== 'en') {
+    departmentTranslationsRequest = supabase
+      .from(TABLES.departmentTranslations)
+      .select('department_id, name')
+      .in('department_id', departmentIds)
+      .eq('locale', locale);
+  } else {
+    departmentTranslationsRequest = Promise.resolve({ data: [], error: null });
+  }
+
   const [translations, departments, departmentTranslations] = await Promise.all([
-    // Migration 014 forbids a translation row for the default language, so the
-    // common path costs nothing.
-    locale === 'en'
-      ? Promise.resolve({ data: [], error: null })
-      : supabase
-          .from(T.jobTranslations)
-          .select('job_id, title, location')
-          .in('job_id', ids)
-          .eq('locale', locale)
-          .eq('is_ready', true),
-
-    departmentIds.length > 0
-      ? supabase.from(T.departments).select('id, name, slug').in('id', departmentIds)
-      : Promise.resolve({ data: [], error: null }),
-
-    departmentIds.length > 0 && locale !== 'en'
-      ? supabase
-          .from(T.departmentTranslations)
-          .select('department_id, name')
-          .in('department_id', departmentIds)
-          .eq('locale', locale)
-      : Promise.resolve({ data: [], error: null }),
+    translationsRequest,
+    departmentsRequest,
+    departmentTranslationsRequest,
   ]);
 
   // A reference lookup that fails falls back to the base rows rather than
@@ -156,7 +172,25 @@ export async function jobSummaries(jobIds, locale) {
 
   for (const job of jobs) {
     const translation = translated.get(job.id) ?? null;
-    const department = job.department_id ? departmentById.get(job.department_id) : null;
+    let department;
+
+    if (job.department_id) {
+      department = departmentById.get(job.department_id);
+    } else {
+      department = null;
+    }
+
+    let departmentValue;
+
+    if (department) {
+      departmentValue = {
+        id: department.id,
+        slug: department.slug,
+        name: departmentName.get(department.id) ?? department.name,
+      };
+    } else {
+      departmentValue = null;
+    }
 
     map.set(job.id, {
       id: job.id,
@@ -176,13 +210,7 @@ export async function jobSummaries(jobIds, locale) {
       // filled and never expires.
       is_open: job.status === 'published' && !expired(job.closes_at),
       is_archived: job.status === 'archived',
-      department: department
-        ? {
-            id: department.id,
-            slug: department.slug,
-            name: departmentName.get(department.id) ?? department.name,
-          }
-        : null,
+      department: departmentValue,
       // False for the default language by definition, exactly as on the board:
       // there is no translation row for it, so there is nothing to have been
       // translated and the badge would mean nothing to that reader.
@@ -202,5 +230,9 @@ function blank(value) {
 }
 
 function pick(translated, base) {
-  return blank(translated) ? (base ?? null) : translated;
+  if (blank(translated)) {
+    return base ?? null;
+  } else {
+    return translated;
+  }
 }

@@ -44,8 +44,8 @@ const ROUNDS = 12;
  * number is repeated on screen through the auth.passwordHint dictionary key,
  * so change both together.
  */
-export const PASSWORD_MIN_LENGTH = 10;
-export const PASSWORD_MAX_LENGTH = 200;
+export const PASSWORD_MINIMUM_LENGTH = 10;
+export const PASSWORD_MAXIMUM_LENGTH = 200;
 
 /**
  * A hash to compare against when no account was found.
@@ -78,9 +78,21 @@ export function hashSecret(plain) {
  * @returns {Promise<boolean>}
  */
 export async function verifySecret(plain, hash) {
-  const candidate = typeof hash === 'string' && hash.startsWith('$2') ? hash : DUMMY_HASH;
+  let candidate;
+
+  if (typeof hash === 'string' && hash.startsWith('$2')) {
+    candidate = hash;
+  } else {
+    candidate = DUMMY_HASH;
+  }
+
   const matched = await bcrypt.compare(String(plain ?? ''), candidate);
-  return candidate === DUMMY_HASH ? false : matched;
+
+  if (candidate === DUMMY_HASH) {
+    return false;
+  } else {
+    return matched;
+  }
 }
 
 /**
@@ -110,10 +122,10 @@ export function checkPasswordStrength(value) {
   if (typeof value !== 'string' || value === '') {
     return { ok: false, code: 'password_required' };
   }
-  if (value.length < PASSWORD_MIN_LENGTH) {
+  if (value.length < PASSWORD_MINIMUM_LENGTH) {
     return { ok: false, code: 'password_too_short' };
   }
-  if (value.length > PASSWORD_MAX_LENGTH) {
+  if (value.length > PASSWORD_MAXIMUM_LENGTH) {
     return { ok: false, code: 'password_too_long' };
   }
   return { ok: true };

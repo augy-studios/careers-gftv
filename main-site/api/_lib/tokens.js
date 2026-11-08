@@ -45,11 +45,11 @@ export function randomRecoveryCode() {
   const alphabet = '23456789abcdefghjkmnpqrstuvwxyz';
   const bytes = randomBytes(8);
   let out = '';
-  for (let i = 0; i < 8; i += 1) {
-    if (i === 4) out += '-';
+  for (let index = 0; index < 8; index += 1) {
+    if (index === 4) out += '-';
     // 256 is not a multiple of 31, so take the modulo of a wider draw to keep
     // the bias negligible rather than sampling a single byte.
-    out += alphabet[bytes[i] % alphabet.length];
+    out += alphabet[bytes[index] % alphabet.length];
   }
   return out;
 }
@@ -84,16 +84,16 @@ export function sha256(value) {
  * @param {string} b
  * @returns {boolean}
  */
-export function timingSafeEqualStr(a, b) {
-  const bufA = Buffer.from(String(a ?? ''), 'utf8');
-  const bufB = Buffer.from(String(b ?? ''), 'utf8');
+export function timingSafeEqualStrings(first, second) {
+  const firstBuffer = Buffer.from(String(first ?? ''), 'utf8');
+  const secondBuffer = Buffer.from(String(second ?? ''), 'utf8');
 
   // timingSafeEqual throws on a length mismatch, which would itself leak the
   // length. Compare fixed length digests instead, then confirm the raw length.
-  const digestA = createHash('sha256').update(bufA).digest();
-  const digestB = createHash('sha256').update(bufB).digest();
+  const firstDigest = createHash('sha256').update(firstBuffer).digest();
+  const secondDigest = createHash('sha256').update(secondBuffer).digest();
 
-  return timingSafeEqual(digestA, digestB) && bufA.length === bufB.length;
+  return timingSafeEqual(firstDigest, secondDigest) && firstBuffer.length === secondBuffer.length;
 }
 
 /**

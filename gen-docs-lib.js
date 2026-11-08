@@ -83,7 +83,7 @@ const FILES = [
       'One line, and the whole of what makes this copy say it is the docs site.',
       'Both of the places that record which application did something read it:',
       "the audit row's metadata per 5f and 5g, and a passkey's registered_on per",
-      "5f. It is a file rather than a constant in each of them so this generator",
+      '5f. It is a file rather than a constant in each of them so this generator',
       'has one rule to keep instead of two that must agree.'
     ),
     rules: [
@@ -142,7 +142,7 @@ const FILES = [
           "  'FORM_WEBHOOK_SECRET',",
           "  'CRON_SECRET',",
           '  // Phase 11, and the only optional one in the list. It is read through',
-          '  // optionalEnv with the username section 15 fixes as the default, so it is',
+          '  // optionalEnvironmentVariable with the username section 15 fixes as the default, so it is',
           '  // named here for the documentation rather than to be required: unset is the',
           '  // normal state, and setting it points a preview deployment at a test bot.',
           "  'TELEGRAM_BOT_USERNAME',",
@@ -187,8 +187,8 @@ const FILES = [
         replace: '        `settings for preview and production. See docs-site/.env.example for ` +',
       },
       {
-        why: "docsUrl() is added, and 5e's pair is stated where it is read",
-        find: 'export const ENV_NAMES = Object.freeze([...KNOWN]);',
+        why: "documentationUrl() is added, and 5e's pair is stated where it is read",
+        find: 'export const ENVIRONMENT_VARIABLE_NAMES = Object.freeze([...KNOWN]);',
         replace: text(
           '/**',
           " * This site's own origin, with any trailing slash removed.",
@@ -199,11 +199,11 @@ const FILES = [
           ' * The wrong way round either breaks the docs sign in or accepts an assertion',
           ' * made somewhere else entirely, and only one of those two failures is loud.',
           ' */',
-          'export function docsUrl() {',
-          "  return requireEnv('DOCS_URL').replace(/\\/+$/, '');",
+          'export function documentationUrl() {',
+          "  return requireEnvironmentVariable('DOCS_URL').replace(/\\/+$/, '');",
           '}',
           '',
-          'export const ENV_NAMES = Object.freeze([...KNOWN]);'
+          'export const ENVIRONMENT_VARIABLE_NAMES = Object.freeze([...KNOWN]);'
         ),
       },
     ],
@@ -269,10 +269,7 @@ const FILES = [
       },
       {
         why: 'the session and device cookies are gftv_docs_*',
-        find: text(
-          "  staffSession: 'gftv_staff_session',",
-          "  staffDevice: 'gftv_staff_device',"
-        ),
+        find: text("  staffSession: 'gftv_staff_session',", "  staffDevice: 'gftv_staff_device',"),
         replace: text("  staffSession: 'gftv_docs_session',", "  staffDevice: 'gftv_docs_device',"),
       },
       {
@@ -327,9 +324,9 @@ const FILES = [
     ),
     rules: [
       {
-        why: 'docsUrl is imported for the expected origin',
+        why: 'documentationUrl is imported for the expected origin',
         find: "import { siteUrl } from './env.js';",
-        replace: "import { siteUrl, docsUrl } from './env.js';",
+        replace: "import { siteUrl, documentationUrl } from './env.js';",
       },
       {
         why: 'the docblock says which host SITE_URL names on this site',
@@ -355,7 +352,7 @@ const FILES = [
         find: text(
           'export function relyingParty() {',
           '  const url = new URL(siteUrl());',
-          '  return { id: url.hostname, origin: url.origin, name: RP_NAME };',
+          '  return { id: url.hostname, origin: url.origin, name: RELYING_PARTY_NAME };',
           '}'
         ),
         replace: text(
@@ -367,8 +364,8 @@ const FILES = [
           '  // or accepts an assertion from the wrong origin quietly.',
           '  return {',
           '    id: new URL(siteUrl()).hostname,',
-          '    origin: new URL(docsUrl()).origin,',
-          '    name: RP_NAME,',
+          '    origin: new URL(documentationUrl()).origin,',
+          '    name: RELYING_PARTY_NAME,',
           '  };',
           '}'
         ),
@@ -458,7 +455,7 @@ const FILES = [
     path: 'api/_lib/qr.js',
     note: text(
       "Identical. The TOTP enrolment QR is drawn from this site's own function",
-      'and never fetched, which is phase 11 part 4\'s rule about a credential',
+      "and never fetched, which is phase 11 part 4's rule about a credential",
       'never leaving this build to be rendered, arriving at a sharper case: the',
       'otpauth URI carries the shared secret in the clear.'
     ),
@@ -466,7 +463,7 @@ const FILES = [
   {
     path: 'api/auth/staff/account.js',
     note: text(
-      "Identical. It answers the whole settings page in one call and stamps SITE",
+      'Identical. It answers the whole settings page in one call and stamps SITE',
       'into the response, so the page says which site it is on without working it',
       'out from its own hostname.'
     ),
@@ -475,7 +472,7 @@ const FILES = [
     path: 'api/auth/staff/totp.js',
     note: text(
       'Identical, and it is the one route that writes gftvhello_users.totp_secret.',
-      'The issuer in the otpauth URI is the portal\'s name on both sites',
+      "The issuer in the otpauth URI is the portal's name on both sites",
       'deliberately: there is one secret on one account, and two entries in',
       "somebody's authenticator would be two names for one credential."
     ),
@@ -484,7 +481,7 @@ const FILES = [
     path: 'api/auth/staff/recovery-codes.js',
     note: text(
       "Identical. Both code sets, per 5g: the recovery set is this build's own",
-      'table and the backup set is gftv.asia\'s, which is why only one of the two',
+      "table and the backup set is gftv.asia's, which is why only one of the two",
       'answers reaches_gftv_asia.'
     ),
   },
@@ -552,8 +549,8 @@ const FILES = [
     note: text(
       'The dictionary machinery, per decision 5: the shell is written with keys',
       'and an English dictionary, and 华文 landed in phase 14 beside the pages',
-      'it belongs to. LOCALES names this site\'s two dictionaries and not the',
-      'portal\'s four: the docs site stays at two languages, settled 11',
+      "it belongs to. LOCALES names this site's two dictionaries and not the",
+      "portal's four: the docs site stays at two languages, settled 11",
       'September 2026, so the Malay and Tamil entries are trimmed here and the',
       'published filter is left in with nothing narrowing it, which is every',
       'language offered, as before.'
@@ -597,7 +594,7 @@ const FILES = [
           '  // Nothing to mirror the choice onto. The portal writes it to',
           '  // gftvjobs_users here, per 3a, because the Telegram bot has to start',
           '  // conversations with people who are not looking at the site. This site',
-          "  // has one realm, its accounts are gftvhello_users rows that section 2",
+          '  // has one realm, its accounts are gftvhello_users rows that section 2',
           '  // forbids writing to, and nothing on it ever speaks first. The choice',
           '  // lives in this browser and nowhere else.'
         ),
@@ -640,7 +637,7 @@ const FILES = [
       },
     ],
   },
-/* ---------------------------------------------------------------------
+  /* ---------------------------------------------------------------------
    * Phase 13 part 6, the browser half. **The page is these modules and an
    * empty container**, per 5f's "specify it once and mount it twice" and
    * decision 8: staff-account.js builds every panel, so there is no second
@@ -676,8 +673,8 @@ const FILES = [
     comment: 'js',
     note: text(
       'Identical. One modal shell for the whole build -- a native <dialog>, so the',
-      'inert page behind it, the focus trap and Escape are the browser\'s and not a',
-      'copy of somebody\'s. It imports i18n.js and icons.js and nothing else, both',
+      "inert page behind it, the focus trap and Escape are the browser's and not a",
+      "copy of somebody's. It imports i18n.js and icons.js and nothing else, both",
       'of which were already here.'
     ),
   },
@@ -717,7 +714,7 @@ const FILES = [
       'Identical, and the reason it is a file at all. gftv-theme.md section 3 is',
       'markup: it prescribes this modal, its two sections, and the .icon-btn that',
       'opens it. This site had the tokens generated in and none of the chrome, so',
-      'part 1 moved the four functions out of the portal\'s shell.js -- which draws',
+      "part 1 moved the four functions out of the portal's shell.js -- which draws",
       'a navigation drawer, a footer and a build status notice this site wants none',
       'of -- and copies them here whole.',
       '',
@@ -793,7 +790,7 @@ const FILES = [
     path: 'assets/js/staff-account.js',
     comment: 'js',
     note: text(
-      "Identical, and it is the whole of 16c: the page at /account on this site",
+      'Identical, and it is the whole of 16c: the page at /account on this site',
       'and at /admin/security on the portal, built from one file. What the two',
       'sites tell it is three data attributes on the container -- where to send a',
       'signed out reader, where back goes, and the gftv.asia account page 5f',
@@ -1013,7 +1010,9 @@ function banner(entry, globalHits) {
   // one. The marker text is identical in both, which is what lets a reader --
   // and a grep -- recognise a generated file without knowing its language.
   if (entry.comment === 'css') {
-    return ['/*', ...lines.map((line) => (line === '' ? ' *' : ` * ${line}`)), ' */', '', ''].join('\n');
+    return ['/*', ...lines.map((line) => (line === '' ? ' *' : ` * ${line}`)), ' */', '', ''].join(
+      '\n'
+    );
   }
 
   return [...lines.map((line) => (line === '' ? '//' : `// ${line}`)), ''].join('\n');

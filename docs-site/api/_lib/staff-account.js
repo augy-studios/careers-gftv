@@ -51,9 +51,9 @@
 // The sessions half is here for a different reason and carries no exception at
 // all: both staff session tables are this build's own, from migration 038.
 
-import { supabase, T } from './supabase.js';
+import { supabase, TABLES } from './supabase.js';
 import { hashSecret } from './password.js';
-import { fail, ERR } from './respond.js';
+import { fail, ERROR_CODES } from './respond.js';
 
 /* -------------------------------------------------------------------------
  * The hold, phase 13 part 6
@@ -171,12 +171,12 @@ export const GFTV_ASIA_WRITES = Object.freeze([
  * @param {import('http').ServerResponse} res
  * @returns {boolean} true when the request should stop here
  */
-export function held(res) {
+export function held(response) {
   if (HELLO_WRITES_ENABLED) return false;
 
   fail(
-    res,
-    ERR.NOT_YET_AVAILABLE,
+    response,
+    ERROR_CODES.NOT_YET_AVAILABLE,
     'This is built and is switched off until it has been checked once against a real account. Nothing else on this page is affected.',
     { details: { reason: 'held', feature: 'gftvhello_writes' } }
   );
@@ -188,14 +188,14 @@ export function held(res) {
  * on screen.
  *
  * 5f asks for "where the account is signed in, on both sites", so this list is
- * read from both sites and answers the same thing on each. `T.staffSessions` is
+ * read from both sites and answers the same thing on each. `TABLES.staffSessions` is
  * deliberately not used here: that key means "this site's own", and the
  * generator points it at the docs table in the docs copy, which is exactly the
  * ambiguity a panel listing both must not inherit.
  */
 const SESSION_TABLES = Object.freeze([
-  Object.freeze({ site: 'portal', table: T.portalSessions }),
-  Object.freeze({ site: 'docs', table: T.docsSessions }),
+  Object.freeze({ site: 'portal', table: TABLES.portalSessions }),
+  Object.freeze({ site: 'docs', table: TABLES.docsSessions }),
 ]);
 
 /* -------------------------------------------------------------------------
@@ -229,7 +229,7 @@ const SESSION_TABLES = Object.freeze([
  */
 export async function staffProfile(userId) {
   const { data, error } = await supabase
-    .from(T.staffUsers)
+    .from(TABLES.staffUsers)
     .select('display_name, email')
     .eq('id', userId)
     .maybeSingle();
@@ -277,7 +277,7 @@ export async function setStaffPassword(userId, plain) {
   const password_hash = await hashSecret(plain);
 
   const { error } = await supabase
-    .from(T.staffUsers)
+    .from(TABLES.staffUsers)
     .update({ password_hash })
     .eq('id', userId);
 
@@ -309,7 +309,7 @@ export async function setStaffTotpSecret(userId, secret) {
   if (!HELLO_WRITES_ENABLED) return false;
 
   const { error } = await supabase
-    .from(T.staffUsers)
+    .from(TABLES.staffUsers)
     .update({ totp_secret: secret })
     .eq('id', userId);
 
@@ -383,7 +383,9 @@ export async function listStaffSessions(userId, currentSessionId = null) {
     }
   }
 
-  sessions.sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')));
+  sessions.sort((first, second) =>
+    String(second.created_at ?? '').localeCompare(String(first.created_at ?? ''))
+  );
 
   return { sessions, failed };
 }

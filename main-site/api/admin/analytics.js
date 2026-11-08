@@ -20,9 +20,9 @@
 // The counting is in migration 033's views, the judgements are in
 // api/_lib/analytics.js, and this file parses a query string and answers.
 
-import { ok, fail, ERR, methodNotAllowed, failInternal } from '../_lib/respond.js';
+import { ok, fail, ERROR_CODES, methodNotAllowed, failInternal } from '../_lib/respond.js';
 import { requireStaff } from '../_lib/session.js';
-import { isUuid, params, pageRange, enumParam } from '../_lib/admin.js';
+import { isUuid, parameters, pageRange, enumParameter } from '../_lib/admin.js';
 import { unavailable } from '../_lib/maintenance.js';
 import {
   jobFunnels,
@@ -32,40 +32,45 @@ import {
   FUNNEL_SORTS,
   SERIES_DAYS,
   RATING_MINIMUM,
-  FLAG_MIN_CLICKS,
-  FLAG_MAX_RATE,
+  FLAG_MINIMUM_CLICKS,
+  FLAG_MAXIMUM_RATE,
 } from '../_lib/analytics.js';
 
 /** The posting statuses the table can be filtered by. Matches migration 005. */
 const STATUSES = Object.freeze(['draft', 'published', 'closed', 'archived']);
 
 /** How many rows a CSV export covers. The filtered set, not the page, per 8.3. */
-const EXPORT_MAX = 2000;
+const EXPORT_MAXIMUM = 2000;
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'HEAD'])) return;
+/**
+ * The analytics page: every posting's funnel from views to confirmed
+ * applications, one posting in detail with a daily chart, or the table as a CSV.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'HEAD'])) return;
 
-  const session = await requireStaff(req, res);
+  const session = await requireStaff(request, response);
   if (!session) return;
 
-  if (await unavailable(res, 'admin_analytics')) return;
+  if (await unavailable(response, 'admin_analytics')) return;
 
-  res.setHeader('Cache-Control', 'no-store');
+  response.setHeader('Cache-Control', 'no-store');
 
   try {
-    const search = params(req);
+    const search = parameters(request);
 
     const jobId = search.get('job');
     if (jobId) {
-      if (!isUuid(jobId)) return fail(res, ERR.BAD_REQUEST, 'That is not a posting id.');
-      return await detail(res, jobId, search);
+      if (!isUuid(jobId))
+        return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not a posting id.');
+      return await detail(response, jobId, search);
     }
 
-    if (search.get('format') === 'csv') return await exportCsv(res, search);
+    if (search.get('format') === 'csv') return await exportCsv(response, search);
 
-    return await table(res, search);
+    return await table(response, search);
   } catch (cause) {
-    return failInternal(res, cause, 'admin analytics');
+    return failInternal(response, cause, 'admin analytics');
   }
 }
 
@@ -73,18 +78,27 @@ export default async function handler(req, res) {
  * The table
  * ---------------------------------------------------------------------- */
 
-async function table(res, search) {
-  const { from, to, page, size } = pageRange(search, { size: 25, max: 100 });
+async function table(response, search) {
+  const { from, to: rangeEnd, page, size } = pageRange(search, { size: 25, max: 100 });
+
+  const status = enumParameter(search, 'status', STATUSES);
+  let directionValue;
+
+  if (search.get('direction') === 'asc') {
+    directionValue = 'asc';
+  } else {
+    directionValue = 'desc';
+  }
 
   const { rows, total, sort, direction } = await jobFunnels({
-    status: enumParam(search, 'status', STATUSES),
+    status,
     sort: search.get('sort'),
-    direction: search.get('direction') === 'asc' ? 'asc' : 'desc',
+    direction: directionValue,
     rangeFrom: from,
-    rangeTo: to,
+    rangeTo: rangeEnd,
   });
 
-  return ok(res, {
+  return ok(response, {
     jobs: rows,
     total,
     page,
@@ -93,7 +107,7 @@ async function table(res, search) {
     sorts: FUNNEL_SORTS,
     // What it was actually sorted by, which is not always what was asked for: an
     // unknown column falls back to `views` rather than being refused, per the
-    // convention enumParam sets across every admin route. Named here so a page
+    // convention enumParameter sets across every admin route. Named here so a page
     // cannot draw an arrow on a column the server did not use, which is what
     // the run of 25 August 2026 found: the fallback was silent.
     sort,
@@ -103,8 +117,8 @@ async function table(res, search) {
     // used to decide it rather than repeating two numbers that might drift.
     rules: {
       rating_minimum: RATING_MINIMUM,
-      flag_min_clicks: FLAG_MIN_CLICKS,
-      flag_max_rate: FLAG_MAX_RATE,
+      flag_min_clicks: FLAG_MINIMUM_CLICKS,
+      flag_max_rate: FLAG_MAXIMUM_RATE,
     },
   });
 }
@@ -113,16 +127,16 @@ async function table(res, search) {
  * One posting
  * ---------------------------------------------------------------------- */
 
-async function detail(res, jobId, search) {
+async function detail(response, jobId, search) {
   const days = Number(search.get('days')) || SERIES_DAYS;
 
   const [funnel, series] = await Promise.all([jobFunnel(jobId), funnelSeries(jobId, days)]);
 
   // The view covers every posting, so a miss here means the posting itself is
   // gone rather than that it has no analytics.
-  if (!funnel) return fail(res, ERR.NOT_FOUND, 'That posting could not be found.');
+  if (!funnel) return fail(response, ERROR_CODES.NOT_FOUND, 'That posting could not be found.');
 
-  return ok(res, {
+  return ok(response, {
     job: funnel,
     series,
     // Stated rather than implied. Migration 033 groups by UTC date, and a chart
@@ -131,8 +145,8 @@ async function detail(res, jobId, search) {
     series_timezone: 'UTC',
     rules: {
       rating_minimum: RATING_MINIMUM,
-      flag_min_clicks: FLAG_MIN_CLICKS,
-      flag_max_rate: FLAG_MAX_RATE,
+      flag_min_clicks: FLAG_MINIMUM_CLICKS,
+      flag_max_rate: FLAG_MAXIMUM_RATE,
     },
   });
 }
@@ -141,24 +155,34 @@ async function detail(res, jobId, search) {
  * The export
  * ---------------------------------------------------------------------- */
 
-async function exportCsv(res, search) {
+async function exportCsv(response, search) {
   // The filtered set rather than the page, the same rule 8.3's export follows.
+  const status = enumParameter(search, 'status', STATUSES);
+
+  let direction;
+
+  if (search.get('direction') === 'asc') {
+    direction = 'asc';
+  } else {
+    direction = 'desc';
+  }
+
   const { rows } = await jobFunnels({
-    status: enumParam(search, 'status', STATUSES),
+    status,
     sort: search.get('sort'),
-    direction: search.get('direction') === 'asc' ? 'asc' : 'desc',
+    direction: direction,
     rangeFrom: 0,
-    rangeTo: EXPORT_MAX - 1,
+    rangeTo: EXPORT_MAXIMUM - 1,
   });
 
-  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-  res.setHeader(
+  response.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  response.setHeader(
     'Content-Disposition',
     `attachment; filename="analytics-${new Date().toISOString().slice(0, 10)}.csv"`
   );
-  res.statusCode = 200;
+  response.statusCode = 200;
   // A byte order mark, so Excel on Windows reads the Chinese titles as UTF-8
   // rather than as the local code page. Same as 8.3's export.
-  res.end(`﻿${funnelCsv(rows)}`);
+  response.end(`﻿${funnelCsv(rows)}`);
   return undefined;
 }

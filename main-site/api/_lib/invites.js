@@ -37,7 +37,7 @@
 //   that was actually sent. Removing a shortlist entry does delete, because
 //   nothing was ever sent and there is no record to keep.
 
-import { supabase, T } from './supabase.js';
+import { supabase, TABLES } from './supabase.js';
 import { raiseTasks } from './admin-tasks.js';
 
 /** Every state migration 008 and 032 allow, in the order a row moves through. */
@@ -64,12 +64,12 @@ export const INVITE_STATUSES = Object.freeze([
 const CONTACTED = Object.freeze(['invited', 'seen', 'applied', 'declined', 'withdrawn']);
 
 /** How many people one send may reach. A confirmation lists them all by name. */
-export const MAX_RECIPIENTS = 50;
+export const MAXIMUM_RECIPIENTS = 50;
 
 const INVITE_COLUMNS = `
   id, job_id, applicant_id, status, note, created_at, updated_at, notified_at, invited_by,
-  applicant:${T.users} ( id, username, display_name, avatar_url, is_active ),
-  job:${T.jobs} ( id, title, slug, status )
+  applicant:${TABLES.users} ( id, username, display_name, avatar_url, is_active ),
+  job:${TABLES.jobs} ( id, title, slug, status )
 `;
 
 /**
@@ -83,7 +83,7 @@ const INVITE_COLUMNS = `
  *           rangeFrom?: number, rangeTo?: number }} options
  */
 export async function listInvites(options = {}) {
-  let query = supabase.from(T.invites).select(INVITE_COLUMNS, { count: 'exact' });
+  let query = supabase.from(TABLES.invites).select(INVITE_COLUMNS, { count: 'exact' });
 
   if (options.jobId) query = query.eq('job_id', options.jobId);
   if (options.applicantId) query = query.eq('applicant_id', options.applicantId);
@@ -98,7 +98,33 @@ export async function listInvites(options = {}) {
   return { rows: (data ?? []).map(inviteRow), total: count ?? 0 };
 }
 
+/**
+ * One invite or shortlist entry as the staff pages show it, with the applicant
+ * and posting it is about.
+ */
 function inviteRow(row) {
+  let applicant;
+
+  if (row.applicant) {
+    applicant = {
+      id: row.applicant.id,
+      username: row.applicant.username,
+      display_name: row.applicant.display_name,
+      avatar_url: row.applicant.avatar_url ?? null,
+      is_active: row.applicant.is_active !== false,
+    };
+  } else {
+    applicant = null;
+  }
+
+  let job;
+
+  if (row.job) {
+    job = { id: row.job.id, title: row.job.title, slug: row.job.slug, status: row.job.status };
+  } else {
+    job = null;
+  }
+
   return {
     id: row.id,
     job_id: row.job_id,
@@ -110,16 +136,8 @@ function inviteRow(row) {
     // The one field that answers "has this person heard about this yet", which
     // the status cannot: a withdrawn invite was sent, and a shortlist was not.
     notified_at: row.notified_at,
-    applicant: row.applicant
-      ? {
-          id: row.applicant.id,
-          username: row.applicant.username,
-          display_name: row.applicant.display_name,
-          avatar_url: row.applicant.avatar_url ?? null,
-          is_active: row.applicant.is_active !== false,
-        }
-      : null,
-    job: row.job ? { id: row.job.id, title: row.job.title, slug: row.job.slug, status: row.job.status } : null,
+    applicant: applicant,
+    job: job,
   };
 }
 
@@ -143,7 +161,7 @@ export async function searchInviteApplicants(term, limit = 20) {
   const trimmed = String(term ?? '').trim();
 
   let query = supabase
-    .from(T.users)
+    .from(TABLES.users)
     .select('id, username, display_name, avatar_url')
     .eq('is_active', true)
     .order('display_name', { ascending: true })
@@ -179,7 +197,7 @@ async function existingFor(jobId, applicantIds) {
   if (applicantIds.length === 0) return new Map();
 
   const { data, error } = await supabase
-    .from(T.invites)
+    .from(TABLES.invites)
     .select('id, applicant_id, status, notified_at')
     .eq('job_id', jobId)
     .in('applicant_id', applicantIds);
@@ -209,7 +227,7 @@ export async function shortlistApplicants(input) {
   }
 
   if (added.length > 0) {
-    const { error } = await supabase.from(T.invites).insert(
+    const { error } = await supabase.from(TABLES.invites).insert(
       added.map((applicantId) => ({
         job_id: input.jobId,
         applicant_id: applicantId,
@@ -226,7 +244,7 @@ export async function shortlistApplicants(input) {
   // shortlisting the same person twice.
   if (updated.length > 0 && input.note !== undefined) {
     const { error } = await supabase
-      .from(T.invites)
+      .from(TABLES.invites)
       .update({ note: input.note ?? null })
       .eq('job_id', input.jobId)
       .in('applicant_id', updated)
@@ -275,7 +293,7 @@ export async function inviteApplicants(input) {
   const invited = [...fresh, ...promote];
 
   if (fresh.length > 0) {
-    const { error } = await supabase.from(T.invites).insert(
+    const { error } = await supabase.from(TABLES.invites).insert(
       fresh.map((applicantId) => ({
         job_id: input.job.id,
         applicant_id: applicantId,
@@ -290,7 +308,7 @@ export async function inviteApplicants(input) {
 
   if (promote.length > 0) {
     const { error } = await supabase
-      .from(T.invites)
+      .from(TABLES.invites)
       .update({
         status: 'invited',
         note: input.note ?? null,
@@ -342,7 +360,7 @@ export async function inviteApplicants(input) {
  */
 export async function withdrawInvite(jobId, applicantId) {
   const { data, error } = await supabase
-    .from(T.invites)
+    .from(TABLES.invites)
     .update({ status: 'withdrawn' })
     .eq('job_id', jobId)
     .eq('applicant_id', applicantId)
@@ -362,7 +380,7 @@ export async function withdrawInvite(jobId, applicantId) {
  */
 export async function removeShortlisted(jobId, applicantId) {
   const { data, error } = await supabase
-    .from(T.invites)
+    .from(TABLES.invites)
     .delete()
     .eq('job_id', jobId)
     .eq('applicant_id', applicantId)
@@ -390,7 +408,7 @@ export async function removeShortlisted(jobId, applicantId) {
 export async function markInviteApplied(jobId, applicantId) {
   try {
     const { error } = await supabase
-      .from(T.invites)
+      .from(TABLES.invites)
       .update({ status: 'applied' })
       .eq('job_id', jobId)
       .eq('applicant_id', applicantId)

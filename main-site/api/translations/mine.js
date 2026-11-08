@@ -26,33 +26,37 @@
 //   from them.
 
 import { ok, methodNotAllowed, failInternal } from '../_lib/respond.js';
-import { supabase, T } from '../_lib/supabase.js';
+import { supabase, TABLES } from '../_lib/supabase.js';
 import { requireApplicant } from '../_lib/session.js';
 import { requestLocale } from '../_lib/locales.js';
 import { jobSummaries } from '../_lib/dashboard.js';
 
-const MAX_ROWS = 100;
+const MAXIMUM_ROWS = 100;
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'HEAD'])) return;
+/**
+ * List the translation reports the signed in reader has raised, with what
+ * happened to each one.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'HEAD'])) return;
 
-  res.setHeader('Cache-Control', 'no-store');
+  response.setHeader('Cache-Control', 'no-store');
 
-  const session = await requireApplicant(req, res);
+  const session = await requireApplicant(request, response);
   if (!session) return;
 
   try {
     const { data, error } = await supabase
-      .from(T.translationReports)
+      .from(TABLES.translationReports)
       .select(
         'id, target_type, target_id, target_key, field, locale, note, ' +
           'suggested_text, status, resolution_note, resolved_at, created_at'
       )
       .eq('reporter_id', session.user.id)
       .order('created_at', { ascending: false })
-      .limit(MAX_ROWS);
+      .limit(MAXIMUM_ROWS);
 
-    if (error) return failInternal(res, error, 'my translation reports');
+    if (error) return failInternal(response, error, 'my translation reports');
 
     const rows = data ?? [];
 
@@ -62,31 +66,43 @@ export default async function handler(req, res) {
     // name is three more queries for a line of context nobody is missing.
     const jobs = await jobSummaries(
       rows.filter((row) => row.target_type === 'job').map((row) => row.target_id),
-      await requestLocale(req)
+      await requestLocale(request)
     );
 
-    const reports = rows.map((row) => ({
-      id: row.id,
-      target_type: row.target_type,
-      target_key: row.target_key ?? null,
-      field: row.field ?? null,
-      locale: row.locale,
-      note: row.note,
-      suggested_text: row.suggested_text ?? null,
-      status: row.status,
-      // Null while the report is open, and the page says so rather than leaving
-      // an empty line where an answer will eventually be.
-      resolution_note: row.resolution_note ?? null,
-      resolved_at: row.resolved_at ?? null,
-      created_at: row.created_at,
-      job: row.target_type === 'job' ? (jobs.get(row.target_id) ?? null) : null,
-    }));
+    const reports = rows.map((row) => {
+      let job;
 
-    return ok(res, {
+      if (row.target_type === 'job') {
+        job = jobs.get(row.target_id) ?? null;
+      } else {
+        job = null;
+      }
+
+      return {
+        id: row.id,
+        target_type: row.target_type,
+        target_key: row.target_key ?? null,
+        field: row.field ?? null,
+        locale: row.locale,
+        note: row.note,
+        suggested_text: row.suggested_text ?? null,
+        status: row.status,
+
+        // Null while the report is open, and the page says so rather than leaving
+        // an empty line where an answer will eventually be.
+        resolution_note: row.resolution_note ?? null,
+
+        resolved_at: row.resolved_at ?? null,
+        created_at: row.created_at,
+        job: job,
+      };
+    });
+
+    return ok(response, {
       reports,
       open_count: reports.filter((report) => report.status === 'open').length,
     });
   } catch (cause) {
-    return failInternal(res, cause, 'my translation reports');
+    return failInternal(response, cause, 'my translation reports');
   }
 }

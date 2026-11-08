@@ -32,10 +32,15 @@
 // column is read here, checkAnswers takes it, and there is no path by which a
 // request can supply the set it is checked against.
 
-
-
-import { ok, fail, ERR, methodNotAllowed, failInternal, readJson } from '../_lib/respond.js';
-import { supabase, T } from '../_lib/supabase.js';
+import {
+  ok,
+  fail,
+  ERROR_CODES,
+  methodNotAllowed,
+  failInternal,
+  readJson,
+} from '../_lib/respond.js';
+import { supabase, TABLES } from '../_lib/supabase.js';
 import { requireApplicant } from '../_lib/session.js';
 import { isUuid } from '../_lib/job-detail.js';
 import { validateText, FIELD } from '../_lib/validate.js';
@@ -55,21 +60,26 @@ const ACTIONS = ['reply', 'dismiss'];
 // Long enough for a real answer to "tell us more about your availability", short
 // enough that this cannot become a file transfer. There is no upload here and
 // there is not going to be one: the answers live in Google Forms, per section 10.
-const REPLY_MAX = 4000;
+const REPLY_MAXIMUM = 4000;
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['POST'])) return;
+/**
+ * Let an applicant reply to a task or dismiss it. A reply may carry text, answers
+ * to the task's questions, or both; a dismissal is only allowed for tasks that
+ * need no reply. The task moves to the matching status and staff are told.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['POST'])) return;
 
   // 8.12's guard. Off means off, including the API.
-  if (await unavailable(res, 'outstanding_tasks')) return;
+  if (await unavailable(response, 'outstanding_tasks')) return;
 
-  const session = await requireApplicant(req, res);
+  const session = await requireApplicant(request, response);
   if (!session) return;
 
-  const subjects = [subjectForUser('applicant', session.user.id), subjectForIp(req)];
-  if (await limited(res, 'task_reply', subjects)) return;
+  const subjects = [subjectForUser('applicant', session.user.id), subjectForIp(request)];
+  if (await limited(response, 'task_reply', subjects)) return;
 
-  const body = await readJson(req, res);
+  const body = await readJson(request, response);
   if (body === null) return;
 
   const details = {};
@@ -77,33 +87,35 @@ export default async function handler(req, res) {
   const taskId = String(body.task_id ?? '').trim();
   if (!isUuid(taskId)) details.task_id = FIELD.INVALID;
 
-  const action = String(body.action ?? '').trim().toLowerCase();
+  const action = String(body.action ?? '')
+    .trim()
+    .toLowerCase();
   if (!ACTIONS.includes(action)) details.action = FIELD.INVALID;
 
   // Whether the free text is required is decided after the task is read,
   // because it depends on whether the task carries questions: a reply that
   // answers three questions and adds nothing else is a complete reply, and
   // demanding a sentence as well would be asking somebody to pad it out.
-  const text = validateText(body.text, REPLY_MAX);
+  const text = validateText(body.text, REPLY_MAXIMUM);
   if (!text.ok) details.text = text.code;
 
   if (Object.keys(details).length > 0) {
-    return fail(res, ERR.BAD_REQUEST, 'That could not be sent.', { details });
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That could not be sent.', { details });
   }
 
   try {
     const { data: task, error } = await supabase
-      .from(T.tasks)
+      .from(TABLES.tasks)
       .select('id, task_type, status, response_text, responded_at, questions')
       .eq('id', taskId)
       .eq('applicant_id', session.user.id)
       .maybeSingle();
 
-    if (error) return failInternal(res, error, 'task respond');
-    if (!task) return fail(res, ERR.NOT_FOUND, 'That task could not be found.');
+    if (error) return failInternal(response, error, 'task respond');
+    if (!task) return fail(response, ERROR_CODES.NOT_FOUND, 'That task could not be found.');
 
     if (!OPEN_STATUSES.includes(task.status)) {
-      return fail(res, ERR.CONFLICT, 'That task has already been closed.', {
+      return fail(response, ERROR_CODES.CONFLICT, 'That task has already been closed.', {
         details: { reason: 'closed' },
       });
     }
@@ -113,7 +125,7 @@ export default async function handler(req, res) {
     // response_text null, and the old check would have let that one be replied
     // to twice, which is the one thing the one round rule exists to prevent.
     if (action === 'reply' && task.responded_at !== null) {
-      return fail(res, ERR.CONFLICT, 'You have already replied to that one.', {
+      return fail(response, ERROR_CODES.CONFLICT, 'You have already replied to that one.', {
         details: { reason: 'already_replied' },
       });
     }
@@ -127,9 +139,14 @@ export default async function handler(req, res) {
       // own values, and nothing naming a question this task does not carry.
       const checked = checkAnswers(body.answers, task.questions);
       if (!checked.ok) {
-        return fail(res, ERR.BAD_REQUEST, 'Some of those answers are missing or not valid.', {
-          details: checked.details,
-        });
+        return fail(
+          response,
+          ERROR_CODES.BAD_REQUEST,
+          'Some of those answers are missing or not valid.',
+          {
+            details: checked.details,
+          }
+        );
       }
       answers = checked.value;
 
@@ -142,24 +159,27 @@ export default async function handler(req, res) {
       // text would spend the one round the applicant has and tell the admin
       // nothing, which is worse for them than being asked to write something.
       if (!text.value && (!carriesQuestions || answers === null)) {
-        return fail(res, ERR.BAD_REQUEST, 'Write a reply before sending it.', {
+        return fail(response, ERROR_CODES.BAD_REQUEST, 'Write a reply before sending it.', {
           details: { text: FIELD.REQUIRED },
         });
       }
     }
 
-    const update =
-      action === 'reply'
-        ? {
-            response_text: text.value,
-            answers,
-            responded_at: new Date().toISOString(),
-            status: 'awaiting_admin',
-          }
-        : { status: 'dismissed' };
+    let update;
+
+    if (action === 'reply') {
+      update = {
+        response_text: text.value,
+        answers,
+        responded_at: new Date().toISOString(),
+        status: 'awaiting_admin',
+      };
+    } else {
+      update = { status: 'dismissed' };
+    }
 
     const { data: updated, error: updateError } = await supabase
-      .from(T.tasks)
+      .from(TABLES.tasks)
       .update(update)
       .eq('id', task.id)
       .eq('applicant_id', session.user.id)
@@ -169,23 +189,23 @@ export default async function handler(req, res) {
       .select('id, status, response_text, answers, responded_at, updated_at')
       .maybeSingle();
 
-    if (updateError) return failInternal(res, updateError, 'task respond');
+    if (updateError) return failInternal(response, updateError, 'task respond');
 
     if (!updated) {
-      return fail(res, ERR.CONFLICT, 'That task has already been closed.', {
+      return fail(response, ERROR_CODES.CONFLICT, 'That task has already been closed.', {
         details: { reason: 'closed' },
       });
     }
 
     await recordFailures('task_reply', subjects, LIMITS.taskReply);
 
-    return ok(res, {
+    return ok(response, {
       id: updated.id,
       status: updated.status,
       response_text: updated.response_text ?? null,
       responded_at: updated.responded_at ?? null,
     });
   } catch (cause) {
-    return failInternal(res, cause, 'task respond');
+    return failInternal(response, cause, 'task respond');
   }
 }

@@ -39,21 +39,21 @@ export const COOKIE = Object.freeze({
  * @param {import('http').IncomingMessage} req
  * @returns {Record<string, string>}
  */
-export function parseCookies(req) {
+export function parseCookies(request) {
   // Vercel provides req.cookies on its Node runtime. Fall back to parsing the
   // header so this also works under a plain Node server and in tests.
-  if (req.cookies && typeof req.cookies === 'object') return req.cookies;
+  if (request.cookies && typeof request.cookies === 'object') return request.cookies;
 
-  const header = req.headers?.cookie;
+  const header = request.headers?.cookie;
   if (!header) return {};
 
   const out = {};
   for (const part of header.split(';')) {
-    const eq = part.indexOf('=');
-    if (eq < 0) continue;
-    const name = part.slice(0, eq).trim();
+    const equalsIndex = part.indexOf('=');
+    if (equalsIndex < 0) continue;
+    const name = part.slice(0, equalsIndex).trim();
     if (!name) continue;
-    const value = part.slice(eq + 1).trim();
+    const value = part.slice(equalsIndex + 1).trim();
     try {
       out[name] = decodeURIComponent(value);
     } catch {
@@ -69,9 +69,14 @@ export function parseCookies(req) {
  * @param {string} name
  * @returns {string|null}
  */
-export function readCookie(req, name) {
-  const value = parseCookies(req)[name];
-  return typeof value === 'string' && value !== '' ? value : null;
+export function readCookie(request, name) {
+  const value = parseCookies(request)[name];
+
+  if (typeof value === 'string' && value !== '') {
+    return value;
+  } else {
+    return null;
+  }
 }
 
 /**
@@ -90,7 +95,7 @@ export function serialiseCookie(name, value, options = {}) {
 
   // Secure is on everywhere except plain http localhost, where the browser
   // would otherwise drop the cookie and local development would not work.
-  const secure = options.secure ?? !isLocalDev();
+  const secure = options.secure ?? !isLocalDevelopment();
   if (secure) parts.push('Secure');
 
   if (options.expires instanceof Date) {
@@ -110,8 +115,8 @@ export function serialiseCookie(name, value, options = {}) {
  * @param {string} value
  * @param {Parameters<typeof serialiseCookie>[2]} [options]
  */
-export function setCookie(res, name, value, options = {}) {
-  appendSetCookie(res, serialiseCookie(name, value, options));
+export function setCookie(response, name, value, options = {}) {
+  appendSetCookie(response, serialiseCookie(name, value, options));
 }
 
 /**
@@ -120,9 +125,9 @@ export function setCookie(res, name, value, options = {}) {
  * @param {string} name
  * @param {Parameters<typeof serialiseCookie>[2]} [options]
  */
-export function clearCookie(res, name, options = {}) {
+export function clearCookie(response, name, options = {}) {
   appendSetCookie(
-    res,
+    response,
     serialiseCookie(name, '', {
       ...options,
       expires: new Date(0),
@@ -131,18 +136,18 @@ export function clearCookie(res, name, options = {}) {
   );
 }
 
-function appendSetCookie(res, cookie) {
-  const existing = res.getHeader('Set-Cookie');
+function appendSetCookie(response, cookie) {
+  const existing = response.getHeader('Set-Cookie');
   if (!existing) {
-    res.setHeader('Set-Cookie', [cookie]);
+    response.setHeader('Set-Cookie', [cookie]);
   } else if (Array.isArray(existing)) {
-    res.setHeader('Set-Cookie', [...existing, cookie]);
+    response.setHeader('Set-Cookie', [...existing, cookie]);
   } else {
-    res.setHeader('Set-Cookie', [String(existing), cookie]);
+    response.setHeader('Set-Cookie', [String(existing), cookie]);
   }
 }
 
-function isLocalDev() {
+function isLocalDevelopment() {
   const site = process.env.SITE_URL ?? '';
   return site.startsWith('http://localhost') || site.startsWith('http://127.0.0.1');
 }

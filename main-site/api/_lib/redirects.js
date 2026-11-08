@@ -15,14 +15,7 @@ const FALLBACK = '/account';
 
 // Path prefixes an applicant may be returned to. A posting, the board, and
 // their own account area. Never /admin, never /api, never a placeholder route.
-const ALLOWED_PREFIXES = [
-  '/jobs/',
-  '/search',
-  '/account',
-  '/about',
-  '/faq',
-  '/',
-];
+const ALLOWED_PREFIXES = ['/jobs/', '/search', '/account', '/about', '/faq', '/'];
 
 /**
  * Validate a redirect target. Returns a safe relative path, always.
@@ -42,8 +35,8 @@ export function safeRedirect(value) {
   // No control characters, and no backslash anywhere, since some browsers
   // normalise a backslash to a slash after the fact. Written as a loop rather
   // than a regex so no control character has to appear in this source file.
-  for (let i = 0; i < value.length; i += 1) {
-    const code = value.charCodeAt(i);
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
     const isControl = code <= 0x1f || code === 0x7f;
     const isBackslash = code === 0x5c;
     if (isControl || isBackslash) return FALLBACK;
@@ -65,9 +58,13 @@ export function safeRedirect(value) {
 
   const path = parsed.pathname;
 
-  const allowed = ALLOWED_PREFIXES.some((prefix) =>
-    prefix === '/' ? path === '/' : path === prefix || path.startsWith(prefix)
-  );
+  const allowed = ALLOWED_PREFIXES.some((prefix) => {
+    if (prefix === '/') {
+      return path === '/';
+    } else {
+      return path === prefix || path.startsWith(prefix);
+    }
+  });
   if (!allowed) return FALLBACK;
 
   // Query and hash are preserved, so returning to /search keeps the filters and

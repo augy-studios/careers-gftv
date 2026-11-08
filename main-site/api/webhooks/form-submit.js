@@ -34,23 +34,12 @@
 //   **The rate limit sits after validation**, because its subject is the form,
 //   and which form this is only exists once the body has been read and checked.
 
-import {
-  ok,
-  fail,
-  ERR,
-  methodNotAllowed,
-  readJson,
-} from '../_lib/respond.js';
-import { requireEnv } from '../_lib/env.js';
-import { timingSafeEqualStr } from '../_lib/tokens.js';
+import { ok, fail, ERROR_CODES, methodNotAllowed, readJson } from '../_lib/respond.js';
+import { requireEnvironmentVariable } from '../_lib/env.js';
+import { timingSafeEqualStrings } from '../_lib/tokens.js';
 import { unavailable } from '../_lib/maintenance.js';
-import { supabase, T } from '../_lib/supabase.js';
-import {
-  LIMITS,
-  limited,
-  recordFailures,
-  subjectForForm,
-} from '../_lib/rate-limit.js';
+import { supabase, TABLES } from '../_lib/supabase.js';
+import { LIMITS, limited, recordFailures, subjectForForm } from '../_lib/rate-limit.js';
 import {
   attachApplicant,
   confirmFromWebhook,
@@ -66,18 +55,24 @@ import {
  * largest honest delivery and small enough that an endpoint holding a shared
  * secret cannot be used to push megabytes at a function.
  */
-const MAX_BODY = 2 * 1024;
+const MAXIMUM_BODY = 2 * 1024;
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['POST'])) return;
+/**
+ * Receive a confirmed submission from a posting's Google Form. Checks the shared
+ * secret, records the submission once even if it is delivered twice, matches it to
+ * an applicant by email, and marks their application as submitted. Anything past
+ * the secret and the shape check answers 200 so the form never retries forever.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['POST'])) return;
 
-  res.setHeader('Cache-Control', 'no-store');
+  response.setHeader('Cache-Control', 'no-store');
 
   /* Step 1, the secret. ---------------------------------------------------- */
 
   let expected;
   try {
-    expected = requireEnv('FORM_WEBHOOK_SECRET');
+    expected = requireEnvironmentVariable('FORM_WEBHOOK_SECRET');
   } catch (cause) {
     // The variable is missing from the environment. This is the one internal
     // failure that is not answered with a 200, because it is not a bad day for
@@ -87,21 +82,31 @@ export default async function handler(req, res) {
     // one case where an Apps Script retry is genuinely useful, because
     // somebody setting the variable fixes it.
     console.error('[careers-gftv] form webhook is not configured:', cause);
-    return fail(res, ERR.NOT_YET_AVAILABLE, 'The submission webhook is not configured.');
+    return fail(
+      response,
+      ERROR_CODES.NOT_YET_AVAILABLE,
+      'The submission webhook is not configured.'
+    );
   }
 
-  const presented = req.headers['x-portal-secret'];
-  const supplied = Array.isArray(presented) ? presented[0] : presented;
+  const presented = request.headers['x-portal-secret'];
+  let supplied;
+
+  if (Array.isArray(presented)) {
+    supplied = presented[0];
+  } else {
+    supplied = presented;
+  }
 
   // Timing safe, and it compares digests rather than the strings, so a length
   // mismatch does not answer faster than a value mismatch. The same shape the
   // recovery codes and the reset tokens use.
-  if (typeof supplied !== 'string' || !timingSafeEqualStr(supplied, expected)) {
+  if (typeof supplied !== 'string' || !timingSafeEqualStrings(supplied, expected)) {
     // "Log nothing sensitive", per step 1. Not the presented value, not its
     // length, and not the address it came from. That a mismatch happened is the
     // whole of what is useful, and it is the whole of what is written.
     console.warn('[careers-gftv] form webhook: secret mismatch');
-    return fail(res, ERR.UNAUTHORISED, 'That secret is not recognised.');
+    return fail(response, ERROR_CODES.UNAUTHORISED, 'That secret is not recognised.');
   }
 
   /* 8.12's guard. ---------------------------------------------------------- */
@@ -110,16 +115,16 @@ export default async function handler(req, res) {
   // off from /admin/maintenance on the day a form starts sending nonsense.
   // Section 13 calls the endpoint "enabled by default", which means no admin has
   // to switch it on — not that it is exempt from being switched off.
-  if (await unavailable(res, 'form_webhook')) return;
+  if (await unavailable(response, 'form_webhook')) return;
 
   /* Step 2, the payload. --------------------------------------------------- */
 
-  const body = await readJson(req, res, MAX_BODY);
+  const body = await readJson(request, response, MAXIMUM_BODY);
   if (body === null) return;
 
   const checked = validateSubmission(body);
   if (!checked.ok) {
-    return fail(res, ERR.BAD_REQUEST, 'That submission could not be read.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That submission could not be read.', {
       details: checked.details,
     });
   }
@@ -129,7 +134,7 @@ export default async function handler(req, res) {
   /* Step 8, the ceiling. --------------------------------------------------- */
 
   const subjects = [subjectForForm(jobId)];
-  if (await limited(res, 'formWebhook', subjects)) return;
+  if (await limited(response, 'formWebhook', subjects)) return;
 
   /* Steps 3 to 6. ---------------------------------------------------------- */
 
@@ -140,7 +145,7 @@ export default async function handler(req, res) {
     // is a setup mistake, so it is answered plainly rather than swallowed: this
     // is the one thing in the response an admin setting up a form will read.
     const { data: job, error: jobError } = await supabase
-      .from(T.jobs)
+      .from(TABLES.jobs)
       .select('id, title')
       .eq('id', jobId)
       .maybeSingle();
@@ -148,10 +153,10 @@ export default async function handler(req, res) {
     if (jobError) throw jobError;
 
     if (!job) {
-      return ok(res, {
+      return ok(response, {
         recorded: false,
         reason: 'no_such_posting',
-        message: 'No posting has that id. Check JOB_ID in the form\'s Script Properties.',
+        message: "No posting has that id. Check JOB_ID in the form's Script Properties.",
       });
     }
 
@@ -169,7 +174,7 @@ export default async function handler(req, res) {
       // Not an error. Apps Script retries on a timeout it has already been
       // served, and the second delivery of a response we have recorded is the
       // system working.
-      return ok(res, { recorded: true, duplicate: true });
+      return ok(response, { recorded: true, duplicate: true });
     }
 
     await recordFailures('formWebhook', subjects, LIMITS.formWebhook);
@@ -182,7 +187,7 @@ export default async function handler(req, res) {
       // analytics page, where an admin can attach it to an account. Somebody
       // applying with a different address than they registered with is the
       // normal cause and is not a fault of anybody's.
-      return ok(res, { recorded: true, duplicate: false, matched: false });
+      return ok(response, { recorded: true, duplicate: false, matched: false });
     }
 
     // Step 5.
@@ -193,7 +198,7 @@ export default async function handler(req, res) {
     // matched and quietly incomplete.
     await attachApplicant(row.id, applicant.id);
 
-    return ok(res, {
+    return ok(response, {
       recorded: true,
       duplicate: false,
       matched: true,
@@ -206,6 +211,6 @@ export default async function handler(req, res) {
     // including this. Logged loudly, because the server console is now the only
     // place this delivery exists.
     console.error('[careers-gftv] form webhook:', cause);
-    return ok(res, { recorded: false, reason: 'internal' });
+    return ok(response, { recorded: false, reason: 'internal' });
   }
 }

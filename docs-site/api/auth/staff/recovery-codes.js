@@ -37,7 +37,14 @@
 // one, which is the sort of distinction a single "these are shared" sentence at
 // the top of a page would lose.
 
-import { ok, fail, ERR, methodNotAllowed, readJson, failInternal } from '../../_lib/respond.js';
+import {
+  ok,
+  fail,
+  ERROR_CODES,
+  methodNotAllowed,
+  readJson,
+  failInternal,
+} from '../../_lib/respond.js';
 import { requireStaff } from '../../_lib/session.js';
 import { auditStaff, AUDIT } from '../../_lib/audit.js';
 import { FIELD } from '../../_lib/validate.js';
@@ -58,18 +65,22 @@ import {
   subjectForUser,
 } from '../../_lib/rate-limit.js';
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'POST'])) return;
+/**
+ * Say how many recovery and backup codes a staff account has left, or generate a
+ * new set, which is shown once and replaces the old one.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'POST'])) return;
 
-  const session = await requireStaff(req, res);
+  const session = await requireStaff(request, response);
   if (!session) return;
 
   const userId = session.user.id;
 
   try {
-    if (req.method === 'GET') {
+    if (request.method === 'GET') {
       const counts = await codeCounts('staff', userId);
-      return ok(res, {
+      return ok(response, {
         codes: counts,
         codes_low: {
           recovery: codesLow(counts.recovery),
@@ -80,23 +91,23 @@ export default async function handler(req, res) {
       });
     }
 
-    const body = await readJson(req, res);
+    const body = await readJson(request, response);
     if (!body) return;
 
     const which = String(body.set ?? 'recovery');
     if (!isCodeSet('staff', which)) {
-      return fail(res, ERR.BAD_REQUEST, 'That is not a set of codes this site has.', {
+      return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not a set of codes this site has.', {
         details: { set: FIELD.INVALID },
       });
     }
 
-    const subjects = [subjectForIp(req), subjectForUser('staff', userId)];
-    if (await limited(res, 'code_generation', subjects)) return;
+    const subjects = [subjectForIp(request), subjectForUser('staff', userId)];
+    if (await limited(response, 'code_generation', subjects)) return;
 
     const correct = await verifyRealmPassword('staff', userId, body.current_password);
     if (!correct) {
       await recordFailures('code_generation', subjects, LIMITS.codeGeneration);
-      return fail(res, ERR.UNAUTHORISED, 'That password was not right.', {
+      return fail(response, ERROR_CODES.UNAUTHORISED, 'That password was not right.', {
         details: { current_password: FIELD.INVALID },
       });
     }
@@ -105,14 +116,22 @@ export default async function handler(req, res) {
     // to gftvjobs_audit_log before it executes". Regenerating is destructive in
     // the way that matters here -- it invalidates every code the account still
     // had -- and for the backup set it is destructive in gftv.asia's table.
+    let reachesField;
+
+    if (which === 'backup') {
+      reachesField = { reaches: 'gftvhello_backup_codes' };
+    } else {
+      reachesField = {};
+    }
+
     await auditStaff(session.user, AUDIT.RECOVERY_CODES_GENERATED, {
       set: which,
-      ...(which === 'backup' ? { reaches: 'gftvhello_backup_codes' } : {}),
+      ...reachesField,
     });
 
     const codes = await generateCodeSet('staff', userId, which);
 
-    return ok(res, {
+    return ok(response, {
       set: which,
       codes,
       counts: await codeCounts('staff', userId),
@@ -125,6 +144,6 @@ export default async function handler(req, res) {
       reaches_gftv_asia: which === 'backup',
     });
   } catch (cause) {
-    return failInternal(res, cause, 'staff recovery codes');
+    return failInternal(response, cause, 'staff recovery codes');
   }
 }

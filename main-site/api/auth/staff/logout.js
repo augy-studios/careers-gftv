@@ -11,13 +11,13 @@
 import { ok, methodNotAllowed, failInternal } from '../../_lib/respond.js';
 import { endSession } from '../../_lib/session.js';
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['POST'])) return;
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['POST'])) return;
 
   try {
-    await endSession(req, res, 'staff');
-    return ok(res, { signed_out: true });
+    await endSession(request, response, 'staff');
+    return ok(response, { signed_out: true });
   } catch (cause) {
-    return failInternal(res, cause, 'staff logout');
+    return failInternal(response, cause, 'staff logout');
   }
 }

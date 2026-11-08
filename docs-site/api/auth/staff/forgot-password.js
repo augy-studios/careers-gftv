@@ -54,20 +54,23 @@
 // The ticket is bound to the browser by a nonce in its own cookie, so somebody
 // who obtains the ticket value alone cannot use it from anywhere else.
 
-import { ok, fail, ERR, methodNotAllowed, readJson, failInternal } from '../../_lib/respond.js';
+import {
+  ok,
+  fail,
+  ERROR_CODES,
+  methodNotAllowed,
+  readJson,
+  failInternal,
+} from '../../_lib/respond.js';
 import { findStaffByUsername, verifyCode, consumeCode } from '../../_lib/accounts.js';
 import { verifyAgainstNothing } from '../../_lib/password.js';
 import { verifyTotp, hasTotp } from '../../_lib/totp.js';
-import { randomToken, sha256, timingSafeEqualStr } from '../../_lib/tokens.js';
+import { randomToken, sha256, timingSafeEqualStrings } from '../../_lib/tokens.js';
 import { COOKIE, readCookie, setCookie } from '../../_lib/cookies.js';
-import { supabase, T } from '../../_lib/supabase.js';
+import { supabase, TABLES } from '../../_lib/supabase.js';
 import { hasPortalAccess } from '../../_lib/session.js';
 import { held } from '../../_lib/staff-account.js';
-import {
-  hasPasskeys,
-  startAuthentication,
-  finishAuthentication,
-} from '../../_lib/webauthn.js';
+import { hasPasskeys, startAuthentication, finishAuthentication } from '../../_lib/webauthn.js';
 import {
   LIMITS,
   limited,
@@ -84,42 +87,55 @@ const GENERIC = 'That account and code did not match. Check both and try again.'
 const SECOND_FACTOR_GENERIC = 'That was not right. Try again.';
 const EXPIRED = 'That took too long. Start again from the beginning.';
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['POST'])) return;
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['POST'])) return;
 
   // **Held at the first step, and that placement is the whole point.** This
   // endpoint verifies a recovery code and reset-password spends it, so a hold
   // that only refused at the end would take a code off somebody who is already
   // locked out and give them nothing for it. Refusing here costs them nothing.
-  if (held(res)) return;
+  if (held(response)) return;
 
-  const body = await readJson(req, res);
+  const body = await readJson(request, response);
   if (!body) return;
 
   if (typeof body.ticket === 'string' && body.ticket !== '') {
-    return secondFactorStep(req, res, body);
+    return secondFactorStep(request, response, body);
   }
 
-  return recoveryCodeStep(req, res, body);
+  return recoveryCodeStep(request, response, body);
 }
 
 /* -------------------------------------------------------------------------
  * Step one: the recovery code
  * ---------------------------------------------------------------------- */
 
-async function recoveryCodeStep(req, res, body) {
+async function recoveryCodeStep(request, response, body) {
   // Username only. 5a step 1 looks a staff account up by username and there is
   // no email sign in in this realm, so offering one here would be a second way
   // to address an account that the sign in itself does not have.
-  const username = typeof body.username === 'string' ? body.username.trim() : '';
-  const code = typeof body.code === 'string' ? body.code : '';
+  let username;
 
-  if (username === '' || code === '') {
-    return fail(res, ERR.BAD_REQUEST, GENERIC);
+  if (typeof body.username === 'string') {
+    username = body.username.trim();
+  } else {
+    username = '';
   }
 
-  const subjects = [subjectForIp(req), subjectForIdentifier(username)];
-  if (await limited(res, 'recovery_code', subjects)) return;
+  let code;
+
+  if (typeof body.code === 'string') {
+    code = body.code;
+  } else {
+    code = '';
+  }
+
+  if (username === '' || code === '') {
+    return fail(response, ERROR_CODES.BAD_REQUEST, GENERIC);
+  }
+
+  const subjects = [subjectForIp(request), subjectForIdentifier(username)];
+  if (await limited(response, 'recovery_code', subjects)) return;
 
   try {
     const user = await findStaffByUsername(username);
@@ -132,13 +148,13 @@ async function recoveryCodeStep(req, res, body) {
     if (!usable) {
       await verifyAgainstNothing(code);
       await recordFailures('recovery_code', subjects, LIMITS.recoveryCode);
-      return fail(res, ERR.UNAUTHORISED, GENERIC);
+      return fail(response, ERROR_CODES.UNAUTHORISED, GENERIC);
     }
 
     const codeId = await verifyCode('staff', user.id, 'recovery', code);
     if (!codeId) {
       await recordFailures('recovery_code', subjects, LIMITS.recoveryCode);
-      return fail(res, ERR.UNAUTHORISED, GENERIC);
+      return fail(response, ERROR_CODES.UNAUTHORISED, GENERIC);
     }
 
     // Migration 027's two proofs rule, which section 6 told migration 040 to
@@ -155,31 +171,63 @@ async function recoveryCodeStep(req, res, body) {
     const nonce = randomToken(32);
     const expiresAt = new Date(Date.now() + TICKET_MINUTES * 60 * 1000);
 
-    const { error } = await supabase.from(T.staffPasswordResets).insert({
+    let secondFactorAt;
+
+    if (secondFactorNeeded) {
+      secondFactorAt = null;
+    } else {
+      secondFactorAt = new Date().toISOString();
+    }
+
+    const { error } = await supabase.from(TABLES.staffPasswordResets).insert({
       staff_user_id: user.id,
       ticket_hash: sha256(ticket),
       browser_nonce_hash: sha256(nonce),
       recovery_code_id: codeId,
-      second_factor_at: secondFactorNeeded ? null : new Date().toISOString(),
+      second_factor_at: secondFactorAt,
       expires_at: expiresAt.toISOString(),
     });
 
-    if (error) return failInternal(res, error, 'staff forgot password ticket');
+    if (error) return failInternal(response, error, 'staff forgot password ticket');
 
-    setCookie(res, COOKIE.staffResetNonce, nonce, { expires: expiresAt });
+    setCookie(response, COOKIE.staffResetNonce, nonce, { expires: expiresAt });
     await clearAll('recovery_code', subjects);
 
-    return ok(res, {
+    let passkeyOption;
+
+    if (passkeys) {
+      passkeyOption = ['passkey'];
+    } else {
+      passkeyOption = [];
+    }
+
+    let totpOption;
+
+    if (totp) {
+      totpOption = ['totp'];
+    } else {
+      totpOption = [];
+    }
+
+    let backupCodeOption;
+
+    if (secondFactorNeeded) {
+      backupCodeOption = ['backup_code'];
+    } else {
+      backupCodeOption = [];
+    }
+
+    return ok(response, {
       ticket,
       second_factor_required: secondFactorNeeded,
       methods: [
-        ...(passkeys ? ['passkey'] : []),
-        ...(totp ? ['totp'] : []),
+        ...passkeyOption,
+        ...totpOption,
         // The backup set is offered whenever a second factor is wanted at all,
         // because it is what somebody without their phone has. It is a
         // different set from the recovery code already spent, which is the
         // whole of why 5g keeps two.
-        ...(secondFactorNeeded ? ['backup_code'] : []),
+        ...backupCodeOption,
       ],
       expires_at: expiresAt.toISOString(),
       // Shown on the next screen so the person knows whose password they are
@@ -191,7 +239,7 @@ async function recoveryCodeStep(req, res, body) {
       reaches_gftv_asia: true,
     });
   } catch (cause) {
-    return failInternal(res, cause, 'staff forgot password');
+    return failInternal(response, cause, 'staff forgot password');
   }
 }
 
@@ -199,33 +247,33 @@ async function recoveryCodeStep(req, res, body) {
  * Step two: the second factor, for an account that has one
  * ---------------------------------------------------------------------- */
 
-async function secondFactorStep(req, res, body) {
+async function secondFactorStep(request, response, body) {
   const ticket = body.ticket;
-  const nonce = readCookie(req, COOKIE.staffResetNonce);
+  const nonce = readCookie(request, COOKIE.staffResetNonce);
 
-  const subjects = [subjectForIp(req), subjectForIdentifier(ticket)];
-  if (await limited(res, 'recovery_code', subjects)) return;
+  const subjects = [subjectForIp(request), subjectForIdentifier(ticket)];
+  if (await limited(response, 'recovery_code', subjects)) return;
 
-  if (!nonce) return fail(res, ERR.UNAUTHORISED, EXPIRED);
+  if (!nonce) return fail(response, ERROR_CODES.UNAUTHORISED, EXPIRED);
 
   try {
     const { data: reset, error } = await supabase
-      .from(T.staffPasswordResets)
+      .from(TABLES.staffPasswordResets)
       .select('id, staff_user_id, browser_nonce_hash, second_factor_at, expires_at, used_at')
       .eq('ticket_hash', sha256(ticket))
       .maybeSingle();
 
-    if (error) return failInternal(res, error, 'staff forgot password lookup');
+    if (error) return failInternal(response, error, 'staff forgot password lookup');
 
     const unusable =
       !reset ||
       reset.used_at !== null ||
       new Date(reset.expires_at).getTime() <= Date.now() ||
-      !timingSafeEqualStr(reset.browser_nonce_hash, sha256(nonce));
+      !timingSafeEqualStrings(reset.browser_nonce_hash, sha256(nonce));
 
     if (unusable) {
       await recordFailures('recovery_code', subjects, LIMITS.recoveryCode);
-      return fail(res, ERR.UNAUTHORISED, EXPIRED, {
+      return fail(response, ERROR_CODES.UNAUTHORISED, EXPIRED, {
         details: { reason: 'ticket_expired' },
       });
     }
@@ -240,10 +288,10 @@ async function secondFactorStep(req, res, body) {
       });
 
       if (!options) {
-        return fail(res, ERR.BAD_REQUEST, 'There is no passkey on this account.');
+        return fail(response, ERROR_CODES.BAD_REQUEST, 'There is no passkey on this account.');
       }
 
-      return ok(res, { options });
+      return ok(response, { options });
     }
 
     let verified = false;
@@ -265,7 +313,7 @@ async function secondFactorStep(req, res, body) {
       // bcrypt round and no wrong answer.
       if (digits.length === 6) {
         const { data: account } = await supabase
-          .from(T.staffUsers)
+          .from(TABLES.staffUsers)
           .select('totp_secret')
           .eq('id', reset.staff_user_id)
           .maybeSingle();
@@ -288,20 +336,20 @@ async function secondFactorStep(req, res, body) {
 
     if (!verified) {
       await recordFailures('recovery_code', subjects, LIMITS.recoveryCode);
-      return fail(res, ERR.UNAUTHORISED, SECOND_FACTOR_GENERIC);
+      return fail(response, ERROR_CODES.UNAUTHORISED, SECOND_FACTOR_GENERIC);
     }
 
     const { error: markError } = await supabase
-      .from(T.staffPasswordResets)
+      .from(TABLES.staffPasswordResets)
       .update({ second_factor_at: new Date().toISOString() })
       .eq('id', reset.id);
 
-    if (markError) return failInternal(res, markError, 'staff forgot password second factor');
+    if (markError) return failInternal(response, markError, 'staff forgot password second factor');
 
     await clearAll('recovery_code', subjects);
 
-    return ok(res, { second_factor_satisfied: true });
+    return ok(response, { second_factor_satisfied: true });
   } catch (cause) {
-    return failInternal(res, cause, 'staff forgot password second factor');
+    return failInternal(response, cause, 'staff forgot password second factor');
   }
 }

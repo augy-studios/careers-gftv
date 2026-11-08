@@ -69,7 +69,7 @@ import {
   EXPECTED_PER_DAY,
   TARGET_KEYS,
   HEADLINE_TONE,
-  MIN_DECLARED_MS,
+  MINIMUM_DECLARED_MILLISECONDS,
   INCIDENT_LIMIT,
   listable,
   everyPhaseShipped,
@@ -85,7 +85,7 @@ import {
   renderServiceBody,
   renderBuildBody,
   statusDocument,
-  en,
+  englishText,
 } from '../main-site/api/_lib/status.js';
 
 // `renderDocument` reads SITE_URL for the canonical link, and the offline
@@ -100,7 +100,12 @@ const SITE = join(HERE, '..', 'main-site');
 
 const ONLY = (() => {
   const arg = process.argv.find((value) => value.startsWith('--only='));
-  return arg ? arg.slice('--only='.length).split(',').map((s) => s.trim()) : null;
+  return arg
+    ? arg
+        .slice('--only='.length)
+        .split(',')
+        .map((s) => s.trim())
+    : null;
 })();
 
 /* -------------------------------------------------------------------------
@@ -193,7 +198,8 @@ async function patchAssets(ctx) {
     const request = route.request();
     // GET only. A form posting to a page must reach the deployment, or the
     // response would be this file's idea of the page instead of the answer.
-    if (request.resourceType() !== 'document' || request.method() !== 'GET') return route.fallback();
+    if (request.resourceType() !== 'document' || request.method() !== 'GET')
+      return route.fallback();
 
     const file = await resolveRoute(new URL(request.url()).pathname);
     if (!file) return route.fallback();
@@ -281,7 +287,9 @@ function fixtureJob(index, locale) {
   const long = index === 0;
   return {
     id: `aaaaaaaa-bbbb-cccc-dddd-${String(index).padStart(12, '0')}`,
-    slug: long ? 'volunteer-subtitle-reviewer-and-terminology-coordinator-mandarin' : `role-${index}`,
+    slug: long
+      ? 'volunteer-subtitle-reviewer-and-terminology-coordinator-mandarin'
+      : `role-${index}`,
     title: long ? LONG_TITLE[locale] : `${locale === 'zh' ? '职位' : 'Role'} ${index}`,
     summary:
       locale === 'zh'
@@ -305,7 +313,14 @@ function fixtureJob(index, locale) {
     // rather than a blank, and a sentence is wider than a date.
     closes_at: index % 3 === 0 ? null : '2026-12-31T16:00:00.000Z',
     tags: long
-      ? [{ id: 'tttttttt-0000-0000-0000-000000000001', slug: 'subtitling', name: LONG_TAG[locale], colour: 'blue' }]
+      ? [
+          {
+            id: 'tttttttt-0000-0000-0000-000000000001',
+            slug: 'subtitling',
+            name: LONG_TAG[locale],
+            colour: 'blue',
+          },
+        ]
       : [],
     // False puts the English only badge on the card, which is a card with one
     // more thing on it than the others.
@@ -338,11 +353,26 @@ function facetsFixture(locale) {
         name: locale === 'zh' ? '内容本地化与字幕制作部' : 'Content Localisation and Subtitling',
         count: 17,
       },
-      { id: 'dddddddd-0000-0000-0000-000000000002', slug: 'production', name: locale === 'zh' ? '制作部' : 'Production', count: 24 },
+      {
+        id: 'dddddddd-0000-0000-0000-000000000002',
+        slug: 'production',
+        name: locale === 'zh' ? '制作部' : 'Production',
+        count: 24,
+      },
     ],
     tags: [
-      { id: 'tttttttt-0000-0000-0000-000000000001', slug: 'subtitling', name: LONG_TAG[locale], colour: 'blue' },
-      { id: 'tttttttt-0000-0000-0000-000000000002', slug: 'editing', name: locale === 'zh' ? '剪辑' : 'Editing', colour: 'green' },
+      {
+        id: 'tttttttt-0000-0000-0000-000000000001',
+        slug: 'subtitling',
+        name: LONG_TAG[locale],
+        colour: 'blue',
+      },
+      {
+        id: 'tttttttt-0000-0000-0000-000000000002',
+        slug: 'editing',
+        name: locale === 'zh' ? '剪辑' : 'Editing',
+        colour: 'green',
+      },
     ],
     commitments: [
       { key: 'volunteer', count: 30 },
@@ -365,7 +395,11 @@ function suggestFixture(locale) {
     suggestions: {
       titles: [
         { label: LONG_TITLE[locale], value: 'aaaaaaaa-bbbb-cccc-dddd-000000000000', count: 0 },
-        { label: zh ? '字幕审校员' : 'Subtitle reviewer', value: 'aaaaaaaa-bbbb-cccc-dddd-000000000001', count: 0 },
+        {
+          label: zh ? '字幕审校员' : 'Subtitle reviewer',
+          value: 'aaaaaaaa-bbbb-cccc-dddd-000000000001',
+          count: 0,
+        },
       ],
       tags: [{ label: LONG_TAG[locale], value: 'subtitling', count: 12 }],
       departments: [
@@ -463,7 +497,15 @@ function serviceFixture(now = new Date('2026-08-31T12:00:00Z')) {
     probeLastSeen: '2026-08-31T11:59:00Z',
     headline: headline({ lastSeen: '2026-08-31T11:59:00Z', incidents, off: ['apply'], now }),
     components: [
-      { key: 'applicant_login', phase: 2, off: false, note: null, since: null, denied: true, reason: 'Locks everybody out.' },
+      {
+        key: 'applicant_login',
+        phase: 2,
+        off: false,
+        note: null,
+        since: null,
+        denied: true,
+        reason: 'Locks everybody out.',
+      },
       {
         key: 'apply',
         phase: 5,
@@ -473,12 +515,28 @@ function serviceFixture(now = new Date('2026-08-31T12:00:00Z')) {
         denied: false,
         reason: null,
       },
-      { key: 'saved_jobs', phase: 6, off: false, note: null, since: null, denied: false, reason: null },
+      {
+        key: 'saved_jobs',
+        phase: 6,
+        off: false,
+        note: null,
+        since: null,
+        denied: false,
+        reason: null,
+      },
     ],
     uptime: TARGET_KEYS.map((target) => ({ target, ...uptimeFor(measured, { now }) })),
     declared: declaredIncidents([
-      { action: 'feature_disabled', created_at: '2026-08-20T10:00:00Z', metadata: { feature: 'apply', note: 'Forms are down.' } },
-      { action: 'feature_enabled', created_at: '2026-08-20T12:30:00Z', metadata: { feature: 'apply' } },
+      {
+        action: 'feature_disabled',
+        created_at: '2026-08-20T10:00:00Z',
+        metadata: { feature: 'apply', note: 'Forms are down.' },
+      },
+      {
+        action: 'feature_enabled',
+        created_at: '2026-08-20T12:30:00Z',
+        metadata: { feature: 'apply' },
+      },
     ]),
     observed: observedIncidents(incidents, { now }),
   };
@@ -515,7 +573,10 @@ async function serveSite(locale = 'en') {
               : null;
 
       if (fixture) {
-        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+        res.writeHead(200, {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Cache-Control': 'no-store',
+        });
         return res.end(JSON.stringify({ ok: true, data: fixture }));
       }
 
@@ -541,7 +602,10 @@ async function serveSite(locale = 'en') {
       // fixtures make: what is being measured is the page, and the worst data
       // the build allows is what makes that measurement mean anything.
       const service = url.searchParams.get('view') === 'service';
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+      res.writeHead(200, {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-store',
+      });
       return res.end(
         statusDocument({
           view: service ? VIEW.service : VIEW.build,
@@ -725,7 +789,9 @@ function report(label, results) {
   check(
     `${label} does not scroll sideways at any width`,
     scrolls.length === 0,
-    scrolls.map((r) => `${r.width}px by ${r.scrolled}px: ${r.widest?.chain ?? 'unknown'}`).join('; ')
+    scrolls
+      .map((r) => `${r.width}px by ${r.scrolled}px: ${r.widest?.chain ?? 'unknown'}`)
+      .join('; ')
   );
 
   const tight = results.filter((r) => r.tight.length > 0);
@@ -800,9 +866,10 @@ define('responsive', 'The public pages at six widths, in both languages', async 
       await page.waitForLoadState('networkidle').catch(() => {});
       const drawn = await page.evaluate(() => ({
         cards: document.querySelectorAll('.job-card:not([aria-hidden="true"])').length,
-        longest: [...document.querySelectorAll('.job-card')]
-          .map((el) => (el.textContent ?? '').trim().length)
-          .sort((a, b) => b - a)[0] ?? 0,
+        longest:
+          [...document.querySelectorAll('.job-card')]
+            .map((el) => (el.textContent ?? '').trim().length)
+            .sort((a, b) => b - a)[0] ?? 0,
       }));
       check(
         `the ${locale} board is drawn from the fixtures, not from an empty state`,
@@ -922,10 +989,13 @@ function auditA11y({ focusable }) {
   // shape of this audit reported every link in it as focusable inside
   // aria-hidden, on all six admin pages in both languages, which is a finding
   // about the check and not about the page. Both mechanisms count as gone.
-  const seen = (el) => el.checkVisibility({ checkVisibilityCSS: true }) && el.closest('[inert]') === null;
+  const seen = (el) =>
+    el.checkVisibility({ checkVisibilityCSS: true }) && el.closest('[inert]') === null;
 
   const describe = (el) => {
-    const cls = String(el.className || '').split(' ').filter(Boolean)[0];
+    const cls = String(el.className || '')
+      .split(' ')
+      .filter(Boolean)[0];
     return `${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''}${cls ? '.' + cls : ''}`;
   };
 
@@ -1001,7 +1071,13 @@ function auditA11y({ focusable }) {
   }
 
   // 3. Every ARIA reference points at something that is on the page.
-  const IDREF = ['aria-controls', 'aria-labelledby', 'aria-describedby', 'aria-activedescendant', 'aria-owns'];
+  const IDREF = [
+    'aria-controls',
+    'aria-labelledby',
+    'aria-describedby',
+    'aria-activedescendant',
+    'aria-owns',
+  ];
   const dangling = [];
   for (const attr of IDREF) {
     for (const el of document.querySelectorAll(`[${attr}]`)) {
@@ -1030,7 +1106,9 @@ function auditA11y({ focusable }) {
   const skips = [];
   for (let i = 1; i < levels.length; i += 1) {
     if (levels[i] > levels[i - 1] + 1) {
-      skips.push(`h${levels[i - 1]} "${textOf(headings[i - 1]).slice(0, 20)}" to h${levels[i]} "${textOf(headings[i]).slice(0, 20)}"`);
+      skips.push(
+        `h${levels[i - 1]} "${textOf(headings[i - 1]).slice(0, 20)}" to h${levels[i]} "${textOf(headings[i]).slice(0, 20)}"`
+      );
     }
   }
 
@@ -1040,7 +1118,8 @@ function auditA11y({ focusable }) {
   for (const img of document.querySelectorAll('img')) {
     if (!seen(img)) continue;
     if (img.hasAttribute('alt')) continue;
-    if (img.getAttribute('role') === 'presentation' || img.getAttribute('aria-hidden') === 'true') continue;
+    if (img.getAttribute('role') === 'presentation' || img.getAttribute('aria-hidden') === 'true')
+      continue;
     images.push(`${describe(img)} ${img.getAttribute('src')?.slice(-30) ?? ''}`);
   }
 
@@ -1053,7 +1132,9 @@ function auditA11y({ focusable }) {
   // 8. The skip link is the first thing Tab reaches, and it lands somewhere.
   const first = reachable[0] ?? null;
   const skip = document.querySelector('.skip-link');
-  const skipTarget = skip ? document.getElementById((skip.getAttribute('href') ?? '').replace(/^#/, '')) : null;
+  const skipTarget = skip
+    ? document.getElementById((skip.getAttribute('href') ?? '').replace(/^#/, ''))
+    : null;
 
   return {
     unnamed: [...new Set(unnamed)].slice(0, 8),
@@ -1072,15 +1153,26 @@ function auditA11y({ focusable }) {
 /** The eight rules, reported once per page rather than once per width. */
 function reportA11y(label, results) {
   const gather = (key) => results.filter((r) => r[key].length > 0);
-  const lines = (key) => gather(key).map((r) => `${r.width}px: ${r[key].join(', ')}`).join('; ');
+  const lines = (key) =>
+    gather(key)
+      .map((r) => `${r.width}px: ${r[key].join(', ')}`)
+      .join('; ');
 
-  check(`${label}: everything reachable by Tab has a name`, gather('unnamed').length === 0, lines('unnamed'));
+  check(
+    `${label}: everything reachable by Tab has a name`,
+    gather('unnamed').length === 0,
+    lines('unnamed')
+  );
   check(
     `${label}: nothing focusable sits inside aria-hidden`,
     gather('hiddenFocusable').length === 0,
     lines('hiddenFocusable')
   );
-  check(`${label}: every ARIA reference resolves`, gather('dangling').length === 0, lines('dangling'));
+  check(
+    `${label}: every ARIA reference resolves`,
+    gather('dangling').length === 0,
+    lines('dangling')
+  );
   check(`${label}: no id is used twice`, gather('duplicates').length === 0, lines('duplicates'));
   check(
     `${label}: exactly one h1 at every width`,
@@ -1088,12 +1180,18 @@ function reportA11y(label, results) {
     results.map((r) => `${r.width}px: ${r.h1Count}`).join(', ')
   );
   check(`${label}: no heading level is skipped`, gather('skips').length === 0, lines('skips'));
-  check(`${label}: every image has an alt or is marked decorative`, gather('images').length === 0, lines('images'));
+  check(
+    `${label}: every image has an alt or is marked decorative`,
+    gather('images').length === 0,
+    lines('images')
+  );
   check(`${label}: no positive tabindex`, gather('positive').length === 0, lines('positive'));
   check(
     `${label}: the skip link is first and lands on something`,
     results.every((r) => r.skipLinkFirst && r.skipLinkLands),
-    results.map((r) => `${r.width}px: first ${r.skipLinkFirst}, lands ${r.skipLinkLands}`).join('; ')
+    results
+      .map((r) => `${r.width}px: first ${r.skipLinkFirst}, lands ${r.skipLinkLands}`)
+      .join('; ')
   );
 }
 
@@ -1189,401 +1287,431 @@ define('a11y', 'The public pages against the accessibility rules, in both langua
 // has disabled. The rest of the list is an admin session and a database, and
 // goes with the pages it lives on.
 
-define('a11y-keyboard', 'The combobox, the filter sheet, the dialog and the connection bar', async () => {
-  const browser = await chromium.launch();
+define(
+  'a11y-keyboard',
+  'The combobox, the filter sheet, the dialog and the connection bar',
+  async () => {
+    const browser = await chromium.launch();
 
-  try {
-    for (const locale of LOCALES) {
-      const server = await serveSite(locale);
-      const ctx = await contextFor(browser, server.base, locale);
-      const page = await ctx.newPage();
+    try {
+      for (const locale of LOCALES) {
+        const server = await serveSite(locale);
+        const ctx = await contextFor(browser, server.base, locale);
+        const page = await ctx.newPage();
 
-      /* --- The suggestion combobox ------------------------------------- */
+        /* --- The suggestion combobox ------------------------------------- */
 
-      await page.setViewportSize({ width: 1024, height: 800 });
-      await page.goto(`${server.base}/search`, { waitUntil: 'domcontentloaded' });
-      await page.waitForLoadState('networkidle').catch(() => {});
+        await page.setViewportSize({ width: 1024, height: 800 });
+        await page.goto(`${server.base}/search`, { waitUntil: 'domcontentloaded' });
+        await page.waitForLoadState('networkidle').catch(() => {});
 
-      await page.click('#searchInput');
-      // 华文 opens on one character and English on two, which minimumQueryLength
-      // decides. Typing one letter in English would close the list and the
-      // whole surface would report as broken for the wrong reason.
-      await page.type('#searchInput', locale === 'zh' ? '字' : 'sub', { delay: 20 });
-      const opened = await page
-        .waitForSelector('#suggestions:not([hidden]) [role="option"]', { timeout: 5000 })
-        .then(() => true)
-        .catch(() => false);
+        await page.click('#searchInput');
+        // 华文 opens on one character and English on two, which minimumQueryLength
+        // decides. Typing one letter in English would close the list and the
+        // whole surface would report as broken for the wrong reason.
+        await page.type('#searchInput', locale === 'zh' ? '字' : 'sub', { delay: 20 });
+        const opened = await page
+          .waitForSelector('#suggestions:not([hidden]) [role="option"]', { timeout: 5000 })
+          .then(() => true)
+          .catch(() => false);
 
-      check(`the combobox opens on a real query, in ${locale}`, opened, 'no option appeared');
+        check(`the combobox opens on a real query, in ${locale}`, opened, 'no option appeared');
 
-      if (opened) {
-        const readCombobox = () =>
-          page.evaluate(() => {
-            const input = document.querySelector('#searchInput');
-            const active = input.getAttribute('aria-activedescendant');
-            const options = [...document.querySelectorAll('#suggestions [role="option"]')];
-            return {
-              expanded: input.getAttribute('aria-expanded'),
-              hidden: document.querySelector('#suggestions').hidden,
-              count: options.length,
-              active,
-              activeExists: Boolean(active) && Boolean(document.getElementById(active)),
-              selected: options.filter((el) => el.getAttribute('aria-selected') === 'true').length,
-              selectedIsActive:
-                Boolean(active) && document.getElementById(active)?.getAttribute('aria-selected') === 'true',
-              focused: document.activeElement?.id ?? null,
-              ids: options.map((el) => el.id),
-            };
-          });
+        if (opened) {
+          const readCombobox = () =>
+            page.evaluate(() => {
+              const input = document.querySelector('#searchInput');
+              const active = input.getAttribute('aria-activedescendant');
+              const options = [...document.querySelectorAll('#suggestions [role="option"]')];
+              return {
+                expanded: input.getAttribute('aria-expanded'),
+                hidden: document.querySelector('#suggestions').hidden,
+                count: options.length,
+                active,
+                activeExists: Boolean(active) && Boolean(document.getElementById(active)),
+                selected: options.filter((el) => el.getAttribute('aria-selected') === 'true')
+                  .length,
+                selectedIsActive:
+                  Boolean(active) &&
+                  document.getElementById(active)?.getAttribute('aria-selected') === 'true',
+                focused: document.activeElement?.id ?? null,
+                ids: options.map((el) => el.id),
+              };
+            });
 
-        const listed = await readCombobox();
-        check(
-          `the combobox says it is expanded while the list is open, in ${locale}`,
-          listed.expanded === 'true' && listed.hidden === false && listed.count === 4,
-          `aria-expanded ${listed.expanded}, hidden ${listed.hidden}, ${listed.count} options`
-        );
+          const listed = await readCombobox();
+          check(
+            `the combobox says it is expanded while the list is open, in ${locale}`,
+            listed.expanded === 'true' && listed.hidden === false && listed.count === 4,
+            `aria-expanded ${listed.expanded}, hidden ${listed.hidden}, ${listed.count} options`
+          );
 
-        await page.press('#searchInput', 'ArrowDown');
-        const first = await readCombobox();
-        check(
-          `the arrow keys move a highlight the input names, in ${locale}`,
-          first.activeExists && first.selected === 1 && first.selectedIsActive,
-          `aria-activedescendant "${first.active}", exists ${first.activeExists}, ${first.selected} selected`
-        );
+          await page.press('#searchInput', 'ArrowDown');
+          const first = await readCombobox();
+          check(
+            `the arrow keys move a highlight the input names, in ${locale}`,
+            first.activeExists && first.selected === 1 && first.selectedIsActive,
+            `aria-activedescendant "${first.active}", exists ${first.activeExists}, ${first.selected} selected`
+          );
 
-        // **The focus never leaves the input.** That is the whole contract of a
-        // combobox: the reader is typing, and the highlight moving is a change
-        // of state rather than a change of place. A version that focused the
-        // option would still highlight it, and the next keystroke would go
-        // somewhere the reader is not looking.
-        check(
-          `the focus stays in the input while the list is walked, in ${locale}`,
-          first.focused === 'searchInput',
-          `focus on ${first.focused}`
-        );
+          // **The focus never leaves the input.** That is the whole contract of a
+          // combobox: the reader is typing, and the highlight moving is a change
+          // of state rather than a change of place. A version that focused the
+          // option would still highlight it, and the next keystroke would go
+          // somewhere the reader is not looking.
+          check(
+            `the focus stays in the input while the list is walked, in ${locale}`,
+            first.focused === 'searchInput',
+            `focus on ${first.focused}`
+          );
 
-        // Down past the last option comes back to the first, and it walks out
-        // of one group and into the next on the way: the list is three groups
-        // and a reader arrowing through it should never feel them.
-        for (let i = 0; i < 4; i += 1) await page.press('#searchInput', 'ArrowDown');
-        const wrapped = await readCombobox();
-        check(
-          `the highlight wraps at the end of the last group, in ${locale}`,
-          wrapped.active === wrapped.ids[0],
-          `after five presses the highlight is "${wrapped.active}", first option is "${wrapped.ids[0]}"`
-        );
+          // Down past the last option comes back to the first, and it walks out
+          // of one group and into the next on the way: the list is three groups
+          // and a reader arrowing through it should never feel them.
+          for (let i = 0; i < 4; i += 1) await page.press('#searchInput', 'ArrowDown');
+          const wrapped = await readCombobox();
+          check(
+            `the highlight wraps at the end of the last group, in ${locale}`,
+            wrapped.active === wrapped.ids[0],
+            `after five presses the highlight is "${wrapped.active}", first option is "${wrapped.ids[0]}"`
+          );
 
-        await page.press('#searchInput', 'Escape');
-        const closed = await readCombobox();
-        check(
-          `Escape closes the list and takes the highlight with it, in ${locale}`,
-          closed.hidden === true && closed.expanded === 'false' && closed.active === null,
-          `hidden ${closed.hidden}, aria-expanded ${closed.expanded}, activedescendant ${closed.active}`
-        );
-      }
+          await page.press('#searchInput', 'Escape');
+          const closed = await readCombobox();
+          check(
+            `Escape closes the list and takes the highlight with it, in ${locale}`,
+            closed.hidden === true && closed.expanded === 'false' && closed.active === null,
+            `hidden ${closed.hidden}, aria-expanded ${closed.expanded}, activedescendant ${closed.active}`
+          );
+        }
 
-      /* --- The filter panel, which is a sheet below 1024 ---------------- */
+        /* --- The filter panel, which is a sheet below 1024 ---------------- */
 
-      await page.setViewportSize({ width: 375, height: 800 });
-      await page.goto(`${server.base}/search`, { waitUntil: 'domcontentloaded' });
-      await page.waitForLoadState('networkidle').catch(() => {});
+        await page.setViewportSize({ width: 375, height: 800 });
+        await page.goto(`${server.base}/search`, { waitUntil: 'domcontentloaded' });
+        await page.waitForLoadState('networkidle').catch(() => {});
 
-      await page.click('#filterToggle');
-      await page.waitForTimeout(400); // the sheet's own transition, not a race
+        await page.click('#filterToggle');
+        await page.waitForTimeout(400); // the sheet's own transition, not a race
 
-      const sheetOpen = await page.evaluate(() => {
-        const panel = document.querySelector('#filterPanel');
-        return {
-          expanded: document.querySelector('#filterToggle').getAttribute('aria-expanded'),
-          hidden: panel.getAttribute('aria-hidden'),
-          holdsFocus: panel.contains(document.activeElement),
-          focused: document.activeElement?.className ?? null,
-        };
-      });
-      check(
-        `the filter sheet opens, says so, and takes the focus with it, in ${locale}`,
-        sheetOpen.expanded === 'true' && sheetOpen.hidden === 'false' && sheetOpen.holdsFocus,
-        `aria-expanded ${sheetOpen.expanded}, aria-hidden ${sheetOpen.hidden}, focus on ${sheetOpen.focused}`
-      );
-
-      await page.keyboard.press('Escape');
-      await page.waitForTimeout(400);
-
-      const sheetClosed = await page.evaluate(() => ({
-        expanded: document.querySelector('#filterToggle').getAttribute('aria-expanded'),
-        open: document.querySelector('#filterPanel').getAttribute('data-open'),
-        focused: document.activeElement?.id ?? null,
-      }));
-      check(
-        `Escape closes the sheet and puts the focus back on the toggle, in ${locale}`,
-        sheetClosed.expanded === 'false' && sheetClosed.open === null && sheetClosed.focused === 'filterToggle',
-        `aria-expanded ${sheetClosed.expanded}, data-open ${sheetClosed.open}, focus on ${sheetClosed.focused}`
-      );
-
-      /* --- The navigation drawer, which is a sheet at the same width ----- */
-
-      // **Here because part 2 changed it.** The closed drawer used to be moved
-      // off the right edge and left in the tab order, under an aria-hidden that
-      // said it was not there; hiding it properly is what fixes that, and
-      // hiding it properly is also what stops the panel taking the focus when
-      // it opens. Both halves are checked, so the fix cannot be half applied.
-      await page.click('#navToggle');
-      await page.waitForTimeout(400);
-
-      const drawerOpen = await page.evaluate(() => {
-        const nav = document.querySelector('#siteNav');
-        return {
-          expanded: document.querySelector('#navToggle').getAttribute('aria-expanded'),
-          hidden: nav.getAttribute('aria-hidden'),
-          holdsFocus: nav.contains(document.activeElement),
-        };
-      });
-      check(
-        `the navigation drawer opens and takes the focus with it, in ${locale}`,
-        drawerOpen.expanded === 'true' && drawerOpen.hidden === 'false' && drawerOpen.holdsFocus,
-        `aria-expanded ${drawerOpen.expanded}, aria-hidden ${drawerOpen.hidden}, holds focus ${drawerOpen.holdsFocus}`
-      );
-
-      await page.keyboard.press('Escape');
-      await page.waitForTimeout(400);
-      const drawerClosed = await page.evaluate(() => ({
-        expanded: document.querySelector('#navToggle').getAttribute('aria-expanded'),
-        focused: document.activeElement?.id ?? null,
-        // Closed, the drawer is out of the tab order rather than merely off
-        // the edge of the screen. This is the finding the static sweep made.
-        reachable: [...document.querySelectorAll('#siteNav a, #siteNav button')].filter((el) =>
-          el.checkVisibility({ checkVisibilityCSS: true })
-        ).length,
-      }));
-      check(
-        `Escape closes the drawer, restores the focus, and leaves nothing tabbable, in ${locale}`,
-        drawerClosed.expanded === 'false' && drawerClosed.focused === 'navToggle' && drawerClosed.reachable === 0,
-        `aria-expanded ${drawerClosed.expanded}, focus on ${drawerClosed.focused}, ` +
-          `${drawerClosed.reachable} still reachable`
-      );
-
-      /* --- The dialog shell, through the sign in prompt ------------------ */
-
-      // **One shell, three modals.** dialog.js is what phase 4's sign in prompt
-      // and translation report are both built from, so driving one of them
-      // drives the trap, the restoration and the labelling for all of them. The
-      // save button on a card is the cheapest way in: signed out, it opens the
-      // prompt rather than saving anything.
-      await page.setViewportSize({ width: 1024, height: 800 });
-      await page.goto(`${server.base}/search`, { waitUntil: 'domcontentloaded' });
-      await page.waitForLoadState('networkidle').catch(() => {});
-
-      // Clicked through the browser rather than with element.click(), because
-      // dialog.js remembers document.activeElement to give the focus back to
-      // and a scripted click moves no focus at all. That is a fact about the
-      // test and not about the page, and it fails as if it were the page.
-      await page.evaluate(() => {
-        document.querySelector('[data-save-job]').id = 'a11ySaveProbe';
-      });
-      await page.click('#a11ySaveProbe');
-
-      // `[open]` and not `:not(.hidden)` since part 6: the shell is a native
-      // <dialog>, so whether it is open is the element's own state rather than
-      // a class this build maintains beside it.
-      const dialogUp = await page
-        .waitForSelector('#signInPrompt[open]', { timeout: 5000 })
-        .then(() => true)
-        .catch(() => false);
-      check(`the sign in prompt opens from a card, in ${locale}`, dialogUp, 'no dialog appeared');
-
-      if (dialogUp) {
-        const named = await page.evaluate(() => {
-          const shell = document.querySelector('#signInPrompt');
-          const labelledby = shell.getAttribute('aria-labelledby');
+        const sheetOpen = await page.evaluate(() => {
+          const panel = document.querySelector('#filterPanel');
           return {
-            tag: shell.tagName,
-            // Both come from the element rather than from an attribute this
-            // build writes, which is the point of the change: a native modal
-            // dialog *is* role="dialog" with aria-modal="true", and writing
-            // either onto the panel inside it would nest a second dialog in
-            // the first.
-            role: shell.tagName === 'DIALOG' ? 'dialog' : shell.getAttribute('role'),
-            label: (document.getElementById(labelledby ?? '')?.textContent ?? '').trim(),
-            holdsFocus: shell.contains(document.activeElement),
+            expanded: document.querySelector('#filterToggle').getAttribute('aria-expanded'),
+            hidden: panel.getAttribute('aria-hidden'),
+            holdsFocus: panel.contains(document.activeElement),
+            focused: document.activeElement?.className ?? null,
           };
         });
         check(
-          `the dialog is a modal with a name, and holds the focus, in ${locale}`,
-          named.tag === 'DIALOG' && named.role === 'dialog' && named.label !== '' && named.holdsFocus,
-          `<${named.tag}>, role ${named.role}, name "${named.label}", holds focus ${named.holdsFocus}`
-        );
-
-        // **What the hand-rolled shell could not do at all.** showModal() makes
-        // everything outside the dialog inert, so the page behind it is not
-        // merely covered: it cannot take focus and is not in the accessibility
-        // tree. The old trap only fired on Tab from the first or last item, and
-        // a click or a screen reader's own navigation walked straight past it.
-        const inert = await page.evaluate(() => {
-          const outside = document.querySelector('#a11ySaveProbe');
-          outside?.focus();
-          return {
-            landed: document.activeElement?.id ?? null,
-            stillInside: document
-              .querySelector('#signInPrompt')
-              .contains(document.activeElement),
-          };
-        });
-        check(
-          `the page behind the dialog is inert, in ${locale}`,
-          inert.stillInside && inert.landed !== 'a11ySaveProbe',
-          `focus() on the card behind it landed on ${inert.landed}`
-        );
-
-        // Tab from the last focusable thing comes back to the first rather than
-        // stepping out onto the page the dialog is covering.
-        const trapped = await page.evaluate((focusable) => {
-          const panel = document.querySelector('#signInPrompt .modal');
-          const items = [...panel.querySelectorAll(focusable)].filter((el) => el.checkVisibility());
-          items[items.length - 1].focus();
-          return { last: items.length - 1, count: items.length };
-        }, FOCUSABLE);
-        // **What a native modal's cycle actually does, which is not what the
-        // hand-rolled trap did.** Part 2 wrote this expecting one Tab from the
-        // last item to land back on the first, because that is what
-        // `trapFocus` did. Chromium's own cycle passes through `<body>` on the
-        // way round and reaches the first control on the Tab after — the same
-        // behaviour every native dialog on the web has. **The property worth
-        // asserting is the one that does not change**: focus never reaches a
-        // control on the page behind, and it comes back inside.
-        await page.keyboard.press('Tab');
-        const off = await page.evaluate(() => {
-          const shell = document.querySelector('#signInPrompt');
-          const active = document.activeElement;
-          return {
-            inside: shell.contains(active),
-            onBody: active === document.body,
-            landed: active?.id || active?.tagName || null,
-          };
-        });
-        await page.keyboard.press('Tab');
-        const back = await page.evaluate((focusable) => {
-          const panel = document.querySelector('#signInPrompt .modal');
-          const items = [...panel.querySelectorAll(focusable)].filter((el) => el.checkVisibility());
-          return { inside: panel.contains(document.activeElement), index: items.indexOf(document.activeElement) };
-        }, FOCUSABLE);
-        check(
-          `Tab off the end of the dialog comes back into it rather than escaping, in ${locale}`,
-          (off.inside || off.onBody) && back.inside && back.index === 0,
-          `${trapped.count} focusable; one Tab landed on ${off.landed}, the next at index ${back.index}`
+          `the filter sheet opens, says so, and takes the focus with it, in ${locale}`,
+          sheetOpen.expanded === 'true' && sheetOpen.hidden === 'false' && sheetOpen.holdsFocus,
+          `aria-expanded ${sheetOpen.expanded}, aria-hidden ${sheetOpen.hidden}, focus on ${sheetOpen.focused}`
         );
 
         await page.keyboard.press('Escape');
-        await page.waitForTimeout(100);
-        const returned = await page.evaluate(() => ({
-          closed: !document.querySelector('#signInPrompt').open,
+        await page.waitForTimeout(400);
+
+        const sheetClosed = await page.evaluate(() => ({
+          expanded: document.querySelector('#filterToggle').getAttribute('aria-expanded'),
+          open: document.querySelector('#filterPanel').getAttribute('data-open'),
           focused: document.activeElement?.id ?? null,
         }));
         check(
-          `Escape closes the dialog and gives the focus back to what opened it, in ${locale}`,
-          returned.closed && returned.focused === 'a11ySaveProbe',
-          `closed ${returned.closed}, focus on ${returned.focused}`
-        );
-      }
-
-      /* --- The connection bar, and the sentence beside a dead control ---- */
-
-      await page.goto(`${server.base}/login`, { waitUntil: 'domcontentloaded' });
-      await page.waitForLoadState('networkidle').catch(() => {});
-
-      // **Watch the bar arrive, because the defect is in the arriving.** A live
-      // region prepended with its sentence already inside it is a region a
-      // screen reader has nothing to compare against, and after the fact the
-      // page looks identical either way. The observer records what the message
-      // element held at the moment it was inserted.
-      await page.evaluate(() => {
-        window.__barProbe = { inserted: false, emptyOnInsert: null };
-        new MutationObserver((records) => {
-          for (const record of records) {
-            for (const node of record.addedNodes) {
-              if (!(node instanceof HTMLElement) || !node.classList.contains('connection-notice')) continue;
-              window.__barProbe.inserted = true;
-              window.__barProbe.emptyOnInsert =
-                (node.querySelector('[data-message]')?.textContent ?? '').trim() === '';
-            }
-          }
-        }).observe(document.body, { childList: true });
-      });
-
-      await ctx.setOffline(true);
-      const barUp = await page
-        .waitForSelector('.connection-notice [data-message]:not(:empty)', { timeout: 5000 })
-        .then(() => true)
-        .catch(() => false);
-      check(`the connection bar appears when the network goes, in ${locale}`, barUp, 'no bar');
-
-      if (barUp) {
-        const bar = await page.evaluate(() => ({
-          probe: window.__barProbe,
-          role: document.querySelector('.connection-notice')?.getAttribute('role'),
-          label: document.querySelector('.connection-notice')?.getAttribute('aria-label') ?? '',
-          messageRole: document.querySelector('.connection-notice [data-message]')?.getAttribute('role'),
-          text: (document.querySelector('.connection-notice [data-message]')?.textContent ?? '').trim(),
-          state: document.querySelector('.connection-notice')?.dataset.state,
-        }));
-        check(
-          `the bar's live region is on the page before its sentence is, in ${locale}`,
-          bar.probe.inserted && bar.probe.emptyOnInsert === true,
-          `inserted ${bar.probe.inserted}, empty on insert ${bar.probe.emptyOnInsert}`
-        );
-        check(
-          `the bar is a named region with a polite message inside it, in ${locale}`,
-          bar.role === 'region' && bar.label !== '' && bar.messageRole === 'status' && bar.text !== '',
-          `role ${bar.role}, label "${bar.label}", message role ${bar.messageRole}, text "${bar.text.slice(0, 30)}"`
+          `Escape closes the sheet and puts the focus back on the toggle, in ${locale}`,
+          sheetClosed.expanded === 'false' &&
+            sheetClosed.open === null &&
+            sheetClosed.focused === 'filterToggle',
+          `aria-expanded ${sheetClosed.expanded}, data-open ${sheetClosed.open}, focus on ${sheetClosed.focused}`
         );
 
-        const gated = await page.evaluate(() => {
-          const button = document.querySelector('#loginForm [data-needs-network-hint]');
-          const described = (button?.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(Boolean);
-          const hint = button?.nextElementSibling;
+        /* --- The navigation drawer, which is a sheet at the same width ----- */
+
+        // **Here because part 2 changed it.** The closed drawer used to be moved
+        // off the right edge and left in the tab order, under an aria-hidden that
+        // said it was not there; hiding it properly is what fixes that, and
+        // hiding it properly is also what stops the panel taking the focus when
+        // it opens. Both halves are checked, so the fix cannot be half applied.
+        await page.click('#navToggle');
+        await page.waitForTimeout(400);
+
+        const drawerOpen = await page.evaluate(() => {
+          const nav = document.querySelector('#siteNav');
           return {
-            disabled: button?.disabled === true,
-            ariaDisabled: button?.getAttribute('aria-disabled'),
-            hintText: hint?.classList.contains('offline-hint') ? (hint.textContent ?? '').trim() : '',
-            hintId: hint?.classList.contains('offline-hint') ? hint.id : '',
-            described,
+            expanded: document.querySelector('#navToggle').getAttribute('aria-expanded'),
+            hidden: nav.getAttribute('aria-hidden'),
+            holdsFocus: nav.contains(document.activeElement),
           };
         });
         check(
-          `the reason beside a dead control is attached to it, in ${locale}`,
-          gated.disabled &&
-            gated.ariaDisabled === 'true' &&
-            gated.hintText !== '' &&
-            gated.hintId !== '' &&
-            gated.described.includes(gated.hintId),
-          `disabled ${gated.disabled}, hint "${gated.hintText.slice(0, 30)}" id "${gated.hintId}", ` +
-            `described by [${gated.described.join(' ')}]`
+          `the navigation drawer opens and takes the focus with it, in ${locale}`,
+          drawerOpen.expanded === 'true' && drawerOpen.hidden === 'false' && drawerOpen.holdsFocus,
+          `aria-expanded ${drawerOpen.expanded}, aria-hidden ${drawerOpen.hidden}, holds focus ${drawerOpen.holdsFocus}`
         );
+
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(400);
+        const drawerClosed = await page.evaluate(() => ({
+          expanded: document.querySelector('#navToggle').getAttribute('aria-expanded'),
+          focused: document.activeElement?.id ?? null,
+          // Closed, the drawer is out of the tab order rather than merely off
+          // the edge of the screen. This is the finding the static sweep made.
+          reachable: [...document.querySelectorAll('#siteNav a, #siteNav button')].filter((el) =>
+            el.checkVisibility({ checkVisibilityCSS: true })
+          ).length,
+        }));
+        check(
+          `Escape closes the drawer, restores the focus, and leaves nothing tabbable, in ${locale}`,
+          drawerClosed.expanded === 'false' &&
+            drawerClosed.focused === 'navToggle' &&
+            drawerClosed.reachable === 0,
+          `aria-expanded ${drawerClosed.expanded}, focus on ${drawerClosed.focused}, ` +
+            `${drawerClosed.reachable} still reachable`
+        );
+
+        /* --- The dialog shell, through the sign in prompt ------------------ */
+
+        // **One shell, three modals.** dialog.js is what phase 4's sign in prompt
+        // and translation report are both built from, so driving one of them
+        // drives the trap, the restoration and the labelling for all of them. The
+        // save button on a card is the cheapest way in: signed out, it opens the
+        // prompt rather than saving anything.
+        await page.setViewportSize({ width: 1024, height: 800 });
+        await page.goto(`${server.base}/search`, { waitUntil: 'domcontentloaded' });
+        await page.waitForLoadState('networkidle').catch(() => {});
+
+        // Clicked through the browser rather than with element.click(), because
+        // dialog.js remembers document.activeElement to give the focus back to
+        // and a scripted click moves no focus at all. That is a fact about the
+        // test and not about the page, and it fails as if it were the page.
+        await page.evaluate(() => {
+          document.querySelector('[data-save-job]').id = 'a11ySaveProbe';
+        });
+        await page.click('#a11ySaveProbe');
+
+        // `[open]` and not `:not(.hidden)` since part 6: the shell is a native
+        // <dialog>, so whether it is open is the element's own state rather than
+        // a class this build maintains beside it.
+        const dialogUp = await page
+          .waitForSelector('#signInPrompt[open]', { timeout: 5000 })
+          .then(() => true)
+          .catch(() => false);
+        check(`the sign in prompt opens from a card, in ${locale}`, dialogUp, 'no dialog appeared');
+
+        if (dialogUp) {
+          const named = await page.evaluate(() => {
+            const shell = document.querySelector('#signInPrompt');
+            const labelledby = shell.getAttribute('aria-labelledby');
+            return {
+              tag: shell.tagName,
+              // Both come from the element rather than from an attribute this
+              // build writes, which is the point of the change: a native modal
+              // dialog *is* role="dialog" with aria-modal="true", and writing
+              // either onto the panel inside it would nest a second dialog in
+              // the first.
+              role: shell.tagName === 'DIALOG' ? 'dialog' : shell.getAttribute('role'),
+              label: (document.getElementById(labelledby ?? '')?.textContent ?? '').trim(),
+              holdsFocus: shell.contains(document.activeElement),
+            };
+          });
+          check(
+            `the dialog is a modal with a name, and holds the focus, in ${locale}`,
+            named.tag === 'DIALOG' &&
+              named.role === 'dialog' &&
+              named.label !== '' &&
+              named.holdsFocus,
+            `<${named.tag}>, role ${named.role}, name "${named.label}", holds focus ${named.holdsFocus}`
+          );
+
+          // **What the hand-rolled shell could not do at all.** showModal() makes
+          // everything outside the dialog inert, so the page behind it is not
+          // merely covered: it cannot take focus and is not in the accessibility
+          // tree. The old trap only fired on Tab from the first or last item, and
+          // a click or a screen reader's own navigation walked straight past it.
+          const inert = await page.evaluate(() => {
+            const outside = document.querySelector('#a11ySaveProbe');
+            outside?.focus();
+            return {
+              landed: document.activeElement?.id ?? null,
+              stillInside: document.querySelector('#signInPrompt').contains(document.activeElement),
+            };
+          });
+          check(
+            `the page behind the dialog is inert, in ${locale}`,
+            inert.stillInside && inert.landed !== 'a11ySaveProbe',
+            `focus() on the card behind it landed on ${inert.landed}`
+          );
+
+          // Tab from the last focusable thing comes back to the first rather than
+          // stepping out onto the page the dialog is covering.
+          const trapped = await page.evaluate((focusable) => {
+            const panel = document.querySelector('#signInPrompt .modal');
+            const items = [...panel.querySelectorAll(focusable)].filter((el) =>
+              el.checkVisibility()
+            );
+            items[items.length - 1].focus();
+            return { last: items.length - 1, count: items.length };
+          }, FOCUSABLE);
+          // **What a native modal's cycle actually does, which is not what the
+          // hand-rolled trap did.** Part 2 wrote this expecting one Tab from the
+          // last item to land back on the first, because that is what
+          // `trapFocus` did. Chromium's own cycle passes through `<body>` on the
+          // way round and reaches the first control on the Tab after — the same
+          // behaviour every native dialog on the web has. **The property worth
+          // asserting is the one that does not change**: focus never reaches a
+          // control on the page behind, and it comes back inside.
+          await page.keyboard.press('Tab');
+          const off = await page.evaluate(() => {
+            const shell = document.querySelector('#signInPrompt');
+            const active = document.activeElement;
+            return {
+              inside: shell.contains(active),
+              onBody: active === document.body,
+              landed: active?.id || active?.tagName || null,
+            };
+          });
+          await page.keyboard.press('Tab');
+          const back = await page.evaluate((focusable) => {
+            const panel = document.querySelector('#signInPrompt .modal');
+            const items = [...panel.querySelectorAll(focusable)].filter((el) =>
+              el.checkVisibility()
+            );
+            return {
+              inside: panel.contains(document.activeElement),
+              index: items.indexOf(document.activeElement),
+            };
+          }, FOCUSABLE);
+          check(
+            `Tab off the end of the dialog comes back into it rather than escaping, in ${locale}`,
+            (off.inside || off.onBody) && back.inside && back.index === 0,
+            `${trapped.count} focusable; one Tab landed on ${off.landed}, the next at index ${back.index}`
+          );
+
+          await page.keyboard.press('Escape');
+          await page.waitForTimeout(100);
+          const returned = await page.evaluate(() => ({
+            closed: !document.querySelector('#signInPrompt').open,
+            focused: document.activeElement?.id ?? null,
+          }));
+          check(
+            `Escape closes the dialog and gives the focus back to what opened it, in ${locale}`,
+            returned.closed && returned.focused === 'a11ySaveProbe',
+            `closed ${returned.closed}, focus on ${returned.focused}`
+          );
+        }
+
+        /* --- The connection bar, and the sentence beside a dead control ---- */
+
+        await page.goto(`${server.base}/login`, { waitUntil: 'domcontentloaded' });
+        await page.waitForLoadState('networkidle').catch(() => {});
+
+        // **Watch the bar arrive, because the defect is in the arriving.** A live
+        // region prepended with its sentence already inside it is a region a
+        // screen reader has nothing to compare against, and after the fact the
+        // page looks identical either way. The observer records what the message
+        // element held at the moment it was inserted.
+        await page.evaluate(() => {
+          window.__barProbe = { inserted: false, emptyOnInsert: null };
+          new MutationObserver((records) => {
+            for (const record of records) {
+              for (const node of record.addedNodes) {
+                if (!(node instanceof HTMLElement) || !node.classList.contains('connection-notice'))
+                  continue;
+                window.__barProbe.inserted = true;
+                window.__barProbe.emptyOnInsert =
+                  (node.querySelector('[data-message]')?.textContent ?? '').trim() === '';
+              }
+            }
+          }).observe(document.body, { childList: true });
+        });
+
+        await ctx.setOffline(true);
+        const barUp = await page
+          .waitForSelector('.connection-notice [data-message]:not(:empty)', { timeout: 5000 })
+          .then(() => true)
+          .catch(() => false);
+        check(`the connection bar appears when the network goes, in ${locale}`, barUp, 'no bar');
+
+        if (barUp) {
+          const bar = await page.evaluate(() => ({
+            probe: window.__barProbe,
+            role: document.querySelector('.connection-notice')?.getAttribute('role'),
+            label: document.querySelector('.connection-notice')?.getAttribute('aria-label') ?? '',
+            messageRole: document
+              .querySelector('.connection-notice [data-message]')
+              ?.getAttribute('role'),
+            text: (
+              document.querySelector('.connection-notice [data-message]')?.textContent ?? ''
+            ).trim(),
+            state: document.querySelector('.connection-notice')?.dataset.state,
+          }));
+          check(
+            `the bar's live region is on the page before its sentence is, in ${locale}`,
+            bar.probe.inserted && bar.probe.emptyOnInsert === true,
+            `inserted ${bar.probe.inserted}, empty on insert ${bar.probe.emptyOnInsert}`
+          );
+          check(
+            `the bar is a named region with a polite message inside it, in ${locale}`,
+            bar.role === 'region' &&
+              bar.label !== '' &&
+              bar.messageRole === 'status' &&
+              bar.text !== '',
+            `role ${bar.role}, label "${bar.label}", message role ${bar.messageRole}, text "${bar.text.slice(0, 30)}"`
+          );
+
+          const gated = await page.evaluate(() => {
+            const button = document.querySelector('#loginForm [data-needs-network-hint]');
+            const described = (button?.getAttribute('aria-describedby') ?? '')
+              .split(/\s+/)
+              .filter(Boolean);
+            const hint = button?.nextElementSibling;
+            return {
+              disabled: button?.disabled === true,
+              ariaDisabled: button?.getAttribute('aria-disabled'),
+              hintText: hint?.classList.contains('offline-hint')
+                ? (hint.textContent ?? '').trim()
+                : '',
+              hintId: hint?.classList.contains('offline-hint') ? hint.id : '',
+              described,
+            };
+          });
+          check(
+            `the reason beside a dead control is attached to it, in ${locale}`,
+            gated.disabled &&
+              gated.ariaDisabled === 'true' &&
+              gated.hintText !== '' &&
+              gated.hintId !== '' &&
+              gated.described.includes(gated.hintId),
+            `disabled ${gated.disabled}, hint "${gated.hintText.slice(0, 30)}" id "${gated.hintId}", ` +
+              `described by [${gated.described.join(' ')}]`
+          );
+        }
+
+        await ctx.setOffline(false);
+        await page.waitForTimeout(300);
+        const back = await page.evaluate(() => {
+          const button = document.querySelector('#loginForm [data-needs-network-hint]');
+          return {
+            bar: Boolean(document.querySelector('.connection-notice')),
+            disabled: button?.disabled === true,
+            hint: Boolean(button?.nextElementSibling?.classList.contains('offline-hint')),
+            described: button?.getAttribute('aria-describedby') ?? null,
+          };
+        });
+        check(
+          `coming back takes the bar, the reason and the reference with it, in ${locale}`,
+          !back.bar && !back.disabled && !back.hint && back.described === null,
+          `bar ${back.bar}, disabled ${back.disabled}, hint ${back.hint}, described ${back.described}`
+        );
+
+        await ctx.close();
+        server.close();
       }
-
-      await ctx.setOffline(false);
-      await page.waitForTimeout(300);
-      const back = await page.evaluate(() => {
-        const button = document.querySelector('#loginForm [data-needs-network-hint]');
-        return {
-          bar: Boolean(document.querySelector('.connection-notice')),
-          disabled: button?.disabled === true,
-          hint: Boolean(button?.nextElementSibling?.classList.contains('offline-hint')),
-          described: button?.getAttribute('aria-describedby') ?? null,
-        };
-      });
-      check(
-        `coming back takes the bar, the reason and the reference with it, in ${locale}`,
-        !back.bar && !back.disabled && !back.hint && back.described === null,
-        `bar ${back.bar}, disabled ${back.disabled}, hint ${back.hint}, described ${back.described}`
-      );
-
-      await ctx.close();
-      server.close();
+    } finally {
+      await browser.close();
     }
-  } finally {
-    await browser.close();
   }
-});
+);
 
 /* =========================================================================
  * 5. The measured colours, in all four theme combinations
@@ -1858,7 +1986,8 @@ function measureContrast() {
       // The absent dot is a dashed outline with nothing in it, so its border is
       // the whole of what a reader has to see. The other two are a filled disc
       // with no border at all.
-      if (fill && fill.a > 0) add('language pills', `${state} dot on ${where}`, fill, backdropOf(dot.parentElement), 3);
+      if (fill && fill.a > 0)
+        add('language pills', `${state} dot on ${where}`, fill, backdropOf(dot.parentElement), 3);
       else boundary('language pills', `${state} dot outline on ${where}`, dot, 'borderTopColor');
     }
 
@@ -1898,7 +2027,9 @@ function measureContrast() {
         group: 'switch hierarchy',
         label: `${state} track fill on ${where}`,
         ratio: fill
-          ? Math.round((Math.max(fill.r, fill.g, fill.b) - Math.min(fill.r, fill.g, fill.b)) * fill.a * 10) / 10
+          ? Math.round(
+              (Math.max(fill.r, fill.g, fill.b) - Math.min(fill.r, fill.g, fill.b)) * fill.a * 10
+            ) / 10
           : 0,
         need: 0,
         advisory: true,
@@ -1914,7 +2045,13 @@ function measureContrast() {
       // app.css's own comment says the fill alone does not clear 3:1 and that
       // this is why every star keeps its stroke. So the stroke is asserted
       // against the page and the fill is reported beside it.
-      add('star', `${label.dataset.probe} star outline on ${where}`, parse(cs.stroke), backdropOf(label), 3);
+      add(
+        'star',
+        `${label.dataset.probe} star outline on ${where}`,
+        parse(cs.stroke),
+        backdropOf(label),
+        3
+      );
       const fill = parse(cs.fill);
       if (fill && fill.a > 0) {
         found.push({
@@ -1933,7 +2070,9 @@ function measureContrast() {
     // background down the chain, so a translucent fill like .chip's
     // --surface-active is measured against what actually shows through it
     // rather than against the token it names.
-    for (const fill of ctx.querySelectorAll('[data-probe][class*="btn"], .admin-badge, .chip, .status-pill')) {
+    for (const fill of ctx.querySelectorAll(
+      '[data-probe][class*="btn"], .admin-badge, .chip, .status-pill'
+    )) {
       text('fills', `${fill.dataset.probe} on ${where}`, fill);
     }
 
@@ -1952,12 +2091,18 @@ function measureContrast() {
     // canonical 4.54:1 that sits a hair over the AA line. A clean first run of
     // a measurement nobody has checked is what deviation 90 is about.
     selfCheck: {
-      extremes: Math.round(ratio({ r: 0, g: 0, b: 0, a: 1 }, { r: 255, g: 255, b: 255, a: 1 }) * 100) / 100,
-      boundary: Math.round(ratio({ r: 118, g: 118, b: 118, a: 1 }, { r: 255, g: 255, b: 255, a: 1 }) * 100) / 100,
+      extremes:
+        Math.round(ratio({ r: 0, g: 0, b: 0, a: 1 }, { r: 255, g: 255, b: 255, a: 1 }) * 100) / 100,
+      boundary:
+        Math.round(
+          ratio({ r: 118, g: 118, b: 118, a: 1 }, { r: 255, g: 255, b: 255, a: 1 }) * 100
+        ) / 100,
       // Black at 20% over white is a 204 grey and 1.61:1, not black's 21:1.
       // The one number that proves a translucent foreground is composited
       // before it is compared rather than after.
-      translucent: Math.round(pair({ r: 0, g: 0, b: 0, a: 0.2 }, { r: 255, g: 255, b: 255, a: 1 }) * 100) / 100,
+      translucent:
+        Math.round(pair({ r: 0, g: 0, b: 0, a: 0.2 }, { r: 255, g: 255, b: 255, a: 1 }) * 100) /
+        100,
       // A color-mix parsed as an rgb() would come back near black and pass
       // everything, so the two notations are proved to read the same colour.
       mixed: parse('color(srgb 0.5 0.25 0.75 / 0.5)'),
@@ -1975,7 +2120,9 @@ function reportContrast(label, group, found) {
     `${label}: ${group} clear AA`,
     bad.length === 0,
     bad
-      .map((f) => (f.unreadable ? `${f.label}: unreadable` : `${f.label}: ${f.ratio}:1, needs ${f.need}:1`))
+      .map((f) =>
+        f.unreadable ? `${f.label}: unreadable` : `${f.label}: ${f.ratio}:1, needs ${f.need}:1`
+      )
       .join('; ')
   );
 }
@@ -2009,7 +2156,8 @@ define('contrast', 'The measured colours, in all four theme combinations', async
     // token. WCAG asks what a reader sees when the page has settled, and with
     // no transition the page has settled by the next frame.
     await page.addStyleTag({
-      content: '*, *::before, *::after { transition: none !important; animation: none !important; }',
+      content:
+        '*, *::before, *::after { transition: none !important; animation: none !important; }',
     });
 
     const backgrounds = new Map();
@@ -2026,7 +2174,9 @@ define('contrast', 'The measured colours, in all four theme combinations', async
         ([t, m]) => {
           document.documentElement.dataset.colorTheme = t;
           document.documentElement.dataset.mode = m;
-          return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+          return new Promise((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(resolve))
+          );
         },
         [theme, mode]
       );
@@ -2060,7 +2210,14 @@ define('contrast', 'The measured colours, in all four theme combinations', async
       // Part 1's rule about asserting the thing rather than something beside it.
       backgrounds.set(label, result.bodyBackground);
 
-      for (const group of ['panel tones', 'language pills', 'switch states', 'star', 'fills', 'text tokens']) {
+      for (const group of [
+        'panel tones',
+        'language pills',
+        'switch states',
+        'star',
+        'fills',
+        'text tokens',
+      ]) {
         reportContrast(label, group, result.found);
       }
 
@@ -2068,15 +2225,23 @@ define('contrast', 'The measured colours, in all four theme combinations', async
       // reason on the line. Neither is a gap: both are arguments written down
       // in the stylesheet beside the rule they excuse.
       const advisory = (match) => [
-        ...new Set(result.found.filter((f) => f.advisory && f.label.includes(match)).map((f) => `${f.ratio}:1`)),
+        ...new Set(
+          result.found
+            .filter((f) => f.advisory && f.label.includes(match))
+            .map((f) => `${f.ratio}:1`)
+        ),
       ];
       const fills = advisory('star fill');
       if (fills.length > 0) {
-        console.log(`      ${label}: star fill ${fills.join(', ')} (advisory — the stroke carries the shape)`);
+        console.log(
+          `      ${label}: star fill ${fills.join(', ')} (advisory — the stroke carries the shape)`
+        );
       }
       const notes = advisory('note border');
       if (notes.length > 0) {
-        console.log(`      ${label}: note callout border ${notes.join(', ')} (advisory — static prose, not a component)`);
+        console.log(
+          `      ${label}: note callout border ${notes.join(', ')} (advisory — static prose, not a component)`
+        );
       }
 
       // **Colour means on, and the unchecked state carries none.** Both states
@@ -2088,7 +2253,9 @@ define('contrast', 'The measured colours, in all four theme combinations', async
       // combinations rather than in the one somebody looked at.
       const chroma = (state) =>
         result.found
-          .filter((f) => f.group === 'switch hierarchy' && f.label.startsWith(`${state} track fill`))
+          .filter(
+            (f) => f.group === 'switch hierarchy' && f.label.startsWith(`${state} track fill`)
+          )
           .map((f) => f.ratio);
       const off = chroma('off');
       const on = chroma('on');
@@ -2104,7 +2271,9 @@ define('contrast', 'The measured colours, in all four theme combinations', async
       );
       // The number itself on screen, because "less than" says nothing about how
       // neutral the off state actually is and the old one was 195.
-      console.log(`      ${label}: switch track chroma, off ${off.join('/')} against on ${on.join('/')}`);
+      console.log(
+        `      ${label}: switch track chroma, off ${off.join('/')} against on ${on.join('/')}`
+      );
     }
 
     check(
@@ -2138,12 +2307,16 @@ define('contrast', 'The measured colours, in all four theme combinations', async
     check(
       'a failing pair on a page background is reported rather than passed over',
       caught('note text').some((f) => f.ratio < f.need),
-      caught('note text').map((f) => `${f.label}: ${f.ratio}:1`).join('; ') || 'nothing reported'
+      caught('note text')
+        .map((f) => `${f.label}: ${f.ratio}:1`)
+        .join('; ') || 'nothing reported'
     );
     check(
       'a failing label on a fill is reported rather than passed over',
       caught('admin badge').some((f) => f.ratio < f.need),
-      caught('admin badge').map((f) => `${f.label}: ${f.ratio}:1`).join('; ') || 'nothing reported'
+      caught('admin badge')
+        .map((f) => `${f.label}: ${f.ratio}:1`)
+        .join('; ') || 'nothing reported'
     );
 
     await ctx.close();
@@ -2189,7 +2362,8 @@ const braces = (text) => (String(text ?? '').match(/\{[a-zA-Z_][a-zA-Z0-9_]*\}/g
 // The markup a string carries. Telegram draws bold and italic from these and
 // the site writes some of them into innerHTML, so an unclosed tag is a broken
 // message in one language and a fine one in the other.
-const tags = (text) => (String(text ?? '').match(/<\/?[a-z]+[^>]*>/g) ?? []).map((t) => t.toLowerCase()).sort();
+const tags = (text) =>
+  (String(text ?? '').match(/<\/?[a-z]+[^>]*>/g) ?? []).map((t) => t.toLowerCase()).sort();
 
 // **A space sits between Latin and Han, and never between Han and Han.** The
 // review page's own footer has said so since phase 3 and nothing measured it.
@@ -2224,7 +2398,9 @@ const RULES = {
     const hits = review.USAGE.filter(
       (entry) => entry.strict !== false && review.usageHits(pair.zh, entry).length > 0
     );
-    return hits.length === 0 ? null : hits.map((h) => `${h.mainland} should be ${h.singapore}`).join(', ');
+    return hits.length === 0
+      ? null
+      : hits.map((h) => `${h.mainland} should be ${h.singapore}`).join(', ');
   },
 
   'a space sits between Latin and Han and nowhere else': (pair) => {
@@ -2257,14 +2433,24 @@ define('zh', 'The Chinese, and what a check can decide before a reader is asked'
 
   // ---- Prove the rules fire, before trusting a clean run --------------------
   const broken = {
-    'a placeholder is neither dropped nor invented': { en: 'Hello {name}, you have {count}', zh: '你好 {name}' },
-    'markup opens and closes the same way in both languages': { en: '<b>Careers</b>', zh: '<b>求职' },
+    'a placeholder is neither dropped nor invented': {
+      en: 'Hello {name}, you have {count}',
+      zh: '你好 {name}',
+    },
+    'markup opens and closes the same way in both languages': {
+      en: '<b>Careers</b>',
+      zh: '<b>求职',
+    },
     'a string with English in it has 华文 in it': { en: 'Something', zh: '   ' },
     'the wording is Singapore Mandarin': { en: 'Volunteer', zh: '志愿者' },
     'a space sits between Latin and Han and nowhere else': { en: 'x', zh: '打开 求职Careers' },
   };
   for (const [name, rule] of Object.entries(RULES)) {
-    check(`the rule reports a pair that breaks it: ${name}`, rule(broken[name]) !== null, 'it said nothing');
+    check(
+      `the rule reports a pair that breaks it: ${name}`,
+      rule(broken[name]) !== null,
+      'it said nothing'
+    );
   }
   // And the case that says the rule is not simply matching substrings. 选中文字
   // is "select text" and contains 中文, which means nothing of the sort. 华文
@@ -2272,7 +2458,8 @@ define('zh', 'The Chinese, and what a check can decide before a reader is asked'
   // made a sixteen character tag name read as a cramped button in part 1.
   check(
     '选中文字 is not read as 中文',
-    RULES['the wording is Singapore Mandarin']({ en: 'Select wording', zh: '在页面上选中文字' }) === null,
+    RULES['the wording is Singapore Mandarin']({ en: 'Select wording', zh: '在页面上选中文字' }) ===
+      null,
     'a substring was read as a word'
   );
 
@@ -2280,7 +2467,11 @@ define('zh', 'The Chinese, and what a check can decide before a reader is asked'
   const missingSources = Object.keys(review.SOURCES).filter(
     (file) => !existsSync(join(HERE, '..', file))
   );
-  check('every file this page claims to read exists', missingSources.length === 0, missingSources.join(', '));
+  check(
+    'every file this page claims to read exists',
+    missingSources.length === 0,
+    missingSources.join(', ')
+  );
 
   const unreviewed = review.scanForUnreviewed();
   check(
@@ -2313,7 +2504,16 @@ define('zh', 'The Chinese, and what a check can decide before a reader is asked'
   // seeded rows are read out of migrations with regular expressions, and a
   // migration reformatted one day would hand back an empty list and a page that
   // looks finished.
-  for (const source of ['departments', 'tags', 'hero', 'interface', 'phases', 'bot', 'commands', 'profile']) {
+  for (const source of [
+    'departments',
+    'tags',
+    'hero',
+    'interface',
+    'phases',
+    'bot',
+    'commands',
+    'profile',
+  ]) {
     const rows = data.pairs.filter((p) => p.source === source);
     check(`${source} contributed rows`, rows.length > 0, 'nothing parsed');
   }
@@ -2324,7 +2524,10 @@ define('zh', 'The Chinese, and what a check can decide before a reader is asked'
   check(
     `all ${data.pairs.length} rows are rendered`,
     notRendered.length === 0,
-    notRendered.slice(0, 6).map((p) => `${p.ref} ${p.label}`).join(', ')
+    notRendered
+      .slice(0, 6)
+      .map((p) => `${p.ref} ${p.label}`)
+      .join(', ')
   );
 
   // The bot's profile text is paired by position rather than by a key, since it
@@ -2354,7 +2557,9 @@ define('zh', 'The Chinese, and what a check can decide before a reader is asked'
     exemptPaths.join(', ')
   );
   const exemptFromVocabulary = (pair) =>
-    exemptLabels.some((label) => String(pair.label).startsWith(`${label} `) || pair.label === label);
+    exemptLabels.some(
+      (label) => String(pair.label).startsWith(`${label} `) || pair.label === label
+    );
 
   // **And the two word lists are one list.** check-copy.js enforces 3a's table
   // and gen-review.js measures it, and on 11 September 2026 the first full run
@@ -2377,8 +2582,11 @@ define('zh', 'The Chinese, and what a check can decide before a reader is asked'
       const problem = rule(pair);
       if (problem) problems.push(`${pair.ref} ${pair.label}: ${problem}`);
     }
-    check(`${name}, across all ${data.pairs.length} entries`, problems.length === 0,
-      `${problems.length} problem(s) — ${problems.slice(0, 8).join(' | ')}`);
+    check(
+      `${name}, across all ${data.pairs.length} entries`,
+      problems.length === 0,
+      `${problems.length} problem(s) — ${problems.slice(0, 8).join(' | ')}`
+    );
   }
 
   // **The bot and the site say the same sentence to a reader turned away.**
@@ -2409,7 +2617,9 @@ define('zh', 'The Chinese, and what a check can decide before a reader is asked'
     // columns and 电邮 not 电子邮件 falls across a line break in one of them.
     // A wrapped line is not drift.
     const document = readFileSync(join(HERE, '..', file), 'utf8').replace(/\s+/g, ' ');
-    const absent = review.USAGE.filter((u) => !document.includes(`${u.singapore} not ${u.mainland}`));
+    const absent = review.USAGE.filter(
+      (u) => !document.includes(`${u.singapore} not ${u.mainland}`)
+    );
     check(
       `${file} states the usage rule as gen-review.js holds it`,
       absent.length === 0,
@@ -2491,7 +2701,10 @@ function servedPages() {
         continue;
       }
       if (!item.endsWith('.html')) continue;
-      const relative = full.slice(SITE.length + 1).split('\\').join('/');
+      const relative = full
+        .slice(SITE.length + 1)
+        .split('\\')
+        .join('/');
       const route =
         relative === 'index.html'
           ? '/'
@@ -2508,344 +2721,410 @@ function servedPages() {
   // short. Section 4 lists /status in the sitemap, and the check below compares
   // that list against this one in both directions.
   for (const route of FUNCTION_PAGES) {
-    pages.push({ route, file: null, html: statusDocument({ view: VIEW.build, body: renderBuildBody() }) });
+    pages.push({
+      route,
+      file: null,
+      html: statusDocument({ view: VIEW.build, body: renderBuildBody() }),
+    });
   }
 
   return pages;
 }
 
-define('discovery', 'robots.txt, sitemap.xml and llms.txt, and the one switch behind them', async () => {
-  const vercel = JSON.parse(readFileSync(join(SITE, 'vercel.json'), 'utf8'));
-  // The build's own fallback origin, used here rather than a string of this
-  // file's own. llms.txt is the only other place the domain is written out
-  // rather than read from SITE_URL, so measuring it against this one is what
-  // keeps the two from drifting apart in silence.
-  const site = CANONICAL_ORIGIN;
+define(
+  'discovery',
+  'robots.txt, sitemap.xml and llms.txt, and the one switch behind them',
+  async () => {
+    const vercel = JSON.parse(readFileSync(join(SITE, 'vercel.json'), 'utf8'));
+    // The build's own fallback origin, used here rather than a string of this
+    // file's own. llms.txt is the only other place the domain is written out
+    // rather than read from SITE_URL, so measuring it against this one is what
+    // keeps the two from drifting apart in silence.
+    const site = CANONICAL_ORIGIN;
 
-  // ---- The constant and the header are one decision in two places ----------
-  const globalHeaders = (vercel.headers ?? []).find((entry) => entry.source === '/(.*)');
-  const globalRobots = (globalHeaders?.headers ?? []).find((h) => h.key === 'X-Robots-Tag');
-  check(
-    INDEXING
-      ? 'indexing is on, so vercel.json carries no global X-Robots-Tag'
-      : `indexing is off, so vercel.json carries the global X-Robots-Tag: ${NOINDEX_HEADER}`,
-    INDEXING ? globalRobots === undefined : globalRobots?.value === NOINDEX_HEADER,
-    `INDEXING is ${INDEXING} and the header is ${globalRobots ? JSON.stringify(globalRobots.value) : 'absent'}. ` +
-      `Part 8 flips both in one commit.`
-  );
-
-  const apiHeaders = (vercel.headers ?? []).find((entry) => entry.source === '/api/(.*)');
-  check(
-    'the X-Robots-Tag on /api/(.*) is there whatever the switch says',
-    (apiHeaders?.headers ?? []).some((h) => h.key === 'X-Robots-Tag' && h.value === 'noindex'),
-    'that one is separate and permanent, and part 8 does not touch it'
-  );
-
-  // ---- Served from functions, and nothing on disk shadowing them -----------
-  for (const [source, destination] of [
-    ['/robots.txt', '/api/robots'],
-    [SITEMAP_PATH, '/api/sitemap'],
-  ]) {
-    const rewrite = (vercel.rewrites ?? []).find((entry) => entry.source === source);
+    // ---- The constant and the header are one decision in two places ----------
+    const globalHeaders = (vercel.headers ?? []).find((entry) => entry.source === '/(.*)');
+    const globalRobots = (globalHeaders?.headers ?? []).find((h) => h.key === 'X-Robots-Tag');
     check(
-      `${source} is rewritten to ${destination}`,
-      rewrite?.destination === destination,
-      rewrite ? `it points at ${rewrite.destination}` : 'no rewrite for it'
+      INDEXING
+        ? 'indexing is on, so vercel.json carries no global X-Robots-Tag'
+        : `indexing is off, so vercel.json carries the global X-Robots-Tag: ${NOINDEX_HEADER}`,
+      INDEXING ? globalRobots === undefined : globalRobots?.value === NOINDEX_HEADER,
+      `INDEXING is ${INDEXING} and the header is ${globalRobots ? JSON.stringify(globalRobots.value) : 'absent'}. ` +
+        `Part 8 flips both in one commit.`
     );
-    // Vercel matches the filesystem before it consults rewrites, so a file of
-    // that name would win and the function would never run. Phase 3's rule,
-    // and the one this pair fails silently on.
-    const shadow = source.replace(/^\//, '');
+
+    const apiHeaders = (vercel.headers ?? []).find((entry) => entry.source === '/api/(.*)');
     check(
-      `no ${shadow} sits in main-site/ to win over the rewrite`,
-      !existsSync(join(SITE, shadow)),
-      'the filesystem is matched before the rewrites'
+      'the X-Robots-Tag on /api/(.*) is there whatever the switch says',
+      (apiHeaders?.headers ?? []).some((h) => h.key === 'X-Robots-Tag' && h.value === 'noindex'),
+      'that one is separate and permanent, and part 8 does not touch it'
     );
-  }
 
-  // ---- What robots.txt says in each of its three states --------------------
-  const blocked = robotsBody({ indexing: false, site });
-  check('blocked: it disallows everything', /^Disallow: \/$/m.test(blocked), blocked.slice(0, 120));
-  check('blocked: it points at no sitemap', !blocked.includes('Sitemap:'), 'a blocked site advertises nothing');
-  check(
-    'blocked: it names the switch, so curl finds the file that decides this',
-    blocked.includes('INDEXING') && blocked.includes('discovery.js'),
-    'somebody reading this with curl has to be able to find what set it'
-  );
-
-  const open = robotsBody({ indexing: true, site });
-  for (const path of DISALLOW) {
-    check(`open: it disallows ${path}`, new RegExp(`^Disallow: ${path}$`, 'm').test(open), open);
-  }
-  check('open: it does not disallow the site', !/^Disallow: \/$/m.test(open), 'that is the blocked body');
-  check(
-    `open: it points at ${site}${SITEMAP_PATH}`,
-    open.includes(`Sitemap: ${site}${SITEMAP_PATH}`),
-    'section 4 asks robots.txt to point at the sitemap, absolute'
-  );
-  check(
-    'open: it allows the pages the sitemap lists',
-    STATIC_PAGES.every((path) => !DISALLOW.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))),
-    'a page cannot be in the sitemap and disallowed at once'
-  );
-
-  const noSitemap = robotsBody({ indexing: true, site, sitemap: false });
-  check(
-    'switched off: the Sitemap line goes and the crawl rules do not',
-    !noSitemap.includes('Sitemap:') &&
-      DISALLOW.every((path) => new RegExp(`^Disallow: ${path}$`, 'm').test(noSitemap)) &&
-      !/^Disallow: \/$/m.test(noSitemap),
-    'an off switch that blocked crawling would take a day to undo and would not delist anything'
-  );
-  check(
-    'switched off: it says so rather than leaving an absence',
-    noSitemap.includes('temporarily switched off'),
-    'somebody reading it during an outage should not have to wonder'
-  );
-
-  // ---- The sitemap, built from fixtures ------------------------------------
-  const buildStatus = JSON.parse(readFileSync(join(SITE, 'assets/build-status.json'), 'utf8'));
-  const FIXTURE_JOBS = [
-    { id: '3f9a1c2e-8b47-4d10-9a3e-5c61d2f0ab88', updated_at: '2026-08-20T02:00:00.000Z' },
-    // A row with no updated_at. It must appear with no lastmod rather than with
-    // today's date: "changed today" is a claim, and an unmeasured one.
-    { id: '11111111-2222-3333-4444-555555555555', updated_at: null },
-  ];
-  const xml = sitemapXml({
-    site,
-    paths: STATIC_PAGES,
-    lastmod: { '/status': buildStatus.updated },
-    jobs: FIXTURE_JOBS,
-  });
-
-  check('it is one urlset with a declaration', xml.startsWith('<?xml version="1.0" encoding="UTF-8"?>') &&
-    (xml.match(/<urlset /g) ?? []).length === 1 && xml.trimEnd().endsWith('</urlset>'), xml.slice(0, 80));
-
-  const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
-  check(
-    `it lists ${STATIC_PAGES.length} pages and ${FIXTURE_JOBS.length} postings`,
-    locs.length === STATIC_PAGES.length + FIXTURE_JOBS.length,
-    `${locs.length} entries`
-  );
-  check(
-    'every address is absolute and on this origin',
-    locs.every((loc) => loc.startsWith(`${site}/`)),
-    locs.filter((loc) => !loc.startsWith(`${site}/`)).join(', ')
-  );
-  const missingPages = STATIC_PAGES.filter((path) => !locs.includes(`${site}${path}`));
-  check('every static page section 4 names is in it', missingPages.length === 0, missingPages.join(', '));
-  check(
-    'a posting is listed at its uuid, not its slug',
-    locs.includes(`${site}/jobs/${FIXTURE_JOBS[0].id}`),
-    'the canonical address of a posting is /jobs/{uuid}'
-  );
-  check(
-    'nothing under a prefix section 4 excludes is in it',
-    !locs.some((loc) => NEVER_LISTED.some((prefix) => new URL(loc).pathname.startsWith(prefix))),
-    locs.join(', ')
-  );
-
-  const entries = [...xml.matchAll(/<url>\s*<loc>([^<]+)<\/loc>\s*(?:<lastmod>([^<]+)<\/lastmod>)?/g)].map((m) => ({
-    loc: m[1],
-    lastmod: m[2] ?? null,
-  }));
-  const dated = entries.find((entry) => entry.loc === `${site}/jobs/${FIXTURE_JOBS[0].id}`);
-  check(
-    'a posting carries its updated_at as a W3C lastmod',
-    dated?.lastmod === new Date(FIXTURE_JOBS[0].updated_at).toISOString(),
-    String(dated?.lastmod)
-  );
-  const undated = entries.find((entry) => entry.loc === `${site}/jobs/${FIXTURE_JOBS[1].id}`);
-  check(
-    'a posting with no updated_at carries no lastmod rather than today',
-    undated !== undefined && undated.lastmod === null,
-    String(undated?.lastmod)
-  );
-  const status = entries.find((entry) => entry.loc === `${site}/status`);
-  check(
-    "/status carries build-status.json's own updated date",
-    status?.lastmod === new Date(buildStatus.updated).toISOString(),
-    `${status?.lastmod} against ${buildStatus.updated}. That page renders that file and nothing else.`
-  );
-
-  // ---- The rules fire, before a clean run is believed ----------------------
-  // Deviation 90, and part 3 and part 4 both had to learn it again: a rule that
-  // has only ever returned nothing is a rule nobody has seen work.
-  let threw = null;
-  try {
-    sitemapXml({ site, paths: ['/', '/admin/jobs'] });
-  } catch (cause) {
-    threw = String(cause?.message ?? cause);
-  }
-  check(
-    'a path under an excluded prefix throws rather than being dropped quietly',
-    threw !== null && threw.includes('/admin/jobs'),
-    threw ?? 'it produced a sitemap'
-  );
-
-  const withRubbish = sitemapXml({ site, jobs: [{ id: 'not-a-uuid', updated_at: null }, ...FIXTURE_JOBS] });
-  check(
-    'a row whose id is not a posting id is dropped',
-    !withRubbish.includes('not-a-uuid') &&
-      (withRubbish.match(/<loc>/g) ?? []).length === STATIC_PAGES.length + FIXTURE_JOBS.length,
-    'a bad row must not become a URL, and must not take the sitemap down either'
-  );
-
-  const escaped = sitemapXml({ site, paths: ['/search?tags=a&match=all'], jobs: [] });
-  check(
-    'an ampersand in an address is escaped',
-    escaped.includes('&amp;match=all') && !/[^&]&[^a]/.test(escaped),
-    escaped
-  );
-
-  const twice = sitemapXml({ site, paths: ['/', '/'], jobs: [FIXTURE_JOBS[0], FIXTURE_JOBS[0]] });
-  check(
-    'the same address is listed once',
-    (twice.match(/<loc>/g) ?? []).length === 2,
-    `${(twice.match(/<loc>/g) ?? []).length} entries for two pairs`
-  );
-
-  // ---- The list is derived from the pages, not only written down ----------
-  // Part 3's badge and part 4's review page are the same lesson twice: a list
-  // somebody wrote is a list with something missing from it, and what is
-  // missing is invisible by construction. So the public pages are read out of
-  // the markup — a page with no `noindex` meta is a page meant to be found —
-  // and compared with STATIC_PAGES in both directions.
-  const pages = servedPages();
-  check('there are pages to read', pages.length > 10, `${pages.length} html files`);
-
-  // `content="noindex, follow"` on the three pages that are served rather than
-  // visited, and a bare `noindex` on the rest. Both are a noindex, and a rule
-  // matching only the shorter spelling reported /404, /offline and /placeholder
-  // as pages meant to be found.
-  const indexable = pages
-    .filter((page) => !/<meta\s+name="robots"\s+content="noindex[^"]*"/i.test(page.html))
-    .map((page) => page.route)
-    .sort();
-  const listed = [...STATIC_PAGES].sort();
-  check(
-    `the ${indexable.length} pages that carry no noindex are exactly the pages in the sitemap`,
-    indexable.join(',') === listed.join(','),
-    `markup says ${indexable.join(', ')}; the sitemap lists ${listed.join(', ')}`
-  );
-
-  for (const path of STATIC_PAGES) {
-    check(
-      `${path} is a page that exists in this tree`,
-      await routeExists(path),
-      'no file and no function serving it'
-    );
-  }
-
-  // ---- llms.txt ------------------------------------------------------------
-  const llmsPath = join(SITE, 'llms.txt');
-  check('llms.txt exists', existsSync(llmsPath), 'section 4 asks for it on both sites');
-  const llms = existsSync(llmsPath) ? readFileSync(llmsPath, 'utf8') : '';
-
-  check('it opens with the site name as an h1', llms.startsWith('# Careers@GFTV'), llms.slice(0, 40));
-  check('it carries the one paragraph summary the convention asks for', /^> .+/m.test(llms), 'no blockquote');
-
-  const links = [...llms.matchAll(/\]\((https?:\/\/[^)\s]+)\)/g)].map((m) => m[1]);
-  check(`it links ${links.length} pages, grouped under headings`, links.length >= 4 && /^## /m.test(llms), llms);
-  check(
-    'every link is absolute and on the origin the build falls back to',
-    links.every((url) => url.startsWith(`${site}/`)),
-    `${links.filter((url) => !url.startsWith(`${site}/`)).join(', ')} — CANONICAL_ORIGIN is ${site}`
-  );
-
-  const forbidden = links
-    .map((url) => new URL(url).pathname)
-    .filter((path) => path !== FEED_PATH)
-    .filter((path) => NEVER_LISTED.some((prefix) => path === prefix || path.startsWith(`${prefix}/`)));
-  check(
-    'nothing behind a session, and no endpoint but the openings feed',
-    forbidden.length === 0,
-    `${forbidden.join(', ')} — section 4: public, applicant facing material and nothing else`
-  );
-
-  for (const url of links) {
-    const path = new URL(url).pathname;
-    if (path === FEED_PATH) {
+    // ---- Served from functions, and nothing on disk shadowing them -----------
+    for (const [source, destination] of [
+      ['/robots.txt', '/api/robots'],
+      [SITEMAP_PATH, '/api/sitemap'],
+    ]) {
+      const rewrite = (vercel.rewrites ?? []).find((entry) => entry.source === source);
       check(
-        'the openings feed link is the address vercel.json rewrites',
-        (vercel.rewrites ?? []).some((entry) => entry.source === FEED_PATH),
-        'section 4 names this feed in llms.txt by name, so it is the one /api link allowed'
+        `${source} is rewritten to ${destination}`,
+        rewrite?.destination === destination,
+        rewrite ? `it points at ${rewrite.destination}` : 'no rewrite for it'
       );
-      continue;
+      // Vercel matches the filesystem before it consults rewrites, so a file of
+      // that name would win and the function would never run. Phase 3's rule,
+      // and the one this pair fails silently on.
+      const shadow = source.replace(/^\//, '');
+      check(
+        `no ${shadow} sits in main-site/ to win over the rewrite`,
+        !existsSync(join(SITE, shadow)),
+        'the filesystem is matched before the rewrites'
+      );
     }
-    check(`${path} is a page that exists`, await routeExists(path), 'llms.txt links a page that is not there');
-  }
 
-  check(
-    'it does not link the docs site, which phase 13 builds',
-    !llms.includes('docs.careers.globalfurry.tv'),
-    'the link must not ship before the page does — the same rule as the trusted sites page'
-  );
-  check(
-    'no application form URL is in it',
-    !/docs\.google\.com|forms\.gle/.test(llms),
-    'the form URL is never in a public payload, and this is a public page'
-  );
-  check(
-    'it is English, so nothing in it goes unreviewed',
-    !new RegExp(`[${HAN}]`).test(llms),
-    'gen-review.js fails a shipped file carrying 华文 that is on neither of its lists'
-  );
-
-  // ---- A switch an admin can see has a sentence saying what it does --------
-  // The DENYLIST is read out of maintenance.js as text rather than imported:
-  // that module pulls in the Supabase client, which requires environment
-  // variables this file deliberately does not have.
-  const maintenance = readFileSync(join(SITE, 'api/_lib/maintenance.js'), 'utf8');
-  const denylistBlock = maintenance.slice(
-    maintenance.indexOf('export const DENYLIST'),
-    maintenance.indexOf('});', maintenance.indexOf('export const DENYLIST'))
-  );
-  const denied = [...denylistBlock.matchAll(/^\s{2}([a-z_]+):/gm)].map((m) => m[1]);
-  // A parse that found nothing answers "clean" for every key, which is part 7's
-  // rule about a check with nothing to look at.
-  check(`the denylist parsed, ${denied.length} keys`, denied.length >= 9, denylistBlock.slice(0, 80));
-
-  const dictionaries = {
-    en: JSON.parse(readFileSync(join(SITE, 'assets/i18n/en.json'), 'utf8')),
-    zh: JSON.parse(readFileSync(join(SITE, 'assets/i18n/zh.json'), 'utf8')),
-  };
-  const featureKeys = Object.keys(buildStatus.features ?? {});
-  // **A sentence is owed by a feature an admin can see, and that is the ones
-  // whose phase has shipped or is shipping.** `flippableFeatures()` filters on
-  // `hasShipped`, so nothing from 13 to 15 is on /admin/maintenance to need
-  // one; phase 12's own two are in scope because phases 9 and 10 both had to
-  // write theirs in a hurry after the flip rather than before it.
-  const statuses = new Map((buildStatus.phases ?? []).map((phase) => [phase.number, phase.status]));
-  const visible = featureKeys.filter((key) =>
-    ['shipped', 'building'].includes(statuses.get(buildStatus.features[key]) ?? 'planned')
-  );
-
-  for (const locale of ['en', 'zh']) {
-    const noName = featureKeys.filter((key) => !dictionaries[locale][`featureName.${key}`]);
-    check(`every one of the ${featureKeys.length} feature keys has a name in ${locale}`, noName.length === 0, noName.join(', '));
-
-    const noWhere = visible
-      .filter((key) => !denied.includes(key))
-      .filter((key) => !dictionaries[locale][`featureWhere.${key}`]);
+    // ---- What robots.txt says in each of its three states --------------------
+    const blocked = robotsBody({ indexing: false, site });
     check(
-      `every one of the ${visible.length} flippable shipped features says where it is, in ${locale}`,
-      noWhere.every((key) => key in NO_WHERE_YET),
-      noWhere.filter((key) => !(key in NO_WHERE_YET)).join(', ')
+      'blocked: it disallows everything',
+      /^Disallow: \/$/m.test(blocked),
+      blocked.slice(0, 120)
     );
-    const stale = Object.keys(NO_WHERE_YET).filter((key) => dictionaries[locale][`featureWhere.${key}`]);
     check(
-      `the exemption list carries nothing that already has a sentence, in ${locale}`,
-      stale.length === 0,
-      `${stale.join(', ')} — remove it from NO_WHERE_YET in this file`
+      'blocked: it points at no sitemap',
+      !blocked.includes('Sitemap:'),
+      'a blocked site advertises nothing'
+    );
+    check(
+      'blocked: it names the switch, so curl finds the file that decides this',
+      blocked.includes('INDEXING') && blocked.includes('discovery.js'),
+      'somebody reading this with curl has to be able to find what set it'
+    );
+
+    const open = robotsBody({ indexing: true, site });
+    for (const path of DISALLOW) {
+      check(`open: it disallows ${path}`, new RegExp(`^Disallow: ${path}$`, 'm').test(open), open);
+    }
+    check(
+      'open: it does not disallow the site',
+      !/^Disallow: \/$/m.test(open),
+      'that is the blocked body'
+    );
+    check(
+      `open: it points at ${site}${SITEMAP_PATH}`,
+      open.includes(`Sitemap: ${site}${SITEMAP_PATH}`),
+      'section 4 asks robots.txt to point at the sitemap, absolute'
+    );
+    check(
+      'open: it allows the pages the sitemap lists',
+      STATIC_PAGES.every(
+        (path) => !DISALLOW.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
+      ),
+      'a page cannot be in the sitemap and disallowed at once'
+    );
+
+    const noSitemap = robotsBody({ indexing: true, site, sitemap: false });
+    check(
+      'switched off: the Sitemap line goes and the crawl rules do not',
+      !noSitemap.includes('Sitemap:') &&
+        DISALLOW.every((path) => new RegExp(`^Disallow: ${path}$`, 'm').test(noSitemap)) &&
+        !/^Disallow: \/$/m.test(noSitemap),
+      'an off switch that blocked crawling would take a day to undo and would not delist anything'
+    );
+    check(
+      'switched off: it says so rather than leaving an absence',
+      noSitemap.includes('temporarily switched off'),
+      'somebody reading it during an outage should not have to wonder'
+    );
+
+    // ---- The sitemap, built from fixtures ------------------------------------
+    const buildStatus = JSON.parse(readFileSync(join(SITE, 'assets/build-status.json'), 'utf8'));
+    const FIXTURE_JOBS = [
+      { id: '3f9a1c2e-8b47-4d10-9a3e-5c61d2f0ab88', updated_at: '2026-08-20T02:00:00.000Z' },
+      // A row with no updated_at. It must appear with no lastmod rather than with
+      // today's date: "changed today" is a claim, and an unmeasured one.
+      { id: '11111111-2222-3333-4444-555555555555', updated_at: null },
+    ];
+    const xml = sitemapXml({
+      site,
+      paths: STATIC_PAGES,
+      lastmod: { '/status': buildStatus.updated },
+      jobs: FIXTURE_JOBS,
+    });
+
+    check(
+      'it is one urlset with a declaration',
+      xml.startsWith('<?xml version="1.0" encoding="UTF-8"?>') &&
+        (xml.match(/<urlset /g) ?? []).length === 1 &&
+        xml.trimEnd().endsWith('</urlset>'),
+      xml.slice(0, 80)
+    );
+
+    const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+    check(
+      `it lists ${STATIC_PAGES.length} pages and ${FIXTURE_JOBS.length} postings`,
+      locs.length === STATIC_PAGES.length + FIXTURE_JOBS.length,
+      `${locs.length} entries`
+    );
+    check(
+      'every address is absolute and on this origin',
+      locs.every((loc) => loc.startsWith(`${site}/`)),
+      locs.filter((loc) => !loc.startsWith(`${site}/`)).join(', ')
+    );
+    const missingPages = STATIC_PAGES.filter((path) => !locs.includes(`${site}${path}`));
+    check(
+      'every static page section 4 names is in it',
+      missingPages.length === 0,
+      missingPages.join(', ')
+    );
+    check(
+      'a posting is listed at its uuid, not its slug',
+      locs.includes(`${site}/jobs/${FIXTURE_JOBS[0].id}`),
+      'the canonical address of a posting is /jobs/{uuid}'
+    );
+    check(
+      'nothing under a prefix section 4 excludes is in it',
+      !locs.some((loc) => NEVER_LISTED.some((prefix) => new URL(loc).pathname.startsWith(prefix))),
+      locs.join(', ')
+    );
+
+    const entries = [
+      ...xml.matchAll(/<url>\s*<loc>([^<]+)<\/loc>\s*(?:<lastmod>([^<]+)<\/lastmod>)?/g),
+    ].map((m) => ({
+      loc: m[1],
+      lastmod: m[2] ?? null,
+    }));
+    const dated = entries.find((entry) => entry.loc === `${site}/jobs/${FIXTURE_JOBS[0].id}`);
+    check(
+      'a posting carries its updated_at as a W3C lastmod',
+      dated?.lastmod === new Date(FIXTURE_JOBS[0].updated_at).toISOString(),
+      String(dated?.lastmod)
+    );
+    const undated = entries.find((entry) => entry.loc === `${site}/jobs/${FIXTURE_JOBS[1].id}`);
+    check(
+      'a posting with no updated_at carries no lastmod rather than today',
+      undated !== undefined && undated.lastmod === null,
+      String(undated?.lastmod)
+    );
+    const status = entries.find((entry) => entry.loc === `${site}/status`);
+    check(
+      "/status carries build-status.json's own updated date",
+      status?.lastmod === new Date(buildStatus.updated).toISOString(),
+      `${status?.lastmod} against ${buildStatus.updated}. That page renders that file and nothing else.`
+    );
+
+    // ---- The rules fire, before a clean run is believed ----------------------
+    // Deviation 90, and part 3 and part 4 both had to learn it again: a rule that
+    // has only ever returned nothing is a rule nobody has seen work.
+    let threw = null;
+    try {
+      sitemapXml({ site, paths: ['/', '/admin/jobs'] });
+    } catch (cause) {
+      threw = String(cause?.message ?? cause);
+    }
+    check(
+      'a path under an excluded prefix throws rather than being dropped quietly',
+      threw !== null && threw.includes('/admin/jobs'),
+      threw ?? 'it produced a sitemap'
+    );
+
+    const withRubbish = sitemapXml({
+      site,
+      jobs: [{ id: 'not-a-uuid', updated_at: null }, ...FIXTURE_JOBS],
+    });
+    check(
+      'a row whose id is not a posting id is dropped',
+      !withRubbish.includes('not-a-uuid') &&
+        (withRubbish.match(/<loc>/g) ?? []).length === STATIC_PAGES.length + FIXTURE_JOBS.length,
+      'a bad row must not become a URL, and must not take the sitemap down either'
+    );
+
+    const escaped = sitemapXml({ site, paths: ['/search?tags=a&match=all'], jobs: [] });
+    check(
+      'an ampersand in an address is escaped',
+      escaped.includes('&amp;match=all') && !/[^&]&[^a]/.test(escaped),
+      escaped
+    );
+
+    const twice = sitemapXml({ site, paths: ['/', '/'], jobs: [FIXTURE_JOBS[0], FIXTURE_JOBS[0]] });
+    check(
+      'the same address is listed once',
+      (twice.match(/<loc>/g) ?? []).length === 2,
+      `${(twice.match(/<loc>/g) ?? []).length} entries for two pairs`
+    );
+
+    // ---- The list is derived from the pages, not only written down ----------
+    // Part 3's badge and part 4's review page are the same lesson twice: a list
+    // somebody wrote is a list with something missing from it, and what is
+    // missing is invisible by construction. So the public pages are read out of
+    // the markup — a page with no `noindex` meta is a page meant to be found —
+    // and compared with STATIC_PAGES in both directions.
+    const pages = servedPages();
+    check('there are pages to read', pages.length > 10, `${pages.length} html files`);
+
+    // `content="noindex, follow"` on the three pages that are served rather than
+    // visited, and a bare `noindex` on the rest. Both are a noindex, and a rule
+    // matching only the shorter spelling reported /404, /offline and /placeholder
+    // as pages meant to be found.
+    const indexable = pages
+      .filter((page) => !/<meta\s+name="robots"\s+content="noindex[^"]*"/i.test(page.html))
+      .map((page) => page.route)
+      .sort();
+    const listed = [...STATIC_PAGES].sort();
+    check(
+      `the ${indexable.length} pages that carry no noindex are exactly the pages in the sitemap`,
+      indexable.join(',') === listed.join(','),
+      `markup says ${indexable.join(', ')}; the sitemap lists ${listed.join(', ')}`
+    );
+
+    for (const path of STATIC_PAGES) {
+      check(
+        `${path} is a page that exists in this tree`,
+        await routeExists(path),
+        'no file and no function serving it'
+      );
+    }
+
+    // ---- llms.txt ------------------------------------------------------------
+    const llmsPath = join(SITE, 'llms.txt');
+    check('llms.txt exists', existsSync(llmsPath), 'section 4 asks for it on both sites');
+    const llms = existsSync(llmsPath) ? readFileSync(llmsPath, 'utf8') : '';
+
+    check(
+      'it opens with the site name as an h1',
+      llms.startsWith('# Careers@GFTV'),
+      llms.slice(0, 40)
+    );
+    check(
+      'it carries the one paragraph summary the convention asks for',
+      /^> .+/m.test(llms),
+      'no blockquote'
+    );
+
+    const links = [...llms.matchAll(/\]\((https?:\/\/[^)\s]+)\)/g)].map((m) => m[1]);
+    check(
+      `it links ${links.length} pages, grouped under headings`,
+      links.length >= 4 && /^## /m.test(llms),
+      llms
+    );
+    check(
+      'every link is absolute and on the origin the build falls back to',
+      links.every((url) => url.startsWith(`${site}/`)),
+      `${links.filter((url) => !url.startsWith(`${site}/`)).join(', ')} — CANONICAL_ORIGIN is ${site}`
+    );
+
+    const forbidden = links
+      .map((url) => new URL(url).pathname)
+      .filter((path) => path !== FEED_PATH)
+      .filter((path) =>
+        NEVER_LISTED.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
+      );
+    check(
+      'nothing behind a session, and no endpoint but the openings feed',
+      forbidden.length === 0,
+      `${forbidden.join(', ')} — section 4: public, applicant facing material and nothing else`
+    );
+
+    for (const url of links) {
+      const path = new URL(url).pathname;
+      if (path === FEED_PATH) {
+        check(
+          'the openings feed link is the address vercel.json rewrites',
+          (vercel.rewrites ?? []).some((entry) => entry.source === FEED_PATH),
+          'section 4 names this feed in llms.txt by name, so it is the one /api link allowed'
+        );
+        continue;
+      }
+      check(
+        `${path} is a page that exists`,
+        await routeExists(path),
+        'llms.txt links a page that is not there'
+      );
+    }
+
+    check(
+      'it does not link the docs site, which phase 13 builds',
+      !llms.includes('docs.careers.globalfurry.tv'),
+      'the link must not ship before the page does — the same rule as the trusted sites page'
+    );
+    check(
+      'no application form URL is in it',
+      !/docs\.google\.com|forms\.gle/.test(llms),
+      'the form URL is never in a public payload, and this is a public page'
+    );
+    check(
+      'it is English, so nothing in it goes unreviewed',
+      !new RegExp(`[${HAN}]`).test(llms),
+      'gen-review.js fails a shipped file carrying 华文 that is on neither of its lists'
+    );
+
+    // ---- A switch an admin can see has a sentence saying what it does --------
+    // The DENYLIST is read out of maintenance.js as text rather than imported:
+    // that module pulls in the Supabase client, which requires environment
+    // variables this file deliberately does not have.
+    const maintenance = readFileSync(join(SITE, 'api/_lib/maintenance.js'), 'utf8');
+    const denylistBlock = maintenance.slice(
+      maintenance.indexOf('export const DENYLIST'),
+      maintenance.indexOf('});', maintenance.indexOf('export const DENYLIST'))
+    );
+    const denied = [...denylistBlock.matchAll(/^\s{2}([a-z_]+):/gm)].map((m) => m[1]);
+    // A parse that found nothing answers "clean" for every key, which is part 7's
+    // rule about a check with nothing to look at.
+    check(
+      `the denylist parsed, ${denied.length} keys`,
+      denied.length >= 9,
+      denylistBlock.slice(0, 80)
+    );
+
+    const dictionaries = {
+      en: JSON.parse(readFileSync(join(SITE, 'assets/i18n/en.json'), 'utf8')),
+      zh: JSON.parse(readFileSync(join(SITE, 'assets/i18n/zh.json'), 'utf8')),
+    };
+    const featureKeys = Object.keys(buildStatus.features ?? {});
+    // **A sentence is owed by a feature an admin can see, and that is the ones
+    // whose phase has shipped or is shipping.** `flippableFeatures()` filters on
+    // `hasShipped`, so nothing from 13 to 15 is on /admin/maintenance to need
+    // one; phase 12's own two are in scope because phases 9 and 10 both had to
+    // write theirs in a hurry after the flip rather than before it.
+    const statuses = new Map(
+      (buildStatus.phases ?? []).map((phase) => [phase.number, phase.status])
+    );
+    const visible = featureKeys.filter((key) =>
+      ['shipped', 'building'].includes(statuses.get(buildStatus.features[key]) ?? 'planned')
+    );
+
+    for (const locale of ['en', 'zh']) {
+      const noName = featureKeys.filter((key) => !dictionaries[locale][`featureName.${key}`]);
+      check(
+        `every one of the ${featureKeys.length} feature keys has a name in ${locale}`,
+        noName.length === 0,
+        noName.join(', ')
+      );
+
+      const noWhere = visible
+        .filter((key) => !denied.includes(key))
+        .filter((key) => !dictionaries[locale][`featureWhere.${key}`]);
+      check(
+        `every one of the ${visible.length} flippable shipped features says where it is, in ${locale}`,
+        noWhere.every((key) => key in NO_WHERE_YET),
+        noWhere.filter((key) => !(key in NO_WHERE_YET)).join(', ')
+      );
+      const stale = Object.keys(NO_WHERE_YET).filter(
+        (key) => dictionaries[locale][`featureWhere.${key}`]
+      );
+      check(
+        `the exemption list carries nothing that already has a sentence, in ${locale}`,
+        stale.length === 0,
+        `${stale.join(', ')} — remove it from NO_WHERE_YET in this file`
+      );
+    }
+    check(
+      'the sitemap switch has its sentence before phase 12 can flip to shipped',
+      Boolean(dictionaries.en['featureWhere.sitemap'] && dictionaries.zh['featureWhere.sitemap']),
+      'phases 9 and 10 both had to write theirs before the flip'
     );
   }
-  check(
-    'the sitemap switch has its sentence before phase 12 can flip to shipped',
-    Boolean(dictionaries.en['featureWhere.sitemap'] && dictionaries.zh['featureWhere.sitemap']),
-    'phases 9 and 10 both had to write theirs before the flip'
-  );
-});
+);
 
 /* =========================================================================
  * 8. The polish pass, and the four duplicates it removed
@@ -2873,457 +3152,487 @@ function clientModules() {
   );
 }
 
-define('polish', 'One modal shell, one runAction, one tab keyboard, and no dead rewrites', async () => {
-  const modules = clientModules();
-  const vercel = JSON.parse(readFileSync(join(SITE, 'vercel.json'), 'utf8'));
+define(
+  'polish',
+  'One modal shell, one runAction, one tab keyboard, and no dead rewrites',
+  async () => {
+    const modules = clientModules();
+    const vercel = JSON.parse(readFileSync(join(SITE, 'vercel.json'), 'utf8'));
 
-  /* --- The rewrites that were never running ---------------------------- */
+    /* --- The rewrites that were never running ---------------------------- */
 
-  // **`cleanUrls` is the whole reason those eleven were inert**, so it is
-  // asserted rather than assumed: with it off, `/about` would stop resolving to
-  // `/about/index.html` and every route part 6 unrewrote would 404 at once.
-  check(
-    'cleanUrls is on, which is what serves /about from /about/index.html',
-    vercel.cleanUrls === true,
-    'without it the removed rewrites were not inert and the removal is wrong'
-  );
-
-  const rewrites = vercel.rewrites ?? [];
-
-  // Phase 3's rule from the other end, and part 5's: the filesystem is matched
-  // before the rewrites are consulted, so a rewrite whose source is answered by
-  // a file has never run. A directory rewrite is the pure case — it points a
-  // path at the very file that already answers it.
-  const directory = rewrites.filter(
-    (entry) => entry.destination === `${entry.source}/index.html` || entry.destination === `${entry.source}.html`
-  );
-  check(
-    'no rewrite points a path at the file that already answers it',
-    directory.length === 0,
-    directory.map((entry) => `${entry.source} → ${entry.destination}`).join('; ')
-  );
-
-  /** Whether the working tree answers a path without any rewrite at all. */
-  const answersOnDisk = (pathname) => {
-    const relative = pathname.replace(/^\//, '');
-    return (
-      existsSync(join(SITE, relative)) ||
-      existsSync(join(SITE, `${relative}.html`)) ||
-      existsSync(join(SITE, relative, 'index.html'))
-    );
-  };
-
-  const shadowed = rewrites.filter((entry) => !entry.source.includes(':') && answersOnDisk(entry.source));
-  check(
-    `all ${rewrites.length} rewrites are reachable, with nothing on disk winning first`,
-    shadowed.length === 0,
-    shadowed.map((entry) => entry.source).join('; ')
-  );
-
-  // **And the other direction, which is the one that would break the site.**
-  // Every page whose rewrite came out has to be answerable from the filesystem,
-  // or the removal turned a working route into a 404 — or, under /admin, into
-  // the placeholder that the catch-all serves.
-  const UNREWRITTEN = [
-    '/search',
-    '/about',
-    '/faq',
-    '/account',
-    '/account/applications',
-    '/account/saved',
-    '/account/tasks',
-    '/account/settings',
-    '/account/security',
-    '/admin/login',
-    '/admin/security',
-  ];
-  const missing = UNREWRITTEN.filter((path) => !existsSync(join(SITE, path.replace(/^\//, ''), 'index.html')));
-  check(
-    `all ${UNREWRITTEN.length} routes whose rewrite came out are still files on disk`,
-    missing.length === 0,
-    missing.join(', ')
-  );
-
-  // The two under /admin are the sharp ones: the catch-all rewrite is still
-  // there and would answer them with the placeholder if the filesystem did not
-  // win first. `polish-live` is what proves it actually does.
-  check(
-    'the /admin catch-all is still there for the routes that have no page',
-    rewrites.some((entry) => entry.source === '/admin/:path*' && entry.destination === '/placeholder'),
-    '0c: a staff member opening an unbuilt section gets the phase sentence'
-  );
-
-  /* --- One modal shell -------------------------------------------------- */
-
-  // Three files build a modal, and they stay three: dialog.js's is persistent
-  // and reused, and the other two are created and destroyed per use, which is
-  // a different lifecycle rather than a duplicate. What must not come back is a
-  // fourth, or a div.
-  const OWN_SHELL = ['dialog.js', 'danger-confirm.js', 'recovery-codes.js'];
-  const builders = [...modules]
-    .filter(([, source]) => /className = ['`]modal-backdrop|class="modal-backdrop/.test(source))
-    .map(([name]) => name);
-  check(
-    `only ${OWN_SHELL.length} files build a modal shell, and they are the expected ones`,
-    builders.length === OWN_SHELL.length && builders.every((name) => OWN_SHELL.includes(name)),
-    builders.join(', ')
-  );
-
-  // **All three, and this is not tidiness.** A modal <dialog> makes the whole
-  // document outside it inert and paints above every z-index, so a modal built
-  // as a div while one is open is unclickable and hidden behind the dim. Both
-  // of the other two are opened from inside a dialog.js panel.
-  for (const name of OWN_SHELL) {
+    // **`cleanUrls` is the whole reason those eleven were inert**, so it is
+    // asserted rather than assumed: with it off, `/about` would stop resolving to
+    // `/about/index.html` and every route part 6 unrewrote would 404 at once.
     check(
-      `${name} builds a native <dialog> and opens it with showModal`,
-      /createElement\('dialog'\)/.test(modules.get(name)) && modules.get(name).includes('showModal()'),
-      'a div here is inert the moment another modal is open'
+      'cleanUrls is on, which is what serves /about from /about/index.html',
+      vercel.cleanUrls === true,
+      'without it the removed rewrites were not inert and the removal is wrong'
     );
-  }
 
-  check(
-    'no modal carries role="dialog" on the panel inside the dialog element',
-    !OWN_SHELL.some((name) => /class="modal[^"]*"[^>]*role="dialog"/.test(modules.get(name))),
-    'that nests a second dialog in the first; the element already has the role'
-  );
+    const rewrites = vercel.rewrites ?? [];
 
-  check(
-    'nothing tracks a modal as open with a class beside the element',
-    ![...modules].some(([, source]) => source.includes('modal-backdrop hidden')),
-    'the open state is the dialog element\'s own [open] since part 6'
-  );
-
-  check(
-    'no modal hand-rolls a focus trap any more',
-    !OWN_SHELL.some((name) => modules.get(name).includes('function trapFocus')),
-    'the browser traps focus in the topmost modal dialog'
-  );
-
-  /* --- One runAction ---------------------------------------------------- */
-
-  const definitions = [...modules].filter(([, source]) => /function runAction\(action, label\)/.test(source));
-  check(
-    'exactly one file carries the runAction body',
-    definitions.length === 1 && definitions[0][0] === 'run-action.js',
-    definitions.map(([name]) => name).join(', ') || 'none at all'
-  );
-  for (const name of ['admin-shell.js', 'account-shell.js']) {
+    // Phase 3's rule from the other end, and part 5's: the filesystem is matched
+    // before the rewrites are consulted, so a rewrite whose source is answered by
+    // a file has never run. A directory rewrite is the pure case — it points a
+    // path at the very file that already answers it.
+    const directory = rewrites.filter(
+      (entry) =>
+        entry.destination === `${entry.source}/index.html` ||
+        entry.destination === `${entry.source}.html`
+    );
     check(
-      `${name} builds its runAction from the shared one`,
-      modules.get(name).includes("from './run-action.js'") && modules.get(name).includes('makeRunAction('),
-      'it had a copy of the body until part 6'
+      'no rewrite points a path at the file that already answers it',
+      directory.length === 0,
+      directory.map((entry) => `${entry.source} → ${entry.destination}`).join('; ')
     );
-  }
-  check(
-    'the posting editor has no third copy',
-    !modules.get('admin-job-editor.js').includes('function runAction('),
-    'it differed only by writing "editor" into the console line'
-  );
 
-  /* --- A switched off admin page's write controls ------------------------ */
+    /** Whether the working tree answers a path without any rewrite at all. */
+    const answersOnDisk = (pathname) => {
+      const relative = pathname.replace(/^\//, '');
+      return (
+        existsSync(join(SITE, relative)) ||
+        existsSync(join(SITE, `${relative}.html`)) ||
+        existsSync(join(SITE, relative, 'index.html'))
+      );
+    };
 
-  // Decision 17. **A control declares that it writes and never which feature
-  // that is**, because the feature is a property of the page: writing the key
-  // into the markup would put one decision in two places with nothing
-  // comparing them, which is the failure this build has hit more often than
-  // any other. These three checks are that design, not the behaviour — the
-  // behaviour needs a feature actually switched off, which is a write against
-  // the real database and belongs in the by-hand sitting.
-  const marked = [];
-  const walk = (dir) => {
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      const full = join(dir, entry.name);
-      if (entry.isDirectory()) walk(full);
-      else if (entry.name.endsWith('.html')) {
-        const html = readFileSync(full, 'utf8');
-        if (html.includes('data-feature-write')) marked.push({ path: full, html });
+    const shadowed = rewrites.filter(
+      (entry) => !entry.source.includes(':') && answersOnDisk(entry.source)
+    );
+    check(
+      `all ${rewrites.length} rewrites are reachable, with nothing on disk winning first`,
+      shadowed.length === 0,
+      shadowed.map((entry) => entry.source).join('; ')
+    );
+
+    // **And the other direction, which is the one that would break the site.**
+    // Every page whose rewrite came out has to be answerable from the filesystem,
+    // or the removal turned a working route into a 404 — or, under /admin, into
+    // the placeholder that the catch-all serves.
+    const UNREWRITTEN = [
+      '/search',
+      '/about',
+      '/faq',
+      '/account',
+      '/account/applications',
+      '/account/saved',
+      '/account/tasks',
+      '/account/settings',
+      '/account/security',
+      '/admin/login',
+      '/admin/security',
+    ];
+    const missing = UNREWRITTEN.filter(
+      (path) => !existsSync(join(SITE, path.replace(/^\//, ''), 'index.html'))
+    );
+    check(
+      `all ${UNREWRITTEN.length} routes whose rewrite came out are still files on disk`,
+      missing.length === 0,
+      missing.join(', ')
+    );
+
+    // The two under /admin are the sharp ones: the catch-all rewrite is still
+    // there and would answer them with the placeholder if the filesystem did not
+    // win first. `polish-live` is what proves it actually does.
+    check(
+      'the /admin catch-all is still there for the routes that have no page',
+      rewrites.some(
+        (entry) => entry.source === '/admin/:path*' && entry.destination === '/placeholder'
+      ),
+      '0c: a staff member opening an unbuilt section gets the phase sentence'
+    );
+
+    /* --- One modal shell -------------------------------------------------- */
+
+    // Three files build a modal, and they stay three: dialog.js's is persistent
+    // and reused, and the other two are created and destroyed per use, which is
+    // a different lifecycle rather than a duplicate. What must not come back is a
+    // fourth, or a div.
+    const OWN_SHELL = ['dialog.js', 'danger-confirm.js', 'recovery-codes.js'];
+    const builders = [...modules]
+      .filter(([, source]) => /className = ['`]modal-backdrop|class="modal-backdrop/.test(source))
+      .map(([name]) => name);
+    check(
+      `only ${OWN_SHELL.length} files build a modal shell, and they are the expected ones`,
+      builders.length === OWN_SHELL.length && builders.every((name) => OWN_SHELL.includes(name)),
+      builders.join(', ')
+    );
+
+    // **All three, and this is not tidiness.** A modal <dialog> makes the whole
+    // document outside it inert and paints above every z-index, so a modal built
+    // as a div while one is open is unclickable and hidden behind the dim. Both
+    // of the other two are opened from inside a dialog.js panel.
+    for (const name of OWN_SHELL) {
+      check(
+        `${name} builds a native <dialog> and opens it with showModal`,
+        /createElement\('dialog'\)/.test(modules.get(name)) &&
+          modules.get(name).includes('showModal()'),
+        'a div here is inert the moment another modal is open'
+      );
+    }
+
+    check(
+      'no modal carries role="dialog" on the panel inside the dialog element',
+      !OWN_SHELL.some((name) => /class="modal[^"]*"[^>]*role="dialog"/.test(modules.get(name))),
+      'that nests a second dialog in the first; the element already has the role'
+    );
+
+    check(
+      'nothing tracks a modal as open with a class beside the element',
+      ![...modules].some(([, source]) => source.includes('modal-backdrop hidden')),
+      "the open state is the dialog element's own [open] since part 6"
+    );
+
+    check(
+      'no modal hand-rolls a focus trap any more',
+      !OWN_SHELL.some((name) => modules.get(name).includes('function trapFocus')),
+      'the browser traps focus in the topmost modal dialog'
+    );
+
+    /* --- One runAction ---------------------------------------------------- */
+
+    const definitions = [...modules].filter(([, source]) =>
+      /function runAction\(action, label\)/.test(source)
+    );
+    check(
+      'exactly one file carries the runAction body',
+      definitions.length === 1 && definitions[0][0] === 'run-action.js',
+      definitions.map(([name]) => name).join(', ') || 'none at all'
+    );
+    for (const name of ['admin-shell.js', 'account-shell.js']) {
+      check(
+        `${name} builds its runAction from the shared one`,
+        modules.get(name).includes("from './run-action.js'") &&
+          modules.get(name).includes('makeRunAction('),
+        'it had a copy of the body until part 6'
+      );
+    }
+    check(
+      'the posting editor has no third copy',
+      !modules.get('admin-job-editor.js').includes('function runAction('),
+      'it differed only by writing "editor" into the console line'
+    );
+
+    /* --- A switched off admin page's write controls ------------------------ */
+
+    // Decision 17. **A control declares that it writes and never which feature
+    // that is**, because the feature is a property of the page: writing the key
+    // into the markup would put one decision in two places with nothing
+    // comparing them, which is the failure this build has hit more often than
+    // any other. These three checks are that design, not the behaviour — the
+    // behaviour needs a feature actually switched off, which is a write against
+    // the real database and belongs in the by-hand sitting.
+    const marked = [];
+    const walk = (dir) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) walk(full);
+        else if (entry.name.endsWith('.html')) {
+          const html = readFileSync(full, 'utf8');
+          if (html.includes('data-feature-write')) marked.push({ path: full, html });
+        }
       }
-    }
-  };
-  walk(SITE);
+    };
+    walk(SITE);
 
-  const declared = marked.reduce((total, file) => total + file.html.split('data-feature-write').length - 1, 0);
-  check(
-    `${declared} controls across ${marked.length} pages declare that they write, and all of them are admin pages`,
-    declared >= 10 && marked.every((file) => file.path.includes(`admin${sep}`)),
-    marked
-      .filter((file) => !file.path.includes(`admin${sep}`))
-      .map((file) => file.path)
-      .join(', ') || 'none outside /admin'
-  );
+    const declared = marked.reduce(
+      (total, file) => total + file.html.split('data-feature-write').length - 1,
+      0
+    );
+    check(
+      `${declared} controls across ${marked.length} pages declare that they write, and all of them are admin pages`,
+      declared >= 10 && marked.every((file) => file.path.includes(`admin${sep}`)),
+      marked
+        .filter((file) => !file.path.includes(`admin${sep}`))
+        .map((file) => file.path)
+        .join(', ') || 'none outside /admin'
+    );
 
-  const keyed = marked.filter((file) =>
-    /data-feature-write[^>]*data-feature=|data-feature=[^>]*data-feature-write/.test(file.html)
-  );
-  check(
-    'no control names its own feature beside the declaration',
-    keyed.length === 0,
-    keyed.map((file) => file.path).join(', ')
-  );
+    const keyed = marked.filter((file) =>
+      /data-feature-write[^>]*data-feature=|data-feature=[^>]*data-feature-write/.test(file.html)
+    );
+    check(
+      'no control names its own feature beside the declaration',
+      keyed.length === 0,
+      keyed.map((file) => file.path).join(', ')
+    );
 
-  const readers = [...modules].filter(([, source]) => source.includes('data-feature-write'));
-  check(
-    'admin-shell.js is the only thing that reads the declaration',
-    readers.length === 1 && readers[0][0] === 'admin-shell.js',
-    readers.map(([name]) => name).join(', ')
-  );
+    const readers = [...modules].filter(([, source]) => source.includes('data-feature-write'));
+    check(
+      'admin-shell.js is the only thing that reads the declaration',
+      readers.length === 1 && readers[0][0] === 'admin-shell.js',
+      readers.map(([name]) => name).join(', ')
+    );
 
-  /* --- One tab strip keyboard ------------------------------------------- */
+    /* --- One tab strip keyboard ------------------------------------------- */
 
-  const strips = [...modules].filter(([name, source]) => name !== 'tabs.js' && source.includes('role="tab"'));
-  const untabbed = strips.filter(([, source]) => !source.includes("from './tabs.js'"));
-  check(
-    `all ${strips.length} modules drawing a tab strip go through tabs.js`,
-    strips.length >= 6 && untabbed.length === 0,
-    untabbed.map(([name]) => name).join(', ')
-  );
+    const strips = [...modules].filter(
+      ([name, source]) => name !== 'tabs.js' && source.includes('role="tab"')
+    );
+    const untabbed = strips.filter(([, source]) => !source.includes("from './tabs.js'"));
+    check(
+      `all ${strips.length} modules drawing a tab strip go through tabs.js`,
+      strips.length >= 6 && untabbed.length === 0,
+      untabbed.map(([name]) => name).join(', ')
+    );
 
-  const ownArrows = [...modules].filter(
-    ([name, source]) => name !== 'tabs.js' && source.includes("'ArrowRight'") && source.includes('role="tab"')
-  );
-  check(
-    'no strip carries its own arrow key handling any more',
-    ownArrows.length === 0,
-    ownArrows.map(([name]) => name).join(', ')
-  );
+    const ownArrows = [...modules].filter(
+      ([name, source]) =>
+        name !== 'tabs.js' && source.includes("'ArrowRight'") && source.includes('role="tab"')
+    );
+    check(
+      'no strip carries its own arrow key handling any more',
+      ownArrows.length === 0,
+      ownArrows.map(([name]) => name).join(', ')
+    );
 
-  /* --- And the three behaviours, in a browser --------------------------- */
+    /* --- And the three behaviours, in a browser --------------------------- */
 
-  const browser = await chromium.launch();
+    const browser = await chromium.launch();
 
-  try {
-    const server = await serveSite('en');
-    const ctx = await contextFor(browser, server.base, 'en');
-    const page = await ctx.newPage();
+    try {
+      const server = await serveSite('en');
+      const ctx = await contextFor(browser, server.base, 'en');
+      const page = await ctx.newPage();
 
-    await page.setViewportSize({ width: 1024, height: 800 });
-    await page.goto(`${server.base}/`, { waitUntil: 'domcontentloaded' });
-    await page.waitForLoadState('networkidle').catch(() => {});
-    await page.waitForSelector('#themeButton', { timeout: 10000 });
+      await page.setViewportSize({ width: 1024, height: 800 });
+      await page.goto(`${server.base}/`, { waitUntil: 'domcontentloaded' });
+      await page.waitForLoadState('networkidle').catch(() => {});
+      await page.waitForSelector('#themeButton', { timeout: 10000 });
 
-    /* The two modals shell.js used to wire itself. */
-    for (const [button, id] of [
-      ['#themeButton', '#themeModal'],
-      ['#languageButton', '#languageModal'],
-    ]) {
-      const shape = await page.evaluate((selector) => {
-        const el = document.querySelector(selector);
-        return { tag: el?.tagName ?? null, openBefore: el?.open ?? null };
-      }, id);
-      check(
-        `${id} is a native <dialog>, closed until it is opened`,
-        shape.tag === 'DIALOG' && shape.openBefore === false,
-        `<${shape.tag}>, open ${shape.openBefore}`
-      );
-
-      // Through the browser rather than element.click(), because the shell
-      // remembers document.activeElement to give the focus back to and a
-      // scripted click moves no focus at all. Part 2's note, and it fails as if
-      // it were the page.
-      await page.click(button);
-      await page.waitForTimeout(150);
-
-      const opened = await page.evaluate(
-        ([selector, opener]) => {
+      /* The two modals shell.js used to wire itself. */
+      for (const [button, id] of [
+        ['#themeButton', '#themeModal'],
+        ['#languageButton', '#languageModal'],
+      ]) {
+        const shape = await page.evaluate((selector) => {
           const el = document.querySelector(selector);
-          const outside = document.querySelector(opener);
-          outside?.focus();
-          return {
-            open: el.open,
-            named: (document.getElementById(el.getAttribute('aria-labelledby') ?? '')?.textContent ?? '').trim(),
-            holdsFocus: el.contains(document.activeElement),
-            // One dialog element, not a second role="dialog" nested inside it.
-            nested: el.querySelectorAll('[role="dialog"]').length,
-          };
-        },
-        [id, button]
-      );
-      check(
-        `${id} opens, is named, holds the focus and leaves the page behind it inert`,
-        opened.open && opened.named !== '' && opened.holdsFocus && opened.nested === 0,
-        `open ${opened.open}, name "${opened.named}", focus inside ${opened.holdsFocus}, ` +
-          `${opened.nested} nested dialog roles`
-      );
+          return { tag: el?.tagName ?? null, openBefore: el?.open ?? null };
+        }, id);
+        check(
+          `${id} is a native <dialog>, closed until it is opened`,
+          shape.tag === 'DIALOG' && shape.openBefore === false,
+          `<${shape.tag}>, open ${shape.openBefore}`
+        );
 
-      await page.keyboard.press('Escape');
-      await page.waitForTimeout(150);
-      const closed = await page.evaluate(
-        ([selector, opener]) => ({
-          open: document.querySelector(selector).open,
-          backOnOpener: document.activeElement === document.querySelector(opener),
-        }),
-        [id, button]
-      );
-      check(
-        `${id} closes on Escape and gives the focus back to its button`,
-        closed.open === false && closed.backOnOpener,
-        `open ${closed.open}, focus back on the button ${closed.backOnOpener}`
-      );
-    }
+        // Through the browser rather than element.click(), because the shell
+        // remembers document.activeElement to give the focus back to and a
+        // scripted click moves no focus at all. Part 2's note, and it fails as if
+        // it were the page.
+        await page.click(button);
+        await page.waitForTimeout(150);
 
-    /* One modal opened from inside another, which is where the migration
-     * nearly went wrong.
-     *
-     * **The regression this catches was found by probing, not by reading.**
-     * Making dialog.js modal makes the rest of the document inert, and
-     * danger-confirm.js is opened from *inside* a dialog.js panel on five admin
-     * pages — the applicant detail, the tag editor, the invite list. While it
-     * was still a div, `elementFromPoint` over its Confirm button returned the
-     * control underneath it and `focus()` on it landed elsewhere: a
-     * confirmation nobody could see or press, in front of every destructive
-     * action in the dashboard. Both are native dialogs now and stack in the top
-     * layer, and this is the check that says so. */
-    const nested = await page.evaluate(async () => {
-      const { createDialog } = await import('/assets/js/dialog.js');
-      const { confirmAction } = await import('/assets/js/danger-confirm.js');
+        const opened = await page.evaluate(
+          ([selector, opener]) => {
+            const el = document.querySelector(selector);
+            const outside = document.querySelector(opener);
+            outside?.focus();
+            return {
+              open: el.open,
+              named: (
+                document.getElementById(el.getAttribute('aria-labelledby') ?? '')?.textContent ?? ''
+              ).trim(),
+              holdsFocus: el.contains(document.activeElement),
+              // One dialog element, not a second role="dialog" nested inside it.
+              nested: el.querySelectorAll('[role="dialog"]').length,
+            };
+          },
+          [id, button]
+        );
+        check(
+          `${id} opens, is named, holds the focus and leaves the page behind it inert`,
+          opened.open && opened.named !== '' && opened.holdsFocus && opened.nested === 0,
+          `open ${opened.open}, name "${opened.named}", focus inside ${opened.holdsFocus}, ` +
+            `${opened.nested} nested dialog roles`
+        );
 
-      const outer = createDialog({
-        id: 'nestingProbe',
-        titleKey: 'common.close',
-        bodyHtml: '<p>outer</p>',
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(150);
+        const closed = await page.evaluate(
+          ([selector, opener]) => ({
+            open: document.querySelector(selector).open,
+            backOnOpener: document.activeElement === document.querySelector(opener),
+          }),
+          [id, button]
+        );
+        check(
+          `${id} closes on Escape and gives the focus back to its button`,
+          closed.open === false && closed.backOnOpener,
+          `open ${closed.open}, focus back on the button ${closed.backOnOpener}`
+        );
+      }
+
+      /* One modal opened from inside another, which is where the migration
+       * nearly went wrong.
+       *
+       * **The regression this catches was found by probing, not by reading.**
+       * Making dialog.js modal makes the rest of the document inert, and
+       * danger-confirm.js is opened from *inside* a dialog.js panel on five admin
+       * pages — the applicant detail, the tag editor, the invite list. While it
+       * was still a div, `elementFromPoint` over its Confirm button returned the
+       * control underneath it and `focus()` on it landed elsewhere: a
+       * confirmation nobody could see or press, in front of every destructive
+       * action in the dashboard. Both are native dialogs now and stack in the top
+       * layer, and this is the check that says so. */
+      const nested = await page.evaluate(async () => {
+        const { createDialog } = await import('/assets/js/dialog.js');
+        const { confirmAction } = await import('/assets/js/danger-confirm.js');
+
+        const outer = createDialog({
+          id: 'nestingProbe',
+          titleKey: 'common.close',
+          bodyHtml: '<p>outer</p>',
+        });
+        outer.open();
+
+        // Not awaited: it resolves when somebody answers, and what is being
+        // measured is the panel while it is up.
+        const answer = confirmAction({ title: 'probe', confirmLabel: 'go' });
+
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+
+        const confirm = document.querySelector('[data-confirm]');
+        confirm.focus();
+        const box = confirm.getBoundingClientRect();
+        const onTop = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+
+        const result = {
+          focused: document.activeElement === confirm,
+          clickable: confirm.contains(onTop) || onTop === confirm,
+          // Both are modal, and the confirmation is the one on top.
+          bothModal: document.querySelectorAll('dialog:modal').length === 2,
+        };
+
+        // Cancelled rather than left up, and **not awaited**: if the panel is
+        // inert — which is the failure being measured — the click does nothing
+        // and waiting on it would hang the run instead of failing it. A check
+        // that hangs on the defect is not a check.
+        document.querySelector('[data-cancel]')?.click();
+        answer.catch(() => {});
+        document.querySelector('.modal-backdrop:not(#nestingProbe)')?.remove();
+        outer.close();
+        outer.element.remove();
+        return result;
       });
-      outer.open();
 
-      // Not awaited: it resolves when somebody answers, and what is being
-      // measured is the panel while it is up.
-      const answer = confirmAction({ title: 'probe', confirmLabel: 'go' });
+      check(
+        'a confirmation opened from inside a dialog is on top of it and can be used',
+        nested.focused && nested.clickable && nested.bothModal,
+        `focus took ${nested.focused}, the point over its button hits it ${nested.clickable}, ` +
+          `two modal dialogs ${nested.bothModal}`
+      );
 
-      await new Promise((resolve) => requestAnimationFrame(resolve));
+      /* The tab strip keyboard, driven against tabs.js itself.
+       *
+       * Every strip in the build is behind a session, so the alternative to this
+       * was to leave the one piece of shared behaviour part 6 wrote with no
+       * coverage at all until somebody signs in. Importing the module the six
+       * strips import is the same trade `responsive` makes with MIN_SIZE: the
+       * check and the build cannot disagree about what the behaviour is. */
+      const strip = await page.evaluate(async () => {
+        const { drawTabStrip } = await import('/assets/js/tabs.js');
 
-      const confirm = document.querySelector('[data-confirm]');
-      confirm.focus();
-      const box = confirm.getBoundingClientRect();
-      const onTop = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+        const holder = document.createElement('div');
+        holder.id = 'stripProbe';
+        holder.setAttribute('role', 'tablist');
+        document.body.append(holder);
 
-      const result = {
-        focused: document.activeElement === confirm,
-        clickable: confirm.contains(onTop) || onTop === confirm,
-        // Both are modal, and the confirmation is the one on top.
-        bothModal: document.querySelectorAll('dialog:modal').length === 2,
-      };
+        let selected = 'a';
+        const html = (names) =>
+          names
+            .map(
+              (name) =>
+                `<button type="button" role="tab" data-bucket="${name}"` +
+                ` aria-selected="${name === selected}"` +
+                ` tabindex="${name === selected ? '0' : '-1'}">${name}</button>`
+            )
+            .join('');
 
-      // Cancelled rather than left up, and **not awaited**: if the panel is
-      // inert — which is the failure being measured — the click does nothing
-      // and waiting on it would hang the run instead of failing it. A check
-      // that hangs on the defect is not a check.
-      document.querySelector('[data-cancel]')?.click();
-      answer.catch(() => {});
-      document.querySelector('.modal-backdrop:not(#nestingProbe)')?.remove();
-      outer.close();
-      outer.element.remove();
-      return result;
-    });
+        const draw = (names = ['a', 'b', 'c']) =>
+          drawTabStrip(holder, {
+            key: 'bucket',
+            html: html(names),
+            onSelect: (value) => (selected = value),
+          });
 
-    check(
-      'a confirmation opened from inside a dialog is on top of it and can be used',
-      nested.focused && nested.clickable && nested.bothModal,
-      `focus took ${nested.focused}, the point over its button hits it ${nested.clickable}, ` +
-        `two modal dialogs ${nested.bothModal}`
-    );
+        draw();
 
-    /* The tab strip keyboard, driven against tabs.js itself.
-     *
-     * Every strip in the build is behind a session, so the alternative to this
-     * was to leave the one piece of shared behaviour part 6 wrote with no
-     * coverage at all until somebody signs in. Importing the module the six
-     * strips import is the same trade `responsive` makes with MIN_SIZE: the
-     * check and the build cannot disagree about what the behaviour is. */
-    const strip = await page.evaluate(async () => {
-      const { drawTabStrip } = await import('/assets/js/tabs.js');
+        const at = () => document.activeElement?.getAttribute('data-bucket') ?? null;
+        const stops = () =>
+          [...holder.querySelectorAll('[data-bucket]')].filter((tab) => tab.tabIndex === 0).length;
 
-      const holder = document.createElement('div');
-      holder.id = 'stripProbe';
-      holder.setAttribute('role', 'tablist');
-      document.body.append(holder);
+        const press = (key) =>
+          document.activeElement.dispatchEvent(
+            new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })
+          );
 
-      let selected = 'a';
-      const html = (names) =>
-        names
-          .map(
-            (name) =>
-              `<button type="button" role="tab" data-bucket="${name}"` +
-              ` aria-selected="${name === selected}"` +
-              ` tabindex="${name === selected ? '0' : '-1'}">${name}</button>`
-          )
-          .join('');
+        holder.querySelector('[data-bucket="a"]').focus();
 
-      const draw = (names = ['a', 'b', 'c']) =>
-        drawTabStrip(holder, { key: 'bucket', html: html(names), onSelect: (value) => (selected = value) });
+        press('ArrowRight');
+        const right = at();
+        press('ArrowLeft');
+        press('ArrowLeft');
+        const wrapped = at();
+        press('Home');
+        const home = at();
+        press('End');
+        const end = at();
 
-      draw();
+        // One tab stop for the whole strip, and it follows the keyboard.
+        const single = stops();
+        const stopIsHere = holder.querySelector('[data-bucket="c"]').tabIndex === 0;
 
-      const at = () => document.activeElement?.getAttribute('data-bucket') ?? null;
-      const stops = () =>
-        [...holder.querySelectorAll('[data-bucket]')].filter((tab) => tab.tabIndex === 0).length;
+        // The redraw, which is the defect this replaced. The keyboard is on `c`,
+        // the selected tab is `a`, and a count arriving must not throw it back.
+        press('ArrowLeft');
+        const before = at();
+        draw();
+        const after = at();
 
-      const press = (key) =>
-        document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+        // And a tab that is no longer there falls back rather than dropping the
+        // focus onto the document.
+        holder.querySelector('[data-bucket="c"]').focus();
+        draw(['a', 'b']);
+        const gone = at();
 
-      holder.querySelector('[data-bucket="a"]').focus();
+        holder.remove();
+        return { right, wrapped, home, end, single, stopIsHere, before, after, gone };
+      });
 
-      press('ArrowRight');
-      const right = at();
-      press('ArrowLeft');
-      press('ArrowLeft');
-      const wrapped = at();
-      press('Home');
-      const home = at();
-      press('End');
-      const end = at();
+      check(
+        'arrows move along the strip and wrap at both ends',
+        strip.right === 'b' && strip.wrapped === 'c',
+        `right went to ${strip.right}, two lefts to ${strip.wrapped}`
+      );
+      check(
+        'Home and End go to the first and last tab',
+        strip.home === 'a' && strip.end === 'c',
+        `Home ${strip.home}, End ${strip.end}`
+      );
+      check(
+        'the strip is one tab stop, and the stop follows the keyboard',
+        strip.single === 1 && strip.stopIsHere,
+        `${strip.single} tabs carry tabindex 0`
+      );
+      check(
+        'a redraw leaves the focus on the tab the keyboard was on, not the selected one',
+        strip.before === 'b' && strip.after === 'b',
+        `was on ${strip.before}, came back on ${strip.after} while "a" was selected`
+      );
+      check(
+        'a redraw that drops the focused tab falls back to the selected one',
+        strip.gone === 'a',
+        `landed on ${strip.gone}`
+      );
 
-      // One tab stop for the whole strip, and it follows the keyboard.
-      const single = stops();
-      const stopIsHere = holder.querySelector('[data-bucket="c"]').tabIndex === 0;
-
-      // The redraw, which is the defect this replaced. The keyboard is on `c`,
-      // the selected tab is `a`, and a count arriving must not throw it back.
-      press('ArrowLeft');
-      const before = at();
-      draw();
-      const after = at();
-
-      // And a tab that is no longer there falls back rather than dropping the
-      // focus onto the document.
-      holder.querySelector('[data-bucket="c"]').focus();
-      draw(['a', 'b']);
-      const gone = at();
-
-      holder.remove();
-      return { right, wrapped, home, end, single, stopIsHere, before, after, gone };
-    });
-
-    check(
-      'arrows move along the strip and wrap at both ends',
-      strip.right === 'b' && strip.wrapped === 'c',
-      `right went to ${strip.right}, two lefts to ${strip.wrapped}`
-    );
-    check(
-      'Home and End go to the first and last tab',
-      strip.home === 'a' && strip.end === 'c',
-      `Home ${strip.home}, End ${strip.end}`
-    );
-    check(
-      'the strip is one tab stop, and the stop follows the keyboard',
-      strip.single === 1 && strip.stopIsHere,
-      `${strip.single} tabs carry tabindex 0`
-    );
-    check(
-      'a redraw leaves the focus on the tab the keyboard was on, not the selected one',
-      strip.before === 'b' && strip.after === 'b',
-      `was on ${strip.before}, came back on ${strip.after} while "a" was selected`
-    );
-    check(
-      'a redraw that drops the focused tab falls back to the selected one',
-      strip.gone === 'a',
-      `landed on ${strip.gone}`
-    );
-
-    await ctx.close();
-    await server.close();
-  } finally {
-    await browser.close();
+      await ctx.close();
+      await server.close();
+    } finally {
+      await browser.close();
+    }
   }
-});
+);
 
 /* =========================================================================
  * 11. The status page, and the promises it makes about what it knows
@@ -3364,12 +3673,14 @@ define('status', 'The service status page, and what it refuses to claim', async 
 
   check(
     `probe.py names the same ${TARGET_KEYS.length} targets as status.js`,
-    pythonTargets.length === TARGET_KEYS.length && pythonTargets.every((key, i) => key === TARGET_KEYS[i]),
+    pythonTargets.length === TARGET_KEYS.length &&
+      pythonTargets.every((key, i) => key === TARGET_KEYS[i]),
     `python: ${pythonTargets.join(', ')}`
   );
   check(
     'migration 037 constrains the column to the same four',
-    sqlTargets.length === TARGET_KEYS.length && TARGET_KEYS.every((key) => sqlTargets.includes(key)),
+    sqlTargets.length === TARGET_KEYS.length &&
+      TARGET_KEYS.every((key) => sqlTargets.includes(key)),
     `sql: ${sqlTargets.join(', ')}`
   );
 
@@ -3409,7 +3720,9 @@ define('status', 'The service status page, and what it refuses to claim', async 
   const vercel = JSON.parse(source('main-site/vercel.json'));
   check(
     '/status is rewritten to the function',
-    vercel.rewrites.some((rule) => rule.source === '/status' && rule.destination === '/api/status-page'),
+    vercel.rewrites.some(
+      (rule) => rule.source === '/status' && rule.destination === '/api/status-page'
+    ),
     JSON.stringify(vercel.rewrites.map((rule) => rule.source))
   );
   const worker = source('main-site/sw.js');
@@ -3460,11 +3773,21 @@ define('status', 'The service status page, and what it refuses to claim', async 
   const now = new Date('2026-08-31T12:00:00Z');
   const window = dayWindow(now);
 
-  check(`the window is ${DAYS} days and ends today`, window.length === DAYS && window.at(-1) === '2026-08-31', window.at(-1));
+  check(
+    `the window is ${DAYS} days and ends today`,
+    window.length === DAYS && window.at(-1) === '2026-08-31',
+    window.at(-1)
+  );
 
   const halfMeasured = window
     .slice(45)
-    .map((day) => ({ day, checks: EXPECTED_PER_DAY, failures: 0, duration_total_ms: EXPECTED_PER_DAY * 240, slowest_ms: 900 }));
+    .map((day) => ({
+      day,
+      checks: EXPECTED_PER_DAY,
+      failures: 0,
+      duration_total_ms: EXPECTED_PER_DAY * 240,
+      slowest_ms: 900,
+    }));
   const half = uptimeFor(halfMeasured, { now });
 
   check(
@@ -3499,7 +3822,11 @@ define('status', 'The service status page, and what it refuses to claim', async 
     failures: 9,
     status_code: 502,
   };
-  const endedIncident = { ...openIncident, ended_at: '2026-08-31T11:40:00Z', last_failed_at: '2026-08-31T11:39:00Z' };
+  const endedIncident = {
+    ...openIncident,
+    ended_at: '2026-08-31T11:40:00Z',
+    last_failed_at: '2026-08-31T11:39:00Z',
+  };
 
   check(
     'everything answering and nothing switched off is the only way to say all is well',
@@ -3508,12 +3835,14 @@ define('status', 'The service status page, and what it refuses to claim', async 
   );
   check(
     'a feature switched off is maintenance rather than a fault',
-    headline({ lastSeen: heardAt, incidents: [], off: ['saved_jobs'], now }).state === 'maintenance',
+    headline({ lastSeen: heardAt, incidents: [], off: ['saved_jobs'], now }).state ===
+      'maintenance',
     headline({ lastSeen: heardAt, incidents: [], off: ['saved_jobs'], now }).state
   );
   check(
     'an outage still open is down, whatever anybody declared',
-    headline({ lastSeen: heardAt, incidents: [openIncident], off: ['saved_jobs'], now }).state === 'down',
+    headline({ lastSeen: heardAt, incidents: [openIncident], off: ['saved_jobs'], now }).state ===
+      'down',
     headline({ lastSeen: heardAt, incidents: [openIncident], off: [], now }).state
   );
   check(
@@ -3525,7 +3854,14 @@ define('status', 'The service status page, and what it refuses to claim', async 
     'and one that ended yesterday is not held against today',
     headline({
       lastSeen: heardAt,
-      incidents: [{ ...endedIncident, started_at: '2026-08-30T03:00:00Z', last_failed_at: '2026-08-30T03:02:00Z', ended_at: '2026-08-30T03:03:00Z' }],
+      incidents: [
+        {
+          ...endedIncident,
+          started_at: '2026-08-30T03:00:00Z',
+          last_failed_at: '2026-08-30T03:02:00Z',
+          ended_at: '2026-08-30T03:03:00Z',
+        },
+      ],
       off: [],
       now,
     }).state === 'ok',
@@ -3558,25 +3894,46 @@ define('status', 'The service status page, and what it refuses to claim', async 
   /* -- incidents ----------------------------------------------------------- */
 
   const declared = declaredIncidents([
-    { action: 'feature_disabled', created_at: '2026-08-20T10:00:00Z', metadata: { feature: 'apply', note: 'Forms are down.' } },
-    { action: 'feature_disabled', created_at: '2026-08-20T10:05:00Z', metadata: { feature: 'apply', note: 'Forms are down. Watching.' } },
-    { action: 'feature_enabled', created_at: '2026-08-20T12:30:00Z', metadata: { feature: 'apply' } },
-    { action: 'feature_disabled', created_at: '2026-08-29T08:00:00Z', metadata: { feature: 'saved_jobs', note: null } },
+    {
+      action: 'feature_disabled',
+      created_at: '2026-08-20T10:00:00Z',
+      metadata: { feature: 'apply', note: 'Forms are down.' },
+    },
+    {
+      action: 'feature_disabled',
+      created_at: '2026-08-20T10:05:00Z',
+      metadata: { feature: 'apply', note: 'Forms are down. Watching.' },
+    },
+    {
+      action: 'feature_enabled',
+      created_at: '2026-08-20T12:30:00Z',
+      metadata: { feature: 'apply' },
+    },
+    {
+      action: 'feature_disabled',
+      created_at: '2026-08-29T08:00:00Z',
+      metadata: { feature: 'saved_jobs', note: null },
+    },
   ]);
 
   check(
     'a disable and its enable are one incident with a duration',
-    declared.length === 2 && declared.at(-1).feature === 'apply' && declared.at(-1).durationMs === 150 * 60 * 1000,
+    declared.length === 2 &&
+      declared.at(-1).feature === 'apply' &&
+      declared.at(-1).durationMs === 150 * 60 * 1000,
     JSON.stringify(declared)
   );
   check(
     'a second disable with no enable between them keeps the first start',
-    declared.at(-1).start === '2026-08-20T10:00:00Z' && declared.at(-1).note === 'Forms are down. Watching.',
+    declared.at(-1).start === '2026-08-20T10:00:00Z' &&
+      declared.at(-1).note === 'Forms are down. Watching.',
     JSON.stringify(declared.at(-1))
   );
   check(
     'one still switched off has no end rather than a guessed one',
-    declared[0].feature === 'saved_jobs' && declared[0].end === null && declared[0].durationMs === null,
+    declared[0].feature === 'saved_jobs' &&
+      declared[0].end === null &&
+      declared[0].durationMs === null,
     JSON.stringify(declared[0])
   );
 
@@ -3590,7 +3947,10 @@ define('status', 'The service status page, and what it refuses to claim', async 
     ...over,
   });
 
-  const blip = observedIncidents([outage({ failures: 2, last_failed_at: '2026-08-30T03:01:00Z' })], { now });
+  const blip = observedIncidents(
+    [outage({ failures: 2, last_failed_at: '2026-08-30T03:01:00Z' })],
+    { now }
+  );
   check('a single blip is written but not listed', blip.length === 0, JSON.stringify(blip));
 
   const ended = observedIncidents([outage({})], { now });
@@ -3601,7 +3961,14 @@ define('status', 'The service status page, and what it refuses to claim', async 
   );
 
   const live = observedIncidents(
-    [outage({ started_at: '2026-08-31T11:50:00Z', last_failed_at: '2026-08-31T11:59:00Z', ended_at: null, failures: 9 })],
+    [
+      outage({
+        started_at: '2026-08-31T11:50:00Z',
+        last_failed_at: '2026-08-31T11:59:00Z',
+        ended_at: null,
+        failures: 9,
+      }),
+    ],
     { now }
   );
   check(
@@ -3621,7 +3988,9 @@ define('status', 'The service status page, and what it refuses to claim', async 
   check(
     'and the page says so in words rather than leaving it as an open outage',
     renderServiceBody(serviceFixture()).length > 0 &&
-      renderServiceBody({ ...serviceFixture(), observed: stalled }).includes(en('serviceStatus.stalled')),
+      renderServiceBody({ ...serviceFixture(), observed: stalled }).includes(
+        englishText('serviceStatus.stalled')
+      ),
     'a stalled incident renders as though it were still failing'
   );
 
@@ -3632,9 +4001,33 @@ define('status', 'The service status page, and what it refuses to claim', async 
     probeLastSeen: '2026-08-31T11:59:00Z',
     headline: headline({ lastSeen: heardAt, incidents: [], off: [], now }),
     components: [
-      { key: 'saved_jobs', phase: 6, off: false, note: null, since: null, denied: false, reason: null },
-      { key: 'apply', phase: 5, off: true, note: 'The form provider is down.', since: '2026-08-31T09:00:00Z', denied: false, reason: null },
-      { key: 'applicant_login', phase: 2, off: false, note: null, since: null, denied: true, reason: 'Locks everybody out.' },
+      {
+        key: 'saved_jobs',
+        phase: 6,
+        off: false,
+        note: null,
+        since: null,
+        denied: false,
+        reason: null,
+      },
+      {
+        key: 'apply',
+        phase: 5,
+        off: true,
+        note: 'The form provider is down.',
+        since: '2026-08-31T09:00:00Z',
+        denied: false,
+        reason: null,
+      },
+      {
+        key: 'applicant_login',
+        phase: 2,
+        off: false,
+        note: null,
+        since: null,
+        denied: true,
+        reason: 'Locks everybody out.',
+      },
     ],
     uptime: TARGET_KEYS.map((target) => ({ target, ...uptimeFor(halfMeasured, { now }) })),
     declared,
@@ -3645,7 +4038,11 @@ define('status', 'The service status page, and what it refuses to claim', async 
   const body = renderServiceBody(model());
   const document = statusDocument({ view: VIEW.service, body });
 
-  check('nothing rendered as undefined', !/\bundefined\b/.test(document), 'an undefined reached the markup');
+  check(
+    'nothing rendered as undefined',
+    !/\bundefined\b/.test(document),
+    'an undefined reached the markup'
+  );
   check(
     'every day of the window is drawn for every target',
     (body.match(/class="status-day" data-state=/g) ?? []).length === DAYS * TARGET_KEYS.length + 5,
@@ -3671,7 +4068,10 @@ define('status', 'The service status page, and what it refuses to claim', async 
   // The bars alone. The legend draws one swatch of every state by definition —
   // that is what a legend is — so reading the whole page for `up` would fail on
   // the thing that makes the grey squares mean anything.
-  const bars = (markup) => [...markup.matchAll(/<div class="status-bar"[^>]*>([\s\S]*?)<\/div>/g)].map((m) => m[1]).join('');
+  const bars = (markup) =>
+    [...markup.matchAll(/<div class="status-bar"[^>]*>([\s\S]*?)<\/div>/g)]
+      .map((m) => m[1])
+      .join('');
 
   check(
     'a page with no data draws no good days and quotes no percentage',
@@ -3685,12 +4085,14 @@ define('status', 'The service status page, and what it refuses to claim', async 
   );
   check(
     'and it says the probe has never been heard from',
-    empty.includes(en('serviceStatus.noProbeYet')) && empty.includes(en('serviceStatus.headline.unknown')),
+    empty.includes(englishText('serviceStatus.noProbeYet')) &&
+      empty.includes(englishText('serviceStatus.headline.unknown')),
     'the empty page did not say why it is empty'
   );
   check(
     'a percentage is never printed without the coverage beside it',
-    body.includes(`${DAYS} days`) && body.includes(en('serviceStatus.uptimeGaps', { days: 45 })),
+    body.includes(`${DAYS} days`) &&
+      body.includes(englishText('serviceStatus.uptimeGaps', { days: 45 })),
     'the gaps sentence is missing from a bar with 45 unmeasured days'
   );
 
@@ -3715,13 +4117,22 @@ define('status', 'The service status page, and what it refuses to claim', async 
     end: '2026-08-20T12:30:00Z',
     durationMs: 150 * 60 * 1000,
   };
-  const stillOff = { feature: 'saved_jobs', note: null, start: '2026-08-29T08:00:00Z', end: null, durationMs: null };
+  const stillOff = {
+    feature: 'saved_jobs',
+    note: null,
+    start: '2026-08-29T08:00:00Z',
+    end: null,
+    durationMs: null,
+  };
 
-  const shortened = listable([stillOff, realOutage, ...flips], { minMs: MIN_DECLARED_MS });
+  const shortened = listable([stillOff, realOutage, ...flips], {
+    minMs: MINIMUM_DECLARED_MILLISECONDS,
+  });
   check(
     'a two minute flip is not listed as an outage',
-    shortened.shown.every((one) => one.durationMs === null || one.durationMs >= MIN_DECLARED_MS) &&
-      shortened.short === flips.length,
+    shortened.shown.every(
+      (one) => one.durationMs === null || one.durationMs >= MINIMUM_DECLARED_MILLISECONDS
+    ) && shortened.short === flips.length,
     JSON.stringify({ shown: shortened.shown.length, short: shortened.short })
   );
   check(
@@ -3731,21 +4142,29 @@ define('status', 'The service status page, and what it refuses to claim', async 
   );
   check(
     `at most ${INCIDENT_LIMIT} are drawn, and the rest are counted`,
-    listable(Array.from({ length: 25 }, () => realOutage), { minMs: MIN_DECLARED_MS }).shown.length === INCIDENT_LIMIT &&
-      listable(Array.from({ length: 25 }, () => realOutage), { minMs: MIN_DECLARED_MS }).over === 15,
+    listable(
+      Array.from({ length: 25 }, () => realOutage),
+      { minMs: MINIMUM_DECLARED_MILLISECONDS }
+    ).shown.length === INCIDENT_LIMIT &&
+      listable(
+        Array.from({ length: 25 }, () => realOutage),
+        { minMs: MINIMUM_DECLARED_MILLISECONDS }
+      ).over === 15,
     'the cap does not hold, or does not report what it held back'
   );
 
   const noisy = renderServiceBody({ ...model(), declared: [stillOff, realOutage, ...flips] });
   check(
     'and the page says both rules out loud rather than quietly showing fewer',
-    noisy.includes(en('serviceStatus.shortNotListed', { minutes: 5, count: flips.length })),
+    noisy.includes(
+      englishText('serviceStatus.shortNotListed', { minutes: 5, count: flips.length })
+    ),
     'the floor is applied and not stated, which is the same page lying by omission'
   );
   check(
     'a list short enough to draw whole says nothing about rules it did not apply',
     !renderServiceBody({ ...model(), declared: [realOutage] }).includes(
-      en('serviceStatus.shortNotListed', { minutes: 5, count: 1 })
+      englishText('serviceStatus.shortNotListed', { minutes: 5, count: 1 })
     ),
     'the page is explaining an omission it did not make'
   );
@@ -3757,9 +4176,12 @@ define('status', 'The service status page, and what it refuses to claim', async 
       ...model(),
       uptime: TARGET_KEYS.map((target) => ({
         target,
-        ...uptimeFor([{ day: '2026-08-31', checks: 1, failures: 0, duration_total_ms: 106, slowest_ms: 106 }], { now }),
+        ...uptimeFor(
+          [{ day: '2026-08-31', checks: 1, failures: 0, duration_total_ms: 106, slowest_ms: 106 }],
+          { now }
+        ),
       })),
-    }).includes(en('serviceStatus.uptimeSummaryOne', { percent: '100.00', days: DAYS })),
+    }).includes(englishText('serviceStatus.uptimeSummaryOne', { percent: '100.00', days: DAYS })),
     'the singular sentence is not being used'
   );
 
@@ -3802,7 +4224,11 @@ define('status', 'The service status page, and what it refuses to claim', async 
       target,
       ...uptimeFor(
         target === 'search'
-          ? [...halfMeasured.map((row) => (many.some((one) => one.started_at.startsWith(row.day)) ? failedDay(row.day, 6) : row))]
+          ? [
+              ...halfMeasured.map((row) =>
+                many.some((one) => one.started_at.startsWith(row.day)) ? failedDay(row.day, 6) : row
+              ),
+            ]
           : halfMeasured,
         { now }
       ),
@@ -3810,9 +4236,9 @@ define('status', 'The service status page, and what it refuses to claim', async 
   });
 
   const anchors = [...linked.matchAll(/<li id="([^"]+)"/g)].map((match) => match[1]);
-  const links = [...linked.matchAll(/<a class="status-day" data-state="([a-z]+)"[^>]*href="#([^"]+)"/g)].map(
-    (match) => ({ state: match[1], target: match[2] })
-  );
+  const links = [
+    ...linked.matchAll(/<a class="status-day" data-state="([a-z]+)"[^>]*href="#([^"]+)"/g),
+  ].map((match) => ({ state: match[1], target: match[2] }));
 
   check(
     `${links.length} day squares are links, one per listed outage`,
@@ -3822,7 +4248,10 @@ define('status', 'The service status page, and what it refuses to claim', async 
   check(
     'every one of them points at an incident that is actually on the page',
     links.length > 0 && links.every((link) => anchors.includes(link.target)),
-    links.filter((link) => !anchors.includes(link.target)).map((link) => link.target).join(', ')
+    links
+      .filter((link) => !anchors.includes(link.target))
+      .map((link) => link.target)
+      .join(', ')
   );
   check(
     'the two the cap held back are coloured squares with no link',
@@ -3837,7 +4266,7 @@ define('status', 'The service status page, and what it refuses to claim', async 
   check(
     'a linked square says what happened that day, on hover and to a screen reader',
     /<a class="status-day"[^>]*title="[^"]*outage[^"]*"[^>]*aria-label="[^"]*/.test(linked) &&
-      linked.includes(en('serviceStatus.openIncident')),
+      linked.includes(englishText('serviceStatus.openIncident')),
     'the square is a link with nothing to read on it'
   );
   check(
@@ -3876,7 +4305,8 @@ define('status', 'The service status page, and what it refuses to claim', async 
   );
   check(
     'an incident id is derived from the incident, not from its place in the list',
-    incidentId(midnight[0]) === 'incident-observed-search-20260829235000000Z'.replace(/[^a-z0-9-]/gi, '') ||
+    incidentId(midnight[0]) ===
+      'incident-observed-search-20260829235000000Z'.replace(/[^a-z0-9-]/gi, '') ||
       incidentId(midnight[0]).startsWith('incident-observed-search-'),
     incidentId(midnight[0])
   );
@@ -3895,7 +4325,9 @@ define('status', 'The service status page, and what it refuses to claim', async 
   );
   check(
     'the headline is drawn in a tone theme.css actually carries',
-    ['note', 'ok', 'warn', 'danger'].includes(HEADLINE_TONE[headline({ lastSeen: null, incidents: [], off: [], now }).state]),
+    ['note', 'ok', 'warn', 'danger'].includes(
+      HEADLINE_TONE[headline({ lastSeen: null, incidents: [], off: [], now }).state]
+    ),
     JSON.stringify(HEADLINE_TONE)
   );
 
@@ -3958,7 +4390,11 @@ define('status', 'The service status page, and what it refuses to claim', async 
       };
     });
 
-    check('at 320 the page does not scroll sideways', narrow.sideways <= SCROLL_SLACK, `${narrow.sideways}px`);
+    check(
+      'at 320 the page does not scroll sideways',
+      narrow.sideways <= SCROLL_SLACK,
+      `${narrow.sideways}px`
+    );
     check(
       'the ninety day bar scrolls inside itself and can be reached without a pointer',
       narrow.barScrolls === true && narrow.barFocusable === true,
@@ -4011,7 +4447,11 @@ define('status', 'The service status page, and what it refuses to claim', async 
       };
     });
 
-    check('a day with an outage under it is a link', jump.linked === true, 'no clickable square on the page');
+    check(
+      'a day with an outage under it is a link',
+      jump.linked === true,
+      'no clickable square on the page'
+    );
     check(
       'and it is not a working day or an unmeasured one',
       jump.state !== 'up' && jump.state !== 'unknown',
@@ -4071,7 +4511,9 @@ define('status', 'The service status page, and what it refuses to claim', async 
   // it could write status history for a site they do not run.
   check(
     'the recording function is not callable by anon or authenticated',
-    /revoke all on function gftvjobs_status_record\(jsonb\) from public, anon, authenticated/.test(migration),
+    /revoke all on function gftvjobs_status_record\(jsonb\) from public, anon, authenticated/.test(
+      migration
+    ),
     'the one write path into this history is open to an anon key'
   );
   check(
@@ -4090,14 +4532,18 @@ define('status', 'The service status page, and what it refuses to claim', async 
   );
   check(
     'one open incident per target is a rule the database keeps, not the probe',
-    /create unique index[\s\S]*gftvjobs_status_incidents \(target\)[\s\S]*where ended_at is null/.test(migration),
+    /create unique index[\s\S]*gftvjobs_status_incidents \(target\)[\s\S]*where ended_at is null/.test(
+      migration
+    ),
     'two open incidents could exist for one target'
   );
 
   const cron = source('main-site/api/_lib/cron.js');
   check(
     'the sweep takes its ninety days from the page rather than repeating the number',
-    cron.includes('DAYS as STATUS_DAYS') && cron.includes('T.statusDays') && cron.includes('T.statusIncidents'),
+    cron.includes('DAYS as STATUS_DAYS') &&
+      cron.includes('T.statusDays') &&
+      cron.includes('T.statusIncidents'),
     'the sweep and the page can disagree about how long ninety days is'
   );
   check(
@@ -4282,7 +4728,11 @@ define('a11y-account', "The applicant's pages against the same accessibility rul
       await page.waitForURL('**/account**', { timeout: 20000 }).catch(() => {});
 
       const signedIn = page.url().includes('/account');
-      check(`an applicant session was established for the sweep, in ${locale}`, signedIn, page.url());
+      check(
+        `an applicant session was established for the sweep, in ${locale}`,
+        signedIn,
+        page.url()
+      );
       if (!signedIn) {
         await ctx.close();
         continue;
@@ -4351,81 +4801,93 @@ define('responsive-admin', 'The admin pages at six widths, against a deployment'
 
   try {
     for (const locale of LOCALES) {
-    // Both languages, and it is not ceremony: the row that overflowed by 4px in
-    // English is decided by six label lengths, and 华文 sets six different ones.
-    const ctx = await browser.newContext({
-      baseURL: base,
-      serviceWorkers: 'block',
-      locale: locale === 'zh' ? 'zh-SG' : 'en-GB',
-    });
+      // Both languages, and it is not ceremony: the row that overflowed by 4px in
+      // English is decided by six label lengths, and 华文 sets six different ones.
+      const ctx = await browser.newContext({
+        baseURL: base,
+        serviceWorkers: 'block',
+        locale: locale === 'zh' ? 'zh-SG' : 'en-GB',
+      });
 
-    await ctx.addInitScript(
-      ([key, value]) => {
-        try {
-          localStorage.setItem(`${key}.locale`, value);
-          localStorage.setItem(`${key}.mode`, 'light');
-          localStorage.setItem(`${key}.colorTheme`, 'classic');
-        } catch {
-          /* a context with storage blocked is a context this run cannot use */
-        }
-      },
-      ['gftv-careers', locale]
-    );
+      await ctx.addInitScript(
+        ([key, value]) => {
+          try {
+            localStorage.setItem(`${key}.locale`, value);
+            localStorage.setItem(`${key}.mode`, 'light');
+            localStorage.setItem(`${key}.colorTheme`, 'classic');
+          } catch {
+            /* a context with storage blocked is a context this run cannot use */
+          }
+        },
+        ['gftv-careers', locale]
+      );
 
-    if (await patchAssets(ctx)) {
-      console.log("      PATCH_ASSETS: stylesheets and scripts are the working tree's");
-    }
-
-    const page = await ctx.newPage();
-
-    await page.goto(`${base}/admin/login`, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('#staffLoginForm', { timeout: 20000 });
-    await page.fill('#username', user);
-    await page.fill('#password', pass);
-    await page.click('#staffLoginForm button[type="submit"]');
-    await page.waitForURL('**/admin', { timeout: 20000 }).catch(() => {});
-
-    const signedIn = page.url().includes('/admin') && !page.url().includes('/admin/login');
-    check(`a staff session was established, in ${locale}`, signedIn, page.url());
-    if (!signedIn) {
-      await ctx.close();
-      continue;
-    }
-
-    // **The label this phase hides between 1024 and 1279 is hidden from the
-    // layout and not from the accessibility tree**, and that distinction is one
-    // `display: none` away from being lost by somebody tidying the rule up
-    // later. Nothing else here would notice: the row would still fit, and a
-    // button announced as "button" is what would ship.
-    await page.setViewportSize({ width: 1024, height: 800 });
-    await page.goto(`${base}/admin`, { waitUntil: 'domcontentloaded' });
-    await page.waitForLoadState('networkidle').catch(() => {});
-    const label = await page
-      .locator('#navSuggest span[data-i18n]')
-      .evaluate((el) => {
-        const style = getComputedStyle(el);
-        return { text: (el.textContent ?? '').trim(), display: style.display, visibility: style.visibility };
-      })
-      .catch(() => null);
-    check(
-      `the suggestions toggle keeps its name at 1024, in ${locale}`,
-      Boolean(label) && label.text !== '' && label.display !== 'none' && label.visibility !== 'hidden',
-      label ? `"${label.text}" display ${label.display}, visibility ${label.visibility}` : 'no label element'
-    );
-
-    for (const path of ADMIN_PAGES) {
-      const results = [];
-      for (const width of WIDTHS) {
-        await page.setViewportSize({ width, height: 800 });
-        await page.goto(`${base}${path}`, { waitUntil: 'domcontentloaded' });
-        // A deployment, so this waits on the network rather than on a local
-        // file. A table that has not arrived is a table that cannot be too
-        // narrow, which is the failure this section would otherwise miss.
-        await page.waitForLoadState('networkidle').catch(() => {});
-        results.push({ width, ...(await page.evaluate(measure, { floorPx: CELL_FLOOR, iconFloor: MIN_SIZE })) });
+      if (await patchAssets(ctx)) {
+        console.log("      PATCH_ASSETS: stylesheets and scripts are the working tree's");
       }
-      report(`${path} in ${locale}`, results);
-    }
+
+      const page = await ctx.newPage();
+
+      await page.goto(`${base}/admin/login`, { waitUntil: 'domcontentloaded' });
+      await page.waitForSelector('#staffLoginForm', { timeout: 20000 });
+      await page.fill('#username', user);
+      await page.fill('#password', pass);
+      await page.click('#staffLoginForm button[type="submit"]');
+      await page.waitForURL('**/admin', { timeout: 20000 }).catch(() => {});
+
+      const signedIn = page.url().includes('/admin') && !page.url().includes('/admin/login');
+      check(`a staff session was established, in ${locale}`, signedIn, page.url());
+      if (!signedIn) {
+        await ctx.close();
+        continue;
+      }
+
+      // **The label this phase hides between 1024 and 1279 is hidden from the
+      // layout and not from the accessibility tree**, and that distinction is one
+      // `display: none` away from being lost by somebody tidying the rule up
+      // later. Nothing else here would notice: the row would still fit, and a
+      // button announced as "button" is what would ship.
+      await page.setViewportSize({ width: 1024, height: 800 });
+      await page.goto(`${base}/admin`, { waitUntil: 'domcontentloaded' });
+      await page.waitForLoadState('networkidle').catch(() => {});
+      const label = await page
+        .locator('#navSuggest span[data-i18n]')
+        .evaluate((el) => {
+          const style = getComputedStyle(el);
+          return {
+            text: (el.textContent ?? '').trim(),
+            display: style.display,
+            visibility: style.visibility,
+          };
+        })
+        .catch(() => null);
+      check(
+        `the suggestions toggle keeps its name at 1024, in ${locale}`,
+        Boolean(label) &&
+          label.text !== '' &&
+          label.display !== 'none' &&
+          label.visibility !== 'hidden',
+        label
+          ? `"${label.text}" display ${label.display}, visibility ${label.visibility}`
+          : 'no label element'
+      );
+
+      for (const path of ADMIN_PAGES) {
+        const results = [];
+        for (const width of WIDTHS) {
+          await page.setViewportSize({ width, height: 800 });
+          await page.goto(`${base}${path}`, { waitUntil: 'domcontentloaded' });
+          // A deployment, so this waits on the network rather than on a local
+          // file. A table that has not arrived is a table that cannot be too
+          // narrow, which is the failure this section would otherwise miss.
+          await page.waitForLoadState('networkidle').catch(() => {});
+          results.push({
+            width,
+            ...(await page.evaluate(measure, { floorPx: CELL_FLOOR, iconFloor: MIN_SIZE })),
+          });
+        }
+        report(`${path} in ${locale}`, results);
+      }
 
       await ctx.close();
     }
@@ -4512,14 +4974,18 @@ define('responsive-account', 'The account pages at six widths, against a deploym
             text: (el.textContent ?? '').trim(),
             overflow: style.overflow,
             ellipsis: style.textOverflow,
-            lines: Math.round(el.getBoundingClientRect().height / (parseFloat(style.lineHeight) || 20)),
+            lines: Math.round(
+              el.getBoundingClientRect().height / (parseFloat(style.lineHeight) || 20)
+            ),
           };
         })
         .catch(() => null);
       check(
         `the account name is capped rather than wrapped at 1024, in ${locale}`,
         Boolean(name) && name.lines <= 1 && name.ellipsis === 'ellipsis',
-        name ? `"${name.text}" ${name.lines} line(s), text-overflow ${name.ellipsis}` : 'no account name element'
+        name
+          ? `"${name.text}" ${name.lines} line(s), text-overflow ${name.ellipsis}`
+          : 'no account name element'
       );
 
       for (const path of ACCOUNT_PAGES) {
@@ -4528,7 +4994,10 @@ define('responsive-account', 'The account pages at six widths, against a deploym
           await page.setViewportSize({ width, height: 800 });
           await page.goto(`${base}${path}`, { waitUntil: 'domcontentloaded' });
           await page.waitForLoadState('networkidle').catch(() => {});
-          results.push({ width, ...(await page.evaluate(measure, { floorPx: CELL_FLOOR, iconFloor: MIN_SIZE })) });
+          results.push({
+            width,
+            ...(await page.evaluate(measure, { floorPx: CELL_FLOOR, iconFloor: MIN_SIZE })),
+          });
         }
         report(`${path} in ${locale}`, results);
       }
@@ -4578,8 +5047,11 @@ define('discovery-live', 'robots.txt and sitemap.xml as Vercel actually serves t
     return;
   }
 
-  check('robots.txt answers 200 as text', robots.status === 200 &&
-    (robots.headers.get('content-type') ?? '').includes('text/plain'), `${robots.status} ${robots.headers.get('content-type')}`);
+  check(
+    'robots.txt answers 200 as text',
+    robots.status === 200 && (robots.headers.get('content-type') ?? '').includes('text/plain'),
+    `${robots.status} ${robots.headers.get('content-type')}`
+  );
 
   const expected = [
     robotsBody({ indexing: INDEXING, site: base }),
@@ -4655,7 +5127,9 @@ define('discovery-live', 'robots.txt and sitemap.xml as Vercel actually serves t
   );
   check(
     'nothing excluded is on it',
-    !paths.some((path) => NEVER_LISTED.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))),
+    !paths.some((path) =>
+      NEVER_LISTED.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
+    ),
     paths.filter((path) => NEVER_LISTED.some((prefix) => path.startsWith(prefix))).join(', ')
   );
 
@@ -4663,7 +5137,9 @@ define('discovery-live', 'robots.txt and sitemap.xml as Vercel actually serves t
   // asks the table for status = published; the feed asks gftvjobs_search_jobs,
   // whose default statuses are the same word. Both are correct today and
   // nothing but this would notice the day one of them changes.
-  const listed = new Set(paths.filter((path) => path.startsWith('/jobs/')).map((path) => path.slice('/jobs/'.length)));
+  const listed = new Set(
+    paths.filter((path) => path.startsWith('/jobs/')).map((path) => path.slice('/jobs/'.length))
+  );
 
   const fed = new Set();
   let page = 1;
@@ -4802,180 +5278,200 @@ define('polish-live', 'The removed rewrites, and the pages that answer without t
 // **What only a deployment can answer** is that the rewrite fires. Everything
 // else about this page is decided offline, on purpose.
 
-define('status-live', 'The /status rewrite, the cache header, and the preview nobody else gets', async () => {
-  const base = (process.env.BASE ?? 'https://careers.globalfurry.tv').replace(/\/+$/, '');
-  const fresh = `?t=${Date.now()}`;
+define(
+  'status-live',
+  'The /status rewrite, the cache header, and the preview nobody else gets',
+  async () => {
+    const base = (process.env.BASE ?? 'https://careers.globalfurry.tv').replace(/\/+$/, '');
+    const fresh = `?t=${Date.now()}`;
 
-  let css;
-  try {
-    css = await fetch(`${base}/assets/css/app.css${fresh}`);
-  } catch (cause) {
-    skip('the deployment could be reached', String(cause));
-    return;
-  }
-
-  const stylesheet = css.ok ? await css.text() : '';
-  if (!stylesheet.includes('.status-bar')) {
-    skip(
-      '/status as a function',
-      `${base} does not carry part 7 yet. Push it and re-run — until then this page is the file, ` +
-        'and every check below would pass against it while proving nothing.'
-    );
-    return;
-  }
-
-  const answer = await fetch(`${base}/status${fresh}`);
-  const html = answer.ok ? await answer.text() : '';
-
-  check(
-    '/status answers 200 as html',
-    answer.status === 200 && (answer.headers.get('content-type') ?? '').includes('text/html'),
-    `${answer.status} ${answer.headers.get('content-type')}`
-  );
-
-  // **The first shape of this check asked for something Vercel does not
-  // expose.** It read `s-maxage=60` off the response, on the reasoning that the
-  // function writes that header and a static file does not. Vercel consumes
-  // `s-maxage` and `stale-while-revalidate` for its own edge and rewrites what
-  // the browser sees: measured on 31 August 2026, `/status` answers
-  // `public, max-age=0` and `/about` answers `public, max-age=0,
-  // must-revalidate`. The directive was doing its job and was invisible to the
-  // thing asking about it. **A check has to ask for something the system
-  // actually emits**, which for an edge cache is a second request.
-  const first = await fetch(`${base}/status`);
-  await first.text();
-  const second = await fetch(`${base}/status`);
-  await second.text();
-  check(
-    'it is cached at the edge, so a reload during an outage is not a query',
-    second.headers.get('x-vercel-cache') === 'HIT' || Number(second.headers.get('age') ?? 0) > 0,
-    `x-vercel-cache ${second.headers.get('x-vercel-cache')}, age ${second.headers.get('age')}`
-  );
-
-  // **The discriminator that needs no credential.** The document is the one
-  // `renderDocument` builds, and the file part 7 deleted never carried these:
-  // its head had `twitter:card` and `twitter:image:src` and neither of the two
-  // below. A page answering 200 proves nothing on its own — that is what
-  // `polish-live`'s gate is about — and this is what tells the two apart.
-  check(
-    'and the document is the one the function builds, not the file it replaced',
-    html.includes('twitter:title') && html.includes('twitter:description'),
-    'the head is the old static one, so a file is still being served'
-  );
-
-  check(
-    'the gate is closed on the deployment too, so a reader still gets the phase list',
-    html.includes('id="phaseList"') && !html.includes('class="status-uptime"'),
-    'the deployment is serving the service page while phases are unshipped'
-  );
-
-  const head = await fetch(`${base}/status${fresh}`, { method: 'HEAD' });
-  check('HEAD answers beside GET', head.status === 200, String(head.status));
-
-  // The preview is staff only, and signed out it must be indistinguishable from
-  // the ordinary page. A leak here would put both pages in public at once,
-  // which is the one thing 0c forbids outright.
-  const sneaked = await fetch(`${base}/status?view=service&t=${Date.now()}`);
-  const sneakedHtml = sneaked.ok ? await sneaked.text() : '';
-  check(
-    'the preview is refused to anybody without a staff session',
-    sneakedHtml.includes('id="phaseList"') && !sneakedHtml.includes('class="status-uptime"'),
-    'a signed out reader was shown the service page'
-  );
-
-  const user = process.env.STAFF_USER;
-  const pass = process.env.STAFF_PASS;
-  if (!user || !pass) {
-    skip(
-      'the service page itself, against real probe data',
-      'set STAFF_USER and STAFF_PASS. The preview is the only way the ninety day query runs before the flip.'
-    );
-    return;
-  }
-
-  const browser = await chromium.launch();
-  try {
-    const ctx = await browser.newContext({ baseURL: base, serviceWorkers: 'block' });
-    const page = await ctx.newPage();
-
-    await page.goto(`${base}/admin/login`, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('#staffLoginForm', { timeout: 20000 });
-    await page.fill('#username', user);
-    await page.fill('#password', pass);
-    await page.click('#staffLoginForm button[type="submit"]');
-    await page.waitForURL('**/admin', { timeout: 20000 }).catch(() => {});
-
-    const signedIn = page.url().includes('/admin') && !page.url().includes('/admin/login');
-    check('a staff session was established for the preview', signedIn, page.url());
-    if (!signedIn) return;
-
-    const preview = await page.goto(`${base}/status?view=service`, { waitUntil: 'domcontentloaded' });
-
-    check(
-      'a staff reader gets the service page from the same address',
-      (await page.locator('.status-uptime').count()) > 0,
-      'the preview did not render the uptime panel'
-    );
-    check(
-      'the preview is never cached, because it is one reader on a public URL',
-      /no-store/.test(preview?.headers()['cache-control'] ?? ''),
-      String(preview?.headers()['cache-control'])
-    );
-    check(
-      'all four panels are there',
-      (await page.locator('#statusComponents').count()) === 1 &&
-        (await page.locator('#statusUptime').count()) === 1 &&
-        (await page.locator('#statusIncidents').count()) === 1 &&
-        (await page.locator('.status-headline').count()) === 1,
-      'a panel is missing from the rendered page'
-    );
-
-    const bars = await page.locator('.status-bar').count();
-    check(`a bar for each of the ${TARGET_KEYS.length} targets`, bars === TARGET_KEYS.length, `${bars} bars`);
-
-    // **What the probe is actually doing**, read off the page rather than out of
-    // the database. Before the VPS is running probe.py every day is unknown,
-    // and that is a correct page rather than a failure — so this reports what it
-    // found instead of asserting a state the deployment cannot yet have.
-    //
-    // **Scoped to the bars, and it was not on 31 August 2026.** The unscoped
-    // selector counted the legend, which carries one swatch of every state by
-    // definition, so it reported "4 of 360 days carry probe data" against a
-    // deployment where the probe had never run — and then passed the check
-    // underneath it. A check that miscounts coverage on a page whose whole
-    // subject is not overstating coverage is the one bug this file could least
-    // afford.
-    const measured = await page.locator('.status-bar .status-day:not([data-state="unknown"])').count();
-    console.log(`      ${measured} of ${DAYS * TARGET_KEYS.length} days carry probe data`);
-    if (measured === 0) {
-      skip(
-        'the probe has written something',
-        'every day is unknown, which is the honest drawing of a probe that is not running yet. ' +
-          'Start status-probe/probe.py on the VPS and re-run.'
-      );
-    } else {
-      check('the page is drawing measured days rather than only gaps', measured > 0, `${measured} days`);
+    let css;
+    try {
+      css = await fetch(`${base}/assets/css/app.css${fresh}`);
+    } catch (cause) {
+      skip('the deployment could be reached', String(cause));
+      return;
     }
 
-    // No JavaScript, per 0c. The page has to be readable with the scripts off,
-    // and this is the only place that can be proved against the real response.
-    const quiet = await browser.newContext({ baseURL: base, javaScriptEnabled: false, serviceWorkers: 'block' });
-    // The session cookie is what the preview is gated on, so it travels with it.
-    await quiet.addCookies(await ctx.cookies());
-    const quietPage = await quiet.newPage();
-    await quietPage.goto(`${base}/status?view=service`, { waitUntil: 'domcontentloaded' });
+    const stylesheet = css.ok ? await css.text() : '';
+    if (!stylesheet.includes('.status-bar')) {
+      skip(
+        '/status as a function',
+        `${base} does not carry part 7 yet. Push it and re-run — until then this page is the file, ` +
+          'and every check below would pass against it while proving nothing.'
+      );
+      return;
+    }
+
+    const answer = await fetch(`${base}/status${fresh}`);
+    const html = answer.ok ? await answer.text() : '';
+
     check(
-      'it reads with JavaScript switched off',
-      (await quietPage.locator('.status-uptime').count()) > 0 &&
-        (await quietPage.locator('.status-day').count()) > 0,
-      'the page needs a browser to draw itself, which is the one thing 0c rules out'
+      '/status answers 200 as html',
+      answer.status === 200 && (answer.headers.get('content-type') ?? '').includes('text/html'),
+      `${answer.status} ${answer.headers.get('content-type')}`
     );
-    await quiet.close();
-    await ctx.close();
-  } finally {
-    await browser.close();
+
+    // **The first shape of this check asked for something Vercel does not
+    // expose.** It read `s-maxage=60` off the response, on the reasoning that the
+    // function writes that header and a static file does not. Vercel consumes
+    // `s-maxage` and `stale-while-revalidate` for its own edge and rewrites what
+    // the browser sees: measured on 31 August 2026, `/status` answers
+    // `public, max-age=0` and `/about` answers `public, max-age=0,
+    // must-revalidate`. The directive was doing its job and was invisible to the
+    // thing asking about it. **A check has to ask for something the system
+    // actually emits**, which for an edge cache is a second request.
+    const first = await fetch(`${base}/status`);
+    await first.text();
+    const second = await fetch(`${base}/status`);
+    await second.text();
+    check(
+      'it is cached at the edge, so a reload during an outage is not a query',
+      second.headers.get('x-vercel-cache') === 'HIT' || Number(second.headers.get('age') ?? 0) > 0,
+      `x-vercel-cache ${second.headers.get('x-vercel-cache')}, age ${second.headers.get('age')}`
+    );
+
+    // **The discriminator that needs no credential.** The document is the one
+    // `renderDocument` builds, and the file part 7 deleted never carried these:
+    // its head had `twitter:card` and `twitter:image:src` and neither of the two
+    // below. A page answering 200 proves nothing on its own — that is what
+    // `polish-live`'s gate is about — and this is what tells the two apart.
+    check(
+      'and the document is the one the function builds, not the file it replaced',
+      html.includes('twitter:title') && html.includes('twitter:description'),
+      'the head is the old static one, so a file is still being served'
+    );
+
+    check(
+      'the gate is closed on the deployment too, so a reader still gets the phase list',
+      html.includes('id="phaseList"') && !html.includes('class="status-uptime"'),
+      'the deployment is serving the service page while phases are unshipped'
+    );
+
+    const head = await fetch(`${base}/status${fresh}`, { method: 'HEAD' });
+    check('HEAD answers beside GET', head.status === 200, String(head.status));
+
+    // The preview is staff only, and signed out it must be indistinguishable from
+    // the ordinary page. A leak here would put both pages in public at once,
+    // which is the one thing 0c forbids outright.
+    const sneaked = await fetch(`${base}/status?view=service&t=${Date.now()}`);
+    const sneakedHtml = sneaked.ok ? await sneaked.text() : '';
+    check(
+      'the preview is refused to anybody without a staff session',
+      sneakedHtml.includes('id="phaseList"') && !sneakedHtml.includes('class="status-uptime"'),
+      'a signed out reader was shown the service page'
+    );
+
+    const user = process.env.STAFF_USER;
+    const pass = process.env.STAFF_PASS;
+    if (!user || !pass) {
+      skip(
+        'the service page itself, against real probe data',
+        'set STAFF_USER and STAFF_PASS. The preview is the only way the ninety day query runs before the flip.'
+      );
+      return;
+    }
+
+    const browser = await chromium.launch();
+    try {
+      const ctx = await browser.newContext({ baseURL: base, serviceWorkers: 'block' });
+      const page = await ctx.newPage();
+
+      await page.goto(`${base}/admin/login`, { waitUntil: 'domcontentloaded' });
+      await page.waitForSelector('#staffLoginForm', { timeout: 20000 });
+      await page.fill('#username', user);
+      await page.fill('#password', pass);
+      await page.click('#staffLoginForm button[type="submit"]');
+      await page.waitForURL('**/admin', { timeout: 20000 }).catch(() => {});
+
+      const signedIn = page.url().includes('/admin') && !page.url().includes('/admin/login');
+      check('a staff session was established for the preview', signedIn, page.url());
+      if (!signedIn) return;
+
+      const preview = await page.goto(`${base}/status?view=service`, {
+        waitUntil: 'domcontentloaded',
+      });
+
+      check(
+        'a staff reader gets the service page from the same address',
+        (await page.locator('.status-uptime').count()) > 0,
+        'the preview did not render the uptime panel'
+      );
+      check(
+        'the preview is never cached, because it is one reader on a public URL',
+        /no-store/.test(preview?.headers()['cache-control'] ?? ''),
+        String(preview?.headers()['cache-control'])
+      );
+      check(
+        'all four panels are there',
+        (await page.locator('#statusComponents').count()) === 1 &&
+          (await page.locator('#statusUptime').count()) === 1 &&
+          (await page.locator('#statusIncidents').count()) === 1 &&
+          (await page.locator('.status-headline').count()) === 1,
+        'a panel is missing from the rendered page'
+      );
+
+      const bars = await page.locator('.status-bar').count();
+      check(
+        `a bar for each of the ${TARGET_KEYS.length} targets`,
+        bars === TARGET_KEYS.length,
+        `${bars} bars`
+      );
+
+      // **What the probe is actually doing**, read off the page rather than out of
+      // the database. Before the VPS is running probe.py every day is unknown,
+      // and that is a correct page rather than a failure — so this reports what it
+      // found instead of asserting a state the deployment cannot yet have.
+      //
+      // **Scoped to the bars, and it was not on 31 August 2026.** The unscoped
+      // selector counted the legend, which carries one swatch of every state by
+      // definition, so it reported "4 of 360 days carry probe data" against a
+      // deployment where the probe had never run — and then passed the check
+      // underneath it. A check that miscounts coverage on a page whose whole
+      // subject is not overstating coverage is the one bug this file could least
+      // afford.
+      const measured = await page
+        .locator('.status-bar .status-day:not([data-state="unknown"])')
+        .count();
+      console.log(`      ${measured} of ${DAYS * TARGET_KEYS.length} days carry probe data`);
+      if (measured === 0) {
+        skip(
+          'the probe has written something',
+          'every day is unknown, which is the honest drawing of a probe that is not running yet. ' +
+            'Start status-probe/probe.py on the VPS and re-run.'
+        );
+      } else {
+        check(
+          'the page is drawing measured days rather than only gaps',
+          measured > 0,
+          `${measured} days`
+        );
+      }
+
+      // No JavaScript, per 0c. The page has to be readable with the scripts off,
+      // and this is the only place that can be proved against the real response.
+      const quiet = await browser.newContext({
+        baseURL: base,
+        javaScriptEnabled: false,
+        serviceWorkers: 'block',
+      });
+      // The session cookie is what the preview is gated on, so it travels with it.
+      await quiet.addCookies(await ctx.cookies());
+      const quietPage = await quiet.newPage();
+      await quietPage.goto(`${base}/status?view=service`, { waitUntil: 'domcontentloaded' });
+      check(
+        'it reads with JavaScript switched off',
+        (await quietPage.locator('.status-uptime').count()) > 0 &&
+          (await quietPage.locator('.status-day').count()) > 0,
+        'the page needs a browser to draw itself, which is the one thing 0c rules out'
+      );
+      await quiet.close();
+      await ctx.close();
+    } finally {
+      await browser.close();
+    }
   }
-});
+);
 
 /* =========================================================================
  * 15. The seam, phase 12 part 8
@@ -5063,7 +5559,8 @@ define('seam', 'The four READMEs, the offline checklist, and the seed script', a
   const strays = [];
   (function walk(dir) {
     for (const item of readdirSync(join(ROOT, dir === '' ? '.' : dir))) {
-      if (['node_modules', '.git', '.vercel', '__pycache__', 'theme-shots'].includes(item)) continue;
+      if (['node_modules', '.git', '.vercel', '__pycache__', 'theme-shots'].includes(item))
+        continue;
       const relative = dir === '' ? item : `${dir}/${item}`;
       if (statSync(join(ROOT, relative)).isDirectory()) {
         walk(relative);
@@ -5119,7 +5616,11 @@ define('seam', 'The four READMEs, the offline checklist, and the seed script', a
       new RegExp(`^#[^\\n]*\\n(?:#[^\\n]*\\n)*${name}=`, 'm').test(example),
       'section 2: "every variable listed and a comment above each one saying exactly where to get it"'
     );
-    check(`${name} is in the root README's table`, rootReadme.includes(`\`${name}\``), 'section 17 asks for it there');
+    check(
+      `${name} is in the root README's table`,
+      rootReadme.includes(`\`${name}\``),
+      'section 17 asks for it there'
+    );
   }
   const undocumented = [...example.matchAll(/^([A-Z0-9_]+)=/gm)]
     .map((match) => match[1])
@@ -5145,7 +5646,11 @@ define('seam', 'The four READMEs, the offline checklist, and the seed script', a
 
   const siteReadme = read('main-site/README.md');
   const checklist = siteReadme.slice(siteReadme.indexOf('## Offline test checklist'));
-  check('the offline test checklist is in main-site/README.md', checklist.length > 200, 'section 17 asks for it there');
+  check(
+    'the offline test checklist is in main-site/README.md',
+    checklist.length > 200,
+    'section 17 asks for it there'
+  );
   for (const [name, pattern] of OFFLINE_STEPS) {
     check(`it still asks somebody to ${name}`, pattern.test(checklist), checklist.slice(0, 200));
   }
@@ -5157,7 +5662,9 @@ define('seam', 'The four READMEs, the offline checklist, and the seed script', a
   const building = (buildStatus.phases ?? []).find((phase) => phase.status === 'building');
   check(
     `the root README says ${shipped} phases have shipped`,
-    new RegExp(`Phases 1 to ${shipped} of ${(buildStatus.phases ?? []).length} have shipped`).test(rootReadme),
+    new RegExp(`Phases 1 to ${shipped} of ${(buildStatus.phases ?? []).length} have shipped`).test(
+      rootReadme
+    ),
     'section 2: the root README carries the phase the build is at, and it moves when one ships'
   );
   check(
@@ -5168,7 +5675,11 @@ define('seam', 'The four READMEs, the offline checklist, and the seed script', a
 
   /* --- The seed script exists, is named, and says what it writes -------- */
 
-  check('seed.mjs is at the repo root', existsSync(join(ROOT, 'seed.mjs')), 'section 17 asks for a seed script');
+  check(
+    'seed.mjs is at the repo root',
+    existsSync(join(ROOT, 'seed.mjs')),
+    'section 17 asks for a seed script'
+  );
   check(
     'the root README lists it with the other scripts',
     rootReadme.includes('`seed.mjs`'),
@@ -5183,7 +5694,9 @@ define('seam', 'The four READMEs, the offline checklist, and the seed script', a
   // arriving from the other direction. git is asked rather than the filesystem,
   // because the filesystem here is the one machine where they exist anyway.
   const scriptsTable = rootReadme.slice(rootReadme.indexOf('## Scripts at the repo root'));
-  const named = [...new Set([...scriptsTable.matchAll(/^\| `([a-z0-9-]+\.m?js)`/gm)].map((m) => m[1]))];
+  const named = [
+    ...new Set([...scriptsTable.matchAll(/^\| `([a-z0-9-]+\.m?js)`/gm)].map((m) => m[1])),
+  ];
   check(`the scripts table names ${named.length} scripts`, named.length >= 5, named.join(', '));
 
   const { spawnSync } = createRequire(import.meta.url)('node:child_process');
@@ -5191,7 +5704,10 @@ define('seam', 'The four READMEs, the offline checklist, and the seed script', a
   if (git.error) {
     skip('none of them is gitignored', 'git is not on the path here');
   } else {
-    const ignored = (git.stdout ?? '').split('\n').map((line) => line.trim()).filter(Boolean);
+    const ignored = (git.stdout ?? '')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
     check(
       'none of them is gitignored',
       ignored.length === 0,
@@ -5238,9 +5754,12 @@ define('seam', 'The four READMEs, the offline checklist, and the seed script', a
   // copied. This is the check that keeps `--clear` clearing the board rather
   // than half of it.
   const devSeed = read('migrations/dev-seed-jobs.sql');
-  const devIds = [...new Set([...devSeed.matchAll(/'(a0000000-0000-4000-8000-[0-9a-f]{12})'/g)].map((m) => m[1]))];
+  const devIds = [
+    ...new Set([...devSeed.matchAll(/'(a0000000-0000-4000-8000-[0-9a-f]{12})'/g)].map((m) => m[1])),
+  ];
   check(`the dev seed wrote ${devIds.length} postings`, devIds.length === 9, devIds.join(', '));
-  const seedPrefix = /'a0000000-0000-4000-8000-00000000000\$\{index \+ 1\}'|a0000000-0000-4000-8000/;
+  const seedPrefix =
+    /'a0000000-0000-4000-8000-00000000000\$\{index \+ 1\}'|a0000000-0000-4000-8000/;
   check(
     'seed.mjs --clear removes those as well as its own',
     seedPrefix.test(seed) && seed.includes('DEV_SEED'),
@@ -5285,7 +5804,11 @@ define('seam', 'The four READMEs, the offline checklist, and the seed script', a
   );
 
   const planned = runSeed(INDEXING ? ['--anyway'] : []);
-  check('it says what it would write and writes nothing', planned.status === 0 && /Nothing written/.test(planned.out), planned.out.slice(0, 300));
+  check(
+    'it says what it would write and writes nothing',
+    planned.status === 0 && /Nothing written/.test(planned.out),
+    planned.out.slice(0, 300)
+  );
   check(
     'the plan carries a draft posting, which must never be public',
     /draft\s+\[SAMPLE\]/.test(planned.out),
@@ -5323,7 +5846,10 @@ define('seam', 'The four READMEs, the offline checklist, and the seed script', a
     encoding: 'utf8',
   });
   if (commands.error) {
-    skip('setup.md and the bot README carry the current command list', 'python is not on the path here');
+    skip(
+      'setup.md and the bot README carry the current command list',
+      'python is not on the path here'
+    );
   } else {
     check(
       'setup.md and the bot README carry the current command list',
@@ -5342,7 +5868,7 @@ define('seam', 'The four READMEs, the offline checklist, and the seed script', a
   check(
     'the seed key is on the denylist with a reason an admin can read',
     /^\s{2}seed: '[^']{20,}'/m.test(denylist),
-    'it names a script on somebody\'s machine, so there is nothing here to switch off — and that sentence is the answer, not a switch that does nothing'
+    "it names a script on somebody's machine, so there is nothing here to switch off — and that sentence is the answer, not a switch that does nothing"
   );
 });
 
@@ -5353,7 +5879,9 @@ define('seam', 'The four READMEs, the offline checklist, and the seed script', a
 async function main() {
   console.log('Phase 12 verification, the polish pass');
   console.log('  the public sections need no deployment, no credentials, and no network');
-  console.log('  responsive-admin needs a deployment and a staff credential, and says so when it skips');
+  console.log(
+    '  responsive-admin needs a deployment and a staff credential, and says so when it skips'
+  );
 
   const unknown = (ONLY ?? []).filter((name) => !SECTIONS.some((entry) => entry.name === name));
   if (unknown.length > 0) {

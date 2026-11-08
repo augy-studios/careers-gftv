@@ -25,7 +25,7 @@
 //      unreachable would be strictly worse than a missing row. Everything is
 //      logged to the server console as well, so nothing is silently lost.
 
-import { supabase, T } from './supabase.js';
+import { supabase, TABLES } from './supabase.js';
 // Stamped into the metadata of every row written here, per 5f and 5g's "which
 // site it was performed from". It lived in this file until phase 13 part 2 gave
 // the passkey table the same question to answer; see site.js for why there is
@@ -257,7 +257,7 @@ export const AUDIT = Object.freeze({
  */
 export async function recordAudit(entry) {
   try {
-    const { error } = await supabase.from(T.auditLog).insert({
+    const { error } = await supabase.from(TABLES.auditLog).insert({
       actor_realm: entry.realm,
       actor_id: entry.actorId ?? null,
       actor_label: entry.actorLabel ?? null,

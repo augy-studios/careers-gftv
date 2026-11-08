@@ -40,12 +40,19 @@
 // this project has no email -- which is exactly why 5g calls the audit row not
 // optional.
 
-import { ok, fail, ERR, methodNotAllowed, readJson, failInternal } from '../../_lib/respond.js';
+import {
+  ok,
+  fail,
+  ERROR_CODES,
+  methodNotAllowed,
+  readJson,
+  failInternal,
+} from '../../_lib/respond.js';
 import { checkPasswordStrength } from '../../_lib/password.js';
 import { deleteCode, codeCounts, codesLow, LOW_CODE_WARNING } from '../../_lib/accounts.js';
-import { sha256, timingSafeEqualStr } from '../../_lib/tokens.js';
+import { sha256, timingSafeEqualStrings } from '../../_lib/tokens.js';
 import { COOKIE, readCookie, clearCookie } from '../../_lib/cookies.js';
-import { supabase, T } from '../../_lib/supabase.js';
+import { supabase, TABLES } from '../../_lib/supabase.js';
 import { revokeAllTrustedDevices } from '../../_lib/session.js';
 import { recordAudit, AUDIT } from '../../_lib/audit.js';
 import { setStaffPassword, revokeStaffSessions, held } from '../../_lib/staff-account.js';
@@ -60,26 +67,38 @@ import {
 
 const GENERIC = 'That reset could not be completed. Start again from the beginning.';
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['POST'])) return;
+/**
+ * Set a new staff password with the ticket from forgot-password. The ticket must
+ * belong to this browser, be unexpired, and have had its second factor satisfied
+ * where one was needed. It is spent once, and every session is signed out.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['POST'])) return;
 
   // Held as well as forgot-password, and not only because it writes. A ticket
   // outstanding when the hold is lifted has to be spendable, and a ticket
   // issued while it was on cannot exist -- so the two guards are the same
   // guard and neither is redundant.
-  if (held(res)) return;
+  if (held(response)) return;
 
-  const body = await readJson(req, res);
+  const body = await readJson(request, response);
   if (!body) return;
 
-  const ticket = typeof body.ticket === 'string' ? body.ticket : '';
-  const nonce = readCookie(req, COOKIE.staffResetNonce);
+  let ticket;
 
-  const subjects = [subjectForIp(req), subjectForIdentifier(ticket)];
-  if (await limited(res, 'recovery_code', subjects)) return;
+  if (typeof body.ticket === 'string') {
+    ticket = body.ticket;
+  } else {
+    ticket = '';
+  }
+
+  const nonce = readCookie(request, COOKIE.staffResetNonce);
+
+  const subjects = [subjectForIp(request), subjectForIdentifier(ticket)];
+  if (await limited(response, 'recovery_code', subjects)) return;
 
   if (ticket === '' || !nonce) {
-    return fail(res, ERR.UNAUTHORISED, GENERIC);
+    return fail(response, ERROR_CODES.UNAUTHORISED, GENERIC);
   }
 
   const strength = checkPasswordStrength(body.password);
@@ -89,19 +108,21 @@ export default async function handler(req, res) {
     details.password_confirm = FIELD.MISMATCH;
   }
   if (Object.keys(details).length > 0) {
-    return fail(res, ERR.BAD_REQUEST, 'That new password could not be used.', { details });
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That new password could not be used.', {
+      details,
+    });
   }
 
   try {
     const { data: reset, error } = await supabase
-      .from(T.staffPasswordResets)
+      .from(TABLES.staffPasswordResets)
       .select(
         'id, staff_user_id, browser_nonce_hash, recovery_code_id, second_factor_at, expires_at, used_at'
       )
       .eq('ticket_hash', sha256(ticket))
       .maybeSingle();
 
-    if (error) return failInternal(res, error, 'staff reset password lookup');
+    if (error) return failInternal(response, error, 'staff reset password lookup');
 
     // second_factor_at is migration 027's rule, carried into 040 from the start
     // because section 6 said to. A ticket for an account with a passkey or an
@@ -114,18 +135,18 @@ export default async function handler(req, res) {
       reset.used_at !== null ||
       reset.second_factor_at === null ||
       new Date(reset.expires_at).getTime() <= Date.now() ||
-      !timingSafeEqualStr(reset.browser_nonce_hash, sha256(nonce));
+      !timingSafeEqualStrings(reset.browser_nonce_hash, sha256(nonce));
 
     if (unusable) {
       await recordFailures('recovery_code', subjects, LIMITS.recoveryCode);
-      clearCookie(res, COOKIE.staffResetNonce);
-      return fail(res, ERR.UNAUTHORISED, GENERIC);
+      clearCookie(response, COOKIE.staffResetNonce);
+      return fail(response, ERROR_CODES.UNAUTHORISED, GENERIC);
     }
 
     // The username, for the audit row. Read before the write rather than after
     // it, so the row can name the account whatever the write does next.
     const { data: account } = await supabase
-      .from(T.staffUsers)
+      .from(TABLES.staffUsers)
       .select('id, username')
       .eq('id', reset.staff_user_id)
       .maybeSingle();
@@ -144,7 +165,7 @@ export default async function handler(req, res) {
       actorId: reset.staff_user_id,
       actorLabel: account?.username ?? null,
       action: AUDIT.STAFF_PASSWORD_RESET,
-      targetTable: T.staffUsers,
+      targetTable: TABLES.staffUsers,
       targetId: reset.staff_user_id,
       reason: 'Staff account recovery code, per 5g.',
       metadata: {
@@ -156,13 +177,14 @@ export default async function handler(req, res) {
     });
 
     const written = await setStaffPassword(reset.staff_user_id, body.password);
-    if (!written) return fail(res, ERR.SERVER_ERROR, 'That could not be saved. Try again.');
+    if (!written)
+      return fail(response, ERROR_CODES.SERVER_ERROR, 'That could not be saved. Try again.');
 
     // Marked used before the code is consumed, because consuming the code
     // cascades this row away and the marking would then have nothing to write
     // to. Either way the ticket cannot be presented twice.
     await supabase
-      .from(T.staffPasswordResets)
+      .from(TABLES.staffPasswordResets)
       .update({ used_at: new Date().toISOString() })
       .eq('id', reset.id);
 
@@ -173,11 +195,11 @@ export default async function handler(req, res) {
     await revokeStaffSessions(reset.staff_user_id);
     await revokeAllTrustedDevices('staff', reset.staff_user_id);
 
-    clearCookie(res, COOKIE.staffResetNonce);
+    clearCookie(response, COOKIE.staffResetNonce);
 
     const counts = await codeCounts('staff', reset.staff_user_id);
 
-    return ok(res, {
+    return ok(response, {
       reset: true,
       // Never. See the header: this account signs in again, second factor and
       // all, which is the difference between this flow and the applicant one.
@@ -192,6 +214,6 @@ export default async function handler(req, res) {
       reaches_gftv_asia: true,
     });
   } catch (cause) {
-    return failInternal(res, cause, 'staff reset password');
+    return failInternal(response, cause, 'staff reset password');
   }
 }

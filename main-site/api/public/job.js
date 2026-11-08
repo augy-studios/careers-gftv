@@ -18,9 +18,9 @@
 // The Google Form URL is not in this payload and cannot be: api/_lib/
 // job-detail.js does not select the column.
 
-import { ok, fail, ERR, methodNotAllowed, failInternal } from '../_lib/respond.js';
+import { ok, fail, ERROR_CODES, methodNotAllowed, failInternal } from '../_lib/respond.js';
 import { requestLocale } from '../_lib/locales.js';
-import { searchParams } from '../_lib/jobs.js';
+import { searchParameters } from '../_lib/jobs.js';
 import { getApplicantSession } from '../_lib/session.js';
 import {
   fetchJobRecord,
@@ -31,38 +31,52 @@ import {
   publicJobDetail,
 } from '../_lib/job-detail.js';
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'HEAD'])) return;
+/**
+ * One posting as JSON, by id or by slug, in the reader's language where a
+ * translation is ready. A posting the reader may not see answers exactly as a
+ * missing one does.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'HEAD'])) return;
 
-  const locale = await requestLocale(req);
-  const params = searchParams(req);
-  const segment = String(params.get('id') ?? '').trim();
+  const locale = await requestLocale(request);
+  const parameters = searchParameters(request);
+  const segment = String(parameters.get('id') ?? '').trim();
 
   if (!isUuid(segment) && !isSlug(segment)) {
-    return fail(res, ERR.BAD_REQUEST, 'That is not a posting id.');
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not a posting id.');
   }
 
   try {
-    const record = await fetchJobRecord(
-      isUuid(segment) ? { id: segment } : { slug: segment }
-    );
+    let lookup;
+
+    if (isUuid(segment)) {
+      lookup = { id: segment };
+    } else {
+      lookup = { slug: segment };
+    }
+
+    const record = await fetchJobRecord(lookup);
 
     // The same answer for a posting that does not exist and one the caller may
     // not see. Anything else confirms a draft exists to whoever asks.
-    if (!record) return notFound(res);
+    if (!record) return notFound(response);
 
     const { job } = record;
 
     let hasHistory = false;
     if (job.status === 'archived') {
-      const session = await getApplicantSession(req);
+      const session = await getApplicantSession(request);
       hasHistory = await hasHistoryWithJob(job.id, session?.user?.id ?? null);
     }
 
-    if (!isVisible(job, hasHistory)) return notFound(res);
+    if (!isVisible(job, hasHistory)) return notFound(response);
+
+    let cacheControl = CACHE;
+    if (job.status === 'archived') cacheControl = PRIVATE;
 
     return ok(
-      res,
+      response,
       {
         job: publicJobDetail(record, locale),
         // The canonical address, so a caller that arrived by slug knows where
@@ -72,15 +86,15 @@ export default async function handler(req, res) {
         // names separately. A client can use it to correct its own URL.
         redirected: !isUuid(segment),
       },
-      { headers: { 'Cache-Control': job.status === 'archived' ? PRIVATE : CACHE } }
+      { headers: { 'Cache-Control': cacheControl } }
     );
   } catch (cause) {
-    return failInternal(res, cause, 'public job');
+    return failInternal(response, cause, 'public job');
   }
 }
 
-function notFound(res) {
-  return fail(res, ERR.NOT_FOUND, 'That posting does not exist.', {
+function notFound(response) {
+  return fail(response, ERROR_CODES.NOT_FOUND, 'That posting does not exist.', {
     headers: { 'Cache-Control': 'no-store' },
   });
 }

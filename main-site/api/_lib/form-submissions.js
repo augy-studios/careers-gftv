@@ -54,7 +54,7 @@
 //   when it fires. Apps Script retries on every 5xx and on some timeouts, so
 //   this is the ordinary case rather than the strange one.
 
-import { supabase, T } from './supabase.js';
+import { supabase, TABLES } from './supabase.js';
 import { isUuid } from './admin.js';
 import { validateEmail } from './validate.js';
 import { cooldownUntil } from './settings.js';
@@ -77,7 +77,7 @@ const UNIQUE_VIOLATION = '23505';
  * ceiling on an endpoint that inserts a row is how a table gets filled with one
  * very large row per delivery.
  */
-const RESPONSE_ID_MAX = 200;
+const RESPONSE_ID_MAXIMUM = 200;
 
 /* -------------------------------------------------------------------------
  * Step 2, validating the payload
@@ -109,7 +109,7 @@ export function validateSubmission(body) {
 
   const responseId = String(body?.form_response_id ?? '').trim();
   if (responseId === '') details.form_response_id = 'required';
-  else if (responseId.length > RESPONSE_ID_MAX) details.form_response_id = 'too_long';
+  else if (responseId.length > RESPONSE_ID_MAXIMUM) details.form_response_id = 'too_long';
   else values.formResponseId = responseId;
 
   // The email is the whole matching key, so a blank one is a validation failure
@@ -122,7 +122,14 @@ export function validateSubmission(body) {
   else values.email = email.value;
 
   const submitted = body?.submitted_at;
-  const parsed = typeof submitted === 'string' ? Date.parse(submitted) : Number.NaN;
+  let parsed;
+
+  if (typeof submitted === 'string') {
+    parsed = Date.parse(submitted);
+  } else {
+    parsed = Number.NaN;
+  }
+
   if (!Number.isFinite(parsed)) details.submitted_at = 'invalid';
   else values.submittedAt = new Date(parsed).toISOString();
 
@@ -147,7 +154,7 @@ export function validateSubmission(body) {
  */
 export async function recordSubmission(submission) {
   const { data, error } = await supabase
-    .from(T.formSubmissions)
+    .from(TABLES.formSubmissions)
     .insert({
       job_id: submission.jobId,
       form_response_id: submission.formResponseId,
@@ -190,7 +197,7 @@ export async function matchApplicant(email) {
   const literal = String(email).replace(/[%_\\]/g, '\\$&');
 
   const { data, error } = await supabase
-    .from(T.users)
+    .from(TABLES.users)
     .select('id, username, email')
     .ilike('email', literal)
     .limit(1);
@@ -250,7 +257,7 @@ export async function confirmFromWebhook(jobId, applicant) {
   // webhook that confirmed one would be recording that somebody applied because
   // they read the posting.
   const { data: rows, error } = await supabase
-    .from(T.analytics)
+    .from(TABLES.analytics)
     .select('id, did_apply, response_state, answer_source')
     .eq('job_id', jobId)
     .eq('applicant_id', applicant.id)
@@ -275,15 +282,16 @@ export async function confirmFromWebhook(jobId, applicant) {
       // What is being overridden, recorded before it is gone. 'answered' with
       // did_apply false is an explicit No; 'no_response' is the cron's timeout;
       // 'pending' is silence, which overrides nothing.
-      result.overrode =
-        row.response_state === 'answered'
-          ? 'no'
-          : row.response_state === 'no_response'
-            ? 'timeout'
-            : null;
+      if (row.response_state === 'answered') {
+        result.overrode = 'no';
+      } else if (row.response_state === 'no_response') {
+        result.overrode = 'timeout';
+      } else {
+        result.overrode = null;
+      }
 
       const { data: updated, error: updateError } = await supabase
-        .from(T.analytics)
+        .from(TABLES.analytics)
         .update({
           did_apply: true,
           response_state: 'answered',
@@ -317,7 +325,7 @@ export async function confirmFromWebhook(jobId, applicant) {
     const now = new Date();
 
     const { data: created, error: insertError } = await supabase
-      .from(T.applications)
+      .from(TABLES.applications)
       .insert({
         job_id: jobId,
         applicant_id: applicant.id,
@@ -388,7 +396,11 @@ export async function confirmFromWebhook(jobId, applicant) {
  * @returns {Promise<string|null>}
  */
 async function postingTitle(jobId) {
-  const { data, error } = await supabase.from(T.jobs).select('title').eq('id', jobId).maybeSingle();
+  const { data, error } = await supabase
+    .from(TABLES.jobs)
+    .select('title')
+    .eq('id', jobId)
+    .maybeSingle();
   if (error) {
     console.error('[careers-gftv] posting title for the notice:', error);
     return null;
@@ -415,7 +427,7 @@ async function postingTitle(jobId) {
  */
 export async function attachApplicant(submissionId, applicantId) {
   const { error } = await supabase
-    .from(T.formSubmissions)
+    .from(TABLES.formSubmissions)
     .update({ matched_applicant_id: applicantId })
     .eq('id', submissionId)
     .is('matched_applicant_id', null);
@@ -450,8 +462,8 @@ export async function unmatchedSubmissions(options = {}) {
   const limit = Math.min(Math.max(Number(options.limit) || UNMATCHED_LIMIT, 1), UNMATCHED_LIMIT);
 
   let query = supabase
-    .from(T.formSubmissions)
-    .select(`id, job_id, email, submitted_at, received_at, job:${T.jobs} ( id, title )`)
+    .from(TABLES.formSubmissions)
+    .select(`id, job_id, email, submitted_at, received_at, job:${TABLES.jobs} ( id, title )`)
     .is('matched_applicant_id', null)
     .order('received_at', { ascending: false })
     .limit(limit);
@@ -494,7 +506,7 @@ export async function unmatchedSubmissions(options = {}) {
  */
 export async function linkSubmission(submissionId, applicantId) {
   const { data: submission, error } = await supabase
-    .from(T.formSubmissions)
+    .from(TABLES.formSubmissions)
     .select('id, job_id, email, submitted_at, matched_applicant_id')
     .eq('id', submissionId)
     .maybeSingle();
@@ -504,7 +516,7 @@ export async function linkSubmission(submissionId, applicantId) {
   if (submission.matched_applicant_id) return { ok: false, reason: 'already_matched' };
 
   const { data: applicant, error: userError } = await supabase
-    .from(T.users)
+    .from(TABLES.users)
     .select('id, username')
     .eq('id', applicantId)
     .maybeSingle();
@@ -517,7 +529,7 @@ export async function linkSubmission(submissionId, applicantId) {
   // right person and an admin can see that it was, rather than finding it back
   // in the unmatched list with a half applied change behind it.
   const { error: updateError } = await supabase
-    .from(T.formSubmissions)
+    .from(TABLES.formSubmissions)
     .update({ matched_applicant_id: applicant.id })
     .eq('id', submission.id)
     .is('matched_applicant_id', null);

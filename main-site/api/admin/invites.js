@@ -29,17 +29,24 @@
 // and inviting somebody to look at a role that has closed is a thing an admin
 // might do while explaining something.
 
-import { ok, fail, ERR, methodNotAllowed, failInternal, readJson } from '../_lib/respond.js';
-import { supabase, T } from '../_lib/supabase.js';
+import {
+  ok,
+  fail,
+  ERROR_CODES,
+  methodNotAllowed,
+  failInternal,
+  readJson,
+} from '../_lib/respond.js';
+import { supabase, TABLES } from '../_lib/supabase.js';
 import { requireStaff } from '../_lib/session.js';
 import { AUDIT, auditStaff } from '../_lib/audit.js';
 import { FIELD, validateText } from '../_lib/validate.js';
-import { isUuid, params, pageRange, enumParam } from '../_lib/admin.js';
+import { isUuid, parameters, pageRange, enumParameter } from '../_lib/admin.js';
 import { unavailable } from '../_lib/maintenance.js';
 import { LIMITS, limited, recordFailures, subjectForUser } from '../_lib/rate-limit.js';
 import {
   INVITE_STATUSES,
-  MAX_RECIPIENTS,
+  MAXIMUM_RECIPIENTS,
   listInvites,
   searchInviteApplicants,
   shortlistApplicants,
@@ -49,26 +56,26 @@ import {
 } from '../_lib/invites.js';
 
 /** The note an applicant reads on the invite. Two or three sentences. */
-const NOTE_MAX = 600;
+const NOTE_MAXIMUM = 600;
 
 /** Postings an invite may name. */
 const INVITABLE = Object.freeze(['published', 'closed']);
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'HEAD', 'POST'])) return;
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'HEAD', 'POST'])) return;
 
-  const session = await requireStaff(req, res);
+  const session = await requireStaff(request, response);
   if (!session) return;
 
-  if (await unavailable(res, 'admin_invites')) return;
+  if (await unavailable(response, 'admin_invites')) return;
 
-  res.setHeader('Cache-Control', 'no-store');
+  response.setHeader('Cache-Control', 'no-store');
 
   try {
-    if (req.method === 'POST') return await write(req, res, session);
-    return await read(req, res);
+    if (request.method === 'POST') return await write(request, response, session);
+    return await read(request, response);
   } catch (cause) {
-    return failInternal(res, cause, 'admin invites');
+    return failInternal(response, cause, 'admin invites');
   }
 }
 
@@ -76,52 +83,53 @@ export default async function handler(req, res) {
  * Reading
  * ---------------------------------------------------------------------- */
 
-async function read(req, res) {
-  const search = params(req);
+async function read(request, response) {
+  const search = parameters(request);
 
   // The picker. Separate from the list so the composer's typing does not drag
   // the invites of a whole posting back with every keystroke.
   if (search.has('applicants')) {
-    return ok(res, { applicants: await searchInviteApplicants(search.get('applicants')) });
+    return ok(response, { applicants: await searchInviteApplicants(search.get('applicants')) });
   }
 
   if (search.has('jobs')) {
-    return ok(res, { jobs: await invitableJobs() });
+    return ok(response, { jobs: await invitableJobs() });
   }
 
   const jobId = search.get('job');
   const applicantId = search.get('applicant');
 
-  if (jobId && !isUuid(jobId)) return fail(res, ERR.BAD_REQUEST, 'That is not a posting id.');
+  if (jobId && !isUuid(jobId))
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not a posting id.');
   if (applicantId && !isUuid(applicantId)) {
-    return fail(res, ERR.BAD_REQUEST, 'That is not an applicant id.');
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not an applicant id.');
   }
 
-  const { from, to, page, size } = pageRange(search, { size: 50, max: 100 });
+  const { from, to: rangeEnd, page, size } = pageRange(search, { size: 50, max: 100 });
 
   const { rows, total } = await listInvites({
     jobId,
     applicantId,
-    status: enumParam(search, 'status', INVITE_STATUSES),
+    status: enumParameter(search, 'status', INVITE_STATUSES),
     rangeFrom: from,
-    rangeTo: to,
+    rangeTo: rangeEnd,
   });
 
-  return ok(res, {
+  return ok(response, {
     invites: rows,
     total,
     page,
     page_size: size,
     pages: Math.max(1, Math.ceil(total / size)),
     statuses: INVITE_STATUSES,
-    max_recipients: MAX_RECIPIENTS,
+    max_recipients: MAXIMUM_RECIPIENTS,
   });
 }
 
 /** The postings the composer offers. Published and closed, newest first. */
 async function invitableJobs() {
   const { data, error } = await supabase
-    .from(T.jobs)
+    .from(TABLES.jobs)
     .select('id, title, status, published_at')
     .in('status', INVITABLE)
     .order('published_at', { ascending: false, nullsFirst: false })
@@ -137,30 +145,34 @@ async function invitableJobs() {
 
 const ACTIONS = ['shortlist', 'invite', 'withdraw', 'remove'];
 
-async function write(req, res, session) {
-  const body = await readJson(req, res);
+/**
+ * Change invites and shortlists: add people to a shortlist, invite them, withdraw
+ * an invite, or remove somebody from the shortlist.
+ */
+async function write(request, response, session) {
+  const body = await readJson(request, response);
   if (body === null) return;
 
   const action = String(body.action ?? '').trim();
   if (!ACTIONS.includes(action)) {
-    return fail(res, ERR.BAD_REQUEST, 'That is not something this endpoint does.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not something this endpoint does.', {
       details: { action: FIELD.INVALID },
     });
   }
 
   const subjects = [subjectForUser('staff', session.user.id)];
-  if (await limited(res, 'admin', subjects)) return;
+  if (await limited(response, 'admin', subjects)) return;
   const done = () => recordFailures('admin', subjects, LIMITS.admin);
 
   switch (action) {
     case 'shortlist':
-      return shortlist(res, session, body, done);
+      return shortlist(response, session, body, done);
     case 'invite':
-      return invite(res, session, body, done);
+      return invite(response, session, body, done);
     case 'withdraw':
-      return withdraw(res, session, body, done);
+      return withdraw(response, session, body, done);
     default:
-      return remove(res, body, done);
+      return remove(response, body, done);
   }
 }
 
@@ -176,20 +188,24 @@ async function readTargets(body) {
   const jobId = String(body.job_id ?? '');
   if (!isUuid(jobId)) details.job_id = FIELD.INVALID;
 
-  const applicantIds = Array.isArray(body.applicant_ids)
-    ? [...new Set(body.applicant_ids.filter((id) => isUuid(id)))]
-    : [];
+  let applicantIds;
+
+  if (Array.isArray(body.applicant_ids)) {
+    applicantIds = [...new Set(body.applicant_ids.filter((id) => isUuid(id)))];
+  } else {
+    applicantIds = [];
+  }
 
   if (applicantIds.length === 0) details.applicant_ids = FIELD.REQUIRED;
-  else if (applicantIds.length > MAX_RECIPIENTS) details.applicant_ids = FIELD.TOO_LONG;
+  else if (applicantIds.length > MAXIMUM_RECIPIENTS) details.applicant_ids = FIELD.TOO_LONG;
 
-  const note = validateText(body.note, NOTE_MAX);
+  const note = validateText(body.note, NOTE_MAXIMUM);
   if (!note.ok) details.note = note.code;
 
   if (Object.keys(details).length > 0) return { details };
 
   const { data: job, error } = await supabase
-    .from(T.jobs)
+    .from(TABLES.jobs)
     .select('id, title, status, department_id')
     .eq('id', jobId)
     .maybeSingle();
@@ -217,7 +233,7 @@ async function departmentName(departmentId) {
   if (!departmentId) return null;
 
   const { data, error } = await supabase
-    .from(T.departments)
+    .from(TABLES.departments)
     .select('name')
     .eq('id', departmentId)
     .maybeSingle();
@@ -237,10 +253,10 @@ async function departmentName(departmentId) {
  * might suit a role you are still writing is exactly when a shortlist is
  * useful, and nobody is contacted either way.
  */
-async function shortlist(res, session, body, done) {
+async function shortlist(response, session, body, done) {
   const target = await readTargets(body);
   if (target.details) {
-    return fail(res, ERR.BAD_REQUEST, 'That shortlist could not be saved.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That shortlist could not be saved.', {
       details: target.details,
     });
   }
@@ -257,12 +273,12 @@ async function shortlist(res, session, body, done) {
       session.user,
       AUDIT.APPLICANT_SHORTLISTED,
       { job_title: target.job.title, count: result.added.length },
-      { targetTable: T.invites, targetId: target.job.id }
+      { targetTable: TABLES.invites, targetId: target.job.id }
     );
   }
 
   await done();
-  return ok(res, {
+  return ok(response, {
     added: result.added.length,
     updated: result.updated.length,
     // Named separately so the page can say why somebody was left out rather
@@ -279,18 +295,23 @@ async function shortlist(res, session, body, done) {
  * reads is our responsibility, and a title assembled in a browser can be
  * anything. The admin's own words go in the note, which is the body.
  */
-async function invite(res, session, body, done) {
+async function invite(response, session, body, done) {
   const target = await readTargets(body);
   if (target.details) {
-    return fail(res, ERR.BAD_REQUEST, 'Those invites could not be sent.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'Those invites could not be sent.', {
       details: target.details,
     });
   }
 
   if (!INVITABLE.includes(target.job.status)) {
-    return fail(res, ERR.CONFLICT, 'Only a published or closed posting can be invited to.', {
-      details: { job_id: FIELD.INVALID, status: target.job.status },
-    });
+    return fail(
+      response,
+      ERROR_CODES.CONFLICT,
+      'Only a published or closed posting can be invited to.',
+      {
+        details: { job_id: FIELD.INVALID, status: target.job.status },
+      }
+    );
   }
 
   const result = await inviteApplicants({
@@ -306,36 +327,36 @@ async function invite(res, session, body, done) {
       session.user,
       AUDIT.INVITE_SENT,
       { job_title: target.job.title, count: result.invited.length },
-      { targetTable: T.invites, targetId: target.job.id }
+      { targetTable: TABLES.invites, targetId: target.job.id }
     );
   }
 
   await done();
-  return ok(res, { invited: result.invited.length, skipped: result.skipped.length });
+  return ok(response, { invited: result.invited.length, skipped: result.skipped.length });
 }
 
-async function withdraw(res, session, body, done) {
+async function withdraw(response, session, body, done) {
   const jobId = String(body.job_id ?? '');
   const applicantId = String(body.applicant_id ?? '');
 
   if (!isUuid(jobId) || !isUuid(applicantId)) {
-    return fail(res, ERR.BAD_REQUEST, 'That is not an invite.');
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not an invite.');
   }
 
   const row = await withdrawInvite(jobId, applicantId);
   if (!row) {
-    return fail(res, ERR.NOT_FOUND, 'There is no invite there to withdraw.');
+    return fail(response, ERROR_CODES.NOT_FOUND, 'There is no invite there to withdraw.');
   }
 
   await auditStaff(
     session.user,
     AUDIT.INVITE_WITHDRAWN,
     {},
-    { targetTable: T.invites, targetId: row.id }
+    { targetTable: TABLES.invites, targetId: row.id }
   );
 
   await done();
-  return ok(res, { withdrawn: true });
+  return ok(response, { withdrawn: true });
 }
 
 /**
@@ -346,21 +367,21 @@ async function withdraw(res, session, body, done) {
  * about is theirs to change. An invite that went out is a message to a person
  * and stays in the log.
  */
-async function remove(res, body, done) {
+async function remove(response, body, done) {
   const jobId = String(body.job_id ?? '');
   const applicantId = String(body.applicant_id ?? '');
 
   if (!isUuid(jobId) || !isUuid(applicantId)) {
-    return fail(res, ERR.BAD_REQUEST, 'That is not a shortlist entry.');
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not a shortlist entry.');
   }
 
   const row = await removeShortlisted(jobId, applicantId);
   if (!row) {
     // Either it is not there, or it has been invited since, which is a
     // different thing and has its own control.
-    return fail(res, ERR.CONFLICT, 'That one is not on the shortlist any more.');
+    return fail(response, ERROR_CODES.CONFLICT, 'That one is not on the shortlist any more.');
   }
 
   await done();
-  return ok(res, { removed: true });
+  return ok(response, { removed: true });
 }

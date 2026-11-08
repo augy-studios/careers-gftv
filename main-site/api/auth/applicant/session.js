@@ -14,14 +14,18 @@ import { getApplicantSession, publicApplicant } from '../../_lib/session.js';
 import { codeCounts, codesLow, LOW_CODE_WARNING } from '../../_lib/accounts.js';
 import { hasPasskeys } from '../../_lib/webauthn.js';
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET'])) return;
+/**
+ * Who is signed in on this browser, if anybody, and how their second factors and
+ * recovery codes stand.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET'])) return;
 
   try {
-    const session = await getApplicantSession(req);
+    const session = await getApplicantSession(request);
 
     if (!session) {
-      return ok(res, { user: null });
+      return ok(response, { user: null });
     }
 
     const [codes, secondFactor] = await Promise.all([
@@ -29,7 +33,7 @@ export default async function handler(req, res) {
       hasPasskeys('applicant', session.user.id),
     ]);
 
-    return ok(res, {
+    return ok(response, {
       user: publicApplicant(session.user),
       expires_at: session.expiresAt ?? null,
       // A count in gftvjobs_passkeys, not a column on the user row. The
@@ -42,6 +46,6 @@ export default async function handler(req, res) {
       low_code_threshold: LOW_CODE_WARNING,
     });
   } catch (cause) {
-    return failInternal(res, cause, 'applicant session');
+    return failInternal(response, cause, 'applicant session');
   }
 }

@@ -4,7 +4,7 @@
 // loudly with a message naming the variable rather than throwing an undefined
 // key error deep in a request."
 //
-// That is what requireEnv does. It is called at module import time by the
+// That is what requireEnvironmentVariable does. It is called at module import time by the
 // modules that need each value, so a missing variable surfaces as a clear
 // function-level failure on the first request rather than as an obscure error
 // three calls deep.
@@ -20,7 +20,7 @@ const KNOWN = [
   'FORM_WEBHOOK_SECRET',
   'CRON_SECRET',
   // Phase 11, and the only optional one in the list. It is read through
-  // optionalEnv with the username section 15 fixes as the default, so it is
+  // optionalEnvironmentVariable with the username section 15 fixes as the default, so it is
   // named here for the documentation rather than to be required: unset is the
   // normal state, and setting it points a preview deployment at a test bot.
   'TELEGRAM_BOT_USERNAME',
@@ -31,7 +31,7 @@ const KNOWN = [
  * @param {string} name
  * @returns {string}
  */
-export function requireEnv(name) {
+export function requireEnvironmentVariable(name) {
   if (!KNOWN.includes(name)) {
     throw new Error(
       `Environment variable ${name} is not one of the documented variables. ` +
@@ -60,23 +60,28 @@ export function requireEnv(name) {
  * @param {string|null} fallback
  * @returns {string|null}
  */
-export function optionalEnv(name, fallback = null) {
+export function optionalEnvironmentVariable(name, fallback = null) {
   const value = process.env[name];
-  return typeof value === 'string' && value.trim() !== '' ? value.trim() : fallback;
+
+  if (typeof value === 'string' && value.trim() !== '') {
+    return value.trim();
+  } else {
+    return fallback;
+  }
 }
 
 /**
  * Variables that are documented and are not required.
  *
- * **This list is the reason `checkEnv()` was never worth calling.** It reported
+ * **This list is the reason `checkEnvironmentVariables()` was never worth calling.** It reported
  * `TELEGRAM_BOT_USERNAME` missing on a perfectly healthy deployment, because
- * KNOWN is the documentation list and that one is read through `optionalEnv`
+ * KNOWN is the documentation list and that one is read through `optionalEnvironmentVariable`
  * with a default. An `ok` that is false in the ordinary state is an `ok` nobody
  * can build a check on, and section 5 item 29 is what that cost: a function
  * written for exactly one outage, called by nothing, while the outage ran for a
  * fortnight.
  *
- * Anything named here must be read with `optionalEnv` and never `requireEnv`.
+ * Anything named here must be read with `optionalEnvironmentVariable` and never `requireEnvironmentVariable`.
  */
 const OPTIONAL = new Set(['TELEGRAM_BOT_USERNAME']);
 
@@ -88,7 +93,7 @@ const OPTIONAL = new Set(['TELEGRAM_BOT_USERNAME']);
  * the deployment is correctly configured and a check can assert it.
  * @returns {{ ok: boolean, missing: string[] }}
  */
-export function checkEnv() {
+export function checkEnvironmentVariables() {
   const missing = KNOWN.filter((name) => {
     if (OPTIONAL.has(name)) return false;
     const value = process.env[name];
@@ -100,7 +105,7 @@ export function checkEnv() {
 
 /** The site's own origin, with any trailing slash removed. */
 export function siteUrl() {
-  return requireEnv('SITE_URL').replace(/\/+$/, '');
+  return requireEnvironmentVariable('SITE_URL').replace(/\/+$/, '');
 }
 
-export const ENV_NAMES = Object.freeze([...KNOWN]);
+export const ENVIRONMENT_VARIABLE_NAMES = Object.freeze([...KNOWN]);

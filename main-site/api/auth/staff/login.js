@@ -12,13 +12,20 @@
 // That is step 5 of 5a and it is the whole point of the challenge row: a
 // password alone must not leave the browser holding anything it can use.
 
-import { ok, fail, ERR, methodNotAllowed, readJson, failInternal } from '../../_lib/respond.js';
+import {
+  ok,
+  fail,
+  ERROR_CODES,
+  methodNotAllowed,
+  readJson,
+  failInternal,
+} from '../../_lib/respond.js';
 import { verifySecret, verifyAgainstNothing } from '../../_lib/password.js';
 import { findStaffByUsername } from '../../_lib/accounts.js';
 import { hasTotp } from '../../_lib/totp.js';
 import { hasPasskeys } from '../../_lib/webauthn.js';
 import { auditStaff, AUDIT } from '../../_lib/audit.js';
-import { supabase, T } from '../../_lib/supabase.js';
+import { supabase, TABLES } from '../../_lib/supabase.js';
 import { randomToken } from '../../_lib/tokens.js';
 import {
   HELLO,
@@ -39,22 +46,41 @@ import {
 
 const GENERIC = 'That username or password was not right.';
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['POST'])) return;
+/**
+ * Check a staff username and password. A wrong password, an unapproved account
+ * and an account without portal access all get the same answer. A trusted device
+ * signs straight in; otherwise a challenge is issued for the second factor.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['POST'])) return;
 
-  const body = await readJson(req, res);
+  const body = await readJson(request, response);
   if (!body) return;
 
-  const username = typeof body.username === 'string' ? body.username.trim() : '';
-  const password = typeof body.password === 'string' ? body.password : '';
+  let username;
+
+  if (typeof body.username === 'string') {
+    username = body.username.trim();
+  } else {
+    username = '';
+  }
+
+  let password;
+
+  if (typeof body.password === 'string') {
+    password = body.password;
+  } else {
+    password = '';
+  }
+
   const staySignedIn = body.stay_signed_in === true;
 
   if (username === '' || password === '') {
-    return fail(res, ERR.BAD_REQUEST, GENERIC);
+    return fail(response, ERROR_CODES.BAD_REQUEST, GENERIC);
   }
 
-  const subjects = [subjectForIp(req), subjectForIdentifier(username)];
-  if (await limited(res, 'staff_login', subjects)) return;
+  const subjects = [subjectForIp(request), subjectForIdentifier(username)];
+  if (await limited(response, 'staff_login', subjects)) return;
 
   try {
     const user = await findStaffByUsername(username);
@@ -62,13 +88,13 @@ export default async function handler(req, res) {
     if (!user) {
       await verifyAgainstNothing(password);
       await recordFailures('staff_login', subjects, LIMITS.login);
-      return fail(res, ERR.UNAUTHORISED, GENERIC);
+      return fail(response, ERROR_CODES.UNAUTHORISED, GENERIC);
     }
 
     const correct = await verifySecret(password, user.password_hash);
     if (!correct) {
       await recordFailures('staff_login', subjects, LIMITS.login);
-      return fail(res, ERR.UNAUTHORISED, GENERIC);
+      return fail(response, ERROR_CODES.UNAUTHORISED, GENERIC);
     }
 
     // Steps 2 and 3. Both answer with the same sentence as a wrong password,
@@ -78,7 +104,7 @@ export default async function handler(req, res) {
     // writing to gftvhello_users.
     if (user.is_approved !== true || !(await hasPortalAccess(user))) {
       await recordFailures('staff_login', subjects, LIMITS.login);
-      return fail(res, ERR.UNAUTHORISED, GENERIC);
+      return fail(response, ERROR_CODES.UNAUTHORISED, GENERIC);
     }
 
     await clearAll('staff_login', subjects);
@@ -86,7 +112,7 @@ export default async function handler(req, res) {
     // Step 4. A trusted device skips the second factor and nothing else: the
     // password above was still required. The token rotates on use inside this
     // call, per 5d.
-    const trusted = await useStaffTrustedDevice(req, res, user.id);
+    const trusted = await useStaffTrustedDevice(request, response, user.id);
 
     // What the account can answer with. TOTP is the existing gftv.asia factor
     // from 5a; a passkey is one registered on this portal, added in phase 2.
@@ -97,14 +123,22 @@ export default async function handler(req, res) {
     // Steps 4 and 8. No second factor to satisfy, or one already satisfied by
     // this device, so the session is issued here.
     if (trusted || !secondFactor) {
-      await createStaffSession(res, user.id, staySignedIn);
+      await createStaffSession(response, user.id, staySignedIn);
+
+      let secondFactorValue;
+
+      if (trusted) {
+        secondFactorValue = 'trusted_device';
+      } else {
+        secondFactorValue = 'none';
+      }
 
       await auditStaff(user, AUDIT.STAFF_SIGNED_IN, {
-        second_factor: trusted ? 'trusted_device' : 'none',
+        second_factor: secondFactorValue,
         stay_signed_in: staySignedIn,
       });
 
-      return ok(res, {
+      return ok(response, {
         two_factor_required: false,
         used_trusted_device: trusted,
         user: publicStaff(user),
@@ -115,23 +149,26 @@ export default async function handler(req, res) {
     const challenge = randomToken(32);
     const expiresAt = new Date(Date.now() + CHALLENGE_MINUTES * 60 * 1000);
 
-    const { error } = await supabase.from(T.staffTotpChallenges).insert({
+    const { error } = await supabase.from(TABLES.staffTotpChallenges).insert({
       [HELLO.challenges.userId]: user.id,
       [HELLO.challenges.token]: challenge,
       [HELLO.challenges.expiresAt]: expiresAt.toISOString(),
     });
 
-    if (error) return failInternal(res, error, 'staff login challenge');
+    if (error) return failInternal(response, error, 'staff login challenge');
 
-    return ok(res, {
+    // So the page offers what this account actually has, rather than a code
+    // box to somebody whose only second factor is a passkey.
+    const methods = [];
+    if (passkeys) methods.push('passkey');
+    if (hasTotp(user.totp_secret)) methods.push('totp');
+    methods.push('backup_code');
+
+    return ok(response, {
       two_factor_required: true,
       // So the page offers what this account actually has, rather than a code
       // box to somebody whose only second factor is a passkey.
-      methods: [
-        ...(passkeys ? ['passkey'] : []),
-        ...(hasTotp(user.totp_secret) ? ['totp'] : []),
-        'backup_code',
-      ],
+      methods,
       challenge,
       expires_at: expiresAt.toISOString(),
       // 5d: "Only offer trust this device once the second factor has actually
@@ -140,6 +177,6 @@ export default async function handler(req, res) {
       offer_trust_after_second_factor: true,
     });
   } catch (cause) {
-    return failInternal(res, cause, 'staff login');
+    return failInternal(response, cause, 'staff login');
   }
 }

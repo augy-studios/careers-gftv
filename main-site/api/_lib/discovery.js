@@ -188,10 +188,7 @@ export function robotsBody({ indexing, site, sitemap = true }) {
   } else {
     // Said out loud rather than left as an absence, so somebody reading this
     // file during an outage is not left wondering whether it was ever there.
-    lines.push(
-      '# The sitemap is temporarily switched off. Nothing else has changed.',
-      ''
-    );
+    lines.push('# The sitemap is temporarily switched off. Nothing else has changed.', '');
   }
 
   return lines.join('\n');
@@ -218,20 +215,30 @@ export function robotsBody({ indexing, site, sitemap = true }) {
  *           jobs?: Array<{ id: string, updated_at?: string|null }> }} input
  * @returns {string}
  */
-export function sitemapXml({ site, paths = STATIC_PAGES, lastmod = {}, jobs = [] }) {
+export function sitemapXml({ site, paths = STATIC_PAGES, lastmod: lastModified = {}, jobs = [] }) {
   const origin = String(site).replace(/\/+$/, '');
 
   const entries = [];
 
   for (const path of paths) {
-    const forbidden = NEVER_LISTED.find((prefix) => path === prefix || path.startsWith(`${prefix}/`));
+    const forbidden = NEVER_LISTED.find(
+      (prefix) => path === prefix || path.startsWith(`${prefix}/`)
+    );
     if (forbidden) {
       throw new Error(
         `sitemapXml was asked to list ${path}, which is under ${forbidden}. ` +
           `Section 4 excludes it, and NEVER_LISTED in api/_lib/discovery.js is the list.`
       );
     }
-    entries.push({ loc: `${origin}${path === '/' ? '/' : path}`, lastmod: w3cDate(lastmod[path]) });
+    let pagePath;
+
+    if (path === '/') {
+      pagePath = '/';
+    } else {
+      pagePath = path;
+    }
+
+    entries.push({ loc: `${origin}${pagePath}`, lastmod: w3cDate(lastModified[path]) });
   }
 
   for (const job of jobs) {

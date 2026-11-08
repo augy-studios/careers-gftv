@@ -30,7 +30,7 @@ import {
   verifyAuthenticationResponse,
 } from '@simplewebauthn/server';
 
-import { supabase, T } from './supabase.js';
+import { supabase, TABLES } from './supabase.js';
 import { siteUrl } from './env.js';
 import { sha256 } from './tokens.js';
 // Written to registered_on when a passkey is created, per 5f's "show which site
@@ -43,7 +43,7 @@ import { SITE } from './site.js';
 const CHALLENGE_MINUTES = 5;
 
 /** The name shown in the operating system's passkey prompt. */
-const RP_NAME = 'Careers@GFTV';
+const RELYING_PARTY_NAME = 'Careers@GFTV';
 
 /**
  * The relying party id, which is the domain a passkey is bound to.
@@ -64,19 +64,19 @@ const RP_NAME = 'Careers@GFTV';
  */
 export function relyingParty() {
   const url = new URL(siteUrl());
-  return { id: url.hostname, origin: url.origin, name: RP_NAME };
+  return { id: url.hostname, origin: url.origin, name: RELYING_PARTY_NAME };
 }
 
 /** Which realm a credential belongs to, and where it lives. */
 const REALMS = Object.freeze({
-  applicant: { table: T.passkeys, userColumn: 'user_id' },
-  staff: { table: T.staffPasskeys, userColumn: 'staff_user_id' },
+  applicant: { table: TABLES.passkeys, userColumn: 'user_id' },
+  staff: { table: TABLES.staffPasskeys, userColumn: 'staff_user_id' },
 });
 
-function realmConfig(realm) {
-  const config = REALMS[realm];
-  if (!config) throw new Error(`unknown realm: ${realm}`);
-  return config;
+function realmConfiguration(realm) {
+  const configuration = REALMS[realm];
+  if (!configuration) throw new Error(`unknown realm: ${realm}`);
+  return configuration;
 }
 
 /**
@@ -102,7 +102,7 @@ const PASSKEY_COLUMNS =
  * @param {string} userId
  */
 export async function listPasskeys(realm, userId) {
-  const { table, userColumn } = realmConfig(realm);
+  const { table, userColumn } = realmConfiguration(realm);
 
   const { data, error } = await supabase
     .from(table)
@@ -125,7 +125,7 @@ export async function listPasskeys(realm, userId) {
  * @param {string} userId
  */
 export async function hasPasskeys(realm, userId) {
-  const { table, userColumn } = realmConfig(realm);
+  const { table, userColumn } = realmConfiguration(realm);
 
   const { count, error } = await supabase
     .from(table)
@@ -156,7 +156,7 @@ export async function hasPasskeys(realm, userId) {
  * @returns {Promise<object|null>} the updated row, or null if it is not theirs
  */
 export async function renamePasskey(realm, userId, passkeyId, label) {
-  const { table, userColumn } = realmConfig(realm);
+  const { table, userColumn } = realmConfiguration(realm);
 
   const { data, error } = await supabase
     .from(table)
@@ -185,13 +185,9 @@ export async function renamePasskey(realm, userId, passkeyId, label) {
  * @returns {Promise<{ ok: boolean, removed: number }>}
  */
 export async function deleteAllPasskeys(realm, userId) {
-  const { table, userColumn } = realmConfig(realm);
+  const { table, userColumn } = realmConfiguration(realm);
 
-  const { data, error } = await supabase
-    .from(table)
-    .delete()
-    .eq(userColumn, userId)
-    .select('id');
+  const { data, error } = await supabase.from(table).delete().eq(userColumn, userId).select('id');
 
   if (error) {
     console.error('[careers-gftv] deleteAllPasskeys:', error);
@@ -209,7 +205,7 @@ export async function deleteAllPasskeys(realm, userId) {
  * @returns {Promise<boolean>}
  */
 export async function deletePasskey(realm, userId, passkeyId) {
-  const { table, userColumn } = realmConfig(realm);
+  const { table, userColumn } = realmConfiguration(realm);
 
   const { data, error } = await supabase
     .from(table)
@@ -234,18 +230,26 @@ async function storeChallenge({ realm, purpose, userId, challenge, loginToken = 
   // One open ceremony per account and purpose. Starting a new one abandons the
   // last, which is what somebody clicking the button twice expects.
   await supabase
-    .from(T.passkeyChallenges)
+    .from(TABLES.passkeyChallenges)
     .delete()
     .eq('realm', realm)
     .eq('purpose', purpose)
     .eq('user_id', userId);
 
-  const { error } = await supabase.from(T.passkeyChallenges).insert({
+  let loginTokenHash;
+
+  if (loginToken) {
+    loginTokenHash = sha256(loginToken);
+  } else {
+    loginTokenHash = null;
+  }
+
+  const { error } = await supabase.from(TABLES.passkeyChallenges).insert({
     realm,
     purpose,
     user_id: userId,
     challenge,
-    login_token_hash: loginToken ? sha256(loginToken) : null,
+    login_token_hash: loginTokenHash,
     expires_at: new Date(Date.now() + CHALLENGE_MINUTES * 60 * 1000).toISOString(),
   });
 
@@ -260,7 +264,7 @@ async function storeChallenge({ realm, purpose, userId, challenge, loginToken = 
  */
 async function takeChallenge({ realm, purpose, userId, loginToken = null }) {
   const { data, error } = await supabase
-    .from(T.passkeyChallenges)
+    .from(TABLES.passkeyChallenges)
     .select('id, challenge, login_token_hash, expires_at')
     .eq('realm', realm)
     .eq('purpose', purpose)
@@ -273,7 +277,7 @@ async function takeChallenge({ realm, purpose, userId, loginToken = null }) {
   }
   if (!data) return null;
 
-  await supabase.from(T.passkeyChallenges).delete().eq('id', data.id);
+  await supabase.from(TABLES.passkeyChallenges).delete().eq('id', data.id);
 
   if (new Date(data.expires_at).getTime() <= Date.now()) return null;
 
@@ -298,12 +302,12 @@ async function takeChallenge({ realm, purpose, userId, loginToken = null }) {
  * @param {{ realm: 'staff'|'applicant', userId: string, username: string, displayName: string }} account
  */
 export async function startRegistration({ realm, userId, username, displayName }) {
-  const rp = relyingParty();
+  const relyingPartySettings = relyingParty();
   const existing = await listPasskeys(realm, userId);
 
   const options = await generateRegistrationOptions({
-    rpName: rp.name,
-    rpID: rp.id,
+    rpName: relyingPartySettings.name,
+    rpID: relyingPartySettings.id,
     // The account id, not the username. A username can change; what the
     // authenticator files the credential under should not.
     userID: new TextEncoder().encode(userId),
@@ -338,8 +342,8 @@ export async function startRegistration({ realm, userId, username, displayName }
  * @returns {Promise<{ ok: true, passkey: object } | { ok: false, reason: string }>}
  */
 export async function finishRegistration({ realm, userId, response, label = null }) {
-  const rp = relyingParty();
-  const { table, userColumn } = realmConfig(realm);
+  const relyingPartySettings = relyingParty();
+  const { table, userColumn } = realmConfiguration(realm);
 
   const expectedChallenge = await takeChallenge({ realm, purpose: 'register', userId });
   if (!expectedChallenge) return { ok: false, reason: 'challenge_expired' };
@@ -349,8 +353,8 @@ export async function finishRegistration({ realm, userId, response, label = null
     verification = await verifyRegistrationResponse({
       response,
       expectedChallenge,
-      expectedOrigin: rp.origin,
-      expectedRPID: rp.id,
+      expectedOrigin: relyingPartySettings.origin,
+      expectedRPID: relyingPartySettings.id,
       // Not required. A security key without a PIN still gives a real second
       // factor, and demanding user verification would turn away hardware that
       // is doing its job. Platform authenticators verify anyway.
@@ -388,11 +392,7 @@ export async function finishRegistration({ realm, userId, response, label = null
     registered_on: SITE,
   };
 
-  const { data, error } = await supabase
-    .from(table)
-    .insert(row)
-    .select(PASSKEY_COLUMNS)
-    .single();
+  const { data, error } = await supabase.from(table).insert(row).select(PASSKEY_COLUMNS).single();
 
   if (error) {
     // 23505 means this credential is already registered, which is what
@@ -419,12 +419,12 @@ export async function finishRegistration({ realm, userId, response, label = null
  *        this ceremony is bound to.
  */
 export async function startAuthentication({ realm, userId, loginToken }) {
-  const rp = relyingParty();
+  const relyingPartySettings = relyingParty();
   const credentials = await listPasskeys(realm, userId);
   if (credentials.length === 0) return null;
 
   const options = await generateAuthenticationOptions({
-    rpID: rp.id,
+    rpID: relyingPartySettings.id,
     // Named rather than left open, because this is a second factor for an
     // account already identified by the password step. A discoverable sign in
     // would be a different flow.
@@ -453,8 +453,8 @@ export async function startAuthentication({ realm, userId, loginToken }) {
  * @returns {Promise<{ ok: boolean, reason?: string }>}
  */
 export async function finishAuthentication({ realm, userId, response, loginToken }) {
-  const rp = relyingParty();
-  const { table, userColumn } = realmConfig(realm);
+  const relyingPartySettings = relyingParty();
+  const { table, userColumn } = realmConfiguration(realm);
 
   const expectedChallenge = await takeChallenge({
     realm,
@@ -464,7 +464,14 @@ export async function finishAuthentication({ realm, userId, response, loginToken
   });
   if (!expectedChallenge) return { ok: false, reason: 'challenge_expired' };
 
-  const credentialId = typeof response?.id === 'string' ? response.id : '';
+  let credentialId;
+
+  if (typeof response?.id === 'string') {
+    credentialId = response.id;
+  } else {
+    credentialId = '';
+  }
+
   if (credentialId === '') return { ok: false, reason: 'not_verified' };
 
   // Scoped to the account the password step identified. A valid assertion from
@@ -487,8 +494,8 @@ export async function finishAuthentication({ realm, userId, response, loginToken
     verification = await verifyAuthenticationResponse({
       response,
       expectedChallenge,
-      expectedOrigin: rp.origin,
-      expectedRPID: rp.id,
+      expectedOrigin: relyingPartySettings.origin,
+      expectedRPID: relyingPartySettings.id,
       credential: {
         id: stored.credential_id,
         publicKey: new Uint8Array(Buffer.from(stored.public_key, 'base64url')),
@@ -525,12 +532,12 @@ export async function finishAuthentication({ realm, userId, response, loginToken
  * better. Coarse on purpose, like the trusted device label.
  * @param {import('http').IncomingMessage} req
  */
-export function passkeyLabel(req) {
-  const ua = String(req.headers?.['user-agent'] ?? '');
+export function passkeyLabel(request) {
+  const userAgent = String(request.headers?.['user-agent'] ?? '');
 
-  if (/iPhone|iPad|iPod|Mac OS X/i.test(ua)) return 'Apple device';
-  if (/Android/i.test(ua)) return 'Android device';
-  if (/Windows/i.test(ua)) return 'Windows device';
-  if (/Linux/i.test(ua)) return 'Linux device';
+  if (/iPhone|iPad|iPod|Mac OS X/i.test(userAgent)) return 'Apple device';
+  if (/Android/i.test(userAgent)) return 'Android device';
+  if (/Windows/i.test(userAgent)) return 'Windows device';
+  if (/Linux/i.test(userAgent)) return 'Linux device';
   return 'Passkey';
 }

@@ -21,7 +21,7 @@
 // text is a per locale object, per migration 018. localised() below is for
 // those; the cooldown is a number and does not go near it.
 
-import { supabase, T } from './supabase.js';
+import { supabase, TABLES } from './supabase.js';
 
 /**
  * Three months, as section 7f specifies it, in days.
@@ -34,7 +34,7 @@ import { supabase, T } from './supabase.js';
 export const DEFAULT_REAPPLY_COOLDOWN_DAYS = 90;
 
 /** Matches the ceiling in migration 029's check constraint. */
-const MAX_COOLDOWN_DAYS = 3650;
+const MAXIMUM_COOLDOWN_DAYS = 3650;
 
 // Settings change when an admin edits one, which is rarely, and they are read
 // on every apply, which is often. Cached per function instance for a minute:
@@ -50,7 +50,7 @@ const MAX_COOLDOWN_DAYS = 3650;
 // overrides do: see FRESH_MS in maintenance.js. The write path invalidates the
 // cache outright, but only on the instance that served the write, and a flip
 // has to reach the others as well.
-const CACHE_MS = 60 * 1000;
+const CACHE_MILLISECONDS = 60 * 1000;
 
 let cache = null;
 let cachedAt = 0;
@@ -62,10 +62,13 @@ let cachedAt = 0;
  * @returns {Promise<Record<string, unknown>|null>} null when the table could
  *          not be read at all, so a caller can tell "no value" from "no answer".
  */
-export async function allSettings({ refresh = false, maxAgeMs = CACHE_MS } = {}) {
-  if (!refresh && cache && Date.now() - cachedAt < maxAgeMs) return cache;
+export async function allSettings({
+  refresh = false,
+  maxAgeMs: maximumAgeMilliseconds = CACHE_MILLISECONDS,
+} = {}) {
+  if (!refresh && cache && Date.now() - cachedAt < maximumAgeMilliseconds) return cache;
 
-  const { data, error } = await supabase.from(T.settings).select('key, value');
+  const { data, error } = await supabase.from(TABLES.settings).select('key, value');
 
   if (error) {
     console.warn('[careers-gftv] settings could not be read:', error);
@@ -138,7 +141,7 @@ export async function reapplyCooldownDays() {
   const value = await getSetting('reapply_cooldown_days', DEFAULT_REAPPLY_COOLDOWN_DAYS);
   const days = Number(value);
 
-  if (!Number.isInteger(days) || days < 0 || days > MAX_COOLDOWN_DAYS) {
+  if (!Number.isInteger(days) || days < 0 || days > MAXIMUM_COOLDOWN_DAYS) {
     if (value !== DEFAULT_REAPPLY_COOLDOWN_DAYS) {
       console.warn('[careers-gftv] reapply_cooldown_days is not usable:', value);
     }
@@ -231,7 +234,7 @@ export async function putSetting(key, value, options = {}) {
   if (options.description) row.description = options.description;
   if (options.staffId) row.updated_by = options.staffId;
 
-  const { error } = await supabase.from(T.settings).upsert(row, { onConflict: 'key' });
+  const { error } = await supabase.from(TABLES.settings).upsert(row, { onConflict: 'key' });
 
   if (error) throw new Error(`could not write the ${key} setting: ${error.message}`);
 

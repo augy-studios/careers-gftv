@@ -46,9 +46,16 @@
 // password, verified against the bcrypt hash in the same request as the delete.
 // Reaching the last step in a browser proves nothing here.
 
-import { ok, fail, ERR, methodNotAllowed, failInternal, readJson } from '../_lib/respond.js';
-import { T } from '../_lib/supabase.js';
-import { requireAdmin, isUuid, params, pageRange, activeLocales } from '../_lib/admin.js';
+import {
+  ok,
+  fail,
+  ERROR_CODES,
+  methodNotAllowed,
+  failInternal,
+  readJson,
+} from '../_lib/respond.js';
+import { TABLES } from '../_lib/supabase.js';
+import { requireAdmin, isUuid, parameters, pageRange, activeLocales } from '../_lib/admin.js';
 import { AUDIT, auditStaff, recordAudit } from '../_lib/audit.js';
 import {
   FIELD,
@@ -89,23 +96,23 @@ import {
   IDENTIFIERS,
 } from '../_lib/admin-applicants.js';
 
-const REASON_MAX = 300;
+const REASON_MAXIMUM = 300;
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'HEAD', 'POST'])) return;
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'HEAD', 'POST'])) return;
 
-  const session = await requireAdmin(req, res);
+  const session = await requireAdmin(request, response);
   if (!session) return;
 
-  if (await unavailable(res, 'admin_applicants')) return;
+  if (await unavailable(response, 'admin_applicants')) return;
 
-  res.setHeader('Cache-Control', 'no-store');
+  response.setHeader('Cache-Control', 'no-store');
 
   try {
-    if (req.method === 'POST') return await write(req, res, session);
-    return await read(req, res);
+    if (request.method === 'POST') return await write(request, response, session);
+    return await read(request, response);
   } catch (cause) {
-    return failInternal(res, cause, 'admin applicants');
+    return failInternal(response, cause, 'admin applicants');
   }
 }
 
@@ -113,30 +120,40 @@ export default async function handler(req, res) {
  * Reading
  * ---------------------------------------------------------------------- */
 
-async function read(req, res) {
-  const search = params(req);
+async function read(request, response) {
+  const search = parameters(request);
 
   const id = search.get('id');
   if (id) {
-    if (!isUuid(id)) return fail(res, ERR.BAD_REQUEST, 'That is not an applicant id.');
+    if (!isUuid(id)) return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not an applicant id.');
 
     const detail = await fetchApplicant(id);
-    if (!detail) return fail(res, ERR.NOT_FOUND, 'That account could not be found.');
+    if (!detail) return fail(response, ERROR_CODES.NOT_FOUND, 'That account could not be found.');
 
-    return ok(res, detail);
+    return ok(response, detail);
   }
 
-  const { from, to, page, size } = pageRange(search, { size: PAGE_SIZE, max: 100 });
+  const { from, to: rangeEnd, page, size } = pageRange(search, { size: PAGE_SIZE, max: 100 });
 
-  const activeParam = search.get('active');
+  const activeParameter = search.get('active');
+  let active;
+
+  if (activeParameter === 'true') {
+    active = true;
+  } else if (activeParameter === 'false') {
+    active = false;
+  } else {
+    active = null;
+  }
+
   const { rows, total } = await listApplicants({
     term: search.get('q') ?? '',
-    active: activeParam === 'true' ? true : activeParam === 'false' ? false : null,
+    active: active,
     rangeFrom: from,
-    rangeTo: to,
+    rangeTo: rangeEnd,
   });
 
-  return ok(res, {
+  return ok(response, {
     applicants: rows,
     total,
     page,
@@ -171,37 +188,50 @@ const ACTIONS = [
  */
 const NEEDS_REASON = ['update_details', 'set_password', 'force_reset', 'unlink_telegram'];
 
-async function write(req, res, session) {
-  const body = await readJson(req, res);
+/**
+ * Change an applicant's account on their behalf: deactivate or reactivate it,
+ * edit its details, set a password, require a new one, unlink Telegram, or delete
+ * it. Every change is recorded in the audit log.
+ */
+async function write(request, response, session) {
+  const body = await readJson(request, response);
   if (body === null) return;
 
   const action = String(body.action ?? '').trim();
   if (!ACTIONS.includes(action)) {
-    return fail(res, ERR.BAD_REQUEST, 'That is not something this endpoint does.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not something this endpoint does.', {
       details: { action: FIELD.INVALID },
     });
   }
 
   // Deletion is on the tighter bucket, like a posting's. It destroys somebody's
   // history and a stolen admin session should get very few of them.
-  const bucket = action === 'delete' ? 'adminDelete' : 'admin';
+  let bucket;
+
+  if (action === 'delete') {
+    bucket = 'adminDelete';
+  } else {
+    bucket = 'admin';
+  }
+
   const subjects = [subjectForUser('staff', session.user.id)];
-  if (await limited(res, bucket, subjects)) return;
+  if (await limited(response, bucket, subjects)) return;
 
   const applicantId = String(body.applicant_id ?? '');
-  if (!isUuid(applicantId)) return fail(res, ERR.BAD_REQUEST, 'That is not an applicant id.');
+  if (!isUuid(applicantId))
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not an applicant id.');
 
-  const reason = validateText(body.reason, REASON_MAX, {
+  const reason = validateText(body.reason, REASON_MAXIMUM, {
     required: NEEDS_REASON.includes(action),
   });
   if (!reason.ok) {
-    return fail(res, ERR.BAD_REQUEST, 'Say why before doing this.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'Say why before doing this.', {
       details: { reason: reason.code },
     });
   }
 
   const detail = await fetchApplicant(applicantId);
-  if (!detail) return fail(res, ERR.NOT_FOUND, 'That account could not be found.');
+  if (!detail) return fail(response, ERROR_CODES.NOT_FOUND, 'That account could not be found.');
 
   const account = detail.account;
   const done = () => recordFailures(bucket, subjects, LIMITS[bucket]);
@@ -209,32 +239,40 @@ async function write(req, res, session) {
   switch (action) {
     case 'deactivate':
     case 'reactivate':
-      return setActive(res, session, account, action === 'reactivate', reason.value, done);
+      return setActive(response, session, account, action === 'reactivate', reason.value, done);
     case 'update_details':
-      return updateDetails(res, session, account, body, reason.value, done);
+      return updateDetails(response, session, account, body, reason.value, done);
     case 'set_password':
-      return setPassword(res, session, account, body, reason.value, done);
+      return setPassword(response, session, account, body, reason.value, done);
     case 'force_reset':
-      return forceReset(res, session, account, reason.value, done);
+      return forceReset(response, session, account, reason.value, done);
     case 'unlink_telegram':
-      return unlink(res, session, account, detail.telegram, reason.value, done);
+      return unlink(response, session, account, detail.telegram, reason.value, done);
     default:
-      return remove(req, res, session, account, body, reason.value, done);
+      return remove(request, response, session, account, body, reason.value, done);
   }
 }
 
-async function setActive(res, session, account, active, reason, done) {
+async function setActive(response, session, account, active, reason, done) {
   const row = await setApplicantActive(account.id, active);
+
+  let auditAction;
+
+  if (active) {
+    auditAction = AUDIT.APPLICANT_REACTIVATED;
+  } else {
+    auditAction = AUDIT.APPLICANT_DEACTIVATED;
+  }
 
   await auditStaff(
     session.user,
-    active ? AUDIT.APPLICANT_REACTIVATED : AUDIT.APPLICANT_DEACTIVATED,
+    auditAction,
     { username: account.username },
-    { targetTable: T.users, targetId: account.id, reason }
+    { targetTable: TABLES.users, targetId: account.id, reason }
   );
 
   await done();
-  return ok(res, { id: account.id, is_active: row?.is_active !== false });
+  return ok(response, { id: account.id, is_active: row?.is_active !== false });
 }
 
 /**
@@ -260,7 +298,7 @@ async function setActive(res, session, account, active, reason, done) {
  * back is a no-op rather than a revoke: an admin correcting a display name
  * should not sign somebody out because the form posted every field.
  */
-async function updateDetails(res, session, account, body, reason, done) {
+async function updateDetails(response, session, account, body, reason, done) {
   const checks = {};
   if (has(body, 'username')) checks.username = validateUsername(body.username);
   if (has(body, 'display_name')) checks.display_name = validateDisplayName(body.display_name);
@@ -269,7 +307,7 @@ async function updateDetails(res, session, account, body, reason, done) {
   if (has(body, 'locale')) checks.locale = validateText(body.locale, 10, { required: true });
 
   if (Object.keys(checks).length === 0) {
-    return fail(res, ERR.BAD_REQUEST, 'There was nothing to change.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'There was nothing to change.', {
       details: { fields: FIELD.REQUIRED },
     });
   }
@@ -283,7 +321,9 @@ async function updateDetails(res, session, account, body, reason, done) {
   // callers use.
   const { values, details } = collect(checks);
   if (details) {
-    return fail(res, ERR.BAD_REQUEST, 'Those details could not be saved.', { details });
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'Those details could not be saved.', {
+      details,
+    });
   }
 
   // Only the language codes this portal actually ships. A locale nothing has a
@@ -292,7 +332,7 @@ async function updateDetails(res, session, account, body, reason, done) {
   if (values.locale !== undefined) {
     const locales = await activeLocales();
     if (!locales.some((locale) => locale.code === values.locale)) {
-      return fail(res, ERR.BAD_REQUEST, 'That is not a language this site ships.', {
+      return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not a language this site ships.', {
         details: { locale: FIELD.INVALID },
       });
     }
@@ -301,13 +341,20 @@ async function updateDetails(res, session, account, body, reason, done) {
   const changes = {};
   for (const field of EDITABLE) {
     if (values[field] === undefined) continue;
-    const before = field === 'locale' ? account.locale ?? 'en' : account[field] ?? null;
+    let before;
+
+    if (field === 'locale') {
+      before = account.locale ?? 'en';
+    } else {
+      before = account[field] ?? null;
+    }
+
     if (values[field] === before) continue;
     changes[field] = values[field];
   }
 
   if (Object.keys(changes).length === 0) {
-    return ok(res, { id: account.id, account, changed: [], sessions_revoked: false });
+    return ok(response, { id: account.id, account, changed: [], sessions_revoked: false });
   }
 
   const taken = {};
@@ -318,7 +365,9 @@ async function updateDetails(res, session, account, body, reason, done) {
     taken.email = FIELD.TAKEN;
   }
   if (Object.keys(taken).length > 0) {
-    return fail(res, ERR.CONFLICT, 'Those details could not be saved.', { details: taken });
+    return fail(response, ERROR_CODES.CONFLICT, 'Those details could not be saved.', {
+      details: taken,
+    });
   }
 
   let updated;
@@ -327,7 +376,9 @@ async function updateDetails(res, session, account, body, reason, done) {
   } catch (cause) {
     const conflict = uniqueViolationDetails(cause);
     if (conflict) {
-      return fail(res, ERR.CONFLICT, 'Those details could not be saved.', { details: conflict });
+      return fail(response, ERROR_CODES.CONFLICT, 'Those details could not be saved.', {
+        details: conflict,
+      });
     }
     throw cause;
   }
@@ -349,11 +400,11 @@ async function updateDetails(res, session, account, body, reason, done) {
       sessions_revoked: updated.revoked,
       trusted_devices_revoked: updated.revoked,
     },
-    { targetTable: T.users, targetId: account.id, reason }
+    { targetTable: TABLES.users, targetId: account.id, reason }
   );
 
   await done();
-  return ok(res, {
+  return ok(response, {
     id: account.id,
     account: updated.account,
     changed: moved,
@@ -378,10 +429,10 @@ async function updateDetails(res, session, account, body, reason, done) {
  * password**, per 8.9, which is not a limitation but a fact: only a bcrypt hash
  * is stored. What the admin typed is theirs to hand over, once.
  */
-async function setPassword(res, session, account, body, reason, done) {
+async function setPassword(response, session, account, body, reason, done) {
   const strength = checkPasswordStrength(body.password);
   if (!strength.ok) {
-    return fail(res, ERR.BAD_REQUEST, 'That password could not be used.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That password could not be used.', {
       details: { password: strength.code },
     });
   }
@@ -400,11 +451,11 @@ async function setPassword(res, session, account, body, reason, done) {
       // the password is one sign in long.
       must_change_password: true,
     },
-    { targetTable: T.users, targetId: account.id, reason }
+    { targetTable: TABLES.users, targetId: account.id, reason }
   );
 
   await done();
-  return ok(res, {
+  return ok(response, {
     id: account.id,
     sessions_revoked: true,
     trusted_devices_revoked: true,
@@ -412,23 +463,23 @@ async function setPassword(res, session, account, body, reason, done) {
   });
 }
 
-async function forceReset(res, session, account, reason, done) {
+async function forceReset(response, session, account, reason, done) {
   await forcePasswordReset(account.id);
 
   await auditStaff(
     session.user,
     AUDIT.APPLICANT_RESET_FORCED,
     { username: account.username, sessions_revoked: true, trusted_devices_revoked: true },
-    { targetTable: T.users, targetId: account.id, reason }
+    { targetTable: TABLES.users, targetId: account.id, reason }
   );
 
   await done();
-  return ok(res, { id: account.id, must_change_password: true });
+  return ok(response, { id: account.id, must_change_password: true });
 }
 
-async function unlink(res, session, account, telegram, reason, done) {
+async function unlink(response, session, account, telegram, reason, done) {
   if (!telegram) {
-    return fail(res, ERR.CONFLICT, 'That account has no Telegram linked.', {
+    return fail(response, ERROR_CODES.CONFLICT, 'That account has no Telegram linked.', {
       details: { reason: 'not_linked' },
     });
   }
@@ -439,11 +490,11 @@ async function unlink(res, session, account, telegram, reason, done) {
     session.user,
     AUDIT.APPLICANT_TELEGRAM_UNLINKED,
     { username: account.username, sessions_revoked: true, trusted_devices_revoked: true },
-    { targetTable: T.users, targetId: account.id, reason }
+    { targetTable: TABLES.users, targetId: account.id, reason }
   );
 
   await done();
-  return ok(res, { id: account.id, unlinked: true });
+  return ok(response, { id: account.id, unlinked: true });
 }
 
 /**
@@ -461,18 +512,18 @@ async function unlink(res, session, account, telegram, reason, done) {
  * deleted it". Both are `account_deleted`, because they are the same event from
  * the account's point of view, and the actor is what tells them apart.
  */
-async function remove(req, res, session, account, body, reason, done) {
+async function remove(request, response, session, account, body, reason, done) {
   // The danger bucket and its hour long lock, per 7g. The same shape the
   // applicant's own danger zone uses, applied to a staff session being guessed
   // at, and checked before the bcrypt round so a locked out caller costs
   // nothing.
-  const dangerSubjects = [subjectForUser('staff', session.user.id), subjectForIp(req)];
-  if (await limited(res, 'danger', dangerSubjects)) return;
+  const dangerSubjects = [subjectForUser('staff', session.user.id), subjectForIp(request)];
+  if (await limited(response, 'danger', dangerSubjects)) return;
 
   const correct = await verifyRealmPassword('staff', session.user.id, body.password);
   if (!correct) {
     await recordFailures('danger', dangerSubjects, LIMITS.danger);
-    return fail(res, ERR.UNAUTHORISED, 'That password was not right.', {
+    return fail(response, ERROR_CODES.UNAUTHORISED, 'That password was not right.', {
       details: { password: FIELD.INVALID },
     });
   }
@@ -484,7 +535,7 @@ async function remove(req, res, session, account, body, reason, done) {
     actorId: session.user.id,
     actorLabel: session.user.username,
     action: AUDIT.ACCOUNT_DELETED,
-    targetTable: T.users,
+    targetTable: TABLES.users,
     targetId: account.id,
     reason,
     metadata: {
@@ -498,5 +549,5 @@ async function remove(req, res, session, account, body, reason, done) {
   await deleteApplicant(account.id);
 
   await done();
-  return ok(res, { id: account.id, deleted: true, username: account.username });
+  return ok(response, { id: account.id, deleted: true, username: account.username });
 }

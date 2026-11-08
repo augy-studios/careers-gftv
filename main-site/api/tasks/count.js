@@ -18,17 +18,17 @@ import { ok, methodNotAllowed, failInternal } from '../_lib/respond.js';
 import { getApplicantSession } from '../_lib/session.js';
 import { openItemCount } from '../_lib/tasks.js';
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'HEAD'])) return;
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'HEAD'])) return;
 
-  res.setHeader('Cache-Control', 'no-store');
+  response.setHeader('Cache-Control', 'no-store');
 
-  const session = await getApplicantSession(req);
-  if (!session) return ok(res, { tasks: 0, prompts: 0, total: 0 });
+  const session = await getApplicantSession(request);
+  if (!session) return ok(response, { tasks: 0, prompts: 0, total: 0 });
 
   try {
-    return ok(res, await openItemCount(session.user.id));
+    return ok(response, await openItemCount(session.user.id));
   } catch (cause) {
-    return failInternal(res, cause, 'task count');
+    return failInternal(response, cause, 'task count');
   }
 }

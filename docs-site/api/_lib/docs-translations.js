@@ -39,7 +39,7 @@
 // unreachable database and a language nobody has translated into all produce
 // the same empty answer, and the caller draws the English page.
 
-import { supabase, T } from './supabase.js';
+import { supabase, TABLES } from './supabase.js';
 
 /** The language the files themselves are written in, per 3a. */
 export const BASE_LOCALE = 'en';
@@ -54,17 +54,40 @@ export const BASE_LOCALE = 'en';
  * this refuses is a value with a comma or a bracket in it, which is what a
  * PostgREST filter is written with.
  */
-export function localeParam(value) {
-  const raw = Array.isArray(value) ? value[0] : value;
+export function localeParameter(value) {
+  let raw;
+
+  if (Array.isArray(value)) {
+    raw = value[0];
+  } else {
+    raw = value;
+  }
+
   const locale = String(raw ?? '').trim();
   if (locale === '' || locale === BASE_LOCALE) return null;
-  return /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/.test(locale) ? locale : null;
+
+  if (/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/.test(locale)) {
+    return locale;
+  } else {
+    return null;
+  }
 }
 
 /** A field that is present and not blank, or null. Per 3a's fallback rule. */
 const filled = (value) => {
-  const text = typeof value === 'string' ? value.trim() : '';
-  return text === '' ? null : value;
+  let text;
+
+  if (typeof value === 'string') {
+    text = value.trim();
+  } else {
+    text = '';
+  }
+
+  if (text === '') {
+    return null;
+  } else {
+    return value;
+  }
 };
 
 /**
@@ -75,7 +98,7 @@ const filled = (value) => {
  * titles is three times the latency for one screen.
  *
  * @param {string[]} paths page paths, as pages.js builds them
- * @param {string|null} locale from localeParam
+ * @param {string|null} locale from localeParameter
  * @returns {Promise<Map<string, { title: string|null, summary: string|null, body: string|null }>>}
  */
 export async function translationsFor(paths, locale) {
@@ -85,7 +108,7 @@ export async function translationsFor(paths, locale) {
 
   try {
     const { data, error } = await supabase
-      .from(T.docsTranslations)
+      .from(TABLES.docsTranslations)
       .select('page_path, title, summary, body')
       .eq('locale', locale)
       // Per 3a. Half a translated page is never shown, and this is the site's
@@ -118,7 +141,7 @@ export async function translationsFor(paths, locale) {
  * draw one column. Titles only -- a sidebar has no use for a body, and the
  * bodies are the large half of this table by a wide margin.
  *
- * @param {string|null} locale from localeParam
+ * @param {string|null} locale from localeParameter
  * @returns {Promise<Map<string, string>>}
  */
 export async function titlesFor(locale) {
@@ -127,7 +150,7 @@ export async function titlesFor(locale) {
 
   try {
     const { data, error } = await supabase
-      .from(T.docsTranslations)
+      .from(TABLES.docsTranslations)
       .select('page_path, title')
       .eq('locale', locale)
       .eq('is_ready', true);
@@ -156,7 +179,13 @@ export async function titlesFor(locale) {
 export function localiseNav(nav, titles) {
   if (titles.size === 0) return nav;
 
-  const swap = (page) => (page ? { ...page, title: titles.get(page.path) ?? page.title } : page);
+  const swap = (page) => {
+    if (page) {
+      return { ...page, title: titles.get(page.path) ?? page.title };
+    } else {
+      return page;
+    }
+  };
 
   return {
     home: swap(nav.home),

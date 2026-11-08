@@ -37,12 +37,25 @@
 // password change, because it has no other home and because 5f's own bullet
 // points at 5g for what it costs.
 
-import { ok, fail, ERR, methodNotAllowed, readJson, failInternal } from '../../_lib/respond.js';
+import {
+  ok,
+  fail,
+  ERROR_CODES,
+  methodNotAllowed,
+  readJson,
+  failInternal,
+} from '../../_lib/respond.js';
 import { requireStaff, listTrustedDevices, revokeAllTrustedDevices } from '../../_lib/session.js';
 import { listPasskeys, relyingParty } from '../../_lib/webauthn.js';
 import { hasTotp } from '../../_lib/totp.js';
-import { verifyRealmPassword, codeCounts, codesLow, LOW_CODE_WARNING, CODES_PER_SET } from '../../_lib/accounts.js';
-import { checkPasswordStrength, PASSWORD_MIN_LENGTH } from '../../_lib/password.js';
+import {
+  verifyRealmPassword,
+  codeCounts,
+  codesLow,
+  LOW_CODE_WARNING,
+  CODES_PER_SET,
+} from '../../_lib/accounts.js';
+import { checkPasswordStrength, PASSWORD_MINIMUM_LENGTH } from '../../_lib/password.js';
 import { FIELD } from '../../_lib/validate.js';
 import { auditStaff, AUDIT } from '../../_lib/audit.js';
 import { SITE } from '../../_lib/site.js';
@@ -63,16 +76,21 @@ import {
   subjectForUser,
 } from '../../_lib/rate-limit.js';
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'POST'])) return;
+/**
+ * Read everything the staff account settings page shows, or change the account's
+ * password. A password change checks the current password, applies the same rules
+ * as everywhere else, and signs out every other session.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'POST'])) return;
 
-  const session = await requireStaff(req, res);
+  const session = await requireStaff(request, response);
   if (!session) return;
 
   const userId = session.user.id;
 
   try {
-    if (req.method === 'GET') {
+    if (request.method === 'GET') {
       const [profile, passkeys, devices, codes, sessions] = await Promise.all([
         staffProfile(userId),
         listPasskeys('staff', userId),
@@ -81,7 +99,7 @@ export default async function handler(req, res) {
         listStaffSessions(userId, session.sessionId),
       ]);
 
-      return ok(res, {
+      return ok(response, {
         // Which site is answering. The page says it out loud in two places --
         // beside the trusted devices, which are shared, and beside the sessions,
         // which are not -- and a page that had to work out which site it was on
@@ -135,7 +153,7 @@ export default async function handler(req, res) {
         sessions: sessions.sessions,
         sessions_failed: sessions.failed,
 
-        password_min_length: PASSWORD_MIN_LENGTH,
+        password_min_length: PASSWORD_MINIMUM_LENGTH,
 
         // Whether the three things that reach gftv.asia may run yet. False on
         // the commit that introduced them, and the page draws those panels as
@@ -145,25 +163,25 @@ export default async function handler(req, res) {
       });
     }
 
-    const body = await readJson(req, res);
+    const body = await readJson(request, response);
     if (!body) return;
 
     if (body.action !== 'change_password') {
-      return fail(res, ERR.BAD_REQUEST, 'That is not something this endpoint does.', {
+      return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not something this endpoint does.', {
         details: { action: FIELD.INVALID },
       });
     }
 
     // Before the limiter as well as before the audit row: a held route must not
     // spend somebody's attempts on a request it was never going to serve.
-    if (held(res)) return;
+    if (held(response)) return;
 
-    const subjects = [subjectForIp(req), subjectForUser('staff', userId)];
-    if (await limited(res, 'password_change', subjects)) return;
+    const subjects = [subjectForIp(request), subjectForUser('staff', userId)];
+    if (await limited(response, 'password_change', subjects)) return;
 
     const strength = checkPasswordStrength(body.new_password);
     if (!strength.ok) {
-      return fail(res, ERR.BAD_REQUEST, 'That password is too short.', {
+      return fail(response, ERROR_CODES.BAD_REQUEST, 'That password is too short.', {
         details: { new_password: strength.code },
       });
     }
@@ -171,7 +189,7 @@ export default async function handler(req, res) {
     const correct = await verifyRealmPassword('staff', userId, body.current_password);
     if (!correct) {
       await recordFailures('password_change', subjects, LIMITS.passwordChange);
-      return fail(res, ERR.UNAUTHORISED, 'That password was not right.', {
+      return fail(response, ERROR_CODES.UNAUTHORISED, 'That password was not right.', {
         details: { current_password: FIELD.INVALID },
       });
     }
@@ -190,7 +208,7 @@ export default async function handler(req, res) {
 
     const written = await setStaffPassword(userId, body.new_password);
     if (!written) {
-      return fail(res, ERR.SERVER_ERROR, 'That could not be saved. Try again.');
+      return fail(response, ERROR_CODES.SERVER_ERROR, 'That could not be saved. Try again.');
     }
 
     // 5d: "Changing the password, resetting via recovery code, unlinking
@@ -204,7 +222,7 @@ export default async function handler(req, res) {
     // password twice and then got it right is not left sitting on a count.
     await clearAll('password_change', subjects);
 
-    return ok(res, {
+    return ok(response, {
       changed: true,
       // The page has already said this before the button was pressed. It is
       // repeated here so that a client which somehow reached this endpoint
@@ -213,6 +231,6 @@ export default async function handler(req, res) {
       other_sessions_ended: true,
     });
   } catch (cause) {
-    return failInternal(res, cause, 'staff account');
+    return failInternal(response, cause, 'staff account');
   }
 }

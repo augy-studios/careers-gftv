@@ -57,20 +57,27 @@
 // wrong name. What is recorded is who, when, which row, which language, and
 // which fields.
 
-import { ok, fail, ERR, methodNotAllowed, failInternal, readJson } from '../_lib/respond.js';
+import {
+  ok,
+  fail,
+  ERROR_CODES,
+  methodNotAllowed,
+  failInternal,
+  readJson,
+} from '../_lib/respond.js';
 import { requireApplicant } from '../_lib/session.js';
 import { unavailable } from '../_lib/maintenance.js';
 import { LIMITS, limited, recordFailures, subjectForUser } from '../_lib/rate-limit.js';
 import { FIELD } from '../_lib/validate.js';
 import { AUDIT, auditApplicant } from '../_lib/audit.js';
-import { T } from '../_lib/supabase.js';
-import { searchParams } from '../_lib/jobs.js';
+import { TABLES } from '../_lib/supabase.js';
+import { searchParameters } from '../_lib/jobs.js';
 import { isUuid } from '../_lib/job-detail.js';
 // The cached read of gftvjobs_locales and the two query string helpers, which
 // live in admin.js because phase 7 needed them first. Imported rather than
 // copied: a second cache of the same table is a second answer to "which
 // languages does this site have", and nothing else in that file is touched here.
-import { activeLocales, pageRange, enumParam } from '../_lib/admin.js';
+import { activeLocales, pageRange, enumParameter } from '../_lib/admin.js';
 import {
   AUDIT_PAGE_SIZE,
   AUDIT_STATES,
@@ -88,26 +95,26 @@ import {
 } from '../_lib/helper-area.js';
 
 /** How long a search term may be. A name, not a paragraph. */
-const SEARCH_MAX = 80;
+const SEARCH_MAXIMUM = 80;
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'HEAD', 'POST'])) return;
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'HEAD', 'POST'])) return;
 
   // 8.12's shared guard, and the reason this feature has its own key in the
   // map: the helper area and the annotation layer are switched off separately,
   // because one misbehaving is not a reason to take the other down.
-  if (await unavailable(res, 'translation_helpers')) return;
+  if (await unavailable(response, 'translation_helpers')) return;
 
-  const session = await requireApplicant(req, res);
+  const session = await requireApplicant(request, response);
   if (!session) return;
 
-  res.setHeader('Cache-Control', 'no-store');
+  response.setHeader('Cache-Control', 'no-store');
 
   try {
-    if (req.method === 'POST') return await write(req, res, session);
-    return await read(req, res, session);
+    if (request.method === 'POST') return await write(request, response, session);
+    return await read(request, response, session);
   } catch (cause) {
-    return failInternal(res, cause, 'helper area');
+    return failInternal(response, cause, 'helper area');
   }
 }
 
@@ -127,7 +134,7 @@ export default async function handler(req, res) {
  *
  * @returns {Promise<{ code: string } | null>}
  */
-async function requireGranted(res, session, wanted) {
+async function requireGranted(response, session, wanted) {
   const locales = await activeLocales();
   const granted = await grantedLocales(session.user.id, locales);
 
@@ -136,8 +143,8 @@ async function requireGranted(res, session, wanted) {
 
   if (!found) {
     fail(
-      res,
-      ERR.FORBIDDEN,
+      response,
+      ERROR_CODES.FORBIDDEN,
       'You do not hold the translation helper role for that language.',
       { details: { locale: FIELD.INVALID, reason: 'not_a_helper' } }
     );
@@ -151,20 +158,20 @@ async function requireGranted(res, session, wanted) {
  * Reading
  * ---------------------------------------------------------------------- */
 
-async function read(req, res, session) {
-  const search = searchParams(req);
+async function read(request, response, session) {
+  const search = searchParameters(request);
   const view = search.get('view');
 
-  if (!view) return await roster(res, session);
+  if (!view) return await roster(response, session);
 
-  const granted = await requireGranted(res, session, search.get('locale'));
+  const granted = await requireGranted(response, session, search.get('locale'));
   if (!granted) return;
 
-  if (view === 'audit') return await audit(res, search, granted);
-  if (view === 'target') return await target(res, search, granted);
-  if (view === 'search') return await find(res, search, granted);
+  if (view === 'audit') return await audit(response, search, granted);
+  if (view === 'target') return await target(response, search, granted);
+  if (view === 'search') return await find(response, search, granted);
 
-  return fail(res, ERR.BAD_REQUEST, 'That is not something this endpoint does.');
+  return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not something this endpoint does.');
 }
 
 /**
@@ -176,11 +183,11 @@ async function read(req, res, session) {
  * applicant: a 403 here would make "you are not a helper" indistinguishable from
  * "something went wrong" on every account page in the site.
  */
-async function roster(res, session) {
+async function roster(response, session) {
   const locales = await activeLocales();
   const granted = await grantedLocales(session.user.id, locales);
 
-  return ok(res, { locales: granted });
+  return ok(response, { locales: granted });
 }
 
 /**
@@ -192,17 +199,17 @@ async function roster(res, session) {
  * an order clause, so ordering on the state column would give drafted, missing,
  * thin, which is alphabetical and meaningless.
  */
-async function audit(res, search, granted) {
-  const { from, to, page, size } = pageRange(search, { size: AUDIT_PAGE_SIZE, max: 100 });
-  const targetType = enumParam(search, 'target', AUDIT_TARGETS);
-  const state = enumParam(search, 'state', AUDIT_STATES);
+async function audit(response, search, granted) {
+  const { from, to: rangeEnd, page, size } = pageRange(search, { size: AUDIT_PAGE_SIZE, max: 100 });
+  const targetType = enumParameter(search, 'target', AUDIT_TARGETS);
+  const state = enumParameter(search, 'state', AUDIT_STATES);
 
   const [{ rows, total }, counts] = await Promise.all([
-    listNeedsTranslation({ locale: granted.code, targetType, state, from, to }),
+    listNeedsTranslation({ locale: granted.code, targetType, state, from, to: rangeEnd }),
     auditCounts({ locale: granted.code, targetType }),
   ]);
 
-  return ok(res, {
+  return ok(response, {
     audit: rows,
     counts,
     total,
@@ -214,12 +221,12 @@ async function audit(res, search, granted) {
 }
 
 /** One thing to translate, with the source wording beside it. */
-async function target(res, search, granted) {
-  const targetType = enumParam(search, 'type', HELPER_TARGETS);
+async function target(response, search, granted) {
+  const targetType = enumParameter(search, 'type', HELPER_TARGETS);
   const targetId = search.get('id');
 
   if (!targetType || !isUuid(targetId ?? '')) {
-    return fail(res, ERR.BAD_REQUEST, 'That is not something to translate.');
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not something to translate.');
   }
 
   const result = await fetchTranslationTarget({
@@ -232,18 +239,20 @@ async function target(res, search, granted) {
     // Archived and deleted are the same answer to the caller. A helper has no
     // business learning that a posting exists but has been taken off the board,
     // and the audit does not list one either.
-    return fail(res, ERR.NOT_FOUND, 'That is not something you can translate.');
+    return fail(response, ERROR_CODES.NOT_FOUND, 'That is not something you can translate.');
   }
 
-  return ok(res, { target: result.target });
+  return ok(response, { target: result.target });
 }
 
 /** Anything translatable, by its name in the source language. */
-async function find(res, search, granted) {
-  const term = String(search.get('q') ?? '').trim().slice(0, SEARCH_MAX);
+async function find(response, search, granted) {
+  const term = String(search.get('q') ?? '')
+    .trim()
+    .slice(0, SEARCH_MAXIMUM);
   const rows = await searchTranslatable(granted.code, term);
 
-  return ok(res, { results: rows, locale: granted.code });
+  return ok(response, { results: rows, locale: granted.code });
 }
 
 /* -------------------------------------------------------------------------
@@ -259,24 +268,36 @@ const REFUSALS = {
     'This translation is live, so it needs its title, summary, and description in this language. Ask an admin to unpublish it if you need to start again.',
 };
 
-async function write(req, res, session) {
-  const body = await readJson(req, res);
+/**
+ * Save a translation helper's work: a draft or finished wording for one field of
+ * one posting, team or tag, in a language this helper holds. Checks the helper's
+ * languages and the field before anything is written.
+ */
+async function write(request, response, session) {
+  const body = await readJson(request, response);
   if (body === null) return;
 
   if (String(body.action ?? '').trim() !== 'save') {
-    return fail(res, ERR.BAD_REQUEST, 'That is not something this endpoint does.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not something this endpoint does.', {
       details: { action: FIELD.INVALID },
     });
   }
 
-  const granted = await requireGranted(res, session, body.locale);
+  const granted = await requireGranted(response, session, body.locale);
   if (!granted) return;
 
-  const targetType = HELPER_TARGETS.includes(String(body.type ?? '')) ? String(body.type) : null;
+  let targetType;
+
+  if (HELPER_TARGETS.includes(String(body.type ?? ''))) {
+    targetType = String(body.type);
+  } else {
+    targetType = null;
+  }
+
   const targetId = String(body.id ?? '');
 
   if (!targetType || !isUuid(targetId)) {
-    return fail(res, ERR.BAD_REQUEST, 'That is not something to translate.');
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not something to translate.');
   }
 
   // Per account rather than per address, like the apply bucket and for the same
@@ -284,7 +305,7 @@ async function write(req, res, session) {
   // Counted on success, because there is no secret being guessed here and what is
   // worth bounding is how many rows one account can rewrite in an hour.
   const subjects = [subjectForUser('applicant', session.user.id)];
-  if (await limited(res, 'translate', subjects)) return;
+  if (await limited(response, 'translate', subjects)) return;
 
   // The thing being written has to exist, and has to be one this area may open.
   // Checked before the fields, so an archived posting is a 404 rather than a
@@ -296,16 +317,22 @@ async function write(req, res, session) {
   });
 
   if (!existing.ok) {
-    return fail(res, ERR.NOT_FOUND, 'That is not something you can translate.');
+    return fail(response, ERROR_CODES.NOT_FOUND, 'That is not something you can translate.');
   }
 
   // An object or nothing. `in` throws on a primitive, and a body is whatever
   // somebody sent rather than whatever the page sends.
-  const wanted = body.values && typeof body.values === 'object' ? body.values : {};
+  let wanted;
+
+  if (body.values && typeof body.values === 'object') {
+    wanted = body.values;
+  } else {
+    wanted = {};
+  }
 
   const { values, details } = checkHelperFields(targetType, wanted);
   if (details) {
-    return fail(res, ERR.BAD_REQUEST, 'That could not be saved.', { details });
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That could not be saved.', { details });
   }
 
   // What this save actually changes, worked out before it happens.
@@ -319,7 +346,7 @@ async function write(req, res, session) {
   const changed = changedFields(before, values, targetType);
 
   if (before.has_row && changed.length === 0) {
-    return ok(res, { target: before, created: false, saved: false });
+    return ok(response, { target: before, created: false, saved: false });
   }
 
   const saved = await saveTranslation({
@@ -331,9 +358,14 @@ async function write(req, res, session) {
   });
 
   if (!saved.ok) {
-    return fail(res, ERR.BAD_REQUEST, REFUSALS[saved.reason] ?? 'That could not be saved.', {
-      details: { ...(saved.details ?? {}), reason: saved.reason },
-    });
+    return fail(
+      response,
+      ERROR_CODES.BAD_REQUEST,
+      REFUSALS[saved.reason] ?? 'That could not be saved.',
+      {
+        details: { ...(saved.details ?? {}), reason: saved.reason },
+      }
+    );
   }
 
   await recordFailures('translate', subjects, LIMITS.translate);
@@ -372,8 +404,16 @@ async function write(req, res, session) {
     locale: granted.code,
   });
 
-  return ok(res, {
-    target: updated.ok ? updated.target : null,
+  let targetValue;
+
+  if (updated.ok) {
+    targetValue = updated.target;
+  } else {
+    targetValue = null;
+  }
+
+  return ok(response, {
+    target: targetValue,
     created: saved.created,
     saved: true,
   });
@@ -381,9 +421,9 @@ async function write(req, res, session) {
 
 /** Which table the audit row points at, per target type. */
 const TRANSLATION_TABLE_FOR = Object.freeze({
-  job: T.jobTranslations,
-  department: T.departmentTranslations,
-  tag: T.tagTranslations,
+  job: TABLES.jobTranslations,
+  department: TABLES.departmentTranslations,
+  tag: TABLES.tagTranslations,
 });
 
 /**

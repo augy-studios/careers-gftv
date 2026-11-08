@@ -46,6 +46,27 @@ export function renderDocument(page) {
   const ogTitle = page.ogTitle ?? page.title;
   const ogDescription = page.ogDescription ?? page.description;
 
+  let robotsTag = '';
+  if (page.robots) {
+    robotsTag = `    <meta name="robots" content="${escapeAttribute(page.robots)}">\n`;
+  }
+
+  let structuredDataScript = '';
+  if (page.jsonLd) {
+    structuredDataScript = `\n    <script type="application/ld+json">${jsonScript(page.jsonLd)}</script>\n`;
+  }
+
+  let inlineDataScript = '';
+  if (page.inlineJson) {
+    inlineDataScript = `\n    <!-- The posting itself, so the page draws without a second round
+         trip and switching language redraws from memory. Every language this
+         posting is ready in is here; the Google Form URL is not, and never is,
+         per section 4. -->
+    <script type="application/json" id="${escapeAttribute(page.inlineJson.id)}">${jsonScript(
+      page.inlineJson.data
+    )}</script>\n`;
+  }
+
   return `<!doctype html>
 <html lang="en">
 
@@ -60,8 +81,8 @@ export function renderDocument(page) {
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <title>${escapeHtml(page.title)}</title>
-    <meta name="description" content="${escapeAttr(page.description)}">
-${page.robots ? `    <meta name="robots" content="${escapeAttr(page.robots)}">\n` : ''}
+    <meta name="description" content="${escapeAttribute(page.description)}">
+${robotsTag}
     <!-- Theme, before the stylesheet. Mirrors the block in index.html exactly.
          Keep the key in sync with APP_KEY in /assets/js/theme.js. -->
     <meta name="theme-color" content="#ffffff">
@@ -93,34 +114,24 @@ ${page.robots ? `    <meta name="robots" content="${escapeAttr(page.robots)}">\n
     <link rel="stylesheet" href="/assets/css/app.css">
 
     <link rel="manifest" href="/manifest.json">
-    <link rel="canonical" href="${escapeAttr(canonical)}">
+    <link rel="canonical" href="${escapeAttribute(canonical)}">
 
-    <meta property="og:type" content="${escapeAttr(page.ogType ?? 'website')}">
+    <meta property="og:type" content="${escapeAttribute(page.ogType ?? 'website')}">
     <meta property="og:site_name" content="Careers@GFTV">
-    <meta property="og:title" content="${escapeAttr(ogTitle)}">
-    <meta property="og:description" content="${escapeAttr(ogDescription)}">
-    <meta property="og:url" content="${escapeAttr(canonical)}">
-    <meta property="og:image" content="${escapeAttr(image)}">
+    <meta property="og:title" content="${escapeAttribute(ogTitle)}">
+    <meta property="og:description" content="${escapeAttribute(ogDescription)}">
+    <meta property="og:url" content="${escapeAttribute(canonical)}">
+    <meta property="og:image" content="${escapeAttribute(image)}">
     <meta name="twitter:card" content="summary">
-    <meta name="twitter:title" content="${escapeAttr(ogTitle)}">
-    <meta name="twitter:description" content="${escapeAttr(ogDescription)}">
-    <meta name="twitter:image:src" content="${escapeAttr(image)}">
+    <meta name="twitter:title" content="${escapeAttribute(ogTitle)}">
+    <meta name="twitter:description" content="${escapeAttribute(ogDescription)}">
+    <meta name="twitter:image:src" content="${escapeAttribute(image)}">
 
     <link rel="apple-touch-icon" href="/HLC-180.png">
     <link rel="icon" href="/favicon.ico">
     <link rel="shortcut icon" href="/favicon.ico">
-${page.jsonLd ? `\n    <script type="application/ld+json">${jsonScript(page.jsonLd)}</script>\n` : ''}${
-    page.inlineJson
-      ? `\n    <!-- The posting itself, so the page draws without a second round
-         trip and switching language redraws from memory. Every language this
-         posting is ready in is here; the Google Form URL is not, and never is,
-         per section 4. -->
-    <script type="application/json" id="${escapeAttr(page.inlineJson.id)}">${jsonScript(
-          page.inlineJson.data
-        )}</script>\n`
-      : ''
-  }
-${(page.modules ?? []).map((src) => `    <script type="module" src="${escapeAttr(src)}"></script>`).join('\n')}
+${structuredDataScript}${inlineDataScript}
+${(page.modules ?? []).map((source) => `    <script type="module" src="${escapeAttribute(source)}"></script>`).join('\n')}
 </head>
 
 <body>
@@ -146,13 +157,13 @@ ${page.bodyHtml}
  * @param {string} html
  * @param {{ status?: number, headers?: Record<string,string> }} [options]
  */
-export function sendHtml(res, html, options = {}) {
+export function sendHtml(response, html, options = {}) {
   for (const [name, value] of Object.entries(options.headers ?? {})) {
-    res.setHeader(name, value);
+    response.setHeader(name, value);
   }
-  res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  res.statusCode = options.status ?? 200;
-  res.end(html);
+  response.setHeader('Content-Type', 'text/html; charset=utf-8');
+  response.statusCode = options.status ?? 200;
+  response.end(html);
 }
 
 /**
@@ -165,17 +176,15 @@ export function sendHtml(res, html, options = {}) {
  * parses back to the same string, and cannot close anything.
  */
 function jsonScript(value) {
-  return JSON.stringify(value)
-    .replace(/</g, '\\u003c')
-    .replace(/>/g, '\\u003e');
+  return JSON.stringify(value).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
 }
 
 export function escapeHtml(value) {
-  return String(value ?? '').replace(/[&<>"']/g, (c) => {
-    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  return String(value ?? '').replace(/[&<>"']/g, (character) => {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character];
   });
 }
 
-export function escapeAttr(value) {
+export function escapeAttribute(value) {
   return escapeHtml(value);
 }

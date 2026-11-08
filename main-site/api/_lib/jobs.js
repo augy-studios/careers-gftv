@@ -36,17 +36,17 @@ export const SORTS = Object.freeze(['relevance', 'newest', 'closing']);
 // A filter list longer than this is not a person using the interface. The tag
 // cloud cannot select more tags than exist, and the cap keeps a hand written
 // URL from turning into a very large array in a query plan.
-const MAX_LIST = 40;
+const MAXIMUM_LIST = 40;
 
 // Long enough for a real search, short enough that nobody is posting an essay
 // through the query string. websearch_to_tsquery would cope; the trigram path
 // on the other side of it is the one that would not enjoy a 10 KB argument.
-const MAX_QUERY = 120;
+const MAXIMUM_QUERY = 120;
 
 // The furthest a caller may page. 500 pages of 20 is more postings than GFTV
 // will ever have open at once, and without a ceiling a crawler walking page
 // numbers costs a query each time for an empty result.
-const MAX_PAGE = 500;
+const MAXIMUM_PAGE = 500;
 
 /**
  * Parse the request URL into everything the search RPC takes.
@@ -56,12 +56,18 @@ const MAX_PAGE = 500;
  * @returns {{ q: string|null, filters: object, page: number, limit: number,
  *             offset: number, sort: string|null }}
  */
-export function parseSearchParams(req, locale) {
-  const params = searchParams(req);
+export function parseSearchParameters(request, locale) {
+  const parameters = searchParameters(request);
 
-  const q = text(params.get('q'), MAX_QUERY);
+  const searchTerm = text(parameters.get('q'), MAXIMUM_QUERY);
 
-  const sort = SORTS.includes(params.get('sort')) ? params.get('sort') : null;
+  let sort;
+
+  if (SORTS.includes(parameters.get('sort'))) {
+    sort = parameters.get('sort');
+  } else {
+    sort = null;
+  }
 
   const filters = { locale };
 
@@ -69,52 +75,52 @@ export function parseSearchParams(req, locale) {
   // never be able to ask this endpoint for drafts, and the RPC defaults to
   // published on its own, so the safest thing is to never mention it.
 
-  const departments = slugList(params, 'dept');
+  const departments = slugList(parameters, 'dept');
   if (departments.length > 0) filters.department_slugs = departments;
 
-  const tags = slugList(params, 'tags');
+  const tags = slugList(parameters, 'tags');
   if (tags.length > 0) filters.tag_slugs = tags;
 
   // Only meaningful alongside tags, and section 4 makes OR the default with a
   // "match all selected tags" toggle for AND.
-  if (params.get('match') === 'all') filters.match_all_tags = true;
+  if (parameters.get('match') === 'all') filters.match_all_tags = true;
 
   // Not slugList. A commitment type is a key from migration 021's fixed set,
   // not a slug, and every one of them has an underscore in it, which the slug
   // pattern rejects. The allowlist below is the validation here, and a stricter
   // one than any pattern: nothing outside those five keys survives.
-  const commitments = valueList(params, 'commitment').filter((value) =>
+  const commitments = valueList(parameters, 'commitment').filter((value) =>
     COMMITMENT_TYPES.includes(value)
   );
   if (commitments.length > 0) filters.commitment_types = commitments;
 
-  const location = text(params.get('location'), 80);
+  const location = text(parameters.get('location'), 80);
   if (location) filters.location = location;
 
   // Absent and false are different things here. Absent means "do not filter on
   // remote at all", false means "on site only", and the RPC reads a null as the
   // first of those.
-  const remote = bool(params.get('remote'));
+  const remote = bool(parameters.get('remote'));
   if (remote !== null) filters.is_remote = remote;
 
-  const postedWithin = int(params.get('posted_within_days'), 1, 3650);
+  const postedWithin = boundedInteger(parameters.get('posted_within_days'), 1, 3650);
   if (postedWithin !== null) filters.posted_within_days = postedWithin;
 
-  const closingWithin = int(params.get('closing_within_days'), 1, 3650);
+  const closingWithin = boundedInteger(parameters.get('closing_within_days'), 1, 3650);
   if (closingWithin !== null) filters.closing_within_days = closingWithin;
 
   // Contradictory on its face with closing_within_days, and the RPC resolves it
   // by applying both, which returns nothing. That is the honest answer to a
   // reader who has somehow selected "closing soon" and "no deadline" together,
   // and the interface only lets one of the two be active at a time anyway.
-  if (bool(params.get('no_deadline')) === true) filters.no_deadline = true;
+  if (bool(parameters.get('no_deadline')) === true) filters.no_deadline = true;
 
   if (sort) filters.sort = sort;
 
-  const page = int(params.get('page'), 1, MAX_PAGE) ?? 1;
+  const page = boundedInteger(parameters.get('page'), 1, MAXIMUM_PAGE) ?? 1;
 
   return {
-    q,
+    q: searchTerm,
     filters,
     sort,
     page,
@@ -136,6 +142,27 @@ export function parseSearchParams(req, locale) {
  * @param {object} row
  */
 export function publicJob(row) {
+  const headline = sanitiseHeadline(row.headline);
+  let department;
+
+  if (row.department_id) {
+    department = {
+      id: row.department_id,
+      name: row.department_name,
+      slug: row.department_slug,
+    };
+  } else {
+    department = null;
+  }
+
+  let tags;
+
+  if (Array.isArray(row.tags)) {
+    tags = row.tags;
+  } else {
+    tags = [];
+  }
+
   return {
     id: row.id,
     slug: row.slug,
@@ -144,14 +171,8 @@ export function publicJob(row) {
     // Contains <mark> and nothing else. Sanitised here rather than in the
     // browser, because ts_headline copies its source text through unescaped and
     // that source is written by an admin.
-    headline: sanitiseHeadline(row.headline),
-    department: row.department_id
-      ? {
-          id: row.department_id,
-          name: row.department_name,
-          slug: row.department_slug,
-        }
-      : null,
+    headline,
+    department: department,
     location: row.location,
     is_remote: row.is_remote === true,
     commitment_type: row.commitment_type,
@@ -163,7 +184,7 @@ export function publicJob(row) {
     // Null means open until filled. Never coalesced, never defaulted, and the
     // client renders a sentence for it rather than a blank.
     closes_at: row.closes_at,
-    tags: Array.isArray(row.tags) ? row.tags : [],
+    tags: tags,
     // Whether a ready translation in the requested language was used. False on
     // a posting that exists only in the default language, which is what puts
     // the "English only" badge on the card.
@@ -189,9 +210,13 @@ export function sanitiseHeadline(value) {
 
   return value
     .split(/(<\/?mark>)/i)
-    .map((part) =>
-      /^<\/?mark>$/i.test(part) ? part.toLowerCase() : escapeHtml(part)
-    )
+    .map((part) => {
+      if (/^<\/?mark>$/i.test(part)) {
+        return part.toLowerCase();
+      } else {
+        return escapeHtml(part);
+      }
+    })
     .join('');
 }
 
@@ -200,19 +225,19 @@ export function sanitiseHeadline(value) {
  * ---------------------------------------------------------------------- */
 
 /** The query string, whatever shape the platform handed us the URL in. */
-export function searchParams(req) {
+export function searchParameters(request) {
   try {
-    return new URL(req.url ?? '/', 'https://careers.invalid').searchParams;
+    return new URL(request.url ?? '/', 'https://careers.invalid').searchParams;
   } catch {
     return new URLSearchParams();
   }
 }
 
-function text(value, maxLength) {
+function text(value, maximumLength) {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
   if (trimmed === '') return null;
-  return trimmed.slice(0, maxLength);
+  return trimmed.slice(0, maximumLength);
 }
 
 /**
@@ -222,35 +247,33 @@ function text(value, maxLength) {
  * the same thing. Somebody hand editing a URL will try one of the two and
  * should not have to guess which.
  */
-function slugList(params, name) {
+function slugList(parameters, name) {
   // Slugs are lowercase and hyphenated, per migration 004. Anything else
   // cannot match a row, so it is dropped rather than sent to the database.
-  return valueList(params, name).filter((slug) =>
-    /^[a-z0-9][a-z0-9-]{0,60}$/.test(slug)
-  );
+  return valueList(parameters, name).filter((slug) => /^[a-z0-9][a-z0-9-]{0,60}$/.test(slug));
 }
 
 /** The same splitting without the slug shape, for values that are not slugs. */
-function valueList(params, name) {
+function valueList(parameters, name) {
   const seen = new Set();
 
-  for (const raw of params.getAll(name)) {
+  for (const raw of parameters.getAll(name)) {
     for (const piece of String(raw).split(',')) {
       const value = piece.trim().toLowerCase();
       if (value === '' || value.length > 60) continue;
       seen.add(value);
-      if (seen.size >= MAX_LIST) return [...seen];
+      if (seen.size >= MAXIMUM_LIST) return [...seen];
     }
   }
 
   return [...seen];
 }
 
-function int(value, min, max) {
+function boundedInteger(value, minimum, maximum) {
   if (typeof value !== 'string' || value.trim() === '') return null;
   const parsed = Number(value);
   if (!Number.isInteger(parsed)) return null;
-  if (parsed < min || parsed > max) return null;
+  if (parsed < minimum || parsed > maximum) return null;
   return parsed;
 }
 
@@ -262,7 +285,7 @@ function bool(value) {
 }
 
 function escapeHtml(value) {
-  return String(value).replace(/[&<>"']/g, (c) => {
-    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  return String(value).replace(/[&<>"']/g, (character) => {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character];
   });
 }

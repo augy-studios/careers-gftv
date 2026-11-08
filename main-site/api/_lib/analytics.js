@@ -29,7 +29,7 @@
 // writing a second one. A posting title is written by an admin and a spreadsheet
 // still reads a leading = as a formula.
 
-import { supabase, T } from './supabase.js';
+import { supabase, TABLES } from './supabase.js';
 import { csvField } from './admin-applications.js';
 
 /**
@@ -48,8 +48,8 @@ export const RATING_MINIMUM = 3;
  * admin one look at a form that turns out to be fine, and a missed one costs
  * every applicant who tried to apply through a broken link.
  */
-export const FLAG_MIN_CLICKS = 5;
-export const FLAG_MAX_RATE = 0.2;
+export const FLAG_MINIMUM_CLICKS = 5;
+export const FLAG_MAXIMUM_RATE = 0.2;
 
 /** How many days of history the detail chart draws. */
 export const SERIES_DAYS = 90;
@@ -57,10 +57,24 @@ export const SERIES_DAYS = 90;
 // Exactly the view columns funnelRow reads, so a column added to the view later
 // is not sent to the admin client by default.
 const FUNNEL_COLUMNS = [
-  'job_id', 'title', 'slug', 'status', 'published_at', 'closes_at',
-  'views', 'apply_clicks', 'answered_yes', 'answered_no', 'pending', 'timed_out',
-  'yes_applicant', 'yes_webhook', 'yes_admin', 'yes_rate',
-  'rating_count', 'rating_average',
+  'job_id',
+  'title',
+  'slug',
+  'status',
+  'published_at',
+  'closes_at',
+  'views',
+  'apply_clicks',
+  'answered_yes',
+  'answered_no',
+  'pending',
+  'timed_out',
+  'yes_applicant',
+  'yes_webhook',
+  'yes_admin',
+  'yes_rate',
+  'rating_count',
+  'rating_average',
 ].join(', ');
 
 /** The columns the table can be sorted by, per 8.4's "sortable table". */
@@ -87,7 +101,7 @@ export const FUNNEL_SORTS = Object.freeze([
  * **The sort actually used comes back with the rows**, because it is not always
  * the one that was asked for: an unknown column falls back to `views` rather
  * than refusing, the same way every enum on the admin routes falls back through
- * enumParam. The fallback is the convention and is kept; what was missing until
+ * enumParameter. The fallback is the convention and is kept; what was missing until
  * 25 August 2026 is that nothing said it had happened, so a header sending a
  * column name that had been renamed looked like a column that had stopped
  * mattering. The audit route already answers this way about its language, and
@@ -97,10 +111,17 @@ export const FUNNEL_SORTS = Object.freeze([
  * @returns {Promise<{ rows: object[], total: number, sort: string, direction: 'asc'|'desc' }>}
  */
 export async function jobFunnels(options = {}) {
-  const sort = FUNNEL_SORTS.includes(options.sort ?? '') ? options.sort : 'views';
+  let sort;
+
+  if (FUNNEL_SORTS.includes(options.sort ?? '')) {
+    sort = options.sort;
+  } else {
+    sort = 'views';
+  }
+
   const ascending = options.direction === 'asc';
 
-  let query = supabase.from(T.jobFunnel).select(FUNNEL_COLUMNS, { count: 'exact' });
+  let query = supabase.from(TABLES.jobFunnel).select(FUNNEL_COLUMNS, { count: 'exact' });
 
   if (options.status) query = query.eq('status', options.status);
 
@@ -118,24 +139,37 @@ export async function jobFunnels(options = {}) {
   const { data, error, count } = await query;
   if (error) throw error;
 
+  let direction;
+
+  if (ascending) {
+    direction = 'asc';
+  } else {
+    direction = 'desc';
+  }
+
   return {
     rows: (data ?? []).map(funnelRow),
     total: count ?? 0,
     sort,
-    direction: ascending ? 'asc' : 'desc',
+    direction: direction,
   };
 }
 
 /** One posting's funnel, for the detail view. */
 export async function jobFunnel(jobId) {
   const { data, error } = await supabase
-    .from(T.jobFunnel)
+    .from(TABLES.jobFunnel)
     .select(FUNNEL_COLUMNS)
     .eq('job_id', jobId)
     .maybeSingle();
 
   if (error) throw error;
-  return data ? funnelRow(data) : null;
+
+  if (data) {
+    return funnelRow(data);
+  } else {
+    return null;
+  }
 }
 
 /**
@@ -152,7 +186,21 @@ function funnelRow(row) {
 
   // Null, not zero, when nobody has clicked. The view already answers this way
   // and the coercion below would quietly turn it into 0.
-  const rate = row.yes_rate === null || row.yes_rate === undefined ? null : Number(row.yes_rate);
+  let rate;
+
+  if (row.yes_rate === null || row.yes_rate === undefined) {
+    rate = null;
+  } else {
+    rate = Number(row.yes_rate);
+  }
+
+  let ratingAverage;
+
+  if (ratingCount >= RATING_MINIMUM && row.rating_average !== null) {
+    ratingAverage = Number(row.rating_average);
+  } else {
+    ratingAverage = null;
+  }
 
   return {
     job_id: row.job_id,
@@ -184,13 +232,10 @@ function funnelRow(row) {
     rate_is_floor: true,
 
     rating_count: ratingCount,
-    rating_average:
-      ratingCount >= RATING_MINIMUM && row.rating_average !== null
-        ? Number(row.rating_average)
-        : null,
+    rating_average: ratingAverage,
     rating_suppressed: ratingCount > 0 && ratingCount < RATING_MINIMUM,
 
-    needs_attention: clicks >= FLAG_MIN_CLICKS && rate !== null && rate < FLAG_MAX_RATE,
+    needs_attention: clicks >= FLAG_MINIMUM_CLICKS && rate !== null && rate < FLAG_MAXIMUM_RATE,
   };
 }
 
@@ -213,7 +258,7 @@ export async function funnelSeries(jobId, days = SERIES_DAYS) {
   start.setUTCDate(start.getUTCDate() - (span - 1));
 
   const { data, error } = await supabase
-    .from(T.jobFunnelDaily)
+    .from(TABLES.jobFunnelDaily)
     .select('day, views, apply_clicks, answered_yes')
     .eq('job_id', jobId)
     .gte('day', start.toISOString().slice(0, 10))
@@ -225,9 +270,9 @@ export async function funnelSeries(jobId, days = SERIES_DAYS) {
   const series = [];
 
   for (let index = 0; index < span; index += 1) {
-    const at = new Date(start.getTime());
-    at.setUTCDate(at.getUTCDate() + index);
-    const day = at.toISOString().slice(0, 10);
+    const date = new Date(start.getTime());
+    date.setUTCDate(date.getUTCDate() + index);
+    const day = date.toISOString().slice(0, 10);
     const row = found.get(day);
 
     series.push({
@@ -279,6 +324,14 @@ export function funnelCsv(rows) {
   const lines = [header.join(',')];
 
   for (const row of rows) {
+    let needsAttentionText;
+
+    if (row.needs_attention) {
+      needsAttentionText = 'yes';
+    } else {
+      needsAttentionText = 'no';
+    }
+
     lines.push(
       [
         row.job_id,
@@ -299,7 +352,7 @@ export function funnelCsv(rows) {
         // Suppressed here too. An export that carries the average a page
         // refuses to show is the same disclosure by another route.
         row.rating_average,
-        row.needs_attention ? 'yes' : 'no',
+        needsAttentionText,
       ]
         .map(csvField)
         .join(',')
@@ -333,7 +386,7 @@ export function funnelCsv(rows) {
  * @param {{ jobId: string, applicantId?: string|null, referrer?: string|null }} event
  */
 export async function recordView(event) {
-  const { error } = await supabase.from(T.analytics).insert({
+  const { error } = await supabase.from(TABLES.analytics).insert({
     job_id: event.jobId,
     applicant_id: event.applicantId ?? null,
     event_type: 'view',

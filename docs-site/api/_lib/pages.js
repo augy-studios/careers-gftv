@@ -38,8 +38,8 @@ import { dirname, join, resolve } from 'node:path';
 import { ACCESS_VALUES, tierRank, canRead } from './tiers.js';
 
 /** Where the two trees live, relative to this project's root. */
-const PUBLIC_DIR = 'content';
-const GATED_DIR = 'api/_content';
+const PUBLIC_DIRECTORY = 'content';
+const GATED_DIRECTORY = 'api/_content';
 
 /** The URL prefix each tree occupies. */
 const GATED_PREFIX = '/staff';
@@ -60,11 +60,11 @@ export function projectRoot() {
   const candidates = [process.cwd(), fromModule];
 
   for (const candidate of candidates) {
-    if (existsSync(join(candidate, PUBLIC_DIR))) return candidate;
+    if (existsSync(join(candidate, PUBLIC_DIRECTORY))) return candidate;
   }
 
   throw new Error(
-    `Could not find ${PUBLIC_DIR}/ from any of: ${candidates.join(', ')}. ` +
+    `Could not find ${PUBLIC_DIRECTORY}/ from any of: ${candidates.join(', ')}. ` +
       'On Vercel this means the includeFiles entry in docs-site/vercel.json is ' +
       'missing or does not cover it.'
   );
@@ -153,7 +153,14 @@ function treeFiles(root, directory) {
   const walk = (relativePath) => {
     const entries = readdirSync(join(here, relativePath), { withFileTypes: true });
     for (const entry of entries) {
-      const next = relativePath === '' ? entry.name : `${relativePath}/${entry.name}`;
+      let next;
+
+      if (relativePath === '') {
+        next = entry.name;
+      } else {
+        next = `${relativePath}/${entry.name}`;
+      }
+
       if (entry.isDirectory()) {
         walk(next);
         continue;
@@ -230,8 +237,23 @@ const DATA_KEY = 'data';
  * the parameter and is exactly where it belongs.
  */
 function assetBaseOf(path, isIndex) {
-  const directory = isIndex ? path : path.replace(/\/[^/]*$/, '');
-  return `/api/content?path=${directory === '/' ? '' : directory}`;
+  let directory;
+
+  if (isIndex) {
+    directory = path;
+  } else {
+    directory = path.replace(/\/[^/]*$/, '');
+  }
+
+  let directoryPath;
+
+  if (directory === '/') {
+    directoryPath = '';
+  } else {
+    directoryPath = directory;
+  }
+
+  return `/api/content?path=${directoryPath}`;
 }
 
 /**
@@ -269,7 +291,13 @@ function readTree(root, directory, pipeline, prefix, problems) {
     const { data, body } = parsed;
     const segments = relativePath.replace(/\.md$/i, '').split('/');
     const isIndex = segments[segments.length - 1] === 'index';
-    const slugs = isIndex ? segments.slice(0, -1) : segments;
+    let slugs;
+
+    if (isIndex) {
+      slugs = segments.slice(0, -1);
+    } else {
+      slugs = segments;
+    }
 
     // Two levels, and the second is the page. 16h describes four guides, each a
     // top level section, and the sidebar has to stay able to take another one
@@ -297,17 +325,19 @@ function readTree(root, directory, pipeline, prefix, problems) {
           'There is no default, on purpose.'
       );
     } else if (tierRank(access) === null) {
-      problems.push(`${where}: access is "${access}", which is not one of: ${ACCESS_VALUES.join(', ')}.`);
+      problems.push(
+        `${where}: access is "${access}", which is not one of: ${ACCESS_VALUES.join(', ')}.`
+      );
     } else if (pipeline === 'public' && access !== 'public') {
       problems.push(
         `${where}: access is "${access}" and this is the static tree. ` +
-          `Anything under ${PUBLIC_DIR}/ is world readable whatever the interface does, ` +
-          `so a gated page belongs in ${GATED_DIR}/.`
+          `Anything under ${PUBLIC_DIRECTORY}/ is world readable whatever the interface does, ` +
+          `so a gated page belongs in ${GATED_DIRECTORY}/.`
       );
     } else if (pipeline === 'gated' && access === 'public') {
       problems.push(
         `${where}: access is "public" and this is the gated tree. ` +
-          `A public page served through a function is a page nobody can find; it belongs in ${PUBLIC_DIR}/.`
+          `A public page served through a function is a page nobody can find; it belongs in ${PUBLIC_DIRECTORY}/.`
       );
     }
 
@@ -334,10 +364,28 @@ function readTree(root, directory, pipeline, prefix, problems) {
           `${where}: ${DATA_KEY} is "${named}". Data files are one of: ${DATA_EXTENSIONS.join(', ')}.`
         );
       } else if (!existsSync(beside)) {
-        problems.push(`${where}: ${DATA_KEY} names "${named}", and there is no such file beside the page.`);
+        problems.push(
+          `${where}: ${DATA_KEY} names "${named}", and there is no such file beside the page.`
+        );
       } else {
         dataFile = beside;
       }
+    }
+
+    let orderValue;
+
+    if (Number.isFinite(order)) {
+      orderValue = order;
+    } else {
+      orderValue = Number.MAX_SAFE_INTEGER;
+    }
+
+    let section;
+
+    if (slugs.length === 2 || (isIndex && slugs.length === 1)) {
+      section = slugs[0];
+    } else {
+      section = null;
     }
 
     pages.push({
@@ -345,9 +393,9 @@ function readTree(root, directory, pipeline, prefix, problems) {
       title,
       access,
       summary: (data.summary ?? '').trim() || null,
-      order: Number.isFinite(order) ? order : Number.MAX_SAFE_INTEGER,
+      order: orderValue,
       pipeline,
-      section: slugs.length === 2 || (isIndex && slugs.length === 1) ? slugs[0] : null,
+      section: section,
       isIndex,
       // Never sent anywhere. It is how the content route reads a page without
       // ever building a filesystem path out of something a caller sent.
@@ -428,11 +476,11 @@ export function loadPages(options = {}) {
   const problems = [];
 
   const pages = [
-    ...readTree(root, PUBLIC_DIR, 'public', '', problems),
-    ...readTree(root, GATED_DIR, 'gated', GATED_PREFIX, problems),
+    ...readTree(root, PUBLIC_DIRECTORY, 'public', '', problems),
+    ...readTree(root, GATED_DIRECTORY, 'gated', GATED_PREFIX, problems),
   ];
 
-  const assetFiles = readAssets(root, GATED_DIR, GATED_PREFIX, problems);
+  const assetFiles = readAssets(root, GATED_DIRECTORY, GATED_PREFIX, problems);
 
   const byPath = new Map();
   for (const page of pages) {
@@ -459,7 +507,9 @@ export function loadPages(options = {}) {
     });
   }
 
-  const bySlug = new Map(sections.map((section) => [`${section.pipeline}:${section.slug}`, section]));
+  const bySlug = new Map(
+    sections.map((section) => [`${section.pipeline}:${section.slug}`, section])
+  );
   for (const page of pages) {
     if (page.section === null) {
       // The two homes are the only pages that belong to no section. Anything
@@ -505,7 +555,8 @@ export function loadPages(options = {}) {
     throw new Error(`The documentation pages did not load:\n  ${problems.join('\n  ')}`);
   }
 
-  const rank = (a, b) => a.order - b.order || a.path.localeCompare(b.path);
+  const rank = (first, second) =>
+    first.order - second.order || first.path.localeCompare(second.path);
 
   // The public sections first, then the gated ones, and `order` decides within
   // each. The two trees number themselves independently -- they are written by
@@ -514,12 +565,15 @@ export function loadPages(options = {}) {
   // the bot guide for anybody signed in.
   const PIPELINES = ['public', 'gated'];
   sections.sort(
-    (a, b) => PIPELINES.indexOf(a.pipeline) - PIPELINES.indexOf(b.pipeline) || rank(a, b)
+    (first, second) =>
+      PIPELINES.indexOf(first.pipeline) - PIPELINES.indexOf(second.pipeline) || rank(first, second)
   );
   for (const section of sections) {
     // The index first, always. It is the section's own page and a sidebar that
     // buried it under an alphabetical accident would be one nobody trusts.
-    section.pages.sort((a, b) => Number(b.isIndex) - Number(a.isIndex) || rank(a, b));
+    section.pages.sort(
+      (first, second) => Number(second.isIndex) - Number(first.isIndex) || rank(first, second)
+    );
   }
 
   cache = {
@@ -577,9 +631,25 @@ export function navFor(readerAccess) {
     });
   }
 
+  let homeValue;
+
+  if (home && canRead(readerAccess, home.access)) {
+    homeValue = publicShape(home);
+  } else {
+    homeValue = null;
+  }
+
+  let staffHomeValue;
+
+  if (staffHome && canRead(readerAccess, staffHome.access)) {
+    staffHomeValue = publicShape(staffHome);
+  } else {
+    staffHomeValue = null;
+  }
+
   return {
-    home: home && canRead(readerAccess, home.access) ? publicShape(home) : null,
-    staff_home: staffHome && canRead(readerAccess, staffHome.access) ? publicShape(staffHome) : null,
+    home: homeValue,
+    staff_home: staffHomeValue,
     sections: visible,
   };
 }
@@ -596,9 +666,11 @@ function readingOrder(readerAccess) {
   const nav = navFor(readerAccess);
   const flat = [];
   if (nav.home) flat.push(nav.home);
-  for (const section of nav.sections.filter((s) => s.pipeline === 'public')) flat.push(...section.pages);
+  for (const section of nav.sections.filter((navSection) => navSection.pipeline === 'public'))
+    flat.push(...section.pages);
   if (nav.staff_home) flat.push(nav.staff_home);
-  for (const section of nav.sections.filter((s) => s.pipeline === 'gated')) flat.push(...section.pages);
+  for (const section of nav.sections.filter((navSection) => navSection.pipeline === 'gated'))
+    flat.push(...section.pages);
   return flat;
 }
 
@@ -622,21 +694,48 @@ export function readablePage(path, readerAccess) {
   if (!canRead(readerAccess, page.access)) return null;
 
   const flat = readingOrder(readerAccess);
-  const at = flat.findIndex((entry) => entry.path === path);
+  const position = flat.findIndex((entry) => entry.path === path);
+
+  const pageValue = publicShape(page);
+  const file = page.file;
+  const dataFile = page.dataFile ?? null;
+  let assetBase;
+
+  if (page.pipeline === 'gated') {
+    assetBase = assetBaseOf(page.path, page.isIndex);
+  } else {
+    assetBase = null;
+  }
+
+  let prev;
+
+  if (position > 0) {
+    prev = flat[position - 1];
+  } else {
+    prev = null;
+  }
+
+  let next;
+
+  if (position !== -1 && position < flat.length - 1) {
+    next = flat[position + 1];
+  } else {
+    next = null;
+  }
 
   return {
-    page: publicShape(page),
-    file: page.file,
+    page: pageValue,
+    file,
     // The data file this page carries, or null. It goes out inside the page's
     // own answer, which is what keeps it behind the same check the page is
     // behind and gives it no address of its own.
-    dataFile: page.dataFile ?? null,
+    dataFile,
     // Only a gated page has one. A public page's images are in public/ and are
     // written as absolute paths, per 16g, so a bare file name on one has no
     // directory to be in and the build refuses it.
-    assetBase: page.pipeline === 'gated' ? assetBaseOf(page.path, page.isIndex) : null,
-    prev: at > 0 ? flat[at - 1] : null,
-    next: at !== -1 && at < flat.length - 1 ? flat[at + 1] : null,
+    assetBase: assetBase,
+    prev: prev,
+    next: next,
   };
 }
 
@@ -676,7 +775,16 @@ export function readableAsset(path, readerAccess) {
  * @returns {string|null}
  */
 export function pagePathFromSegments(segments) {
-  const parts = Array.isArray(segments) ? segments : typeof segments === 'string' ? [segments] : [];
+  let parts;
+
+  if (Array.isArray(segments)) {
+    parts = segments;
+  } else if (typeof segments === 'string') {
+    parts = [segments];
+  } else {
+    parts = [];
+  }
+
   if (parts.length === 0 || parts.length > 3) return null;
 
   const clean = parts.map((part) => String(part).trim());
@@ -698,7 +806,16 @@ export function pagePathFromSegments(segments) {
  * @returns {string|null}
  */
 export function assetPathFromSegments(segments) {
-  const parts = Array.isArray(segments) ? segments : typeof segments === 'string' ? [segments] : [];
+  let parts;
+
+  if (Array.isArray(segments)) {
+    parts = segments;
+  } else if (typeof segments === 'string') {
+    parts = [segments];
+  } else {
+    parts = [];
+  }
+
   if (parts.length === 0) return null;
 
   const clean = parts.map((part) => String(part).trim());

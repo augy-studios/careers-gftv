@@ -35,7 +35,7 @@
 //   cheaper in exactly the way that matters: forcing a reset does not give
 //   anybody a password, so the audit log can still say the applicant chose it.
 
-import { supabase, T } from './supabase.js';
+import { supabase, TABLES } from './supabase.js';
 import { hashSecret } from './password.js';
 import { invalidateAllSessions, revokeAllTrustedDevices } from './session.js';
 import { removeAllAvatarObjects } from './avatars.js';
@@ -57,7 +57,7 @@ export const PAGE_SIZE = 25;
  * @param {{ term?: string, active?: boolean|null, rangeFrom?: number, rangeTo?: number }} options
  */
 export async function listApplicants(options = {}) {
-  let query = supabase.from(T.users).select(ACCOUNT_COLUMNS, { count: 'exact' });
+  let query = supabase.from(TABLES.users).select(ACCOUNT_COLUMNS, { count: 'exact' });
 
   const term = String(options.term ?? '').trim();
   if (term) {
@@ -111,7 +111,7 @@ function accountRow(row) {
  */
 export async function fetchApplicant(applicantId) {
   const { data, error } = await supabase
-    .from(T.users)
+    .from(TABLES.users)
     .select(ACCOUNT_COLUMNS)
     .eq('id', applicantId)
     .maybeSingle();
@@ -139,12 +139,16 @@ export async function fetchApplicant(applicantId) {
   };
 }
 
+/**
+ * Every application this applicant has made, newest first, with the posting
+ * each one is for.
+ */
 async function applicationHistory(applicantId) {
   const { data, error } = await supabase
-    .from(T.applications)
+    .from(TABLES.applications)
     .select(
       `id, status, started_at, applied_at, cooldown_until, updated_at,
-       job:${T.jobs} ( id, title )`
+       job:${TABLES.jobs} ( id, title )`
     )
     .eq('applicant_id', applicantId)
     .order('updated_at', { ascending: false })
@@ -152,41 +156,61 @@ async function applicationHistory(applicantId) {
 
   if (error) throw error;
 
-  return (data ?? []).map((row) => ({
-    id: row.id,
-    status: row.status,
-    started_at: row.started_at,
-    applied_at: row.applied_at,
-    cooldown_until: row.cooldown_until,
-    updated_at: row.updated_at,
-    job: row.job ? { id: row.job.id, title: row.job.title } : null,
-  }));
+  return (data ?? []).map((row) => {
+    let job;
+
+    if (row.job) {
+      job = { id: row.job.id, title: row.job.title };
+    } else {
+      job = null;
+    }
+
+    return {
+      id: row.id,
+      status: row.status,
+      started_at: row.started_at,
+      applied_at: row.applied_at,
+      cooldown_until: row.cooldown_until,
+      updated_at: row.updated_at,
+      job: job,
+    };
+  });
 }
 
 /** 8.5: "the applicant list shows what each person has been invited to". */
 async function inviteHistory(applicantId) {
   const { data, error } = await supabase
-    .from(T.invites)
-    .select(`id, status, note, created_at, notified_at, job:${T.jobs} ( id, title )`)
+    .from(TABLES.invites)
+    .select(`id, status, note, created_at, notified_at, job:${TABLES.jobs} ( id, title )`)
     .eq('applicant_id', applicantId)
     .order('created_at', { ascending: false })
     .limit(50);
 
   if (error) throw error;
 
-  return (data ?? []).map((row) => ({
-    id: row.id,
-    status: row.status,
-    note: row.note,
-    created_at: row.created_at,
-    notified_at: row.notified_at,
-    job: row.job ? { id: row.job.id, title: row.job.title } : null,
-  }));
+  return (data ?? []).map((row) => {
+    let job;
+
+    if (row.job) {
+      job = { id: row.job.id, title: row.job.title };
+    } else {
+      job = null;
+    }
+
+    return {
+      id: row.id,
+      status: row.status,
+      note: row.note,
+      created_at: row.created_at,
+      notified_at: row.notified_at,
+      job: job,
+    };
+  });
 }
 
 async function openTaskCount(applicantId) {
   const { count, error } = await supabase
-    .from(T.tasks)
+    .from(TABLES.tasks)
     .select('id', { count: 'exact', head: true })
     .eq('applicant_id', applicantId)
     .in('status', ['open', 'awaiting_admin']);
@@ -195,11 +219,15 @@ async function openTaskCount(applicantId) {
   return count ?? 0;
 }
 
+/**
+ * Whether this applicant has linked a Telegram account, when, and whether it is
+ * also their second factor. Null when there is no link.
+ */
 async function telegramLink(applicantId) {
   // applicant_id and linked_at, per migration 011. Not user_id and created_at,
   // which is what every other table in this build calls them.
   const { data, error } = await supabase
-    .from(T.telegramLinks)
+    .from(TABLES.telegramLinks)
     .select('id, telegram_user_id, telegram_username, linked_at')
     .eq('applicant_id', applicantId)
     .maybeSingle();
@@ -211,20 +239,30 @@ async function telegramLink(applicantId) {
     return null;
   }
 
-  return data
-    ? {
-        id: data.id,
-        // **The numeric id as a string.** Telegram ids are past 2^53 for newer
-        // accounts, so a number would be rounded on the way to the browser and
-        // the page would show an id that is nearly right, which is worse than
-        // showing none. Added 31 August 2026 with the editable details: an admin
-        // verifying somebody out of band needs the id, because a @username is
-        // changed by its owner whenever they like and this is not.
-        user_id: data.telegram_user_id == null ? null : String(data.telegram_user_id),
-        username: data.telegram_username ?? null,
-        linked_at: data.linked_at,
-      }
-    : null;
+  if (data) {
+    let userId;
+
+    if (data.telegram_user_id == null) {
+      userId = null;
+    } else {
+      userId = String(data.telegram_user_id);
+    }
+
+    return {
+      id: data.id,
+      // **The numeric id as a string.** Telegram ids are past 2^53 for newer
+      // accounts, so a number would be rounded on the way to the browser and
+      // the page would show an id that is nearly right, which is worse than
+      // showing none. Added 31 August 2026 with the editable details: an admin
+      // verifying somebody out of band needs the id, because a @username is
+      // changed by its owner whenever they like and this is not.
+      user_id: userId,
+      username: data.telegram_username ?? null,
+      linked_at: data.linked_at,
+    };
+  } else {
+    return null;
+  }
 }
 
 /**
@@ -237,7 +275,7 @@ async function telegramLink(applicantId) {
  */
 async function accountActivity(applicantId) {
   const { data, error } = await supabase
-    .from(T.auditLog)
+    .from(TABLES.auditLog)
     .select('id, action, actor_realm, actor_label, reason, metadata, created_at')
     .or(`actor_id.eq.${applicantId},target_id.eq.${applicantId}`)
     .order('created_at', { ascending: false })
@@ -273,7 +311,7 @@ async function accountActivity(applicantId) {
  */
 export async function setApplicantActive(applicantId, active) {
   const { data, error } = await supabase
-    .from(T.users)
+    .from(TABLES.users)
     .update({ is_active: active })
     .eq('id', applicantId)
     .select('id, username, is_active')
@@ -293,7 +331,7 @@ export async function setApplicantActive(applicantId, active) {
  */
 export async function setApplicantPassword(applicantId, password) {
   const { error } = await supabase
-    .from(T.users)
+    .from(TABLES.users)
     .update({
       password_hash: await hashSecret(password),
       // 8.9's assisted path and this one, together: an admin who sets a
@@ -318,7 +356,7 @@ export async function setApplicantPassword(applicantId, password) {
  */
 export async function forcePasswordReset(applicantId) {
   const { error } = await supabase
-    .from(T.users)
+    .from(TABLES.users)
     .update({ must_change_password: true })
     .eq('id', applicantId);
 
@@ -366,7 +404,7 @@ export async function updateApplicantDetails(applicantId, values) {
   const revoked = IDENTIFIERS.some((field) => field in values);
 
   const { data, error } = await supabase
-    .from(T.users)
+    .from(TABLES.users)
     .update(values)
     .eq('id', applicantId)
     .select(ACCOUNT_COLUMNS)
@@ -379,12 +417,23 @@ export async function updateApplicantDetails(applicantId, values) {
   // order is the one setApplicantPassword already uses.
   if (revoked) await revokeEverything(applicantId);
 
-  return { account: data ? accountRow(data) : null, revoked };
+  let account;
+
+  if (data) {
+    account = accountRow(data);
+  } else {
+    account = null;
+  }
+
+  return { account: account, revoked };
 }
 
 /** Unlink Telegram, per 8.9. Phase 11 is what makes there be anything to unlink. */
 export async function unlinkTelegram(applicantId) {
-  const { error } = await supabase.from(T.telegramLinks).delete().eq('applicant_id', applicantId);
+  const { error } = await supabase
+    .from(TABLES.telegramLinks)
+    .delete()
+    .eq('applicant_id', applicantId);
   if (error) throw error;
 
   await revokeEverything(applicantId);
@@ -420,6 +469,6 @@ async function revokeEverything(applicantId) {
 export async function deleteApplicant(applicantId) {
   await removeAllAvatarObjects(applicantId);
 
-  const { error } = await supabase.from(T.users).delete().eq('id', applicantId);
+  const { error } = await supabase.from(TABLES.users).delete().eq('id', applicantId);
   if (error) throw error;
 }

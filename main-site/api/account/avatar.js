@@ -20,17 +20,12 @@
 // effect is worth having on purpose: phone photos carry GPS coordinates, and an
 // avatar should not publish where somebody lives.
 
-import { ok, fail, ERR, methodNotAllowed, failInternal } from '../_lib/respond.js';
-import { supabase, T } from '../_lib/supabase.js';
+import { ok, fail, ERROR_CODES, methodNotAllowed, failInternal } from '../_lib/respond.js';
+import { supabase, TABLES } from '../_lib/supabase.js';
 import { requireApplicant, publicApplicant } from '../_lib/session.js';
 import { randomToken } from '../_lib/tokens.js';
 import { AUDIT, auditApplicant } from '../_lib/audit.js';
-import {
-  AVATAR_MAX_BYTES,
-  isWebp,
-  removeAvatarObject,
-  storeAvatar,
-} from '../_lib/avatars.js';
+import { AVATAR_MAXIMUM_BYTES, isWebp, removeAvatarObject, storeAvatar } from '../_lib/avatars.js';
 import {
   LIMITS,
   limited,
@@ -40,37 +35,41 @@ import {
 } from '../_lib/rate-limit.js';
 import { unavailable } from '../_lib/maintenance.js';
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['POST', 'DELETE'])) return;
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['POST', 'DELETE'])) return;
 
   // 8.12's shared guard. Off means off, including the API: a disabled
   // control stops nobody with a stale tab or a phase 10 queued action.
-  if (await unavailable(res, 'account_settings')) return;
+  if (await unavailable(response, 'account_settings')) return;
 
-  const session = await requireApplicant(req, res);
+  const session = await requireApplicant(request, response);
   if (!session) return;
 
-  const subjects = [subjectForUser('applicant', session.user.id), subjectForIp(req)];
-  if (await limited(res, 'avatar', subjects)) return;
+  const subjects = [subjectForUser('applicant', session.user.id), subjectForIp(request)];
+  if (await limited(response, 'avatar', subjects)) return;
 
   try {
-    if (req.method === 'DELETE') return remove(res, session);
-    return upload(req, res, session, subjects);
+    if (request.method === 'DELETE') return remove(response, session);
+    return upload(request, response, session, subjects);
   } catch (cause) {
-    return failInternal(res, cause, 'avatar');
+    return failInternal(response, cause, 'avatar');
   }
 }
 
-async function upload(req, res, session, subjects) {
-  const buffer = await readImage(req, res);
+/**
+ * Store a new profile picture for the signed in applicant, replacing the old one
+ * only after the new one is saved.
+ */
+async function upload(request, response, session, subjects) {
+  const buffer = await readImage(request, response);
   if (buffer === null) return;
 
   if (buffer.length === 0) {
-    return fail(res, ERR.BAD_REQUEST, 'That request carried no image.');
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That request carried no image.');
   }
 
   if (!isWebp(buffer)) {
-    return fail(res, ERR.BAD_REQUEST, 'That file is not a WebP image.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That file is not a WebP image.', {
       details: { avatar: 'invalid' },
     });
   }
@@ -88,21 +87,21 @@ async function upload(req, res, session, subjects) {
     session.user,
     AUDIT.AVATAR_SET,
     { bytes: buffer.length },
-    { targetTable: T.users, targetId: session.user.id }
+    { targetTable: TABLES.users, targetId: session.user.id }
   );
 
-  return ok(res, { user: publicApplicant({ ...session.user, avatar_url: url }) });
+  return ok(response, { user: publicApplicant({ ...session.user, avatar_url: url }) });
 }
 
-async function remove(res, session) {
+async function remove(response, session) {
   const previous = session.user.avatar_url ?? null;
 
   const { error } = await supabase
-    .from(T.users)
+    .from(TABLES.users)
     .update({ avatar_url: null })
     .eq('id', session.user.id);
 
-  if (error) return failInternal(res, error, 'avatar remove');
+  if (error) return failInternal(response, error, 'avatar remove');
 
   // After the column is cleared, for the same reason storeAvatar deletes after
   // it writes: an object removed before the column would leave a broken image
@@ -113,10 +112,10 @@ async function remove(res, session) {
     session.user,
     AUDIT.AVATAR_REMOVED,
     {},
-    { targetTable: T.users, targetId: session.user.id }
+    { targetTable: TABLES.users, targetId: session.user.id }
   );
 
-  return ok(res, { user: publicApplicant({ ...session.user, avatar_url: null }) });
+  return ok(response, { user: publicApplicant({ ...session.user, avatar_url: null }) });
 }
 
 /**
@@ -126,15 +125,15 @@ async function remove(res, session) {
  * Answers the request itself and returns null when it refuses, matching
  * readJson's contract so the caller reads the same way.
  */
-async function readImage(req, res) {
+async function readImage(request, response) {
   const chunks = [];
   let size = 0;
 
   try {
-    for await (const chunk of req) {
+    for await (const chunk of request) {
       size += chunk.length;
-      if (size > AVATAR_MAX_BYTES) {
-        fail(res, ERR.PAYLOAD_TOO_LARGE, 'That image is too large.', {
+      if (size > AVATAR_MAXIMUM_BYTES) {
+        fail(response, ERROR_CODES.PAYLOAD_TOO_LARGE, 'That image is too large.', {
           details: { avatar: 'too_long' },
         });
         return null;
@@ -142,7 +141,7 @@ async function readImage(req, res) {
       chunks.push(chunk);
     }
   } catch (cause) {
-    failInternal(res, cause, 'avatar body');
+    failInternal(response, cause, 'avatar body');
     return null;
   }
 

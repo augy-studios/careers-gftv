@@ -16,24 +16,19 @@
 // lowercase comparison afterwards is what makes the answer exact. Nothing is
 // interpolated into SQL; PostgREST parameterises the value.
 
-import { supabase, T } from './supabase.js';
+import { supabase, TABLES } from './supabase.js';
 import { randomRecoveryCode } from './tokens.js';
-import {
-  hashCodeSet,
-  findMatchingCode,
-  verifySecret,
-  verifyAgainstNothing,
-} from './password.js';
+import { hashCodeSet, findMatchingCode, verifySecret, verifyAgainstNothing } from './password.js';
 
 /** Columns a login needs. The password hash is only ever read here. */
-const APPLICANT_AUTH_COLUMNS =
+const APPLICANT_AUTHENTICATION_COLUMNS =
   'id, username, display_name, email, password_hash, avatar_url, phone, locale, totp_secret, is_active, must_change_password, created_at';
 
-const STAFF_AUTH_COLUMNS =
+const STAFF_AUTHENTICATION_COLUMNS =
   'id, username, password_hash, is_approved, is_admin, is_editor, totp_secret';
 
-function sameText(a, b) {
-  return String(a ?? '').toLowerCase() === String(b ?? '').toLowerCase();
+function sameText(first, second) {
+  return String(first ?? '').toLowerCase() === String(second ?? '').toLowerCase();
 }
 
 /**
@@ -43,8 +38,8 @@ function sameText(a, b) {
  */
 export async function findApplicantByUsername(username) {
   const { data, error } = await supabase
-    .from(T.users)
-    .select(APPLICANT_AUTH_COLUMNS)
+    .from(TABLES.users)
+    .select(APPLICANT_AUTHENTICATION_COLUMNS)
     .ilike('username', String(username ?? ''))
     .limit(20);
 
@@ -63,8 +58,8 @@ export async function findApplicantByUsername(username) {
  */
 export async function findApplicantByEmail(email) {
   const { data, error } = await supabase
-    .from(T.users)
-    .select(APPLICANT_AUTH_COLUMNS)
+    .from(TABLES.users)
+    .select(APPLICANT_AUTHENTICATION_COLUMNS)
     .ilike('email', String(email ?? ''))
     .limit(20);
 
@@ -103,8 +98,8 @@ export async function findApplicantByIdentifier(identifier) {
  */
 export async function findStaffByUsername(username) {
   const { data, error } = await supabase
-    .from(T.staffUsers)
-    .select(STAFF_AUTH_COLUMNS)
+    .from(TABLES.staffUsers)
+    .select(STAFF_AUTHENTICATION_COLUMNS)
     .ilike('username', String(username ?? ''))
     .limit(20);
 
@@ -160,7 +155,13 @@ export async function isEmailTaken(email, exceptId = null) {
  * @returns {Promise<boolean>}
  */
 export async function verifyRealmPassword(realm, userId, password) {
-  const table = realm === 'staff' ? T.staffUsers : T.users;
+  let table;
+
+  if (realm === 'staff') {
+    table = TABLES.staffUsers;
+  } else {
+    table = TABLES.users;
+  }
 
   const { data, error } = await supabase
     .from(table)
@@ -235,12 +236,12 @@ export function uniqueViolationDetails(error) {
  */
 export const CODE_SET = Object.freeze({
   applicant: Object.freeze({
-    recovery: Object.freeze({ table: T.recoveryCodes, column: 'user_id' }),
-    backup: Object.freeze({ table: T.backupCodes, column: 'user_id' }),
+    recovery: Object.freeze({ table: TABLES.recoveryCodes, column: 'user_id' }),
+    backup: Object.freeze({ table: TABLES.backupCodes, column: 'user_id' }),
   }),
   staff: Object.freeze({
-    recovery: Object.freeze({ table: T.staffRecoveryCodes, column: 'staff_user_id' }),
-    backup: Object.freeze({ table: T.staffBackupCodes, column: 'user_id' }),
+    recovery: Object.freeze({ table: TABLES.staffRecoveryCodes, column: 'staff_user_id' }),
+    backup: Object.freeze({ table: TABLES.staffBackupCodes, column: 'user_id' }),
   }),
 });
 
@@ -373,10 +374,7 @@ export async function codeCounts(realm, userId) {
 export async function verifyCode(realm, userId, which, typed) {
   const { table, column } = setFor(realm, which);
 
-  const { data, error } = await supabase
-    .from(table)
-    .select('id, code_hash')
-    .eq(column, userId);
+  const { data, error } = await supabase.from(table).select('id, code_hash').eq(column, userId);
 
   if (error) {
     console.error('[careers-gftv] verifyCode:', error);
@@ -427,10 +425,7 @@ export async function deleteCode(realm, which, codeId) {
 export async function consumeCode(realm, userId, which, typed) {
   const { table, column } = setFor(realm, which);
 
-  const { data, error } = await supabase
-    .from(table)
-    .select('id, code_hash')
-    .eq(column, userId);
+  const { data, error } = await supabase.from(table).select('id, code_hash').eq(column, userId);
 
   if (error) {
     console.error('[careers-gftv] consumeCode read:', error);

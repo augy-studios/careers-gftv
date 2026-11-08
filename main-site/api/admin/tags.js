@@ -21,33 +21,47 @@
 //   the join rows rather than reading usage_count for exactly that reason, and
 //   the orphan view says which of the two it is showing.
 
-import { ok, fail, ERR, methodNotAllowed, failInternal, readJson } from '../_lib/respond.js';
-import { supabase, T } from '../_lib/supabase.js';
+import {
+  ok,
+  fail,
+  ERROR_CODES,
+  methodNotAllowed,
+  failInternal,
+  readJson,
+} from '../_lib/respond.js';
+import { supabase, TABLES } from '../_lib/supabase.js';
 import { requireStaff } from '../_lib/session.js';
 import { AUDIT, auditStaff } from '../_lib/audit.js';
 import { FIELD, validateText } from '../_lib/validate.js';
-import { isUuid, params, slugify, freeSlug, activeLocales, defaultLocale } from '../_lib/admin.js';
+import {
+  isUuid,
+  parameters,
+  slugify,
+  freeSlug,
+  activeLocales,
+  defaultLocale,
+} from '../_lib/admin.js';
 import { LIMITS, limited, recordFailures, subjectForUser } from '../_lib/rate-limit.js';
 
-const NAME_MAX = 60;
-const DESCRIPTION_MAX = 300;
+const NAME_MAXIMUM = 60;
+const DESCRIPTION_MAXIMUM = 300;
 
 /** A hex colour, which is the only shape the pill styling can use. */
 const COLOUR = /^#[0-9a-fA-F]{6}$/;
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'HEAD', 'POST'])) return;
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'HEAD', 'POST'])) return;
 
-  const session = await requireStaff(req, res);
+  const session = await requireStaff(request, response);
   if (!session) return;
 
-  res.setHeader('Cache-Control', 'no-store');
+  response.setHeader('Cache-Control', 'no-store');
 
   try {
-    if (req.method === 'POST') return await write(req, res, session);
-    return await read(req, res);
+    if (request.method === 'POST') return await write(request, response, session);
+    return await read(request, response);
   } catch (cause) {
-    return failInternal(res, cause, 'admin tags');
+    return failInternal(response, cause, 'admin tags');
   }
 }
 
@@ -55,28 +69,28 @@ export default async function handler(req, res) {
  * Reading
  * ---------------------------------------------------------------------- */
 
-async function read(req, res) {
-  const search = params(req);
-  const q = (search.get('q') ?? '').trim().slice(0, 60);
+async function read(request, response) {
+  const search = parameters(request);
+  const searchTerm = (search.get('q') ?? '').trim().slice(0, 60);
 
   let query = supabase
-    .from(T.tags)
+    .from(TABLES.tags)
     .select('id, name, slug, colour, description, usage_count, created_at')
     .order('usage_count', { ascending: false })
     .order('name', { ascending: true })
     .limit(500);
 
-  if (q) {
+  if (searchTerm) {
     // Substring rather than trigram. The trigram index in 004 is what makes the
     // *public* type-ahead forgiving of a typo; an admin looking for a tag they
     // wrote knows what it is called.
-    query = query.ilike('name', `%${q.replace(/[,()%]/g, ' ')}%`);
+    query = query.ilike('name', `%${searchTerm.replace(/[,()%]/g, ' ')}%`);
   }
 
   const [tags, links, translations, locales] = await Promise.all([
     query,
-    supabase.from(T.jobTags).select('tag_id'),
-    supabase.from(T.tagTranslations).select('tag_id, locale, name, description'),
+    supabase.from(TABLES.jobTags).select('tag_id'),
+    supabase.from(TABLES.tagTranslations).select('tag_id, locale, name, description'),
     activeLocales(),
   ]);
 
@@ -118,7 +132,7 @@ async function read(req, res) {
     rows = rows.filter((row) => row.job_count === 0);
   }
 
-  return ok(res, { tags: rows, locales });
+  return ok(response, { tags: rows, locales });
 }
 
 /* -------------------------------------------------------------------------
@@ -127,28 +141,28 @@ async function read(req, res) {
 
 const ACTIONS = ['save', 'delete', 'merge'];
 
-async function write(req, res, session) {
-  const body = await readJson(req, res);
+async function write(request, response, session) {
+  const body = await readJson(request, response);
   if (body === null) return;
 
   const action = String(body.action ?? '').trim();
   if (!ACTIONS.includes(action)) {
-    return fail(res, ERR.BAD_REQUEST, 'That is not something this endpoint does.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not something this endpoint does.', {
       details: { action: FIELD.INVALID },
     });
   }
 
   const subjects = [subjectForUser('staff', session.user.id)];
-  if (await limited(res, 'admin', subjects)) return;
+  if (await limited(response, 'admin', subjects)) return;
   const done = () => recordFailures('admin', subjects, LIMITS.admin);
 
   switch (action) {
     case 'save':
-      return save(res, body, done);
+      return save(response, body, done);
     case 'delete':
-      return remove(res, session, body, done);
+      return remove(response, session, body, done);
     default:
-      return merge(res, session, body, done);
+      return merge(response, session, body, done);
   }
 }
 
@@ -159,16 +173,23 @@ async function write(req, res, session) {
  * tag slug appears in a shared /search?tags= URL, per section 4, and renaming
  * "OBS" to "OBS Studio" must not break a link somebody posted in Discord.
  */
-async function save(res, body, done) {
-  const id = body.id ? String(body.id) : null;
-  if (id && !isUuid(id)) return fail(res, ERR.BAD_REQUEST, 'That is not a tag id.');
+async function save(response, body, done) {
+  let id;
+
+  if (body.id) {
+    id = String(body.id);
+  } else {
+    id = null;
+  }
+
+  if (id && !isUuid(id)) return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not a tag id.');
 
   const details = {};
 
-  const name = validateText(body.name, NAME_MAX, { required: true });
+  const name = validateText(body.name, NAME_MAXIMUM, { required: true });
   if (!name.ok) details.name = name.code;
 
-  const description = validateText(body.description, DESCRIPTION_MAX);
+  const description = validateText(body.description, DESCRIPTION_MAXIMUM);
   if (!description.ok) details.description = description.code;
 
   let colour = null;
@@ -190,8 +211,8 @@ async function save(res, body, done) {
       continue;
     }
 
-    const translatedName = validateText(value?.name, NAME_MAX);
-    const translatedDescription = validateText(value?.description, DESCRIPTION_MAX);
+    const translatedName = validateText(value?.name, NAME_MAXIMUM);
+    const translatedDescription = validateText(value?.description, DESCRIPTION_MAXIMUM);
 
     if (!translatedName.ok) details[`${locale}.name`] = translatedName.code;
     if (!translatedDescription.ok) details[`${locale}.description`] = translatedDescription.code;
@@ -205,19 +226,28 @@ async function save(res, body, done) {
   }
 
   if (Object.keys(details).length > 0) {
-    return fail(res, ERR.BAD_REQUEST, 'That tag could not be saved.', { details });
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That tag could not be saved.', { details });
   }
 
   const row = { name: name.value, description: description.value, colour };
-  if (!id) row.slug = await freeSlug(T.tags, slugify(name.value) || 'tag');
+  if (!id) row.slug = await freeSlug(TABLES.tags, slugify(name.value) || 'tag');
 
-  const saved = id
-    ? await supabase.from(T.tags).update(row).eq('id', id).select('id, name, slug, colour').single()
-    : await supabase.from(T.tags).insert(row).select('id, name, slug, colour').single();
+  let saved;
+
+  if (id) {
+    saved = await supabase
+      .from(TABLES.tags)
+      .update(row)
+      .eq('id', id)
+      .select('id, name, slug, colour')
+      .single();
+  } else {
+    saved = await supabase.from(TABLES.tags).insert(row).select('id, name, slug, colour').single();
+  }
 
   if (saved.error) {
     if (saved.error.code === '23505') {
-      return fail(res, ERR.CONFLICT, 'There is already a tag with that name.', {
+      return fail(response, ERROR_CODES.CONFLICT, 'There is already a tag with that name.', {
         details: { name: FIELD.TAKEN },
       });
     }
@@ -227,9 +257,21 @@ async function save(res, body, done) {
   await writeTagTranslations(saved.data.id, translations, locales);
 
   await done();
-  return ok(res, { tag: saved.data }, { status: id ? 200 : 201 });
+  let status;
+
+  if (id) {
+    status = 200;
+  } else {
+    status = 201;
+  }
+
+  return ok(response, { tag: saved.data }, { status: status });
 }
 
+/**
+ * Save a tag's name in each language given. Languages left empty are removed so
+ * they fall back to the default language.
+ */
 async function writeTagTranslations(tagId, translations, locales) {
   const rows = [];
   const blanked = [];
@@ -252,14 +294,14 @@ async function writeTagTranslations(tagId, translations, locales) {
 
   if (rows.length > 0) {
     const { error } = await supabase
-      .from(T.tagTranslations)
+      .from(TABLES.tagTranslations)
       .upsert(rows, { onConflict: 'tag_id,locale' });
     if (error) throw error;
   }
 
   if (blanked.length > 0) {
     const { error } = await supabase
-      .from(T.tagTranslations)
+      .from(TABLES.tagTranslations)
       .delete()
       .eq('tag_id', tagId)
       .in('locale', blanked);
@@ -275,21 +317,21 @@ async function writeTagTranslations(tagId, translations, locales) {
  * the publish rule if it is ever unpublished and republished, which is worth an
  * admin knowing before rather than after.
  */
-async function remove(res, session, body, done) {
+async function remove(response, session, body, done) {
   const id = String(body.id ?? '');
-  if (!isUuid(id)) return fail(res, ERR.BAD_REQUEST, 'That is not a tag id.');
+  if (!isUuid(id)) return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not a tag id.');
 
   const { data: tag, error: readError } = await supabase
-    .from(T.tags)
+    .from(TABLES.tags)
     .select('id, name, slug')
     .eq('id', id)
     .maybeSingle();
 
   if (readError) throw readError;
-  if (!tag) return fail(res, ERR.NOT_FOUND, 'That tag could not be found.');
+  if (!tag) return fail(response, ERROR_CODES.NOT_FOUND, 'That tag could not be found.');
 
   const { count, error: countError } = await supabase
-    .from(T.jobTags)
+    .from(TABLES.jobTags)
     .select('job_id', { count: 'exact', head: true })
     .eq('tag_id', id);
 
@@ -297,7 +339,7 @@ async function remove(res, session, body, done) {
   const affected = count ?? 0;
 
   if (Number(body.confirm_count) !== affected) {
-    return fail(res, ERR.CONFLICT, 'Confirm what this affects before deleting it.', {
+    return fail(response, ERROR_CODES.CONFLICT, 'Confirm what this affects before deleting it.', {
       details: { confirm_count: FIELD.MISMATCH, job_count: affected },
     });
   }
@@ -306,14 +348,14 @@ async function remove(res, session, body, done) {
     session.user,
     AUDIT.TAG_DELETED,
     { name: tag.name, slug: tag.slug, jobs_affected: affected },
-    { targetTable: T.tags, targetId: id }
+    { targetTable: TABLES.tags, targetId: id }
   );
 
-  const { error } = await supabase.from(T.tags).delete().eq('id', id);
+  const { error } = await supabase.from(TABLES.tags).delete().eq('id', id);
   if (error) throw error;
 
   await done();
-  return ok(res, { id, deleted: true, jobs_affected: affected });
+  return ok(response, { id, deleted: true, jobs_affected: affected });
 }
 
 /**
@@ -330,21 +372,21 @@ async function remove(res, session, body, done) {
  * merge is a decision that the target is the right wording and importing the
  * source's Chinese would undo exactly that decision.
  */
-async function merge(res, session, body, done) {
+async function merge(response, session, body, done) {
   const sourceId = String(body.source_id ?? '');
   const targetId = String(body.target_id ?? '');
 
   if (!isUuid(sourceId) || !isUuid(targetId)) {
-    return fail(res, ERR.BAD_REQUEST, 'Those are not tag ids.');
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'Those are not tag ids.');
   }
   if (sourceId === targetId) {
-    return fail(res, ERR.BAD_REQUEST, 'A tag cannot be merged into itself.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'A tag cannot be merged into itself.', {
       details: { target_id: FIELD.INVALID },
     });
   }
 
   const { data: tags, error: readError } = await supabase
-    .from(T.tags)
+    .from(TABLES.tags)
     .select('id, name, slug')
     .in('id', [sourceId, targetId]);
 
@@ -352,11 +394,12 @@ async function merge(res, session, body, done) {
 
   const source = (tags ?? []).find((tag) => tag.id === sourceId);
   const target = (tags ?? []).find((tag) => tag.id === targetId);
-  if (!source || !target) return fail(res, ERR.NOT_FOUND, 'One of those tags could not be found.');
+  if (!source || !target)
+    return fail(response, ERROR_CODES.NOT_FOUND, 'One of those tags could not be found.');
 
   const [sourceLinks, targetLinks] = await Promise.all([
-    supabase.from(T.jobTags).select('job_id').eq('tag_id', sourceId),
-    supabase.from(T.jobTags).select('job_id').eq('tag_id', targetId),
+    supabase.from(TABLES.jobTags).select('job_id').eq('tag_id', sourceId),
+    supabase.from(TABLES.jobTags).select('job_id').eq('tag_id', targetId),
   ]);
 
   if (sourceLinks.error) throw sourceLinks.error;
@@ -369,7 +412,7 @@ async function merge(res, session, body, done) {
 
   if (toAdd.length > 0) {
     const { error } = await supabase
-      .from(T.jobTags)
+      .from(TABLES.jobTags)
       .insert(toAdd.map((jobId) => ({ job_id: jobId, tag_id: targetId })));
     if (error) throw error;
   }
@@ -383,14 +426,14 @@ async function merge(res, session, body, done) {
       moved: toAdd.length,
       already_had: (sourceLinks.data ?? []).length - toAdd.length,
     },
-    { targetTable: T.tags, targetId }
+    { targetTable: TABLES.tags, targetId }
   );
 
   // The source's own join rows go with it, per the cascade in 005, and the
   // triggers in 007 correct both usage counts.
-  const { error } = await supabase.from(T.tags).delete().eq('id', sourceId);
+  const { error } = await supabase.from(TABLES.tags).delete().eq('id', sourceId);
   if (error) throw error;
 
   await done();
-  return ok(res, { merged: sourceId, into: targetId, moved: toAdd.length });
+  return ok(response, { merged: sourceId, into: targetId, moved: toAdd.length });
 }

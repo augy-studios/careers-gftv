@@ -29,17 +29,24 @@
 //   the default language, so a payload naming one is refused rather than
 //   written and rejected by a constraint.
 
-import { ok, fail, ERR, methodNotAllowed, failInternal, readJson } from '../_lib/respond.js';
-import { supabase, T } from '../_lib/supabase.js';
+import {
+  ok,
+  fail,
+  ERROR_CODES,
+  methodNotAllowed,
+  failInternal,
+  readJson,
+} from '../_lib/respond.js';
+import { supabase, TABLES } from '../_lib/supabase.js';
 import { requireStaff } from '../_lib/session.js';
 import { AUDIT, auditStaff } from '../_lib/audit.js';
 import { FIELD } from '../_lib/validate.js';
 import {
   isAdmin,
   isUuid,
-  params,
+  parameters,
   pageRange,
-  enumParam,
+  enumParameter,
   activeLocales,
   defaultLocale,
 } from '../_lib/admin.js';
@@ -67,19 +74,19 @@ import {
 } from '../_lib/rate-limit.js';
 import { verifyRealmPassword } from '../_lib/accounts.js';
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['GET', 'HEAD', 'POST'])) return;
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['GET', 'HEAD', 'POST'])) return;
 
-  const session = await requireStaff(req, res);
+  const session = await requireStaff(request, response);
   if (!session) return;
 
-  res.setHeader('Cache-Control', 'no-store');
+  response.setHeader('Cache-Control', 'no-store');
 
   try {
-    if (req.method === 'POST') return await write(req, res, session);
-    return await read(req, res);
+    if (request.method === 'POST') return await write(request, response, session);
+    return await read(request, response);
   } catch (cause) {
-    return failInternal(res, cause, 'admin jobs');
+    return failInternal(response, cause, 'admin jobs');
   }
 }
 
@@ -87,25 +94,25 @@ export default async function handler(req, res) {
  * Reading
  * ---------------------------------------------------------------------- */
 
-async function read(req, res) {
-  const search = params(req);
+async function read(request, response) {
+  const search = parameters(request);
   const id = search.get('id');
 
   if (id) {
-    if (!isUuid(id)) return fail(res, ERR.BAD_REQUEST, 'That is not a posting id.');
+    if (!isUuid(id)) return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not a posting id.');
 
     if (search.get('impact') === 'true') {
       // Counted from the database rather than described, per 8.2. Available to
       // any staff member who can see the posting, because the panel is also
       // what tells a job poster why the control they cannot see exists.
-      return ok(res, { id, impact: await deletionImpact(id) });
+      return ok(response, { id, impact: await deletionImpact(id) });
     }
 
     const job = await fetchAdminJob(id);
-    if (!job) return fail(res, ERR.NOT_FOUND, 'That posting could not be found.');
+    if (!job) return fail(response, ERROR_CODES.NOT_FOUND, 'That posting could not be found.');
 
     const tagCount = job.tags.length;
-    return ok(res, {
+    return ok(response, {
       job,
       locales: await activeLocales(),
       // Sent with the posting rather than worked out on the client, so the
@@ -114,20 +121,28 @@ async function read(req, res) {
     });
   }
 
-  const { from, to, page, size } = pageRange(search, { size: 25, max: 100 });
+  const { from, to: rangeEnd, page, size } = pageRange(search, { size: 25, max: 100 });
 
-  const q = (search.get('q') ?? '').trim().slice(0, 120) || null;
-  const status = enumParam(search, 'status', JOB_STATUSES);
-  const sort = enumParam(search, 'sort', JOB_SORTS);
+  const searchTerm = (search.get('q') ?? '').trim().slice(0, 120) || null;
+  const status = enumParameter(search, 'status', JOB_STATUSES);
+  const sort = enumParameter(search, 'sort', JOB_SORTS);
   const departmentId = search.get('dept');
 
+  let departmentIdValue;
+
+  if (isUuid(departmentId ?? '')) {
+    departmentIdValue = departmentId;
+  } else {
+    departmentIdValue = null;
+  }
+
   const { rows, total } = await listAdminJobs({
-    q,
+    q: searchTerm,
     status,
-    departmentId: isUuid(departmentId ?? '') ? departmentId : null,
+    departmentId: departmentIdValue,
     sort,
     from,
-    to,
+    to: rangeEnd,
   });
 
   const [departments, states, locales] = await Promise.all([
@@ -139,7 +154,7 @@ async function read(req, res) {
     activeLocales(),
   ]);
 
-  return ok(res, {
+  return ok(response, {
     jobs: rows.map((row) => adminJobRow(row, departments, states)),
     locales,
     total,
@@ -158,12 +173,14 @@ async function read(req, res) {
  */
 async function departmentMap() {
   const { data, error } = await supabase
-    .from(T.departments)
+    .from(TABLES.departments)
     .select('id, name, slug')
     .order('sort_order', { ascending: true });
 
   if (error) throw error;
-  return new Map((data ?? []).map((row) => [row.id, { id: row.id, name: row.name, slug: row.slug }]));
+  return new Map(
+    (data ?? []).map((row) => [row.id, { id: row.id, name: row.name, slug: row.slug }])
+  );
 }
 
 /* -------------------------------------------------------------------------
@@ -172,34 +189,45 @@ async function departmentMap() {
 
 const ACTIONS = ['create', 'update', 'status', 'duplicate', 'delete'];
 
-async function write(req, res, session) {
-  const body = await readJson(req, res, 256 * 1024);
+/**
+ * Change postings: create, update, publish or close, duplicate, delete, or save a
+ * translation. Each action checks its own fields before anything is written.
+ */
+async function write(request, response, session) {
+  const body = await readJson(request, response, 256 * 1024);
   if (body === null) return;
 
   const action = String(body.action ?? '').trim();
   if (!ACTIONS.includes(action)) {
-    return fail(res, ERR.BAD_REQUEST, 'That is not something this endpoint does.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not something this endpoint does.', {
       details: { action: FIELD.INVALID },
     });
   }
 
   const subjects = [subjectForUser('staff', session.user.id)];
-  const bucket = action === 'delete' ? 'adminDelete' : 'admin';
-  if (await limited(res, bucket, subjects)) return;
+  let bucket;
+
+  if (action === 'delete') {
+    bucket = 'adminDelete';
+  } else {
+    bucket = 'admin';
+  }
+
+  if (await limited(response, bucket, subjects)) return;
 
   const done = () => recordFailures(bucket, subjects, LIMITS[bucket]);
 
   switch (action) {
     case 'create':
-      return createJob(res, session, body, done);
+      return createJob(response, session, body, done);
     case 'update':
-      return updateJob(res, session, body, done);
+      return updateJob(response, session, body, done);
     case 'status':
-      return changeJobStatus(res, session, body, done);
+      return changeJobStatus(response, session, body, done);
     case 'duplicate':
-      return duplicateJob(res, session, body, done);
+      return duplicateJob(response, session, body, done);
     default:
-      return deleteJob(req, res, session, body, done);
+      return deleteJob(request, response, session, body, done);
   }
 }
 
@@ -248,10 +276,18 @@ async function checkPayload(body, currentFormUrl) {
     translations[locale] = checked.values;
   }
 
+  let detailsValue;
+
+  if (Object.keys(details).length > 0) {
+    detailsValue = details;
+  } else {
+    detailsValue = null;
+  }
+
   return {
     values: fields.values,
     translations,
-    details: Object.keys(details).length > 0 ? details : null,
+    details: detailsValue,
   };
 }
 
@@ -266,35 +302,39 @@ async function saveTranslations(jobId, translations) {
   if (rows.length === 0) return;
 
   const { error } = await supabase
-    .from(T.jobTranslations)
+    .from(TABLES.jobTranslations)
     .upsert(rows, { onConflict: 'job_id,locale' });
 
   if (error) throw error;
 }
 
-async function createJob(res, session, body, done) {
+/**
+ * Create a new posting. It always starts as a draft; publishing is a separate
+ * action with its own checks.
+ */
+async function createJob(response, session, body, done) {
   const checked = await checkPayload(body, null);
   if (checked.details) {
-    return fail(res, ERR.BAD_REQUEST, 'That posting could not be saved.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That posting could not be saved.', {
       details: checked.details,
     });
   }
 
   if (!checked.values.title) {
-    return fail(res, ERR.BAD_REQUEST, 'A posting needs a title.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'A posting needs a title.', {
       details: { title: FIELD.REQUIRED },
     });
   }
 
   const slug = await resolveSlug({ slug: body.job?.slug, title: checked.values.title });
   if (!slug.ok) {
-    return fail(res, ERR.CONFLICT, 'That web address is already in use.', {
+    return fail(response, ERROR_CODES.CONFLICT, 'That web address is already in use.', {
       details: { slug: slug.code },
     });
   }
 
   const { data, error } = await supabase
-    .from(T.jobs)
+    .from(TABLES.jobs)
     .insert({
       ...checked.values,
       slug: slug.value,
@@ -315,29 +355,33 @@ async function createJob(res, session, body, done) {
     session.user,
     AUDIT.JOB_CREATED,
     { title: data.title, slug: data.slug },
-    { targetTable: T.jobs, targetId: data.id }
+    { targetTable: TABLES.jobs, targetId: data.id }
   );
 
   await done();
-  return ok(res, { job: data }, { status: 201 });
+  return ok(response, { job: data }, { status: 201 });
 }
 
-async function updateJob(res, session, body, done) {
+/**
+ * Save the changes to an existing posting. Checks every field, keeps a published
+ * posting's form, and saves the posting's translations and tags with it.
+ */
+async function updateJob(response, session, body, done) {
   const id = String(body.id ?? '');
-  if (!isUuid(id)) return fail(res, ERR.BAD_REQUEST, 'That is not a posting id.');
+  if (!isUuid(id)) return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not a posting id.');
 
   const { data: current, error: readError } = await supabase
-    .from(T.jobs)
+    .from(TABLES.jobs)
     .select('id, status, slug, title, application_form_url')
     .eq('id', id)
     .maybeSingle();
 
   if (readError) throw readError;
-  if (!current) return fail(res, ERR.NOT_FOUND, 'That posting could not be found.');
+  if (!current) return fail(response, ERROR_CODES.NOT_FOUND, 'That posting could not be found.');
 
   const checked = await checkPayload(body, current.application_form_url);
   if (checked.details) {
-    return fail(res, ERR.BAD_REQUEST, 'That posting could not be saved.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That posting could not be saved.', {
       details: checked.details,
     });
   }
@@ -345,9 +389,12 @@ async function updateJob(res, session, body, done) {
   const patch = { ...checked.values };
 
   if (typeof body.job?.slug === 'string') {
-    const slug = await resolveSlug({ slug: body.job.slug, title: patch.title ?? current.title }, id);
+    const slug = await resolveSlug(
+      { slug: body.job.slug, title: patch.title ?? current.title },
+      id
+    );
     if (!slug.ok) {
-      return fail(res, ERR.CONFLICT, 'That web address is already in use.', {
+      return fail(response, ERROR_CODES.CONFLICT, 'That web address is already in use.', {
         details: { slug: slug.code },
       });
     }
@@ -356,14 +403,23 @@ async function updateJob(res, session, body, done) {
 
   // A published posting must keep its form, per migration 005's constraint.
   // Caught here so the answer is a field error rather than a database one.
-  if (current.status === 'published' && 'application_form_url' in patch && !patch.application_form_url) {
-    return fail(res, ERR.CONFLICT, 'A published posting has to keep its application form.', {
-      details: { application_form_url: FIELD.REQUIRED },
-    });
+  if (
+    current.status === 'published' &&
+    'application_form_url' in patch &&
+    !patch.application_form_url
+  ) {
+    return fail(
+      response,
+      ERROR_CODES.CONFLICT,
+      'A published posting has to keep its application form.',
+      {
+        details: { application_form_url: FIELD.REQUIRED },
+      }
+    );
   }
 
   if (Object.keys(patch).length > 0) {
-    const { error } = await supabase.from(T.jobs).update(patch).eq('id', id);
+    const { error } = await supabase.from(TABLES.jobs).update(patch).eq('id', id);
     if (error) throw error;
   }
 
@@ -376,7 +432,7 @@ async function updateJob(res, session, body, done) {
 
   await done();
   const job = await fetchAdminJob(id);
-  return ok(res, { job, publish_blockers: publishBlockers(job, job.tags.length) });
+  return ok(response, { job, publish_blockers: publishBlockers(job, job.tags.length) });
 }
 
 /**
@@ -385,24 +441,24 @@ async function updateJob(res, session, body, done) {
  * The four are one action because they are one column, and separating them
  * would put the publish checks in one file and the archive rules in another.
  */
-async function changeJobStatus(res, session, body, done) {
+async function changeJobStatus(response, session, body, done) {
   const id = String(body.id ?? '');
-  if (!isUuid(id)) return fail(res, ERR.BAD_REQUEST, 'That is not a posting id.');
+  if (!isUuid(id)) return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not a posting id.');
 
   const next = String(body.status ?? '');
   if (!JOB_STATUSES.includes(next)) {
-    return fail(res, ERR.BAD_REQUEST, 'That is not a status a posting can be in.', {
+    return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not a status a posting can be in.', {
       details: { status: FIELD.INVALID },
     });
   }
 
   const job = await fetchAdminJob(id);
-  if (!job) return fail(res, ERR.NOT_FOUND, 'That posting could not be found.');
+  if (!job) return fail(response, ERROR_CODES.NOT_FOUND, 'That posting could not be found.');
 
   if (next === 'published') {
     const blockers = publishBlockers(job, job.tags.length);
     if (blockers.length > 0) {
-      return fail(res, ERR.CONFLICT, 'That posting is not ready to publish.', {
+      return fail(response, ERROR_CODES.CONFLICT, 'That posting is not ready to publish.', {
         details: { blockers },
       });
     }
@@ -418,18 +474,18 @@ async function changeJobStatus(res, session, body, done) {
     patch.published_at = new Date().toISOString();
   }
 
-  const { error } = await supabase.from(T.jobs).update(patch).eq('id', id);
+  const { error } = await supabase.from(TABLES.jobs).update(patch).eq('id', id);
   if (error) throw error;
 
   await auditStaff(
     session.user,
     AUDIT.JOB_STATUS_CHANGED,
     { from: job.status, to: next, title: job.title },
-    { targetTable: T.jobs, targetId: id }
+    { targetTable: TABLES.jobs, targetId: id }
   );
 
   await done();
-  return ok(res, { id, status: next, published_at: patch.published_at ?? job.published_at });
+  return ok(response, { id, status: next, published_at: patch.published_at ?? job.published_at });
 }
 
 /**
@@ -445,12 +501,12 @@ async function changeJobStatus(res, session, body, done) {
  * and making somebody paste the form back in every time would be the sort of
  * friction that gets worked around by editing the original instead.
  */
-async function duplicateJob(res, session, body, done) {
+async function duplicateJob(response, session, body, done) {
   const id = String(body.id ?? '');
-  if (!isUuid(id)) return fail(res, ERR.BAD_REQUEST, 'That is not a posting id.');
+  if (!isUuid(id)) return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not a posting id.');
 
   const source = await fetchAdminJob(id);
-  if (!source) return fail(res, ERR.NOT_FOUND, 'That posting could not be found.');
+  if (!source) return fail(response, ERROR_CODES.NOT_FOUND, 'That posting could not be found.');
 
   const title = `${source.title} (copy)`;
   const slug = await resolveSlug({ title });
@@ -481,7 +537,11 @@ async function duplicateJob(res, session, body, done) {
     created_by: session.user.id,
   };
 
-  const { data, error } = await supabase.from(T.jobs).insert(copy).select('id, slug, title').single();
+  const { data, error } = await supabase
+    .from(TABLES.jobs)
+    .insert(copy)
+    .select('id, slug, title')
+    .single();
   if (error) throw error;
 
   const translations = {};
@@ -499,11 +559,11 @@ async function duplicateJob(res, session, body, done) {
     session.user,
     AUDIT.JOB_CREATED,
     { title: data.title, slug: data.slug, duplicated_from: id },
-    { targetTable: T.jobs, targetId: data.id }
+    { targetTable: TABLES.jobs, targetId: data.id }
   );
 
   await done();
-  return ok(res, { job: data }, { status: 201 });
+  return ok(response, { job: data }, { status: 201 });
 }
 
 /**
@@ -524,33 +584,33 @@ async function duplicateJob(res, session, body, done) {
  * 012: actor_id has no foreign key precisely so a record can outlive what it
  * describes, and the row here has to outlive the posting.
  */
-async function deleteJob(req, res, session, body, done) {
+async function deleteJob(request, response, session, body, done) {
   if (!isAdmin(session.user)) {
-    return fail(res, ERR.FORBIDDEN, 'Only an admin can permanently delete a posting.');
+    return fail(response, ERROR_CODES.FORBIDDEN, 'Only an admin can permanently delete a posting.');
   }
 
   const id = String(body.id ?? '');
-  if (!isUuid(id)) return fail(res, ERR.BAD_REQUEST, 'That is not a posting id.');
+  if (!isUuid(id)) return fail(response, ERROR_CODES.BAD_REQUEST, 'That is not a posting id.');
 
   const { data: job, error: readError } = await supabase
-    .from(T.jobs)
+    .from(TABLES.jobs)
     .select('id, slug, title, status')
     .eq('id', id)
     .maybeSingle();
 
   if (readError) throw readError;
-  if (!job) return fail(res, ERR.NOT_FOUND, 'That posting could not be found.');
+  if (!job) return fail(response, ERROR_CODES.NOT_FOUND, 'That posting could not be found.');
 
   // The danger bucket, not the admin one, and locked for an hour after four
   // wrong passwords: 7g's rule for the applicant's danger zone applies to a
   // staff session being guessed at just as much.
-  const dangerSubjects = [subjectForUser('staff', session.user.id), subjectForIp(req)];
-  if (await limited(res, 'danger', dangerSubjects)) return;
+  const dangerSubjects = [subjectForUser('staff', session.user.id), subjectForIp(request)];
+  if (await limited(response, 'danger', dangerSubjects)) return;
 
   const correct = await verifyRealmPassword('staff', session.user.id, body.password);
   if (!correct) {
     await recordFailures('danger', dangerSubjects, LIMITS.danger);
-    return fail(res, ERR.UNAUTHORISED, 'That password was not right.', {
+    return fail(response, ERROR_CODES.UNAUTHORISED, 'That password was not right.', {
       details: { password: FIELD.INVALID },
     });
   }
@@ -563,12 +623,12 @@ async function deleteJob(req, res, session, body, done) {
     session.user,
     AUDIT.JOB_DELETED,
     { title: job.title, slug: job.slug, status: job.status, impact },
-    { targetTable: T.jobs, targetId: id }
+    { targetTable: TABLES.jobs, targetId: id }
   );
 
-  const { error } = await supabase.from(T.jobs).delete().eq('id', id);
+  const { error } = await supabase.from(TABLES.jobs).delete().eq('id', id);
   if (error) throw error;
 
   await done();
-  return ok(res, { id, deleted: true, impact });
+  return ok(response, { id, deleted: true, impact });
 }

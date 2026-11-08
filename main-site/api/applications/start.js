@@ -31,7 +31,14 @@
 //   somebody was handed over. Only api/applications/respond.js and the phase 9
 //   webhook may say they applied.
 
-import { ok, fail, ERR, methodNotAllowed, failInternal, readJson } from '../_lib/respond.js';
+import {
+  ok,
+  fail,
+  ERROR_CODES,
+  methodNotAllowed,
+  failInternal,
+  readJson,
+} from '../_lib/respond.js';
 import { getApplicantSession } from '../_lib/session.js';
 import { requestLocale } from '../_lib/locales.js';
 import { isUuid } from '../_lib/job-detail.js';
@@ -55,18 +62,24 @@ import { raisePostingQuestions } from '../_lib/admin-tasks.js';
 import { markInviteApplied } from '../_lib/invites.js';
 import { unavailable } from '../_lib/maintenance.js';
 
-export default async function handler(req, res) {
-  if (methodNotAllowed(req, res, ['POST'])) return;
+/**
+ * Hand a signed in applicant over to a posting's application form. Checks that
+ * applications are open, the posting is open, and nothing (a cooldown, an earlier
+ * unanswered question) is in the way, then records the click and returns the form
+ * address with the applicant's details filled in.
+ */
+export default async function handler(request, response) {
+  if (methodNotAllowed(request, response, ['POST'])) return;
 
   // 8.12's shared guard, before anything else is read. Off means off, including
   // the API: a disabled Apply button stops nobody with a stale tab.
-  if (await unavailable(res, 'apply')) return;
+  if (await unavailable(response, 'apply')) return;
 
-  const session = await getApplicantSession(req);
+  const session = await getApplicantSession(request);
   if (!session) {
     return fail(
-      res,
-      ERR.UNAUTHORISED,
+      response,
+      ERROR_CODES.UNAUTHORISED,
       'Sign in to your applicant account to apply for this role.'
     );
   }
@@ -80,21 +93,26 @@ export default async function handler(req, res) {
   // bounded by the register bucket, which does limit per IP because the thing
   // it is guarding is different.
   const subjects = [subjectForUser('applicant', session.user.id)];
-  if (await limited(res, 'apply', subjects)) return;
+  if (await limited(response, 'apply', subjects)) return;
 
-  const body = await readJson(req, res);
+  const body = await readJson(request, response);
   if (body === null) return;
 
   const jobId = String(body.job_id ?? '').trim();
   if (!isUuid(jobId)) {
-    return fail(res, ERR.BAD_REQUEST, 'That is not a posting we can start an application for.', {
-      details: { job_id: 'invalid' },
-    });
+    return fail(
+      response,
+      ERROR_CODES.BAD_REQUEST,
+      'That is not a posting we can start an application for.',
+      {
+        details: { job_id: 'invalid' },
+      }
+    );
   }
 
   // The language the reader is in, so a posting with its own Mandarin form
   // hands over the Mandarin one, per 3a and migration 014.
-  const locale = await requestLocale(req);
+  const locale = await requestLocale(request);
 
   try {
     const job = await fetchApplyJob(jobId);
@@ -102,11 +120,11 @@ export default async function handler(req, res) {
     // A draft posting 404s here for the same reason it 404s at its URL: this
     // route must not confirm that one exists to anybody who guesses a uuid.
     if (!job || job.status === 'draft') {
-      return fail(res, ERR.NOT_FOUND, 'That posting could not be found.');
+      return fail(response, ERROR_CODES.NOT_FOUND, 'That posting could not be found.');
     }
 
     const refusal = refusalFor(job, await applicationsOpen());
-    if (refusal) return refuse(res, refusal);
+    if (refusal) return refuse(response, refusal);
 
     // Both of these are about this applicant rather than the posting, so they
     // come after the posting's own state and before anything is written.
@@ -119,27 +137,27 @@ export default async function handler(req, res) {
     // never shown a date. 8.3: accepting closes the posting to that applicant
     // for good.
     const personal = refusalForApplicant(existing);
-    if (personal) return refuse(res, personal);
+    if (personal) return refuse(response, personal);
 
     if (pending.length > 0) {
-      return refuse(res, REFUSAL.PENDING, { pending_id: pending[0].id });
+      return refuse(response, REFUSAL.PENDING, { pending_id: pending[0].id });
     }
 
     if (await isInCooldown(existing)) {
-      return refuse(res, REFUSAL.COOLDOWN, {
+      return refuse(response, REFUSAL.COOLDOWN, {
         applied_at: existing.applied_at,
         cooldown_until: existing.cooldown_until,
       });
     }
 
     const form = await resolveForm(job, locale);
-    if (!form.url) return refuse(res, REFUSAL.NO_FORM);
+    if (!form.url) return refuse(response, REFUSAL.NO_FORM);
 
     // 7a's order, and it is not arbitrary: the analytics row is what the modal
     // is answered against, so it exists before the applicant can possibly
     // answer. The tracking row can be reconstructed from it; the reverse is not
     // true, because analytics is the append only log and applications is not.
-    const event = await logApplyClick(jobId, session.user.id, req.headers?.referer ?? null);
+    const event = await logApplyClick(jobId, session.user.id, request.headers?.referer ?? null);
     const application = await startApplication(jobId, session.user.id, existing);
 
     // 7g's posting question set, per the second decision of 21 August 2026. The
@@ -167,22 +185,19 @@ export default async function handler(req, res) {
     await recordFailures('apply', subjects, LIMITS.apply);
 
     return ok(
-      res,
+      response,
       {
         analytics_id: event.id,
         // The one place in this build where a form URL crosses the wire, and
         // only ever to the session it was built for.
         form_url: buildFormUrl(form.url, form.prefill, session.user),
         job: { id: job.id, title: job.title },
-        application: await publicApplication(
-          { ...application, job_id: jobId },
-          null
-        ),
+        application: await publicApplication({ ...application, job_id: jobId }, null),
       },
       { status: 201 }
     );
   } catch (cause) {
-    return failInternal(res, cause, 'application start');
+    return failInternal(response, cause, 'application start');
   }
 }
 
@@ -194,10 +209,15 @@ export default async function handler(req, res) {
  * cannot apply, here is why", and the wording belongs in the dictionary rather
  * than in this file.
  */
-function refuse(res, reason, extra = {}) {
-  return fail(res, ERR.CONFLICT, MESSAGES[reason] ?? 'This role is not accepting applications.', {
-    details: { reason, ...extra },
-  });
+function refuse(response, reason, extra = {}) {
+  return fail(
+    response,
+    ERROR_CODES.CONFLICT,
+    MESSAGES[reason] ?? 'This role is not accepting applications.',
+    {
+      details: { reason, ...extra },
+    }
+  );
 }
 
 // English, like every message from this API. The client prefers its own
@@ -209,8 +229,7 @@ const MESSAGES = Object.freeze({
   [REFUSAL.APPLICATIONS_CLOSED]: 'Applications are paused across the site at the moment.',
   [REFUSAL.NO_FORM]: 'This role has no application form set up yet.',
   [REFUSAL.COOLDOWN]: 'You have already applied for this role recently.',
-  [REFUSAL.PENDING]:
-    'You have an unanswered question about your last application to this role.',
+  [REFUSAL.PENDING]: 'You have an unanswered question about your last application to this role.',
   // No date, deliberately. This is the one refusal that does not end.
   [REFUSAL.ACCEPTED]: 'You have already been accepted for this role.',
 });
