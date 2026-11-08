@@ -336,27 +336,27 @@ function readRecord(record) {
     note = null;
   }
 
-  let at;
+  let switchedAt;
 
   if (typeof record.at === 'string') {
-    at = record.at;
+    switchedAt = record.at;
   } else {
-    at = null;
+    switchedAt = null;
   }
 
-  let by;
+  let switchedBy;
 
   if (typeof record.by === 'string') {
-    by = record.by;
+    switchedBy = record.by;
   } else {
-    by = null;
+    switchedBy = null;
   }
 
   return {
     off: true,
     note: note,
-    at: at,
-    by: by,
+    at: switchedAt,
+    by: switchedBy,
     held: false,
   };
 }

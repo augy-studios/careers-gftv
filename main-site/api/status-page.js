@@ -85,46 +85,46 @@ export default async function handler(request, response) {
       // a staff session asked for it after the flip, in which case it is that
       // person's render at the public address and must not be cached for the
       // next reader, exactly as the preview below.
-      let cacheControl;
+      let backCacheControl;
 
       if (back) {
-        cacheControl = 'private, no-store';
+        backCacheControl = 'private, no-store';
       } else {
-        cacheControl = CACHE;
+        backCacheControl = CACHE;
       }
 
-      let varyField;
+      let backVaryField;
 
       if (back) {
-        varyField = { Vary: 'Cookie' };
+        backVaryField = { Vary: 'Cookie' };
       } else {
-        varyField = {};
+        backVaryField = {};
       }
 
       return sendHtml(response, statusDocument({ view, body: renderBuildBody() }), {
         headers: {
-          'Cache-Control': cacheControl,
-          ...varyField,
+          'Cache-Control': backCacheControl,
+          ...backVaryField,
         },
       });
     }
 
     const model = await serviceModel();
 
-    let cacheControlValue;
+    let previewCacheControl;
 
     if (preview) {
-      cacheControlValue = 'private, no-store';
+      previewCacheControl = 'private, no-store';
     } else {
-      cacheControlValue = CACHE;
+      previewCacheControl = CACHE;
     }
 
-    let varyFieldValue;
+    let previewVaryField;
 
     if (preview) {
-      varyFieldValue = { Vary: 'Cookie' };
+      previewVaryField = { Vary: 'Cookie' };
     } else {
-      varyFieldValue = {};
+      previewVaryField = {};
     }
 
     return sendHtml(response, statusDocument({ view, body: renderServiceBody(model) }), {
@@ -134,8 +134,8 @@ export default async function handler(request, response) {
         // be a staff-only render served to the next reader. **Vary: Cookie**
         // because the two renders share an address and differ by session, which
         // is the rule api/job-page.js already follows for its private renders.
-        'Cache-Control': cacheControlValue,
-        ...varyFieldValue,
+        'Cache-Control': previewCacheControl,
+        ...previewVaryField,
       },
     });
   } catch (cause) {

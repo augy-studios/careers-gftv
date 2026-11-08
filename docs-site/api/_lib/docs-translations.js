@@ -176,8 +176,8 @@ export async function titlesFor(locale) {
  * a page whose translation is missing keeps its English title, which is the
  * same fallback the page itself gets.
  */
-export function localiseNav(nav, titles) {
-  if (titles.size === 0) return nav;
+export function localiseNav(navigation, titles) {
+  if (titles.size === 0) return navigation;
 
   const swap = (page) => {
     if (page) {
@@ -188,9 +188,9 @@ export function localiseNav(nav, titles) {
   };
 
   return {
-    home: swap(nav.home),
-    staff_home: swap(nav.staff_home),
-    sections: nav.sections.map((section) => ({
+    home: swap(navigation.home),
+    staff_home: swap(navigation.staff_home),
+    sections: navigation.sections.map((section) => ({
       ...section,
       // A section's heading is its index page's title, which is a row like any
       // other. `section.path` is that page.

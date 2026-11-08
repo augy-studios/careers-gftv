@@ -868,7 +868,7 @@ define('seam', 'What the site and the bot have to agree about for a code', async
     'a bcrypt hash always starts $2, which is what keeps a request and a real code apart in one column'
   );
 
-  const siteMinutes = site.match(/CODE_TTL_MS = (\d+) \* 60 \* 1000/)?.[1];
+  const siteMinutes = site.match(/CODE_TIME_TO_LIVE_MILLISECONDS = (\d+) \* 60 \* 1000/)?.[1];
   const botMinutes = handlers.match(/timedelta\(minutes=(\d+)\)/)?.[1];
   check(
     '51. five minutes means five minutes on both sides',
@@ -879,7 +879,7 @@ define('seam', 'What the site and the bot have to agree about for a code', async
   const magic = await readFile(join(SITE, 'api', 'auth', 'applicant', 'magic.js'), 'utf8');
   check(
     '52. the magic link answers GET and nothing else',
-    /methodNotAllowed\(req, res, \['GET'\]\)/.test(magic),
+    /methodNotAllowed\(request, response, \['GET'\]\)/.test(magic),
     'a HEAD here would be a request to sign somebody in with the answer thrown away'
   );
 

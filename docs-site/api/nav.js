@@ -39,7 +39,7 @@ export default async function handler(request, response) {
     // reader's language. Swapping the two would mean a title lookup that could
     // put a page back into a nav the gate had taken out of it.
     const locale = localeParameter(request.query?.locale);
-    const nav = localiseNav(navFor(tier), await titlesFor(locale));
+    const navigation = localiseNav(navFor(tier), await titlesFor(locale));
 
     return ok(
       response,
@@ -53,7 +53,7 @@ export default async function handler(request, response) {
           role,
           tier,
         },
-        nav,
+        nav: navigation,
       },
       { headers: { 'Cache-Control': 'private, no-store' } }
     );

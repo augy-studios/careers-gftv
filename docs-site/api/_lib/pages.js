@@ -663,13 +663,15 @@ export function navFor(readerAccess) {
  * @param {string} readerAccess
  */
 function readingOrder(readerAccess) {
-  const nav = navFor(readerAccess);
+  const navigation = navFor(readerAccess);
   const flat = [];
-  if (nav.home) flat.push(nav.home);
-  for (const section of nav.sections.filter((navSection) => navSection.pipeline === 'public'))
+  if (navigation.home) flat.push(navigation.home);
+  for (const section of navigation.sections.filter(
+    (navSection) => navSection.pipeline === 'public'
+  ))
     flat.push(...section.pages);
-  if (nav.staff_home) flat.push(nav.staff_home);
-  for (const section of nav.sections.filter((navSection) => navSection.pipeline === 'gated'))
+  if (navigation.staff_home) flat.push(navigation.staff_home);
+  for (const section of navigation.sections.filter((navSection) => navSection.pipeline === 'gated'))
     flat.push(...section.pages);
   return flat;
 }
@@ -707,20 +709,20 @@ export function readablePage(path, readerAccess) {
     assetBase = null;
   }
 
-  let prev;
+  let previousPage;
 
   if (position > 0) {
-    prev = flat[position - 1];
+    previousPage = flat[position - 1];
   } else {
-    prev = null;
+    previousPage = null;
   }
 
-  let next;
+  let nextPage;
 
   if (position !== -1 && position < flat.length - 1) {
-    next = flat[position + 1];
+    nextPage = flat[position + 1];
   } else {
-    next = null;
+    nextPage = null;
   }
 
   return {
@@ -734,8 +736,8 @@ export function readablePage(path, readerAccess) {
     // written as absolute paths, per 16g, so a bare file name on one has no
     // directory to be in and the build refuses it.
     assetBase: assetBase,
-    prev: prev,
-    next: next,
+    prev: previousPage,
+    next: nextPage,
   };
 }
 

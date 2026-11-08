@@ -1702,12 +1702,12 @@ define('boundary', "Part 5: what a job poster may reach, and what is an admin's"
     const source = read(join(MAIN, file));
     check(
       `52. ${what} guards with requireAdmin`,
-      /await requireAdmin\(req, res\)/.test(source),
+      /await requireAdmin\(request, response\)/.test(source),
       `${file} does not call requireAdmin`
     );
     check(
       `52. and ${what} does not also let requireStaff through`,
-      !/await requireStaff\(req, res\)/.test(source),
+      !/await requireStaff\(request, response\)/.test(source),
       `${file} still has a requireStaff door beside the admin one`
     );
   }
@@ -2948,13 +2948,14 @@ define('translations', 'Part 9: the 华文 tree, the two tables, and what serves
 
   check(
     '22. the content route applies the gate before the language',
-    content.indexOf('readablePage(path, tier)') < content.indexOf('localeParam(req.query?.locale)'),
+    content.indexOf('readablePage(path, tier)') < content.indexOf('localeParameter(request.query?.locale)'),
     'a title lookup that ran first could put a page back into an answer the gate took out'
   );
 
   check(
     '23. the content route says which language it actually answered in',
-    content.includes('locale: translated ? locale : BASE_LOCALE') &&
+    content.includes('servedLocale = BASE_LOCALE;') &&
+      content.includes('locale: servedLocale,') &&
       content.includes('asked_locale:'),
     'the notice is drawn off what was served and never off what the reader chose'
   );
@@ -3190,7 +3191,8 @@ define('translations', 'Part 9: the 华文 tree, the two tables, and what serves
   check(
     '45. the site takes the later of a translated page\'s two dates',
     generated.includes('return translated > base ? translated : base;') &&
-      content.includes('updatedFor(found.page.path, translated ? locale : null)'),
+      content.includes('updatedFor(found.page.path, updatedLocale)') &&
+      content.includes('updatedLocale = null;'),
     'a guide written in March whose 华文 moved in September changed in September'
   );
 
@@ -3481,8 +3483,8 @@ define('reach', 'Part 10a: checkEnv, and the writes that leave this build', () =
     const route = read(file);
 
     check(
-      `3${'ab'[index]}. ${label} has a health route that calls checkEnv`,
-      /import \{ checkEnv \}/.test(route) && /checkEnv\(\)/.test(route),
+      `3${'ab'[index]}. ${label} has a health route that calls checkEnvironmentVariables`,
+      /import \{ checkEnvironmentVariables \}/.test(route) && /checkEnvironmentVariables\(\)/.test(route),
       'item 29: one call from somewhere a deploy touches, on both sites'
     );
 

@@ -853,9 +853,9 @@ define('account', "5f's settings suite, and the two pages with no article", asyn
   for (const site of ['main-site', 'docs-site']) {
     for (const file of walkJs(join(REPO, site, 'api'))) {
       const src = readFileSync(file, 'utf8');
-      // .from(T.staffUsers) followed by .update or .insert or .delete, on the
+      // .from(TABLES.staffUsers) followed by .update or .insert or .delete, on the
       // same statement. Reads are everywhere and are permitted.
-      if (/\.from\(T\.staffUsers\)[\s\S]{0,200}?\.(update|insert|delete)\(/.test(src)) {
+      if (/\.from\(TABLES\.staffUsers\)[\s\S]{0,200}?\.(update|insert|delete)\(/.test(src)) {
         writers.push(relative(REPO, file).split(sep).join('/'));
       }
     }
@@ -891,7 +891,7 @@ define('account', "5f's settings suite, and the two pages with no article", asyn
 
   const guarded = ['account.js', 'totp.js', 'danger.js', 'forgot-password.js', 'reset-password.js']
     .filter((name) =>
-      readFileSync(join(REPO, 'main-site/api/auth/staff', name), 'utf8').includes('held(res)')
+      readFileSync(join(REPO, 'main-site/api/auth/staff', name), 'utf8').includes('held(response)')
     );
 
   check(
@@ -989,7 +989,7 @@ define('account', "5f's settings suite, and the two pages with no article", asyn
   // gftv.asia, so a mapping that collapsed any pair would be a code from one
   // set satisfying the other's check.
   const setsFile = readFileSync(join(REPO, 'main-site/api/_lib/accounts.js'), 'utf8');
-  const tables = [...setsFile.matchAll(/table: (T\.[a-zA-Z]+),/g)].map((m) => m[1]);
+  const tables = [...setsFile.matchAll(/table: (TABLES\.[a-zA-Z]+),/g)].map((m) => m[1]);
 
   check(
     '86. the two code sets are four distinct tables across the two realms',

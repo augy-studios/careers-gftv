@@ -201,12 +201,12 @@ export default async function handler(request, response) {
 
     const titleValue = `${title} | Careers@GFTV`;
     const canonicalPath = `/jobs/${job.id}`;
-    let jsonLd;
+    let structuredData;
 
     if (facts.is_open) {
-      jsonLd = jobPostingStructuredData(facts, english, job.id);
+      structuredData = jobPostingStructuredData(facts, english, job.id);
     } else {
-      jsonLd = null;
+      structuredData = null;
     }
 
     const html = renderDocument({
@@ -221,7 +221,7 @@ export default async function handler(request, response) {
       // This rule is permanent and only looks redundant while that one is
       // there. An open posting carries nothing, so phase 12 decides for it.
       robots: robots,
-      jsonLd: jsonLd,
+      jsonLd: structuredData,
       // applications_open rides along so the Apply button is right at first
       // paint rather than after a request, per 7a's "the Apply button is
       // disabled with an explanatory label ... once the global toggle is off".

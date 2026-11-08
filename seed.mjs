@@ -141,8 +141,7 @@ const POSTINGS = [
     department: 'post-production',
     summary: `${SAMPLE} Cut the weekly highlights reel from our live broadcasts. Around four hours a week, entirely from home.`,
     description: `${SAMPLE}\n\nEvery week GFTV goes live several times and almost nobody watches all of it. The highlights reel is how most of the audience sees what happened.\n\nThis is a voluntary role. Nobody here is paid.`,
-    responsibilities:
-      'Watch back the week and pull the moments worth keeping.\nAssemble a six to eight minute reel to the channel template.',
+    responsibilities: 'Watch back the week and pull the moments worth keeping.\nAssemble a six to eight minute reel to the channel template.',
     requirements: 'Comfortable in any non linear editor.\nAbout four hours a week, reliably.',
     nice_to_have: 'Motion graphics, if you have them.',
     commitment_type: 'part_time',
@@ -162,10 +161,8 @@ const POSTINGS = [
     department: 'broadcast-engineering',
     summary: `${SAMPLE} A fixed scope contract to rebuild the playout chain. This one is paid, which is not true of anything else on this board.`,
     description: `${SAMPLE}\n\nA defined piece of work with a defined end, and it is paid. Everything else listed here is voluntary, and this posting says so rather than leaving somebody to find out later.`,
-    responsibilities:
-      'Audit the current encoder and playout configuration.\nBuild a replacement that survives a stream dropping.',
-    requirements:
-      'Real experience with streaming infrastructure.\nAble to work to a written scope.',
+    responsibilities: 'Audit the current encoder and playout configuration.\nBuild a replacement that survives a stream dropping.',
+    requirements: 'Real experience with streaming infrastructure.\nAble to work to a written scope.',
     nice_to_have: 'Experience with redundant ingest.',
     commitment_type: 'contract',
     location: 'Singapore',
@@ -184,8 +181,7 @@ const POSTINGS = [
     department: 'production',
     summary: `${SAMPLE} Operate a camera during studio recordings. Training given, so no prior experience is needed.`,
     description: `${SAMPLE}\n\nWe record in studio most weekends and always need another pair of hands behind a camera. If you have never done it before, somebody will show you.\n\nThis is a voluntary, unpaid role.`,
-    responsibilities:
-      'Set up and operate a camera during studio sessions.\nHelp strike the set afterwards.',
+    responsibilities: 'Set up and operate a camera during studio sessions.\nHelp strike the set afterwards.',
     requirements: 'Able to get to the studio on a weekend.\nWilling to be shown how.',
     nice_to_have: 'Any camera experience at all.',
     commitment_type: 'volunteer',
@@ -205,8 +201,7 @@ const POSTINGS = [
     department: 'operations',
     summary: `${SAMPLE} Keep shoots, people and schedules pointing the same way. Full time hours, and still an unpaid volunteer role.`,
     description: `${SAMPLE}\n\nThe person who knows what is happening on Saturday and who is meant to be there. It is listed as full time because that is honestly how much time it takes, not because it comes with a salary.`,
-    responsibilities:
-      'Hold the shooting schedule and keep it current.\nConfirm crew before each shoot.',
+    responsibilities: 'Hold the shooting schedule and keep it current.\nConfirm crew before each shoot.',
     requirements: 'Organised in a way other people can rely on.\nAvailable on weekends.',
     nice_to_have: 'Previous coordination work of any kind.',
     commitment_type: 'full_time',
@@ -246,8 +241,7 @@ const POSTINGS = [
     department: 'events',
     summary: `${SAMPLE} Film panels and the show floor at this year's convention. One weekend, applications close shortly.`,
     description: `${SAMPLE}\n\nOne weekend, long days, and a short application window because the convention is not far away.\n\nThis is a voluntary, unpaid role. Passes are covered.`,
-    responsibilities:
-      'Film panels, interviews and the show floor.\nHand cards to the post team each evening.',
+    responsibilities: 'Film panels, interviews and the show floor.\nHand cards to the post team each evening.',
     requirements: 'Available for the whole weekend.\nAble to carry your own kit all day.',
     nice_to_have: 'Your own camera.',
     commitment_type: 'volunteer',
@@ -377,10 +371,7 @@ const ACCOUNTS = [
 ];
 
 /** The phase 3 dev seed, which --clear takes with it. */
-const DEV_SEED = Array.from(
-  { length: 9 },
-  (_, index) => `a0000000-0000-4000-8000-00000000000${index + 1}`
-);
+const DEV_SEED = Array.from({ length: 9 }, (_, index) => `a0000000-0000-4000-8000-00000000000${index + 1}`);
 
 /* -------------------------------------------------------------------------
  * Doing it
@@ -401,9 +392,7 @@ async function slugIds(table, slugs) {
 }
 
 async function seed() {
-  const departments = await slugIds(TABLES.departments, [
-    ...new Set(POSTINGS.map((p) => p.department)),
-  ]);
+  const departments = await slugIds(TABLES.departments, [...new Set(POSTINGS.map((p) => p.department))]);
   const missingDepartments = POSTINGS.filter((p) => !departments.has(p.department));
   if (missingDepartments.length > 0) {
     stop(
@@ -447,13 +436,7 @@ async function seed() {
   // Deleted and reinserted rather than upserted, so a run after changing which
   // tags a posting carries does not leave the old ones behind. The usage_count
   // triggers from 009 maintain the counts, so nothing here writes them.
-  const { error: untagError } = await supabase
-    .from(TABLES.jobTags)
-    .delete()
-    .in(
-      'job_id',
-      POSTINGS.map((p) => p.id)
-    );
+  const { error: untagError } = await supabase.from(TABLES.jobTags).delete().in('job_id', POSTINGS.map((p) => p.id));
   if (untagError) stop('clearing the tags', untagError);
 
   const tags = await slugIds(TABLES.tags, [...new Set(POSTINGS.flatMap((p) => p.tags))]);
@@ -521,10 +504,12 @@ async function seed() {
     passwords.push([account.username, password]);
 
     if (account.saves.length > 0) {
-      const { error } = await supabase.from(TABLES.savedJobs).upsert(
-        account.saves.map((job) => ({ applicant_id: userId, job_id: job })),
-        { onConflict: 'applicant_id,job_id' }
-      );
+      const { error } = await supabase
+        .from(TABLES.savedJobs)
+        .upsert(
+          account.saves.map((job) => ({ applicant_id: userId, job_id: job })),
+          { onConflict: 'applicant_id,job_id' }
+        );
       if (error) stop('saving postings', error);
     }
 
@@ -547,12 +532,9 @@ async function seed() {
     if (account.rating) {
       const { error } = await supabase
         .from(TABLES.ratings)
-        .upsert(
-          [{ job_id: account.rating.job, applicant_id: userId, rating: account.rating.rating }],
-          {
-            onConflict: 'job_id,applicant_id',
-          }
-        );
+        .upsert([{ job_id: account.rating.job, applicant_id: userId, rating: account.rating.rating }], {
+          onConflict: 'job_id,applicant_id',
+        });
       if (error) stop('writing the rating', error);
     }
 
@@ -592,26 +574,18 @@ async function seed() {
 
 async function clear() {
   const ours = POSTINGS.map((p) => p.id);
-  const { error: jobsError } = await supabase
-    .from(TABLES.jobs)
-    .delete()
-    .in('id', [...ours, ...DEV_SEED]);
+  const { error: jobsError } = await supabase.from(TABLES.jobs).delete().in('id', [...ours, ...DEV_SEED]);
   if (jobsError) stop('deleting the postings', jobsError);
-  console.log(
-    `  postings          up to ${ours.length + DEV_SEED.length} removed, this seed and the dev seed`
-  );
+  console.log(`  postings          up to ${ours.length + DEV_SEED.length} removed, this seed and the dev seed`);
 
   const { error: usersError } = await supabase
     .from(TABLES.users)
     .delete()
-    .in(
-      'username',
-      ACCOUNTS.map((a) => a.username)
-    );
+    .in('username', ACCOUNTS.map((a) => a.username));
   if (usersError) stop('deleting the accounts', usersError);
   console.log(`  accounts          up to ${ACCOUNTS.length} removed`);
   console.log(
-    "\n  Reference data is untouched: the departments and tags are migration 013's.\n" +
+    '\n  Reference data is untouched: the departments and tags are migration 013\'s.\n' +
       '  Run node gen-screenshots.js if the install screenshots still show a seeded board.'
   );
 }
@@ -636,15 +610,12 @@ if (!CLEAR && INDEXING && !ANYWAY) {
 if (!YES) {
   console.log(`\n${CLEAR ? 'Would remove' : 'Would write'}, against ${target}:\n`);
   if (CLEAR) {
-    console.log(
-      `  ${POSTINGS.length} seeded postings and the ${DEV_SEED.length} the phase 3 dev seed wrote`
-    );
+    console.log(`  ${POSTINGS.length} seeded postings and the ${DEV_SEED.length} the phase 3 dev seed wrote`);
     console.log(`  ${ACCOUNTS.length} sample accounts, and everything cascading from all of it`);
   } else {
     for (const posting of POSTINGS) console.log(`  ${posting.status.padEnd(9)} ${posting.title}`);
     console.log(`  1 ready Chinese translation`);
-    for (const account of ACCOUNTS)
-      console.log(`  account   ${account.username} (${account.locale})`);
+    for (const account of ACCOUNTS) console.log(`  account   ${account.username} (${account.locale})`);
   }
   console.log('\nNothing written. Add --yes to do it.');
   process.exit(0);

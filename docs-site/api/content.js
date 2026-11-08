@@ -216,20 +216,20 @@ export default async function handler(request, response) {
       pageValue = found.page;
     }
 
+    let servedLocale;
+
+    if (translated) {
+      servedLocale = locale;
+    } else {
+      servedLocale = BASE_LOCALE;
+    }
+
     let updatedLocale;
 
     if (translated) {
       updatedLocale = locale;
     } else {
-      updatedLocale = BASE_LOCALE;
-    }
-
-    let updatedLocaleValue;
-
-    if (translated) {
-      updatedLocaleValue = locale;
-    } else {
-      updatedLocaleValue = null;
+      updatedLocale = null;
     }
 
     let markdownValue;
@@ -251,7 +251,7 @@ export default async function handler(request, response) {
         // that was asked for. The page draws the notice off this and not off the
         // reader's own setting, so the one thing that decides whether a reader is
         // told "this page is in English" is whether it is.
-        locale: updatedLocale,
+        locale: servedLocale,
         asked_locale: locale ?? BASE_LOCALE,
         // Where a bare image file name on this page points, which is this
         // route's own address for the directory the page was read from. The
@@ -267,7 +267,7 @@ export default async function handler(request, response) {
         // changed in September for the reader looking at the Chinese.
         // `gftvjobs_docs_public` applies the same rule with `greatest()`, which
         // is what stops this site and the Telegram bot dating one page twice.
-        updated: updatedFor(found.page.path, updatedLocaleValue),
+        updated: updatedFor(found.page.path, updatedLocale),
         markdown: markdownValue,
       },
       // Never a shared cache. The answer depends on a session cookie, and this
