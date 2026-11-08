@@ -7,7 +7,7 @@ summary: 首页文案、精选职位、等待期，以及申请开关。
 
 侧边栏的 **设置**。四样东西，而最后一样会关闭整个职位板。
 
-![设置页面](pending:admin-settings-desktop-light "平台标题、首页文案、精选职位，以及申请开关。")
+![设置页面](admin-settings-desktop-light.webp "平台标题、首页文案、精选职位，以及申请开关。")
 
 ## 平台标题
 

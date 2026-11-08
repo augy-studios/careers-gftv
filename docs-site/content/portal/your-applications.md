@@ -15,7 +15,7 @@ reread what you applied for.
 Your account overview shows the same three counts as tiles: applications, saved
 roles, and outstanding tasks.
 
-![My applications, with the four filter tabs above the list.](pending:portal-applications-desktop-light "Every application, newest first. Closed roles stay on the list.")
+![My applications, with the four filter tabs above the list.](/screenshots/portal-applications-desktop-light.webp "Every application, newest first. Closed roles stay on the list.")
 
 ## The four tabs
 

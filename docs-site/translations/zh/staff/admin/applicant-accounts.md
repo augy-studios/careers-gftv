@@ -23,7 +23,7 @@ summary: 申请背后的那个人：他们的资料、暂停登录、协助操�
 
 ## 一个账户的详细内容
 
-![一个申请人账户](pending:admin-applicant-account-desktop-light "一个账户，包含他的申请、历史记录和操作面板。")
+![一个申请人账户](admin-applicant-account-desktop-light.webp "一个账户，包含他的申请、历史记录和操作面板。")
 
 **打开** 会给您整个账户：
 

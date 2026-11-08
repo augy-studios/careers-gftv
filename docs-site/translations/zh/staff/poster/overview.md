@@ -7,7 +7,7 @@ summary: 职位的各项数字、申请流程的分组，以及那两个报告�
 
 登录后的第一页，在 `/admin`。它显示您上次来过之后，职位板上发生了什么。
 
-![管理后台概览](pending:poster-overview-desktop-light "概览，包含职位的各项数字、申请流程，以及两个健康状况面板。")
+![管理后台概览](poster-overview-desktop-light.webp "概览，包含职位的各项数字、申请流程，以及两个健康状况面板。")
 
 ## 职位
 

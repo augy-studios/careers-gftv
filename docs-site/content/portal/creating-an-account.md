@@ -51,7 +51,7 @@ There is no email on this site, which means there is no "email me a reset
 link". Those codes are the way back in. [Recovery
 codes](/portal/recovery-codes) explains both sets in full.
 
-![The recovery codes shown once, straight after registering. The codes in the picture are invented.](pending:portal-recovery-codes-desktop-light "The ten codes are shown once and never again. These are examples and not real codes.")
+![The recovery codes shown once, straight after registering. The codes in the picture are invented.](/screenshots/portal-recovery-codes-desktop-light.webp "The ten codes are shown once and never again. These are examples and not real codes.")
 
 ### If the codes did not appear
 

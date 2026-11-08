@@ -821,7 +821,9 @@ files under `scripts/`:
 | File | What it is |
 |---|---|
 | `screenshots.manifest.js` | every shot, as data. 25 of them. |
-| `capture.mjs` | the run. Signs in, drives each page, writes the webp. |
+| `capture.mjs` | the run. Signs in, drives each page, writes the webp. `--mock` photographs a local copy of the portal instead, with no database and no sign in. |
+| `mock-portal.mjs` | `--mock`'s local server: serves `main-site/` as it is and answers every `/api/` call from `mock-data.mjs`. |
+| `mock-data.mjs` | every invented answer the mock gives. Everyone and everything in it says SAMPLE. When a real route's response changes, change the matching answer here. |
 | `playwright.config.js` | the settings that make two runs produce the same bytes. |
 | `package.json` | `playwright` and `sharp`, scoped to this directory. |
 
@@ -855,6 +857,8 @@ uses the same names, into a directory outside the repository, and swaps no
 markers:
 
 ```sh
+node capture.mjs --mock                                # all 25, no database, no staff account
+CHROMIUM_PATH=/path/to/chrome node capture.mjs --mock  # when Playwright's own browser is not installed
 BASE=… node capture.mjs --dry-run --only=portal-login-desktop-light
 BASE=… node capture.mjs --dry-run --out=./somewhere   # instead of a temp directory
 ```

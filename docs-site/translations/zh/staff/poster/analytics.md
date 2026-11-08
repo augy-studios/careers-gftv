@@ -8,7 +8,7 @@ summary: 浏览、点击、已确认与自行申报的回答、为什么转换�
 侧边栏的 **分析**。每一则职位的表现如何：
 谁打开了它、谁按了申请，以及其中有多少人告诉我们他们真的申请了。
 
-![分析表格](pending:poster-analytics-desktop-light "分析表格，按申请点击数排序。")
+![分析表格](poster-analytics-desktop-light.webp "分析表格，按申请点击数排序。")
 
 ## 各栏的意思
 

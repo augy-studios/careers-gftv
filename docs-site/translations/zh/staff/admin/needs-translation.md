@@ -10,7 +10,7 @@ summary: 还没有人翻译的部分、它的三种状态，以及怎么看待�
 
 [队列](/staff/admin/translations-queue)是抱怨。这里是沉默。
 
-![稽核](pending:admin-needs-translation-desktop-light "稽核列表，包含三种状态以及每一行缺了什么。")
+![稽核](admin-needs-translation-desktop-light.webp "稽核列表，包含三种状态以及每一行缺了什么。")
 
 ## 三种状态
 

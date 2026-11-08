@@ -52,6 +52,7 @@ import { loadBuildStatus, applyFeatureGating } from './build-status.js';
 // posting is still waiting to be sent, which is what keeps a queued answer from
 // reading as an applied one.
 import { answerWaitingFor } from './queue.js';
+import { applyNetworkGating } from './offline.js';
 
 let posting = null;
 

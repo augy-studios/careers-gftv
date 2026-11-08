@@ -14,7 +14,7 @@ The page has three tabs. This one is **Reported problems**. The other two are
 [the needs translation audit](/staff/admin/needs-translation) and [the
 helpers](/staff/admin/translation-helpers).
 
-![The queue](pending:admin-translations-queue-desktop-light "The report list, filtered to one language.")
+![The queue](admin-translations-queue-desktop-light.webp "The report list, filtered to one language.")
 
 **The count in the sidebar is what is still open.** It comes off as soon as a
 report is picked up, and not when it is finished.

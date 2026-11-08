@@ -27,7 +27,7 @@ joined, and how many applications they have submitted.
 
 ## One account in detail
 
-![An applicant account](pending:admin-applicant-account-desktop-light "One account, with its applications, its history, and the actions panel.")
+![An applicant account](admin-applicant-account-desktop-light.webp "One account, with its applications, its history, and the actions panel.")
 
 **Open** gives you the whole account:
 

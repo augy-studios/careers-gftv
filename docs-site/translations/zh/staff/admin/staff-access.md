@@ -7,7 +7,7 @@ summary: 放某人进来、拒绝某人，以及把决定交还给他们的角�
 
 侧边栏的 **队员权限**。谁可以打开这个管理后台，以及本站就他们所做的那一个决定。
 
-![队员权限列表](pending:admin-staff-access-desktop-light "每一个可以进来的账户，附上第二因素和最后登录时间。")
+![队员权限列表](admin-staff-access-desktop-light.webp "每一个可以进来的账户，附上第二因素和最后登录时间。")
 
 这份列表背后的规则是[谁能进来](/staff/admin/access-and-roles)。
 这一页是您实际按下按钮的地方。
@@ -32,7 +32,7 @@ summary: 放某人进来、拒绝某人，以及把决定交还给他们的角�
 
 ## 三个按钮
 
-![某个账户的权限](pending:admin-access-row-desktop-light "一行上的三种状态，以及原因栏位。")
+![某个账户的权限](admin-access-row-desktop-light.webp "一行上的三种状态，以及原因栏位。")
 
 **允许** 会写下一笔说「是」的覆写。
 不论他们在 gftv.asia 的角色怎么说，他们下次来访时都能打开管理后台。

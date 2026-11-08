@@ -27,7 +27,7 @@ Leave the portal tab open. It is where the second half happens.
 > If your browser blocks the new tab, nothing has gone wrong. The panel says so
 > and gives you a button that opens the form properly.
 
-![The panel shown after pressing Apply, with the rating and the have you applied question.](pending:portal-apply-dialog-desktop-light "The panel you come back to. Both parts of it are optional.")
+![The panel shown after pressing Apply, with the rating and the have you applied question.](/screenshots/portal-apply-dialog-desktop-light.webp "The panel you come back to. Both parts of it are optional.")
 
 ## The question you come back to
 

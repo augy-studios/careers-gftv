@@ -12,7 +12,7 @@ nobody has translated yet, whether or not anybody has complained.
 
 [The queue](/staff/admin/translations-queue) is complaints. This is silence.
 
-![The audit](pending:admin-needs-translation-desktop-light "The audit list, with the three states and what is missing on each row.")
+![The audit](admin-needs-translation-desktop-light.webp "The audit list, with the three states and what is missing on each row.")
 
 ## The three states
 

@@ -10,7 +10,7 @@ summary: The tabbed editor, the reference column, what each tab state means, and
 The editor has one tab per language. **The first tab is the posting itself.**
 Every other tab is that language's translation of it.
 
-![The language tabs](pending:poster-editor-tabs-desktop-light "The editor on a translation tab, with the source wording beside each field.")
+![The language tabs](poster-editor-tabs-desktop-light.webp "The editor on a translation tab, with the source wording beside each field.")
 
 A posting may go out in one language only. Nothing forces a translation, and a
 role nobody has translated still appears to everybody. It is marked **English

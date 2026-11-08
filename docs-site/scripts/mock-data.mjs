@@ -199,9 +199,13 @@ function success(data) {
  * Applicant side
  * ---------------------------------------------------------------------- */
 
+// **Applications are for the second, third and fourth postings, never the
+// first.** The capture script opens the first card on the board to photograph
+// the Apply dialog, and a posting the person has already applied to shows a
+// cooldown notice instead of an Apply button.
 const SAMPLE_APPLICATIONS = [
   {
-    job_id: POSTINGS[0].id,
+    job_id: POSTINGS[1].id,
     status: 'submitted',
     started_at: '2026-09-02T03:00:00.000Z',
     applied_at: '2026-09-02T03:20:00.000Z',
@@ -212,7 +216,7 @@ const SAMPLE_APPLICATIONS = [
     rating: 4,
   },
   {
-    job_id: POSTINGS[1].id,
+    job_id: POSTINGS[2].id,
     status: 'started',
     started_at: '2026-09-05T03:00:00.000Z',
     applied_at: null,
@@ -223,7 +227,7 @@ const SAMPLE_APPLICATIONS = [
     rating: null,
   },
   {
-    job_id: POSTINGS[2].id,
+    job_id: POSTINGS[3].id,
     status: 'shortlisted',
     started_at: '2026-08-27T03:00:00.000Z',
     applied_at: '2026-08-27T03:40:00.000Z',
@@ -580,10 +584,10 @@ const SAMPLE_REPORTS = [
 ];
 
 const SAMPLE_AUDIT = [
-  { target_type: 'job', target_id: POSTINGS[1].id, locale: 'zh', source_label: POSTINGS[1].title, source_status: 'published', state: 'missing', missing_fields: ['title', 'summary', 'description'], updated_at: null },
-  { target_type: 'job', target_id: POSTINGS[2].id, locale: 'zh', source_label: POSTINGS[2].title, source_status: 'published', state: 'drafted', missing_fields: ['description'], updated_at: '2026-09-02T03:00:00.000Z' },
-  { target_type: 'department', target_id: DEPARTMENTS[2].id, locale: 'zh', source_label: DEPARTMENTS[2].name, source_status: null, state: 'missing', missing_fields: ['name'], updated_at: null },
-  { target_type: 'tag', target_id: TAGS[2].id, locale: 'zh', source_label: TAGS[2].name, source_status: null, state: 'thin', missing_fields: [], updated_at: '2026-08-29T03:00:00.000Z' },
+  { target_type: 'job', target_id: POSTINGS[1].id, locale: 'zh', label: POSTINGS[1].title, source_status: 'published', state: 'missing', missing_fields: ['title', 'summary', 'description'], updated_at: null },
+  { target_type: 'job', target_id: POSTINGS[2].id, locale: 'zh', label: POSTINGS[2].title, source_status: 'published', state: 'drafted', missing_fields: ['description'], updated_at: '2026-09-02T03:00:00.000Z' },
+  { target_type: 'department', target_id: DEPARTMENTS[2].id, locale: 'zh', label: DEPARTMENTS[2].name, source_status: 'active', state: 'missing', missing_fields: ['name'], updated_at: null },
+  { target_type: 'tag', target_id: TAGS[2].id, locale: 'zh', label: TAGS[2].name, source_status: 'in_use', state: 'thin', missing_fields: [], updated_at: '2026-08-29T03:00:00.000Z' },
 ];
 
 const SAMPLE_UNMATCHED = [
@@ -776,6 +780,20 @@ function answerStaffRequest(request) {
 
   if (path === '/api/admin/tasks') return success({ tasks: [], total: 0, page: 1, pages: 1 });
 
+  if (path === '/api/translations/annotations') {
+    // No query: asked whether the suggestion layer may load. With one: the
+    // spans people have already flagged on a posting.
+    if (!query.has('type')) {
+      return success({ can: true, can_suggest: false, realm: 'staff', locales: ['zh'] });
+    }
+    return success({
+      spans: [{ field: 'summary', quote: 'keep the queue moving', count: 2 }],
+      locale: query.get('locale') ?? 'en',
+    });
+  }
+
+  if (path === '/api/translations/helper') return success({ locales: ['zh'] });
+
   if (path === '/api/admin/maintenance') return success({ flags: {} });
 
   return null;
@@ -861,6 +879,34 @@ export function answerApiRequest(request) {
   // showing, which would sit on top of every account screenshot. The prompt
   // itself has its own shot (portal-apply-dialog).
   if (path === '/api/applications/pending') return success({ prompts: [] });
+
+  if (path === '/api/public/view') return success({ recorded: true });
+
+  if (path === '/api/applications/start') {
+    const posting = POSTINGS.find((candidate) => candidate.id === request.body?.job_id) ?? POSTINGS[0];
+    return {
+      status: 201,
+      body: {
+        ok: true,
+        data: {
+          analytics_id: 'analytics-sample-1',
+          // A blank page stands in for the Google Form, which is not reachable
+          // from a mock and is not the subject of the picture.
+          form_url: 'about:blank',
+          job: { id: posting.id, title: posting.title },
+          application: {
+            job_id: posting.id,
+            status: 'started',
+            started_at: '2026-09-07T01:30:00.000Z',
+            applied_at: null,
+            cooldown_until: null,
+            in_cooldown: false,
+            pending_id: null,
+          },
+        },
+      },
+    };
+  }
 
   if (path === '/api/saved/mine') return success({ saved: [], job_ids: [] });
 

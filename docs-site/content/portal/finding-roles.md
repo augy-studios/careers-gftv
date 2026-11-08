@@ -14,7 +14,7 @@ Every open role is on one page:
 The home page carries a shortcut into the same board: a search box, the latest
 openings, any featured roles, and the teams with something open.
 
-![The job board at a desktop width, with the filters open beside the results.](pending:portal-search-desktop-light "Find a role. The filter panel sits beside the results on a wide screen and opens from a button on a phone.")
+![The job board at a desktop width, with the filters open beside the results.](/screenshots/portal-search-desktop-light.webp "Find a role. The filter panel sits beside the results on a wide screen and opens from a button on a phone.")
 
 ## Searching
 

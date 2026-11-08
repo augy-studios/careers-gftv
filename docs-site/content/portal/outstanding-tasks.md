@@ -17,7 +17,7 @@ overview shows the same number.
 When the page says nothing needs your attention, that is the state it is meant
 to be in.
 
-![The outstanding tasks page with one open question and one invitation.](pending:portal-tasks-desktop-light "Everything waiting on you, in one list. Completed items move down to their own section.")
+![The outstanding tasks page with one open question and one invitation.](/screenshots/portal-tasks-desktop-light.webp "Everything waiting on you, in one list. Completed items move down to their own section.")
 
 ## The four kinds
 

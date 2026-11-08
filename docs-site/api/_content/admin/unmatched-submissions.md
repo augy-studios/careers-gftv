@@ -10,7 +10,7 @@ summary: Form submissions with an email no account uses, and linking one to the 
 At the foot of the **Analytics** page, and visible only to an admin. A job
 poster reading the same page does not see this section at all.
 
-![The unmatched list](pending:admin-unmatched-desktop-light "Submissions with no matching account, each with a Link control.")
+![The unmatched list](admin-unmatched-desktop-light.webp "Submissions with no matching account, each with a Link control.")
 
 ## What lands here
 

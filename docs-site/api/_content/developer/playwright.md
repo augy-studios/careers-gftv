@@ -73,7 +73,7 @@ Until a shot exists, the page carries a placeholder that reads as pending and
 not as broken:
 
 ```text
-![The overview](pending:admin-overview-desktop-light "The dashboard overview.")
+![The overview](admin-overview-desktop-light.webp "The dashboard overview.")
 ```
 
 It renders with the alt text and caption the real shot will have. **The name is

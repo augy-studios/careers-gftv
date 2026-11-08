@@ -10,7 +10,7 @@ summary: The nine statuses, notes, the timeline, bulk changes, exporting, accept
 **Applicant tracking** in the sidebar. Who was handed over to which form, and
 where each one has got to.
 
-![The tracking page](pending:poster-applications-desktop-light "The tracking table, filtered to one role.")
+![The tracking page](poster-applications-desktop-light.webp "The tracking table, filtered to one role.")
 
 **The answers are not here.** What somebody wrote on the form is in Google
 Sheets. Every row links out to its posting's response sheet with
@@ -52,7 +52,7 @@ spreadsheet.
 **Details** opens the application: who, which role, when they started, when
 they applied, and everything below.
 
-![One application](pending:poster-application-detail-desktop-light "The detail view, with the status control, the note, the tasks and the history.")
+![One application](poster-application-detail-desktop-light.webp "The detail view, with the status control, the note, the tasks and the history.")
 
 **Status.** Change it and save. Every change is recorded.
 

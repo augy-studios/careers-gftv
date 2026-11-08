@@ -11,7 +11,7 @@ summary: 注记层：谁写入它、它怎么和队列共用，以及锚点脱�
 **它会落进和回报表单相同的队列。** 一个队列，两道门。
 请看[翻译队列](/staff/admin/translations-queue)。
 
-![打开的注记层](pending:admin-suggestions-desktop-light "一个页面，已提出建议的地方带着下划线。")
+![打开的注记层](admin-suggestions-desktop-light.webp "一个页面，已提出建议的地方带着下划线。")
 
 ## 您看得到什么，能做什么
 

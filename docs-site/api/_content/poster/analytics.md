@@ -10,7 +10,7 @@ summary: Views, clicks, confirmed and self reported answers, why the rate is a f
 **Analytics** in the sidebar. How each posting is doing: who opened it, who
 clicked Apply, and how many of those told us they went through with it.
 
-![The analytics table](pending:poster-analytics-desktop-light "The analytics table, sorted by apply clicks.")
+![The analytics table](poster-analytics-desktop-light.webp "The analytics table, sorted by apply clicks.")
 
 ## The columns
 

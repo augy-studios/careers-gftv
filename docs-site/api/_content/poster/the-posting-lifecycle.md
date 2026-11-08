@@ -10,7 +10,7 @@ summary: Draft, publish, unpublish, close, archive, and duplicate, and what each
 A posting is in one of four states, and one action moves it between them. The
 postings list shows the state and offers the moves.
 
-![The postings list](pending:poster-jobs-list-desktop-light "The postings list, with the status, languages and closing columns.")
+![The postings list](poster-jobs-list-desktop-light.webp "The postings list, with the status, languages and closing columns.")
 
 ## The four states
 

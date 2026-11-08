@@ -10,7 +10,7 @@ summary: Allowing somebody in, refusing them, and handing the decision back to t
 **Staff access** in the sidebar. Who can open this dashboard, and the one thing
 this site decides about them.
 
-![The staff access list](pending:admin-staff-access-desktop-light "Every account that can come in, with its second factor and last sign in.")
+![The staff access list](admin-staff-access-desktop-light.webp "Every account that can come in, with its second factor and last sign in.")
 
 The rule behind the list is [Who gets
 access](/staff/admin/access-and-roles). This page is what you press.
@@ -35,7 +35,7 @@ error, and it is a thing worth asking somebody about.
 
 ## The three buttons
 
-![One account's access](pending:admin-access-row-desktop-light "The three states on one row, with the reason field.")
+![One account's access](admin-access-row-desktop-light.webp "The three states on one row, with the reason field.")
 
 **Allow** writes an override saying yes. They can open the dashboard on their
 next visit, whatever their gftv.asia role says.

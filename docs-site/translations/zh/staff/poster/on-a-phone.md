@@ -7,7 +7,7 @@ summary: 抽屉式菜单、表格，小屏幕上哪些好用，哪些留到以�
 
 在展会现场看申请是常态，不是例外。整个管理后台在手机上都能用。
 
-![手机上的管理后台](pending:poster-dashboard-phone-light "窄屏上的管理后台，区块抽屉是打开的。")
+![手机上的管理后台](poster-dashboard-phone-light.webp "窄屏上的管理后台，区块抽屉是打开的。")
 
 ## 区块抽屉
 

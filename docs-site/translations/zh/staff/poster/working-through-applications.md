@@ -8,7 +8,7 @@ summary: 九个状态、备注、时间轴、批量更改、导出，以及录�
 侧边栏的 **申请人追踪**。
 谁被交给了哪一份表单，以及每一个人进行到哪里。
 
-![追踪页面](pending:poster-applications-desktop-light "追踪表格，筛选到某一个职位。")
+![追踪页面](poster-applications-desktop-light.webp "追踪表格，筛选到某一个职位。")
 
 **答案不在这里。** 别人在表单上写的内容在 Google 试算表里。
 每一行都用 **回复** 链到那则职位的回复表格。
@@ -47,7 +47,7 @@ summary: 九个状态、备注、时间轴、批量更改、导出，以及录�
 
 **详情** 会打开那份申请：是谁、哪个职位、什么时候开始、什么时候申请，以及下面所有内容。
 
-![一份申请](pending:poster-application-detail-desktop-light "详情视图，包含状态控件、备注、待办事项和历史记录。")
+![一份申请](poster-application-detail-desktop-light.webp "详情视图，包含状态控件、备注、待办事项和历史记录。")
 
 **状态。** 更改后保存。每一次更改都会被记录。
 

@@ -10,7 +10,7 @@ summary: A private shortlist, an invitation that reaches somebody, and what each
 **Invites** in the sidebar. Two lists per posting, and the difference between
 them is the whole page.
 
-![Invites and shortlists](pending:poster-invites-desktop-light "A posting with its shortlist above its invited list.")
+![Invites and shortlists](poster-invites-desktop-light.webp "A posting with its shortlist above its invited list.")
 
 **A shortlist is private.** It marks who you are thinking about and tells them
 nothing.

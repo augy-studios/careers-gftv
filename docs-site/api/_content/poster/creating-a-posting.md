@@ -11,7 +11,7 @@ summary: Every field on the editor, choosing tags well, closing dates, and what 
 a draft, and a draft is not on the board. Nothing you type is public until you
 publish it.
 
-![The posting editor](pending:poster-editor-desktop-light "The editor, with the language tabs above the fields.")
+![The posting editor](poster-editor-desktop-light.webp "The editor, with the language tabs above the fields.")
 
 ## Three things before it can go out
 

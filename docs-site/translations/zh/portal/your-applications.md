@@ -11,7 +11,7 @@ summary: 追踪您申请过什么、每个状态的意思，以及如何撤回�
 
 您的账户概览会以方块显示同样的三个数字：申请、收藏职位，以及待办事项。
 
-![我的申请，列表上方有四个筛选分页。](pending:portal-applications-desktop-light "所有申请，最新的排在前面。已关闭的职位仍留在列表上。")
+![我的申请，列表上方有四个筛选分页。](/screenshots/portal-applications-desktop-light.webp "所有申请，最新的排在前面。已关闭的职位仍留在列表上。")
 
 ## 四个分页
 

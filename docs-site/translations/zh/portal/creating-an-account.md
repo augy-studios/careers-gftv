@@ -42,7 +42,7 @@ summary: 需要准备什么、注册后会发生什么，以及只会显示一�
 本站没有电邮，也就是说没有「把重设链接寄给我」这回事。
 这些恢复码就是回去的路。[恢复码](/portal/recovery-codes)完整说明了两组码。
 
-![注册后立即展示一次的恢复码。图中的恢复码是虚构的。](pending:portal-recovery-codes-desktop-light "这十个恢复码只展示一次，不会再出现。图中的是示例，不是真实的恢复码。")
+![注册后立即展示一次的恢复码。图中的恢复码是虚构的。](/screenshots/portal-recovery-codes-desktop-light.webp "这十个恢复码只展示一次，不会再出现。图中的是示例，不是真实的恢复码。")
 
 ### 如果恢复码没有出现
 

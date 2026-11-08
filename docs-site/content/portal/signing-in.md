@@ -77,7 +77,7 @@ revoked from there, one at a time or all at once.
 
 Do not tick it on a shared or public computer.
 
-![The sign in page with the stay signed in option below the password field.](pending:portal-login-desktop-light "The sign in page. The second step, if the account has one, comes after this.")
+![The sign in page with the stay signed in option below the password field.](/screenshots/portal-login-desktop-light.webp "The sign in page. The second step, if the account has one, comes after this.")
 
 ## What signs you out
 

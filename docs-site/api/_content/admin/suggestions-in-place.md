@@ -13,7 +13,7 @@ replacement for that exact span. They never leave the page.
 **It lands in the same queue as the report form.** One queue, two doors. See
 [The translations queue](/staff/admin/translations-queue).
 
-![The layer switched on](pending:admin-suggestions-desktop-light "A page with suggestions underlined where they were raised.")
+![The layer switched on](admin-suggestions-desktop-light.webp "A page with suggestions underlined where they were raised.")
 
 ## What you see, and what you can do
 

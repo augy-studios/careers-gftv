@@ -10,7 +10,7 @@ summary: The postings counts, the pipeline buckets, and the two panels that repo
 The first page after signing in, at `/admin`. What has happened on the board
 since you were last here.
 
-![The dashboard overview](pending:poster-overview-desktop-light "The overview, with the postings counts, the pipeline, and the two health panels.")
+![The dashboard overview](poster-overview-desktop-light.webp "The overview, with the postings counts, the pipeline, and the two health panels.")
 
 ## Postings
 

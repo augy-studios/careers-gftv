@@ -9,7 +9,7 @@ summary: The home page wording, the featured roles, the waiting period, and the 
 
 **Settings** in the sidebar. Four things, and the last of them closes the board.
 
-![The settings page](pending:admin-settings-desktop-light "The portal title, the home page wording, the featured roles, and the applications toggle.")
+![The settings page](admin-settings-desktop-light.webp "The portal title, the home page wording, the featured roles, and the applications toggle.")
 
 ## The portal title
 

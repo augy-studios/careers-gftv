@@ -10,7 +10,7 @@ summary: 建立表单、那条长网址、预填对照表和它的 entry 编号�
 
 没有表单就无法发布职位。
 
-![编辑器上的表单栏位](pending:poster-form-fields-desktop-light "申请表单、回复表格，以及预填栏位。")
+![编辑器上的表单栏位](poster-form-fields-desktop-light.webp "申请表单、回复表格，以及预填栏位。")
 
 ## 先建立表单
 

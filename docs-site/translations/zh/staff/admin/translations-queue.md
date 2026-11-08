@@ -11,7 +11,7 @@ summary: 从头到尾处理一份回报：四个状态、修改用词，以及�
 另外两个是[待翻译稽核](/staff/admin/needs-translation)
 和[翻译帮手](/staff/admin/translation-helpers)。
 
-![队列](pending:admin-translations-queue-desktop-light "回报列表，筛选到一种语言。")
+![队列](admin-translations-queue-desktop-light.webp "回报列表，筛选到一种语言。")
 
 **侧边栏上的数字是还没结案的数量。**
 一份回报被接手时它就会减掉，不是等到处理完成。

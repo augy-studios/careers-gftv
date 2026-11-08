@@ -12,7 +12,7 @@ applications. It hands somebody over to a form and records that it did.
 
 A posting cannot be published without one.
 
-![The form fields on the editor](pending:poster-form-fields-desktop-light "The application form, response sheet, and prefill fields.")
+![The form fields on the editor](poster-form-fields-desktop-light.webp "The application form, response sheet, and prefill fields.")
 
 ## Make the form first
 

@@ -72,7 +72,7 @@ SVG 是一份可以携带脚本的文件，而且从本站的来源提供，
 它读起来是待补，而不是坏掉：
 
 ```text
-![The overview](pending:admin-overview-desktop-light "The dashboard overview.")
+![The overview](admin-overview-desktop-light.webp "The dashboard overview.")
 ```
 
 它会带着真实截图将来会有的替代文字和图说渲染出来。

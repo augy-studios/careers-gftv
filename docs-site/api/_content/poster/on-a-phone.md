@@ -10,7 +10,7 @@ summary: The drawer, the tables, what works well on a small screen and what to l
 Reading applications at a convention is the normal case, not the exception. The
 whole dashboard works on a phone.
 
-![The dashboard on a phone](pending:poster-dashboard-phone-light "The dashboard on a narrow screen, with the sections drawer open.")
+![The dashboard on a phone](poster-dashboard-phone-light.webp "The dashboard on a narrow screen, with the sections drawer open.")
 
 ## The sections drawer
 

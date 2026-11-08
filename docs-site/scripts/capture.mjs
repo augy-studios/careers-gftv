@@ -435,14 +435,19 @@ const ACTS = {
 
   /** The translations page, on the audit panel rather than the queue. */
   async openAuditPanel(page) {
-    await page.waitForSelector('#auditPanel', { timeout: TIMEOUT_MS });
+    // The audit is the second tab and is hidden until it is chosen, and a
+    // hidden panel cannot be scrolled to or photographed.
+    await page.waitForSelector('[data-tab="audit"]', { timeout: TIMEOUT_MS });
+    await page.click('[data-tab="audit"]');
+    await page.waitForSelector('#auditPanel:not([hidden])', { timeout: TIMEOUT_MS });
     await page.locator('#auditPanel').scrollIntoViewIfNeeded();
   },
 
   /** The dashboard on a phone, with the sections drawer open. */
   async openSectionsDrawer(page) {
     await page.click('[data-admin-menu]');
-    await page.waitForSelector('#adminNav[data-open="true"]', { timeout: TIMEOUT_MS });
+    // The shell marks the open drawer on the menu button and on the layout.
+    await page.waitForSelector('[data-admin-menu][aria-expanded="true"]', { timeout: TIMEOUT_MS });
   },
 
   /**
