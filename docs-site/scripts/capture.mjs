@@ -86,6 +86,14 @@ const value = (name) => {
 
 const ONLY = value('only')?.split(',').map((entry) => entry.trim()) ?? null;
 const HEADED = flag('headed');
+
+/**
+ * Photograph a local copy of the portal whose /api/ answers are all invented,
+ * instead of the live portal. No database, no seed, no staff account and no
+ * passwords: see mock-portal.mjs and mock-data.mjs. Every name, posting and
+ * applicant in those pictures is marked SAMPLE.
+ */
+const MOCK = flag('mock');
 const ALLOW_UNSEEDED = flag('allow-unseeded');
 
 /**
@@ -170,13 +178,20 @@ function requireEnv(name, why) {
 // **No default, deliberately.** `gen-screenshots.js` defaults to the live portal
 // because an install shot is of the public board; this one signs in and opens
 // lists of applicants, so the address is something a person types on purpose.
+let mockPortal = null;
+if (MOCK) {
+  const { startMockPortal } = await import('./mock-portal.mjs');
+  mockPortal = await startMockPortal();
+  process.env.BASE = mockPortal.baseUrl;
+}
+
 const BASE = requireEnv(
   'BASE',
   'It is the portal this run photographs, and there is no default: this script ' +
     'signs in and opens the dashboard, so where it points is a decision and not a fallback.'
 );
 
-const STAFF = needs.has('staff')
+const STAFF = needs.has('staff') && !MOCK
   ? {
       username: requireEnv('STAFF_USER', 'A gftv.asia staff account. The staff shots sign in as it.'),
       password: requireEnv('STAFF_PASS', 'Its password. It is never written into a committed file.'),
@@ -189,7 +204,7 @@ const STAFF = needs.has('staff')
 // needs is one of `seed.mjs`'s invented people, so the variables are the seed's
 // own: `SEED_PASSWORD` is what the seed writes the password from, and
 // `sample-applicant` is the account it writes.
-const APPLICANT = needs.has('applicant')
+const APPLICANT = needs.has('applicant') && !MOCK
   ? {
       username: process.env.SEED_USER ?? 'sample-applicant',
       password: requireEnv(
@@ -482,6 +497,12 @@ async function capture(browser, shot, sessions) {
 
   const page = await context.newPage();
 
+  // In mock mode a script error on the page almost always means a mock answer
+  // has the wrong shape, so say so instead of leaving a blank screenshot.
+  if (MOCK) {
+    page.on('pageerror', (error) => console.log(`      page error in ${shot.name}: ${error.message}`));
+  }
+
   try {
     await page.goto(`${BASE}${shot.path}`, { waitUntil: 'domcontentloaded' });
 
@@ -600,7 +621,12 @@ function swapMarkers() {
 const { chromium } = await import('playwright');
 const { default: sharp } = await import('sharp');
 
-const browser = await chromium.launch({ headless: !HEADED });
+// CHROMIUM_PATH points at an already installed Chromium, for machines (and
+// containers) where `npx playwright install` has not been run or cannot be.
+const browser = await chromium.launch({
+  headless: !HEADED,
+  executablePath: process.env.CHROMIUM_PATH || undefined,
+});
 
 console.log(`Capturing ${planned.length} of ${SHOTS.length} shots against ${BASE}`);
 if (DRY) console.log(`  dry run: writing into ${OUT}, swapping nothing`);
@@ -631,6 +657,12 @@ if (DRY) console.log(`  dry run: writing into ${OUT}, swapping nothing`);
 // One sign in per actor, and the cookies reused for every shot that needs it.
 const sessions = {};
 for (const actor of needs) {
+  if (MOCK) {
+    // The mock portal reads who the visitor is from one cookie, so "signing in"
+    // is writing it. There is no password because there is no account.
+    sessions[actor] = [{ name: 'gftv-mock-actor', value: actor, url: BASE }];
+    continue;
+  }
   const context = await browser.newContext({ baseURL: BASE, locale: LOCALE });
   const page = await context.newPage();
   console.log(`  signing in as the ${actor} account`);
@@ -643,6 +675,15 @@ for (const actor of needs) {
 for (const shot of planned) await capture(browser, shot, sessions);
 
 await browser.close();
+
+if (mockPortal) {
+  const { unansweredRequests } = await import('./mock-portal.mjs');
+  if (unansweredRequests.size > 0) {
+    console.log('\nAPI routes with no mock answer:');
+    for (const route of unansweredRequests) console.log(`  ${route}`);
+  }
+  await mockPortal.close();
+}
 
 /* -------------------------------------------------------------------------
  * What happened
