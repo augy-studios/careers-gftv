@@ -306,7 +306,7 @@ export function refusalForApplicant(application) {
 export async function fetchApplication(jobId, applicantId) {
   const { data, error } = await supabase
     .from(T.applications)
-    .select('id, status, started_at, applied_at, cooldown_until, updated_at')
+    .select('id, applicant_id, status, started_at, applied_at, cooldown_until, updated_at')
     .eq('job_id', jobId)
     .eq('applicant_id', applicantId)
     .maybeSingle();
@@ -435,6 +435,7 @@ export async function startApplication(jobId, applicantId, existing) {
       cooldown_until: null,
     })
     .eq('id', existing.id)
+    .eq('applicant_id', applicantId)
     .select('id, status, started_at, applied_at, cooldown_until')
     .single();
 
@@ -477,7 +478,8 @@ export async function confirmApplication(application, source) {
       cooldown_until: until,
     })
     .eq('id', application.id)
-    .select('id, status, started_at, applied_at, cooldown_until')
+    .eq('applicant_id', application.applicant_id)
+    .select('id, applicant_id, status, started_at, applied_at, cooldown_until')
     .single();
 
   if (error) throw error;

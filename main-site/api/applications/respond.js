@@ -105,6 +105,7 @@ export default async function handler(req, res) {
         responded_at: now,
       })
       .eq('id', row.id)
+      .eq('applicant_id', session.user.id)
       .eq('response_state', 'pending')
       .select('id')
       .maybeSingle();

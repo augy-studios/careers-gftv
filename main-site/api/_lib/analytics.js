@@ -54,6 +54,15 @@ export const FLAG_MAX_RATE = 0.2;
 /** How many days of history the detail chart draws. */
 export const SERIES_DAYS = 90;
 
+// Exactly the view columns funnelRow reads, so a column added to the view later
+// is not sent to the admin client by default.
+const FUNNEL_COLUMNS = [
+  'job_id', 'title', 'slug', 'status', 'published_at', 'closes_at',
+  'views', 'apply_clicks', 'answered_yes', 'answered_no', 'pending', 'timed_out',
+  'yes_applicant', 'yes_webhook', 'yes_admin', 'yes_rate',
+  'rating_count', 'rating_average',
+].join(', ');
+
 /** The columns the table can be sorted by, per 8.4's "sortable table". */
 export const FUNNEL_SORTS = Object.freeze([
   'views',
@@ -91,7 +100,7 @@ export async function jobFunnels(options = {}) {
   const sort = FUNNEL_SORTS.includes(options.sort ?? '') ? options.sort : 'views';
   const ascending = options.direction === 'asc';
 
-  let query = supabase.from(T.jobFunnel).select('*', { count: 'exact' });
+  let query = supabase.from(T.jobFunnel).select(FUNNEL_COLUMNS, { count: 'exact' });
 
   if (options.status) query = query.eq('status', options.status);
 
@@ -121,7 +130,7 @@ export async function jobFunnels(options = {}) {
 export async function jobFunnel(jobId) {
   const { data, error } = await supabase
     .from(T.jobFunnel)
-    .select('*')
+    .select(FUNNEL_COLUMNS)
     .eq('job_id', jobId)
     .maybeSingle();
 
