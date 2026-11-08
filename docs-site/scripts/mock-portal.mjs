@@ -18,7 +18,13 @@ import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// page-shell.js asks for the site address when it writes the page head. Nothing
+// here is deployed, so any value will do.
+process.env.SITE_URL ??= 'http://localhost';
+
 import { answerApiRequest } from './mock-data.mjs';
+import { postingPageData } from './mock-data.mjs';
+const { renderDocument } = await import('../../main-site/api/_lib/page-shell.js');
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SITE_ROOT = resolve(HERE, '..', '..', 'main-site');
@@ -37,6 +43,12 @@ const CONTENT_TYPES = {
   '.woff': 'font/woff',
   '.txt': 'text/plain; charset=utf-8',
 };
+
+/** The loading skeleton job-page.js draws the posting into. */
+const POSTING_BODY = `<main class="page job-page" id="main">
+  <p class="back-link"><a href="/search" id="backToResults"><span data-icon="chevron-left" data-icon-size="16"></span><span data-i18n="job.backToResults">Back to results</span></a></p>
+  <article class="job-detail" id="jobDetail" aria-busy="true"></article>
+</main>`;
 
 /** Every /api/ path a page asked for that mock-data.mjs had no answer for. */
 export const unansweredRequests = new Set();
@@ -131,6 +143,28 @@ export async function startMockPortal(port = 0) {
       });
       response.end(JSON.stringify(answer.body));
       return;
+    }
+
+    // /jobs/{uuid} is a Vercel rewrite to a server rendered page. The mock
+    // renders the same shell with the same inline data block, and the real
+    // job-page.js script draws the posting from it.
+    const postingMatch = /^\/jobs\/([0-9a-f-]{36})$/i.exec(url.pathname);
+    if (postingMatch) {
+      const pageData = postingPageData(postingMatch[1], actorFromCookie(request.headers.cookie));
+      if (pageData) {
+        const html = renderDocument({
+          title: `${pageData.content.en.title} | Careers@GFTV`,
+          description: pageData.content.en.summary,
+          canonicalPath: `/jobs/${postingMatch[1]}`,
+          ogType: 'article',
+          inlineJson: { id: 'jobData', data: pageData },
+          modules: ['/assets/js/shell.js', '/assets/js/job-page.js'],
+          bodyHtml: POSTING_BODY,
+        });
+        response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+        response.end(html);
+        return;
+      }
     }
 
     const file = await fileForPath(url.pathname);

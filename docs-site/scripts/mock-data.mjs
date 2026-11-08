@@ -873,4 +873,57 @@ export function answerApiRequest(request) {
   return answerStaffRequest(request);
 }
 
+/**
+ * What the posting page's inline data block carries for one posting.
+ *
+ * @param {string} postingId the uuid in the address
+ * @param {'applicant'|'staff'|null} actor who is looking
+ * @returns {object|null} the block, or null when no such posting exists
+ */
+export function postingPageData(postingId, actor) {
+  void actor;
+  const posting = POSTINGS.find((candidate) => candidate.id === postingId);
+  if (!posting) return null;
+
+  const department = DEPARTMENTS[posting.department - 1];
+  const editor = editorJob(posting);
+
+  return {
+    job: {
+      id: posting.id,
+      slug: posting.slug,
+      status: 'published',
+      is_paid: posting.is_paid,
+      is_remote: posting.is_remote,
+      commitment_type: posting.commitment_type,
+      openings: 3,
+      published_at: posting.published_at,
+      closes_at: posting.closes_at,
+      updated_at: '2026-09-04T02:00:00.000Z',
+      is_open: true,
+      is_expired: false,
+      is_archived: false,
+    },
+    content: {
+      en: {
+        title: posting.title,
+        summary: posting.summary,
+        description: editor.description,
+        responsibilities: editor.responsibilities,
+        requirements: editor.requirements,
+        nice_to_have: editor.nice_to_have,
+        location: posting.location,
+        compensation_note: null,
+        og_description: posting.summary,
+        sections: [],
+        department: { id: department.id, slug: department.slug, name: department.name },
+        tags: posting.tags.map((index) => ({ id: TAGS[index].id, slug: TAGS[index].slug, colour: TAGS[index].colour, name: TAGS[index].name })),
+        locale: 'en',
+      },
+    },
+    applications_open: true,
+    preview: false,
+  };
+}
+
 export { CLOCK_NOW, POSTINGS, DEPARTMENTS, TAGS, SAMPLE_STAFF, SAMPLE_APPLICANT, success, publicPosting, postingSummary };
