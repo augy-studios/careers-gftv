@@ -1325,11 +1325,7 @@ export function renderBuildBody() {
              switched off, which is almost always. It sits above the phase list
              instead of inside it because it is a different kind of fact: the
              list says what has been built, this says what is working today. -->
-        <div class="callout warn" id="statusOutages" role="status" hidden>
-            <h2 data-field="outagesHeading"></h2>
-            <p data-field="outagesLede"></p>
-            <ul data-field="outageList"></ul>
-        </div>
+        <div class="callout warn" id="statusOutages" role="status" hidden></div>
 
         <!-- Skeleton placeholders, replaced by the real phases. The count is
              arbitrary but the shape is not: matching the real card stops the
@@ -1352,29 +1348,6 @@ export function renderBuildBody() {
                 <div class="skeleton skeleton-line short"></div>
             </li>
         </ol>
-
-        <!-- Templates cloned by status-page.js. They sit in the page instead of
-             being assembled in JavaScript, so the structure can be read here and
-             the script only fills in text. Browsers never render the contents of
-             a template element. -->
-        <template id="phaseItemTemplate">
-            <li class="glass-card phase-item">
-                <div class="phase-item-head">
-                    <span class="phase-number tabular" data-field="phaseNumber"></span>
-                    <span class="phase-name" data-field="phaseName"></span>
-                    <span class="status-pill" data-field="statusPill">
-                        <span data-field="statusIcon" data-icon-size="14"></span>
-                        <span data-field="statusLabel"></span>
-                    </span>
-                </div>
-                <p data-field="phaseDescription"></p>
-                <p class="shipped-note" data-field="shippedNote" hidden></p>
-            </li>
-        </template>
-
-        <template id="outageItemTemplate">
-            <li><strong data-field="featureName"></strong> <span data-field="outageNote"></span></li>
-        </template>
 
         <div class="glass-card card" style="margin-top: 2rem;">
             <h2 data-i18n="status.datesHeading">About the dates</h2>
